@@ -1,0 +1,412 @@
+[
+ {
+  "key": "RPA|BLDK|Fresh",
+  "segment": "RPA",
+  "sku": "BLDK",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "38000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLD|Fresh",
+  "segment": "RPA",
+  "sku": "BLD",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "41000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLD|Frozen",
+  "segment": "RPA",
+  "sku": "BLD",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "41000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLPK|Fresh",
+  "segment": "RPA",
+  "sku": "BLPK",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "45004",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLPK|Frozen",
+  "segment": "RPA",
+  "sku": "BLPK",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "39520",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLP|Fresh",
+  "segment": "RPA",
+  "sku": "BLP",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "40000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|BLP|Frozen",
+  "segment": "RPA",
+  "sku": "BLP",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "40000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|KRK (Kerangka)|Fresh",
+  "segment": "RPA",
+  "sku": "KRK (Kerangka)",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "8961",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|KRK (Kerangka)|Frozen",
+  "segment": "RPA",
+  "sku": "KRK (Kerangka)",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "5000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Kulit|Fresh",
+  "segment": "RPA",
+  "sku": "Kulit",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "22478",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Kulit|Frozen",
+  "segment": "RPA",
+  "sku": "Kulit",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "23007",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Paha (parting)|Fresh",
+  "segment": "RPA",
+  "sku": "Paha (parting)",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "35238",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Paha (parting)|Frozen",
+  "segment": "RPA",
+  "sku": "Paha (parting)",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "35000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Sayap|Fresh",
+  "segment": "RPA",
+  "sku": "Sayap",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "27560",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Sayap|Frozen",
+  "segment": "RPA",
+  "sku": "Sayap",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "25736",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|TLP|Fresh",
+  "segment": "RPA",
+  "sku": "TLP",
+  "form": "Fresh",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "2500",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|TLP|Frozen",
+  "segment": "RPA",
+  "sku": "TLP",
+  "form": "Frozen",
+  "decision_group": "Boneless & parting",
+  "ref_sell_price": "3067",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Ceker|Fresh",
+  "segment": "RPA",
+  "sku": "Ceker",
+  "form": "Fresh",
+  "decision_group": "By-product",
+  "ref_sell_price": "3101",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Ceker|Frozen",
+  "segment": "RPA",
+  "sku": "Ceker",
+  "form": "Frozen",
+  "decision_group": "By-product",
+  "ref_sell_price": "5000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+  "segment": "RPA",
+  "sku": "HJA (Hati/Jantung/Ampela)",
+  "form": "Fresh",
+  "decision_group": "By-product",
+  "ref_sell_price": "4515",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen",
+  "segment": "RPA",
+  "sku": "HJA (Hati/Jantung/Ampela)",
+  "form": "Frozen",
+  "decision_group": "By-product",
+  "ref_sell_price": "5000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Kepala|Fresh",
+  "segment": "RPA",
+  "sku": "Kepala",
+  "form": "Fresh",
+  "decision_group": "By-product",
+  "ref_sell_price": "4029",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Kepala|Frozen",
+  "segment": "RPA",
+  "sku": "Kepala",
+  "form": "Frozen",
+  "decision_group": "By-product",
+  "ref_sell_price": "5000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Lemak|Fresh",
+  "segment": "RPA",
+  "sku": "Lemak",
+  "form": "Fresh",
+  "decision_group": "By-product",
+  "ref_sell_price": null,
+  "replacement_buy_price": null,
+  "note": "ISI harga acuan"
+ },
+ {
+  "key": "RPA|Lemak|Frozen",
+  "segment": "RPA",
+  "sku": "Lemak",
+  "form": "Frozen",
+  "decision_group": "By-product",
+  "ref_sell_price": "24000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Usus|Fresh",
+  "segment": "RPA",
+  "sku": "Usus",
+  "form": "Fresh",
+  "decision_group": "By-product",
+  "ref_sell_price": "1500",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Usus|Frozen",
+  "segment": "RPA",
+  "sku": "Usus",
+  "form": "Frozen",
+  "decision_group": "By-product",
+  "ref_sell_price": null,
+  "replacement_buy_price": null,
+  "note": "ISI harga acuan"
+ },
+ {
+  "key": "RPA|Karkas|Fresh",
+  "segment": "RPA",
+  "sku": "Karkas",
+  "form": "Fresh",
+  "decision_group": "Karkas fresh",
+  "ref_sell_price": "36705",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Karkas|Frozen",
+  "segment": "RPA",
+  "sku": "Karkas",
+  "form": "Frozen",
+  "decision_group": "Karkas frozen",
+  "ref_sell_price": "31658",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "RPA|Karkas|n/a",
+  "segment": "RPA",
+  "sku": "Karkas",
+  "form": "n/a",
+  "decision_group": "Karkas mix",
+  "ref_sell_price": "30000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|BLD|Frozen",
+  "segment": "Trading",
+  "sku": "BLD",
+  "form": "Frozen",
+  "decision_group": "BLD",
+  "ref_sell_price": "42083",
+  "replacement_buy_price": "38169",
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|BLD|n/a",
+  "segment": "Trading",
+  "sku": "BLD",
+  "form": "n/a",
+  "decision_group": "BLD",
+  "ref_sell_price": "45000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|BLP|Frozen",
+  "segment": "Trading",
+  "sku": "BLP",
+  "form": "Frozen",
+  "decision_group": "BLP",
+  "ref_sell_price": "43086",
+  "replacement_buy_price": "49577",
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|BLPK|Frozen",
+  "segment": "Trading",
+  "sku": "BLPK",
+  "form": "Frozen",
+  "decision_group": "BLPK",
+  "ref_sell_price": "34000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a",
+  "segment": "Trading",
+  "sku": "HJA (Hati/Jantung/Ampela)",
+  "form": "n/a",
+  "decision_group": "HJA (Hati/Jantung/Ampela)",
+  "ref_sell_price": "15500",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|KRK (Kerangka)|n/a",
+  "segment": "Trading",
+  "sku": "KRK (Kerangka)",
+  "form": "n/a",
+  "decision_group": "KRK (Kerangka)",
+  "ref_sell_price": "10903",
+  "replacement_buy_price": "11169",
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|Karkas|n/a",
+  "segment": "Trading",
+  "sku": "Karkas",
+  "form": "n/a",
+  "decision_group": "Karkas",
+  "ref_sell_price": "31277",
+  "replacement_buy_price": "30050",
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|Kulit|Frozen",
+  "segment": "Trading",
+  "sku": "Kulit",
+  "form": "Frozen",
+  "decision_group": "Kulit",
+  "ref_sell_price": "29000",
+  "replacement_buy_price": "29577",
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|Kulit|n/a",
+  "segment": "Trading",
+  "sku": "Kulit",
+  "form": "n/a",
+  "decision_group": "Kulit",
+  "ref_sell_price": "26261",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|Sayap|n/a",
+  "segment": "Trading",
+  "sku": "Sayap",
+  "form": "n/a",
+  "decision_group": "Sayap",
+  "ref_sell_price": "31000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ },
+ {
+  "key": "Trading|Usus|Fresh",
+  "segment": "Trading",
+  "sku": "Usus",
+  "form": "Fresh",
+  "decision_group": "Usus",
+  "ref_sell_price": "14000",
+  "replacement_buy_price": null,
+  "note": "contoh: harga rata-rata Agustus"
+ }
+]

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Golden tests (fail on any mismatch > Rp 1 or > 0,01 kg)
+        run: pnpm test
+      - name: Parity report is up to date
+        run: |
+          pnpm parity
+          git diff --exit-code -- docs/parity.md docs/parity-cells.csv
+      - name: CLI smoke test
+        run: pnpm outlook --week 2026-08-24 --today 2026-08-27 --blocks 1-7

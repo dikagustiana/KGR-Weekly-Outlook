@@ -1,0 +1,1072 @@
+[
+ {
+  "row": 6,
+  "item_code": "JLB0200",
+  "item_name": "Boneless BLD Frozen Grade B",
+  "kg": "2.45",
+  "value": "70573",
+  "avg_age_days": "96",
+  "kg_over_age_limit": "2.45",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 7,
+  "item_code": "JLB0216",
+  "item_name": "Boneless BLPK Fresh Premium",
+  "kg": "64.1",
+  "value": "2916133",
+  "avg_age_days": "139",
+  "kg_over_age_limit": "64.1",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 8,
+  "item_code": "JLB0212",
+  "item_name": "Boneless BLP Frozen Grade D",
+  "kg": "8.68",
+  "value": "250032",
+  "avg_age_days": "111",
+  "kg_over_age_limit": "8.68",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 9,
+  "item_code": "JLB0078",
+  "item_name": "Boneless BL Fresh Ceker",
+  "kg": "1632.64",
+  "value": "23217648",
+  "avg_age_days": "7.5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 10,
+  "item_code": "JLB0138",
+  "item_name": "Boneless BL Frozen Ceker",
+  "kg": "1278.38",
+  "value": "10699758",
+  "avg_age_days": "53.9",
+  "kg_over_age_limit": "1278.38",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 11,
+  "item_code": "JLB1855",
+  "item_name": "Boneless BL Frozen Ceker Grade B",
+  "kg": "15.61",
+  "value": "0",
+  "avg_age_days": "119",
+  "kg_over_age_limit": "15.61",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 12,
+  "item_code": "JLB0080",
+  "item_name": "Boneless BL Fresh HJA",
+  "kg": "5932.8",
+  "value": "18306436",
+  "avg_age_days": "23.7",
+  "kg_over_age_limit": "1937.7",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 13,
+  "item_code": "JLB0087",
+  "item_name": "Boneless BL Fresh HJA - Jantung",
+  "kg": "23.78",
+  "value": "0",
+  "avg_age_days": "121",
+  "kg_over_age_limit": "23.78",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 14,
+  "item_code": "JLB0081",
+  "item_name": "Boneless BL Fresh HJA - Ampela",
+  "kg": "84.6",
+  "value": "0",
+  "avg_age_days": "139",
+  "kg_over_age_limit": "84.6",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 15,
+  "item_code": "JLB0084",
+  "item_name": "Boneless BL Fresh HJA - Hati",
+  "kg": "38.25",
+  "value": "0",
+  "avg_age_days": "139",
+  "kg_over_age_limit": "38.25",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 16,
+  "item_code": "JLB0140",
+  "item_name": "Boneless BL Frozen HJA",
+  "kg": "130.4",
+  "value": "72328",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "130.4",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 17,
+  "item_code": "JLB0144",
+  "item_name": "Boneless BL Frozen HJA - Hati",
+  "kg": "30.5",
+  "value": "1",
+  "avg_age_days": "138",
+  "kg_over_age_limit": "30.5",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 18,
+  "item_code": "JLB0147",
+  "item_name": "Boneless BL Frozen HJA - Jantung",
+  "kg": "10.8",
+  "value": "1",
+  "avg_age_days": "138",
+  "kg_over_age_limit": "10.8",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 19,
+  "item_code": "JLB0141",
+  "item_name": "Boneless BL Frozen HJA - Ampela",
+  "kg": "30.5",
+  "value": "1",
+  "avg_age_days": "138",
+  "kg_over_age_limit": "30.5",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 20,
+  "item_code": "JLB0104",
+  "item_name": "Boneless BL Fresh KRK",
+  "kg": "189.9",
+  "value": "1498591",
+  "avg_age_days": "95",
+  "kg_over_age_limit": "189.9",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 21,
+  "item_code": "JLB0113",
+  "item_name": "Boneless BL Fresh KRK - Tungir KRK",
+  "kg": "155.57",
+  "value": "0",
+  "avg_age_days": "116",
+  "kg_over_age_limit": "155.57",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 22,
+  "item_code": "JLB0172",
+  "item_name": "Boneless BL Frozen KRK - Tungir KRK",
+  "kg": "119.49",
+  "value": "2529632",
+  "avg_age_days": "53.9",
+  "kg_over_age_limit": "119.49",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 23,
+  "item_code": "JLB0593",
+  "item_name": "Karkas Uk 0.9 Karkas Uk 0.9 Fresh Premium",
+  "kg": "608.95",
+  "value": "22388886",
+  "avg_age_days": "14",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 24,
+  "item_code": "JLB0658",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Fresh Premium",
+  "kg": "1773.28",
+  "value": "66526197",
+  "avg_age_days": "3.3",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 25,
+  "item_code": "JLB0724",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Fresh Premium",
+  "kg": "417.19",
+  "value": "15372122",
+  "avg_age_days": "14",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 26,
+  "item_code": "JLB0763",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A",
+  "kg": "120.8",
+  "value": "3683665",
+  "avg_age_days": "17",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 27,
+  "item_code": "JLB0790",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Premium",
+  "kg": "3296.56",
+  "value": "123515950",
+  "avg_age_days": "7.1",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 28,
+  "item_code": "JLB0829",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A",
+  "kg": "26.9",
+  "value": "820286",
+  "avg_age_days": "17",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 29,
+  "item_code": "JLB0856",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Premium",
+  "kg": "2765.79",
+  "value": "105041164",
+  "avg_age_days": "6.5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 30,
+  "item_code": "JLB0922",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium",
+  "kg": "1790.34",
+  "value": "68061625",
+  "avg_age_days": "5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 31,
+  "item_code": "JLB0988",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Fresh Premium",
+  "kg": "1297.5",
+  "value": "49310840",
+  "avg_age_days": "9",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 32,
+  "item_code": "JLB1054",
+  "item_name": "Karkas Uk 1.6 Karkas Uk 1.6 Fresh Premium",
+  "kg": "561.45",
+  "value": "21337973",
+  "avg_age_days": "5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 33,
+  "item_code": "JLB1120",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Fresh Premium",
+  "kg": "10.6",
+  "value": "400539",
+  "avg_age_days": "5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 34,
+  "item_code": "JLB0272",
+  "item_name": "Karkas Uk 0.4 Karkas Uk 0.4 Frozen Grade A",
+  "kg": "24",
+  "value": "569442",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "24",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 35,
+  "item_code": "JLB0338",
+  "item_name": "Karkas Uk 0.5 Karkas Uk 0.5 Frozen Grade A",
+  "kg": "91.8",
+  "value": "2312810",
+  "avg_age_days": "46.8",
+  "kg_over_age_limit": "78.9",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 36,
+  "item_code": "JLB0403",
+  "item_name": "Karkas Uk 0.6 Karkas Uk 0.6 Frozen Grade A",
+  "kg": "178.1",
+  "value": "4373311",
+  "avg_age_days": "50",
+  "kg_over_age_limit": "162.2",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 37,
+  "item_code": "JLB0468",
+  "item_name": "Karkas Uk 0.7 Karkas Uk 0.7 Frozen Grade A",
+  "kg": "400.5",
+  "value": "10579619",
+  "avg_age_days": "41.4",
+  "kg_over_age_limit": "290.3",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 38,
+  "item_code": "JLB0533",
+  "item_name": "Karkas Uk 0.8 Karkas Uk 0.8 Frozen Grade A",
+  "kg": "562.1",
+  "value": "15621595",
+  "avg_age_days": "35.6",
+  "kg_over_age_limit": "335.6",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 39,
+  "item_code": "JLB0598",
+  "item_name": "Karkas Uk 0.9 Karkas Uk 0.9 Frozen Grade A",
+  "kg": "745.9",
+  "value": "22061209",
+  "avg_age_days": "27.5",
+  "kg_over_age_limit": "305.1",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 40,
+  "item_code": "JLB0663",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Frozen Grade A",
+  "kg": "600.3",
+  "value": "20383734",
+  "avg_age_days": "7.2",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 41,
+  "item_code": "JLB0690",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Frozen Premium",
+  "kg": "423.1",
+  "value": "16193153",
+  "avg_age_days": "10",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 42,
+  "item_code": "JLB0729",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Frozen Grade A",
+  "kg": "620.3",
+  "value": "21123869",
+  "avg_age_days": "7.4",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 43,
+  "item_code": "JLB0756",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Frozen Premium",
+  "kg": "5378.6",
+  "value": "204560933",
+  "avg_age_days": "5.8",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 44,
+  "item_code": "JLB0795",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Frozen Grade A",
+  "kg": "862.45",
+  "value": "28462380",
+  "avg_age_days": "15.7",
+  "kg_over_age_limit": "119.37",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 45,
+  "item_code": "JLB0822",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Frozen Premium",
+  "kg": "1128.07",
+  "value": "42695938",
+  "avg_age_days": "3.4",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 46,
+  "item_code": "JLB0861",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Frozen Grade A",
+  "kg": "535",
+  "value": "17065642",
+  "avg_age_days": "19.7",
+  "kg_over_age_limit": "130",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 47,
+  "item_code": "JLB0888",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Frozen Premium",
+  "kg": "344.06",
+  "value": "13016338",
+  "avg_age_days": "4.6",
+  "kg_over_age_limit": "8.76",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 48,
+  "item_code": "JLB0927",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Frozen Grade A",
+  "kg": "354.49",
+  "value": "11515652",
+  "avg_age_days": "18",
+  "kg_over_age_limit": "69.49",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 49,
+  "item_code": "JLB0954",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Frozen Premium",
+  "kg": "1882.48",
+  "value": "53027567",
+  "avg_age_days": "52.1",
+  "kg_over_age_limit": "1811.68",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 50,
+  "item_code": "JLB0993",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Frozen Grade A",
+  "kg": "283.2",
+  "value": "9113573",
+  "avg_age_days": "23.5",
+  "kg_over_age_limit": "109.2",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 51,
+  "item_code": "JLB1020",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Frozen Premium",
+  "kg": "189.25",
+  "value": "5188372",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "189.25",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 52,
+  "item_code": "JLB1059",
+  "item_name": "Karkas Uk 1.6 Karkas Uk 1.6 Frozen Grade A",
+  "kg": "99",
+  "value": "3354815",
+  "avg_age_days": "26",
+  "kg_over_age_limit": "52.1",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 53,
+  "item_code": "JLB1125",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Frozen Grade A",
+  "kg": "78.44",
+  "value": "2638618",
+  "avg_age_days": "25.6",
+  "kg_over_age_limit": "35.7",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 54,
+  "item_code": "JLB1152",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Frozen Premium",
+  "kg": "1136.02",
+  "value": "40337694",
+  "avg_age_days": "22.3",
+  "kg_over_age_limit": "258.62",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 55,
+  "item_code": "JLB1192",
+  "item_name": "Karkas Uk 1.8 Karkas Uk 1.8 Frozen Grade A",
+  "kg": "45.1",
+  "value": "1417512",
+  "avg_age_days": "22.8",
+  "kg_over_age_limit": "11.2",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 56,
+  "item_code": "JLB1218",
+  "item_name": "Karkas Uk 1.8 Karkas Uk 1.8 Frozen Premium",
+  "kg": "791.01",
+  "value": "28657531",
+  "avg_age_days": "19.5",
+  "kg_over_age_limit": "121.61",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 57,
+  "item_code": "JLB1257",
+  "item_name": "Karkas Uk 1.9 Karkas Uk 1.9 Frozen Grade A",
+  "kg": "21.7",
+  "value": "749586",
+  "avg_age_days": "13.3",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 58,
+  "item_code": "JLB1284",
+  "item_name": "Karkas Uk 1.9 Karkas Uk 1.9 Frozen Premium",
+  "kg": "44.66",
+  "value": "1182112",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "44.66",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 59,
+  "item_code": "JLB1323",
+  "item_name": "Karkas Uk 2.0 Karkas Uk 2.0 Frozen Grade A",
+  "kg": "5.1",
+  "value": "127524",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "5.1",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 60,
+  "item_code": "JLB1350",
+  "item_name": "Karkas Uk 2.0 Karkas Uk 2.0 Frozen Premium",
+  "kg": "225.6",
+  "value": "8559873",
+  "avg_age_days": "13",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 61,
+  "item_code": "JLB1858",
+  "item_name": "Karkas Uk 0.9 Frozen Premium",
+  "kg": "1041.06",
+  "value": "45319803",
+  "avg_age_days": "14.5",
+  "kg_over_age_limit": "234.46",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 62,
+  "item_code": "JLB1859",
+  "item_name": "Karkas Uk 0.8 Frozen Premium",
+  "kg": "1272.78",
+  "value": "43385174",
+  "avg_age_days": "3.7",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 63,
+  "item_code": "JLB1865",
+  "item_name": "Karkas Uk 0.5 Karkas Uk 0.5 Frozen Premium",
+  "kg": "341.93",
+  "value": "8802847",
+  "avg_age_days": "52.9",
+  "kg_over_age_limit": "334.73",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 64,
+  "item_code": "JLB1866",
+  "item_name": "Karkas Uk 0.6 Karkas Uk 0.6 Frozen Premium",
+  "kg": "231.6",
+  "value": "6696947",
+  "avg_age_days": "30.6",
+  "kg_over_age_limit": "117.3",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 65,
+  "item_code": "JLB1867",
+  "item_name": "Karkas Uk 0.7 Karkas Uk 0.7 Frozen Premium",
+  "kg": "1847.02",
+  "value": "55678450",
+  "avg_age_days": "22.4",
+  "kg_over_age_limit": "642.82",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 66,
+  "item_code": "JLB1864",
+  "item_name": "Karkas Uk 0.4 Karkas Uk 0.4 Frozen Premium",
+  "kg": "75",
+  "value": "1883710",
+  "avg_age_days": "55",
+  "kg_over_age_limit": "75",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 67,
+  "item_code": "JLB1857",
+  "item_name": "Ayam Karkas Mix",
+  "kg": "1212.8",
+  "value": "32864529",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "1212.8",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 68,
+  "item_code": "JLB0092",
+  "item_name": "Boneless BL Fresh Kepala",
+  "kg": "1289.5",
+  "value": "16794274",
+  "avg_age_days": "4.2",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 69,
+  "item_code": "JLB0152",
+  "item_name": "Boneless BL Frozen Kepala",
+  "kg": "1811.2",
+  "value": "14122474",
+  "avg_age_days": "53.9",
+  "kg_over_age_limit": "1811.2",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 70,
+  "item_code": "JLB0116",
+  "item_name": "Boneless BL Fresh Kulit",
+  "kg": "276.03",
+  "value": "1056932",
+  "avg_age_days": "87",
+  "kg_over_age_limit": "276.03",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 71,
+  "item_code": "JLB0175",
+  "item_name": "Boneless BL Frozen Kulit",
+  "kg": "1033.78",
+  "value": "25074700",
+  "avg_age_days": "53.8",
+  "kg_over_age_limit": "1033.78",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 72,
+  "item_code": "JLB0118",
+  "item_name": "Boneless BL Fresh Lemak",
+  "kg": "225.9",
+  "value": "2343684",
+  "avg_age_days": "42.7",
+  "kg_over_age_limit": "161.5",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 73,
+  "item_code": "JLB0177",
+  "item_name": "Boneless BL Frozen Lemak",
+  "kg": "251.18",
+  "value": "6138943",
+  "avg_age_days": "22.1",
+  "kg_over_age_limit": "83.28",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 74,
+  "item_code": "JLB0055",
+  "item_name": "Parting Parting 10 Fresh Premium",
+  "kg": "19.77",
+  "value": "899406",
+  "avg_age_days": "126",
+  "kg_over_age_limit": "19.77",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 75,
+  "item_code": "JLB1850",
+  "item_name": "Paha Bawah Frozen",
+  "kg": "40.81",
+  "value": "1287562",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "40.81",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 76,
+  "item_code": "JLB1862",
+  "item_name": "Paha Atas Frozen",
+  "kg": "10.37",
+  "value": "310686",
+  "avg_age_days": "109",
+  "kg_over_age_limit": "10.37",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 77,
+  "item_code": "JLB0124",
+  "item_name": "Boneless BL Fresh Sayap Premium",
+  "kg": "240",
+  "value": "3841765",
+  "avg_age_days": "53",
+  "kg_over_age_limit": "240",
+  "note": null
+ },
+ {
+  "row": 78,
+  "item_code": "JLB0122",
+  "item_name": "Boneless BL Fresh Sayap Grade C",
+  "kg": "30.86",
+  "value": "707022",
+  "avg_age_days": "109",
+  "kg_over_age_limit": "30.86",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 79,
+  "item_code": "JLB0120",
+  "item_name": "Boneless BL Fresh Sayap Grade A",
+  "kg": "112.19",
+  "value": "0",
+  "avg_age_days": "105",
+  "kg_over_age_limit": "112.19",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 80,
+  "item_code": "JLB0179",
+  "item_name": "Boneless BL Frozen Sayap Grade A",
+  "kg": "311.15",
+  "value": "7464397",
+  "avg_age_days": "53.9",
+  "kg_over_age_limit": "311.15",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 81,
+  "item_code": "JLB0183",
+  "item_name": "Boneless BL Frozen Sayap Premium",
+  "kg": "287.08",
+  "value": "8312972",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "287.08",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 82,
+  "item_code": "JLB0181",
+  "item_name": "Boneless BL Frozen Sayap Grade C",
+  "kg": "13.14",
+  "value": "301046",
+  "avg_age_days": "109",
+  "kg_over_age_limit": "13.14",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 83,
+  "item_code": "JLB0184",
+  "item_name": "Boneless BL Frozen TLP",
+  "kg": "436.09",
+  "value": "840656",
+  "avg_age_days": "41.7",
+  "kg_over_age_limit": "256.9",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 84,
+  "item_code": "JLB0135",
+  "item_name": "Boneless BL Fresh Usus Kotor",
+  "kg": "4915.18",
+  "value": "12347050",
+  "avg_age_days": "27.2",
+  "kg_over_age_limit": "2024.18",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 85,
+  "item_code": "JLB0194",
+  "item_name": "Boneless BL Frozen Usus Kotor",
+  "kg": "63",
+  "value": "0",
+  "avg_age_days": "53",
+  "kg_over_age_limit": "63",
+  "note": null
+ },
+ {
+  "row": 86,
+  "item_code": "TRD0008",
+  "item_name": "BLD Frozen",
+  "kg": "5856.04",
+  "value": "228954068",
+  "avg_age_days": "8.6",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 87,
+  "item_code": "TRD0006",
+  "item_name": "Boneless Dada",
+  "kg": "10.2",
+  "value": "438600",
+  "avg_age_days": "124",
+  "kg_over_age_limit": "10.2",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 88,
+  "item_code": "TRD0012",
+  "item_name": "BLPK Frozen",
+  "kg": "8.53",
+  "value": "272960",
+  "avg_age_days": "87",
+  "kg_over_age_limit": "8.53",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 89,
+  "item_code": "TRD0010",
+  "item_name": "BLP Frozen",
+  "kg": "6139.3",
+  "value": "280247629",
+  "avg_age_days": "4",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 90,
+  "item_code": "TRD0004",
+  "item_name": "Hati Bersih",
+  "kg": "3605.54",
+  "value": "13532744",
+  "avg_age_days": "59",
+  "kg_over_age_limit": "3605.54",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 91,
+  "item_code": "TRD0005",
+  "item_name": "Ampela Bersih",
+  "kg": "452.6",
+  "value": "5431200",
+  "avg_age_days": "90",
+  "kg_over_age_limit": "452.6",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 92,
+  "item_code": "TRD0018",
+  "item_name": "Jantung Bersih",
+  "kg": "242.23",
+  "value": "1937840",
+  "avg_age_days": "115",
+  "kg_over_age_limit": "242.23",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ },
+ {
+  "row": 93,
+  "item_code": "TRD0034",
+  "item_name": "KRK",
+  "kg": "33329.94",
+  "value": "343660746",
+  "avg_age_days": "10",
+  "kg_over_age_limit": "2826.34",
+  "note": null
+ },
+ {
+  "row": 94,
+  "item_code": "TRD0019",
+  "item_name": "Karkas Uk 0.6",
+  "kg": "5097.22",
+  "value": "153503695",
+  "avg_age_days": "10.2",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 95,
+  "item_code": "TRD0020",
+  "item_name": "Karkas Uk 0.7",
+  "kg": "8408.51",
+  "value": "254715769",
+  "avg_age_days": "10.4",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 96,
+  "item_code": "TRD0021",
+  "item_name": "Karkas Uk 0.8",
+  "kg": "3110.09",
+  "value": "98892736",
+  "avg_age_days": "14",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 97,
+  "item_code": "TRD0022",
+  "item_name": "Karkas Uk 0.9",
+  "kg": "10368.96",
+  "value": "306301868",
+  "avg_age_days": "19.5",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 98,
+  "item_code": "TRD0023",
+  "item_name": "Karkas Uk 1.0",
+  "kg": "886.4",
+  "value": "27058911",
+  "avg_age_days": "9.8",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 99,
+  "item_code": "TRD0024",
+  "item_name": "Karkas Uk 1.1",
+  "kg": "2473.5",
+  "value": "79365122",
+  "avg_age_days": "20",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 100,
+  "item_code": "TRD0025",
+  "item_name": "Karkas Uk 1.2",
+  "kg": "310.3",
+  "value": "7265438",
+  "avg_age_days": "43.4",
+  "kg_over_age_limit": "210.5",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 101,
+  "item_code": "TRD0026",
+  "item_name": "Karkas Uk 1.3",
+  "kg": "1",
+  "value": "23000",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "1",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 102,
+  "item_code": "TRD0027",
+  "item_name": "Karkas Uk 1.4",
+  "kg": "258.7",
+  "value": "5950100",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "258.7",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 103,
+  "item_code": "TRD0028",
+  "item_name": "Karkas Uk 1.5",
+  "kg": "273.8",
+  "value": "6282450",
+  "avg_age_days": "53.9",
+  "kg_over_age_limit": "273.15",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 104,
+  "item_code": "TRD0029",
+  "item_name": "Karkas Uk 1.6",
+  "kg": "0.1",
+  "value": "2300",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "0.1",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 105,
+  "item_code": "TRD0030",
+  "item_name": "Karkas Uk 1.7",
+  "kg": "3",
+  "value": "69000",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "3",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 106,
+  "item_code": "TRD0031",
+  "item_name": "Karkas Uk 1.8",
+  "kg": "0.2",
+  "value": "4600",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "0.2",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 107,
+  "item_code": "TRD0032",
+  "item_name": "Karkas Uk 1.9",
+  "kg": "82.5",
+  "value": "1897500",
+  "avg_age_days": "54",
+  "kg_over_age_limit": "82.5",
+  "note": "stok sejak 1 Jul: umur minimum"
+ },
+ {
+  "row": 108,
+  "item_code": "TRD0036",
+  "item_name": "Karkas Uk 0.5",
+  "kg": "15594.6",
+  "value": "468186735",
+  "avg_age_days": "10.8",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 109,
+  "item_code": "TRD0037",
+  "item_name": "Karkas Uk 0.3",
+  "kg": "73.8",
+  "value": "2177100",
+  "avg_age_days": "20",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 110,
+  "item_code": "TRD0038",
+  "item_name": "Karkas Uk 0.4",
+  "kg": "6753",
+  "value": "202689219",
+  "avg_age_days": "9",
+  "kg_over_age_limit": "0",
+  "note": null
+ },
+ {
+  "row": 111,
+  "item_code": "TRD0003",
+  "item_name": "Kulit Body Frozen",
+  "kg": "1094.61",
+  "value": "19375380",
+  "avg_age_days": "51.1",
+  "kg_over_age_limit": "1094.61",
+  "note": null
+ },
+ {
+  "row": 112,
+  "item_code": "TRD0001",
+  "item_name": "Kulit Leher",
+  "kg": "1395.69",
+  "value": "29309490",
+  "avg_age_days": "115",
+  "kg_over_age_limit": "1395.69",
+  "note": "dormant (tidak bergerak Jul–Agu)"
+ }
+]

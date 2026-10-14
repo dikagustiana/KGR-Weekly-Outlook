@@ -1,0 +1,2082 @@
+[
+ {
+  "account": "1101",
+  "name": "CASH",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1102",
+  "name": "BANK",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1103",
+  "name": "Receivable ( Customer )",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1104",
+  "name": "Inventory",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1105",
+  "name": "Prepayment",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1106",
+  "name": "Prepaid Tax",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1107",
+  "name": "Other Current Asset",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1108",
+  "name": "Fixed Assets",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1109",
+  "name": "Accumulated Depreciation of Fixed Asset",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "2101",
+  "name": "Account Payable [Vendor]",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "2102",
+  "name": "Tax Payable",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "2103",
+  "name": "Accrued Payable",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "3100",
+  "name": "Equity",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Setoran modal",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "4101",
+  "name": "Sales",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "5100",
+  "name": "COGS",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "6000",
+  "name": "Operating Costs",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "7100",
+  "name": "Non-operating income",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "7200",
+  "name": "Non-operating  expenditure",
+  "type": "Header",
+  "pl_line": null,
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "610000",
+  "name": "Sales & Marketing Expenses",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "620000",
+  "name": "General & Administrative Expenses",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "630000",
+  "name": "Repair & Maintenance Expense",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "640000",
+  "name": "Depreciation & Amortization Expenses",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "910002",
+  "name": "Realize Gain or Loss IDR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "910003",
+  "name": "Unrealize Gain or Loss IDR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "910004",
+  "name": "Temporary Account",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Temporary account (to reclassify)",
+  "cf_category_as_counter": "Pinjaman afiliasi (net)",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1101001",
+  "name": "Petty Cash - IDR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102001",
+  "name": "BCA 484-0348-577",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102002",
+  "name": "BCA 484-0348-585",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102003",
+  "name": "Permata 702-214-459",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102004",
+  "name": "Permata 702-214-173",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102005",
+  "name": "BRI 186-0100-2495-300",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102006",
+  "name": "Mandiri 120-0051-680-168",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102007",
+  "name": "Cash On Hand",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1102008",
+  "name": "Temporary Account",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Advance Payment",
+  "cf_category_as_counter": "Transfer antar rekening",
+  "is_cash": false,
+  "fs_mapping_reference": "Advance Payment"
+ },
+ {
+  "account": "1102009",
+  "name": "Time Deposit",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Cash and cash equivalents",
+  "cf_category_as_counter": null,
+  "is_cash": true,
+  "fs_mapping_reference": "Cash and cash equivalents"
+ },
+ {
+  "account": "1103101",
+  "name": "Account Receivable - Third Party",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Trade Receivables - Third Parties",
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Trade Receivables - Third Parties"
+ },
+ {
+  "account": "1103102",
+  "name": "Account Receivable - Affiliates",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Trade Receivables - Related Parties",
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Trade Receivables - Related Parties"
+ },
+ {
+  "account": "1103103",
+  "name": "Other Receivable - Third Party",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Receivable - Third Party",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Receivable - Third Party"
+ },
+ {
+  "account": "1103104",
+  "name": "Others Receivable - Affiliates",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Receivable - Affiliated Party",
+  "cf_category_as_counter": "Pinjaman afiliasi (net)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Receivable - Affiliated Party"
+ },
+ {
+  "account": "1103105",
+  "name": "Employee Receivable",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Receivable - Third Party",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Receivable - Third Party"
+ },
+ {
+  "account": "1103106",
+  "name": "Uncollectibe Accounts",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Receivable - Third Party",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Receivable - Third Party"
+ },
+ {
+  "account": "1103120",
+  "name": "Cash Advance",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Advance Payment",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Advance Payment"
+ },
+ {
+  "account": "1103121",
+  "name": "PT KGR Advance Payment",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Advance Payment",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Advance Payment"
+ },
+ {
+  "account": "1103122",
+  "name": "Rental Deposit",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Receivable - Third Party",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Receivable - Third Party"
+ },
+ {
+  "account": "1103123",
+  "name": "Unbilled AR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Trade Receivables - Third Parties",
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Trade Receivables - Third Parties"
+ },
+ {
+  "account": "1104001",
+  "name": "Inventory - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Product",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Product"
+ },
+ {
+  "account": "1104002",
+  "name": "Inventory In Transit - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Product",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Product"
+ },
+ {
+  "account": "1104003",
+  "name": "Inventory Live Bird",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Product",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Product"
+ },
+ {
+  "account": "1104004",
+  "name": "Inventory Other Products",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Product",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Product"
+ },
+ {
+  "account": "1104005",
+  "name": "Inventory Packaging",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Product",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Product"
+ },
+ {
+  "account": "1104006",
+  "name": "Inventory Trading",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Inventory - Trading",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Inventory - Trading"
+ },
+ {
+  "account": "1105001",
+  "name": "Prepaid Rent - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Expenses",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Expenses"
+ },
+ {
+  "account": "1105002",
+  "name": "Prepaid Insurance - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Expenses",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Expenses"
+ },
+ {
+  "account": "1105003",
+  "name": "Prepaid Income - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Expenses",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Expenses"
+ },
+ {
+  "account": "1105004",
+  "name": "Prepaid Other - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Expenses",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Expenses"
+ },
+ {
+  "account": "1106001",
+  "name": "VAT IN - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1106002",
+  "name": "Prepaid WHT 21 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1106003",
+  "name": "Prepaid WHT 22 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1106004",
+  "name": "Prepaid WHT 23 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1106005",
+  "name": "Prepaid WHT 25 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1106006",
+  "name": "Prepaid WHT 4 (2) - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Prepaid Tax",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Prepaid Tax"
+ },
+ {
+  "account": "1107002",
+  "name": "Fixed Asset Transaction",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other assets",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "1108001",
+  "name": "Cost Land - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Land"
+ },
+ {
+  "account": "1108002",
+  "name": "Cost Building - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Buildings"
+ },
+ {
+  "account": "1108003",
+  "name": "Cost Vehicle - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Vehicle"
+ },
+ {
+  "account": "1108004",
+  "name": "Cost Tools & Equipment 1 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Furniture and Equipment"
+ },
+ {
+  "account": "1108005",
+  "name": "Cost Tools & Equipment 2 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Furniture and Equipment"
+ },
+ {
+  "account": "1108006",
+  "name": "Cost Computer Equipment 1 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Furniture and Equipment"
+ },
+ {
+  "account": "1108007",
+  "name": "Cost Computer Equipment 2 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Furniture and Equipment"
+ },
+ {
+  "account": "1108008",
+  "name": "Cost Software - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Fixed assets - cost",
+  "cf_category_as_counter": "Belanja aset tetap",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Furniture and Equipment"
+ },
+ {
+  "account": "1109001",
+  "name": "Accumulated Building Depreciation - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Buildings"
+ },
+ {
+  "account": "1109002",
+  "name": "Accumulated Depreciation Vehicles - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Vehicle"
+ },
+ {
+  "account": "1109003",
+  "name": "Accumulated Depreciation Tools & Equipment 1 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Office Furniture and Equipment"
+ },
+ {
+  "account": "1109004",
+  "name": "Accumulated Depreciation Tools & Equipment 2 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Office Furniture and Equipment"
+ },
+ {
+  "account": "1109005",
+  "name": "Accumulated Depreciation Computer Equipment 1 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Office Furniture and Equipment"
+ },
+ {
+  "account": "1109006",
+  "name": "Accumulated Depreciation Computer Equipment 2 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Office Furniture and Equipment"
+ },
+ {
+  "account": "1109007",
+  "name": "Accumulated Depreciation Software - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accumulated depreciation",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Acc. Depreciation - Software"
+ },
+ {
+  "account": "2101001",
+  "name": "Account Payable - Third Party - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Trade Payables - Third Parties",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Trade Payables - Third Parties"
+ },
+ {
+  "account": "2101002",
+  "name": "Account Payable - Affiliates - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Trade Payables - Affiliates",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Trade Payables - Affiliates"
+ },
+ {
+  "account": "2101003",
+  "name": "Others Payable - Third Party - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Payable - Third Parties",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Payable - Third Parties"
+ },
+ {
+  "account": "2101004",
+  "name": "Others Payable - Affiliates - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Payable - Related Parties",
+  "cf_category_as_counter": "Pinjaman afiliasi (net)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Payable - Related Parties"
+ },
+ {
+  "account": "2101005",
+  "name": "Employee Others Payable",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Payable - Third Parties",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Payable - Third Parties"
+ },
+ {
+  "account": "2101006",
+  "name": "Unknown Receipt",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Other Payable - Third Parties",
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Payable - Third Parties"
+ },
+ {
+  "account": "2101020",
+  "name": "Down Payment From 3rd Parties - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Unearned Revenue",
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Unearned Revenue"
+ },
+ {
+  "account": "2102001",
+  "name": "VAT OUT - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "2102002",
+  "name": "Tax Payable WHT 21 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2102003",
+  "name": "Tax Payable WHT 23 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2102004",
+  "name": "Tax Payable WHT 29 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2102005",
+  "name": "Tax Payable WHT 4  (2) - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2102006",
+  "name": "Tax Payable WHT Final",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2102007",
+  "name": "Tax Payable WHT 22 - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Taxes Payable",
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Taxes Payable"
+ },
+ {
+  "account": "2103001",
+  "name": "Salary, THR, Gratification Payable - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103002",
+  "name": "Accrued Social Security Payable - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103003",
+  "name": "Accrued Electricity - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103004",
+  "name": "Accrued Telecommunication and Internet - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103005",
+  "name": "Accrued Water - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103006",
+  "name": "Accrued Other - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103007",
+  "name": "Accrued Cleanliness & Security - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103008",
+  "name": "Deposit Rental From Customer",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103009",
+  "name": "Bank Loan - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103010",
+  "name": "Non Bank Loan - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103011",
+  "name": "Unbilled Vendor",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "2103012",
+  "name": "Unearned Income",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Accrued Expenses - Third Parties",
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Accrued Expenses - Third Parties"
+ },
+ {
+  "account": "3100001",
+  "name": "Paid In Capital - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Shareholder Equity",
+  "cf_category_as_counter": "Setoran modal",
+  "is_cash": false,
+  "fs_mapping_reference": "Shareholder Equity"
+ },
+ {
+  "account": "3100002",
+  "name": "Deviden - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Retained earnings",
+  "cf_category_as_counter": "Setoran modal",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "3100003",
+  "name": "Retained Earning - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Retained earnings",
+  "cf_category_as_counter": "Setoran modal",
+  "is_cash": false,
+  "fs_mapping_reference": "- Beginning retained earnings"
+ },
+ {
+  "account": "3100004",
+  "name": "Current Year Earning - KGR",
+  "type": "Neraca",
+  "pl_line": null,
+  "bs_line": "Retained earnings",
+  "cf_category_as_counter": "Setoran modal",
+  "is_cash": false,
+  "fs_mapping_reference": "- Current profit or loss"
+ },
+ {
+  "account": "4101001",
+  "name": "Sales - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - Trading"
+ },
+ {
+  "account": "4101002",
+  "name": "Service Fee - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Service Fee"
+ },
+ {
+  "account": "4101003",
+  "name": "Sales Returns - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Sales Return "
+ },
+ {
+  "account": "4101004",
+  "name": "Sales Discount - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - Trading"
+ },
+ {
+  "account": "4101005",
+  "name": "Other Sales - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Sales"
+ },
+ {
+  "account": "4101006",
+  "name": "Sales Live Bird",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB Main Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - LB Main Product"
+ },
+ {
+  "account": "4101007",
+  "name": "Sales Other Products",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB By Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - LB By Product"
+ },
+ {
+  "account": "4101008",
+  "name": "Sales Return Live Bird",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB Main Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - Trading"
+ },
+ {
+  "account": "4101009",
+  "name": "Sales Return Other Products",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB By Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Sales Return "
+ },
+ {
+  "account": "4101010",
+  "name": "Sales Discount Live Bird",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB Main Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - LB Main Product"
+ },
+ {
+  "account": "4101011",
+  "name": "Sales Discount Other Products",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB Main Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - LB Main Product"
+ },
+ {
+  "account": "4101012",
+  "name": "Sales Trading",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - Trading"
+ },
+ {
+  "account": "4101013",
+  "name": "Unbilled Revenue",
+  "type": "LabaRugi",
+  "pl_line": "Revenue - LB Main Product",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan dari pelanggan",
+  "is_cash": false,
+  "fs_mapping_reference": "Revenue - LB Main Product"
+ },
+ {
+  "account": "5100001",
+  "name": "COGS - KGR",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Live Bird",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "5100002",
+  "name": "OTHER COGS - Freight In - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other COGS - Expedition",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other COGS - Expedition"
+ },
+ {
+  "account": "5100003",
+  "name": "OTHER COGS - Logistic Cost - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other COGS - Expedition",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Cost of Sales"
+ },
+ {
+  "account": "5100004",
+  "name": "COGS Live Bird",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Live Bird",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Live Bird"
+ },
+ {
+  "account": "5100005",
+  "name": "COGS Other Products",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Live Bird",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "Live Bird"
+ },
+ {
+  "account": "5100006",
+  "name": "Other COGS Labor",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Live Bird",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Live Bird"
+ },
+ {
+  "account": "5100007",
+  "name": "Other COGS Expedition",
+  "type": "LabaRugi",
+  "pl_line": "Other COGS - Expedition",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Other COGS - Expedition"
+ },
+ {
+  "account": "5100008",
+  "name": "Other COGS Packaging",
+  "type": "LabaRugi",
+  "pl_line": "Packaging",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Packaging"
+ },
+ {
+  "account": "5100009",
+  "name": "Other COGS Blasting",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Blasting",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "COGS - Blasting"
+ },
+ {
+  "account": "5100010",
+  "name": "Other COGS Highway, Parking & Oil For Delivery",
+  "type": "LabaRugi",
+  "pl_line": "Other COGS - Expedition",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "COGS - Labor"
+ },
+ {
+  "account": "5100011",
+  "name": "COGS - Trading",
+  "type": "LabaRugi",
+  "pl_line": "COGS - Trading",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pemasok barang (live bird & trading)",
+  "is_cash": false,
+  "fs_mapping_reference": "COGS - Trading"
+ },
+ {
+  "account": "5100012",
+  "name": "Other COGS - Storage Expenses",
+  "type": "LabaRugi",
+  "pl_line": "Storage Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Storage Expenses"
+ },
+ {
+  "account": "5100013",
+  "name": "Other COGS - Handling In",
+  "type": "LabaRugi",
+  "pl_line": "Storage Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Storage Expenses"
+ },
+ {
+  "account": "5100014",
+  "name": "Other COGS - Handling Out",
+  "type": "LabaRugi",
+  "pl_line": "Storage Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Storage Expenses"
+ },
+ {
+  "account": "6100001",
+  "name": "Salary, THR, and Gratification for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance - Sales"
+ },
+ {
+  "account": "6100002",
+  "name": "Social Security for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance - Sales"
+ },
+ {
+  "account": "6100003",
+  "name": "Advertising & Promotion - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance - Sales"
+ },
+ {
+  "account": "6100004",
+  "name": "Entertainment, Gift & Donation for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Commission Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Commission Expenses"
+ },
+ {
+  "account": "6100005",
+  "name": "Sales Commission - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Commission Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Delivery Expenses - SE"
+ },
+ {
+  "account": "6100006",
+  "name": "Freight Out - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Delivery Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Delivery Expenses - SE"
+ },
+ {
+  "account": "6100007",
+  "name": "Snack and Comsumption for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6100008",
+  "name": "Transportation for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6100009",
+  "name": "Highway, Parking & Oil for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6100010",
+  "name": "Travelling & Accomodation for Sales Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance"
+ },
+ {
+  "account": "6200001",
+  "name": "Salary, THR, and Gratification for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance"
+ },
+ {
+  "account": "6200002",
+  "name": "Social Security for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar karyawan",
+  "is_cash": false,
+  "fs_mapping_reference": "Salaries and allowance"
+ },
+ {
+  "account": "6200003",
+  "name": "Snack and Consumption for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6200004",
+  "name": "Transportation for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6200005",
+  "name": "Highway, Parking & Oil for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Transportation expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Transportation expenses"
+ },
+ {
+  "account": "6200006",
+  "name": "Travelling & Accomodation for Backend Team - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Salaries and allowance",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Water and Electricity"
+ },
+ {
+  "account": "6200007",
+  "name": "Entertainment, Gift & Donation for Management - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Telecomunication and Internet"
+ },
+ {
+  "account": "6200008",
+  "name": "Electricity - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Water and Electricity"
+ },
+ {
+  "account": "6200009",
+  "name": "Telecommunication and Internet - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200010",
+  "name": "Water - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200011",
+  "name": "Stationery - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200012",
+  "name": "Office Supplies - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Professional Fee"
+ },
+ {
+  "account": "6200013",
+  "name": "Printing & Photocopy - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Rent Expenses"
+ },
+ {
+  "account": "6200014",
+  "name": "Professional Fee - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Professional Fee",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Rent Expenses"
+ },
+ {
+  "account": "6200015",
+  "name": "Rental Building - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Rent Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Rent Expenses"
+ },
+ {
+  "account": "6200016",
+  "name": "Rental Space - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Rent Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200017",
+  "name": "Rental - Other - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Rent Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200018",
+  "name": "Post and Courier - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200019",
+  "name": "Pantry - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Representation and Donation"
+ },
+ {
+  "account": "6200020",
+  "name": "Cleanliness and Environment Security - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Representation and Donation"
+ },
+ {
+  "account": "6200021",
+  "name": "Retribution - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Office Supplies & Utilities",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Office Supplies Expenses"
+ },
+ {
+  "account": "6200022",
+  "name": "Donation - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other operating expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "6200023",
+  "name": "Stamp duty - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Tax expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Commission Expenses"
+ },
+ {
+  "account": "6200024",
+  "name": "Outsourcing Management fee - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Professional Fee",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "6200025",
+  "name": "Commission Fee - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Commission Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6200026",
+  "name": "Miscellaneous General/Adm Expense",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6200027",
+  "name": "Maintenance Expense - Building - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6200028",
+  "name": "Maintenance Expense - Vehicles - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6200029",
+  "name": "Maintenance Expense - Office Equipment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "6200030",
+  "name": "Maintenance Expense - Computer Software - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6200031",
+  "name": "Uniform",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6300001",
+  "name": "Maintenance Expense - Building - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6300002",
+  "name": "Maintenance Expense - Vehicles - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Maintenance Expenses"
+ },
+ {
+  "account": "6300003",
+  "name": "Maintenance Expense - Office Equipment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation ROU Building"
+ },
+ {
+  "account": "6300004",
+  "name": "Maintenance Expense - Computer Software - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Maintenance Expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "6350001",
+  "name": "Tax Expense - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Tax expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "6400001",
+  "name": "Depreciation Expense - Building - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation Expenses"
+ },
+ {
+  "account": "6400002",
+  "name": "Depreciation Expense - Vehicles - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation Expenses"
+ },
+ {
+  "account": "6400003",
+  "name": "Depreciation Expense - Office Equipment 1 - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation Expenses"
+ },
+ {
+  "account": "6400004",
+  "name": "Depreciation Expense - Office Equipment 2 - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation Expenses"
+ },
+ {
+  "account": "6400005",
+  "name": "Depreciation Expense - Computer Equipment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Depreciation Expenses"
+ },
+ {
+  "account": "6400006",
+  "name": "Amortization Software  - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "6400007",
+  "name": "Stock Difference Expenses",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "6500001",
+  "name": "Depreciation RoU Building",
+  "type": "LabaRugi",
+  "pl_line": "Depreciation & amortisation",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "7100001",
+  "name": "Interest Income - Deposit - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100002",
+  "name": "Interest Income - Saving - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100003",
+  "name": "Gain on Portfolio Investment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100004",
+  "name": "Gain of Fixed Asset Disposal - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100005",
+  "name": "Write-off Inventory - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100006",
+  "name": "Inventory Opname Adjustment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100008",
+  "name": "Rounding - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100009",
+  "name": "Other Income",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Income"
+ },
+ {
+  "account": "7100010",
+  "name": "Rental Income",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "7100011",
+  "name": "Other Income Blasting",
+  "type": "LabaRugi",
+  "pl_line": "Other Income",
+  "bs_line": null,
+  "cf_category_as_counter": "Penerimaan lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Tax expenses"
+ },
+ {
+  "account": "7200001",
+  "name": "Bank Loan Interest - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Interest Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bunga & biaya bank",
+  "is_cash": false,
+  "fs_mapping_reference": null
+ },
+ {
+  "account": "7200002",
+  "name": "Interest Expense - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Interest Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bunga & biaya bank",
+  "is_cash": false,
+  "fs_mapping_reference": "Interest Expense"
+ },
+ {
+  "account": "7200003",
+  "name": "Bank Administration and Provision - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bunga & biaya bank",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Expense"
+ },
+ {
+  "account": "7200004",
+  "name": "Losses on Portfolio Investment - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Finance Expenses"
+ },
+ {
+  "account": "7200005",
+  "name": "Losses of Fixed Asset Disposal - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Expense"
+ },
+ {
+  "account": "7200006",
+  "name": "Realized Gain or Loss Exchange Rate IDR - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Expense"
+ },
+ {
+  "account": "7200007",
+  "name": "UN Realized Gain or Loss Exchange Rate IDR - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Expense"
+ },
+ {
+  "account": "7200008",
+  "name": "Other Expenses - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Other Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar biaya operasional lain",
+  "is_cash": false,
+  "fs_mapping_reference": "Other Expense"
+ },
+ {
+  "account": "7200009",
+  "name": "Non Bank Loan Interest - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Interest Expense",
+  "bs_line": null,
+  "cf_category_as_counter": "Bunga & biaya bank",
+  "is_cash": false,
+  "fs_mapping_reference": "Interest Expense"
+ },
+ {
+  "account": "7200010",
+  "name": "Tax Expense - KGR",
+  "type": "LabaRugi",
+  "pl_line": "Tax expenses",
+  "bs_line": null,
+  "cf_category_as_counter": "Bayar pajak",
+  "is_cash": false,
+  "fs_mapping_reference": "Tax expenses"
+ }
+]

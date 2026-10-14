@@ -1,0 +1,370 @@
+[
+ {
+  "row": 6,
+  "date": "2026-08-27",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "KRISWANTININGSIH — KRISWANTININGSIH, BIAYA EXPEDISI 3MOBILxRP.4.800.000, -PPH 2.",
+  "amount": "-14030000"
+ },
+ {
+  "row": 7,
+  "date": "2026-08-27",
+  "cf_category": "Bayar pemasok barang (live bird & trading)",
+  "bs_counter_line": "Advance Payment",
+  "description": "Pelanggan Umum — Albertus Condro 4.113,8kg,, 3.967,2kg, 3.600,4kg LB 287.352.440",
+  "amount": "20077560"
+ },
+ {
+  "row": 8,
+  "date": "2026-08-27",
+  "cf_category": "Bayar pemasok barang (live bird & trading)",
+  "bs_counter_line": "Advance Payment",
+  "description": "Pelanggan Umum — Lebih Bayar ",
+  "amount": "-17978000"
+ },
+ {
+  "row": 9,
+  "date": "2026-08-27",
+  "cf_category": "Bayar pemasok barang (live bird & trading)",
+  "bs_counter_line": "Trade Payables - Third Parties",
+  "description": "ALBERTUS CONDRO RUDY KURNIAWAN — Albertus Condro 3.534,7kg, 4.000kg, 4001 kg, 40",
+  "amount": "-394822000"
+ },
+ {
+  "row": 10,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ALBI YUNUS — 0328/INV/KGR/08/2026 ALBI YUNUS  ",
+  "amount": "48044160"
+ },
+ {
+  "row": 11,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ERWIN ALAMSYAH — 0324/INV/KGR/08/2026 FEBRINA YOLANDA SU  (kurang 6.712.350)",
+  "amount": "34909450"
+ },
+ {
+  "row": 12,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ERWIN ALAMSYAH — 0325/INV/KGR/08/2026 AYU ATIKAH    ",
+  "amount": "41037700"
+ },
+ {
+  "row": 13,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0327/INV/KGR/08/2026 Petik Segar ",
+  "amount": "188409550"
+ },
+ {
+  "row": 14,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "NATALIA PRIHATI — 0329/INV/KGR/08/2026 NATALIA PRIHATI  ",
+  "amount": "40000000"
+ },
+ {
+  "row": 15,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "NATALIA PRIHATI — 0329/INV/KGR/08/2026 NATALIA PRIHATI  ",
+  "amount": "113372280"
+ },
+ {
+  "row": 16,
+  "date": "2026-08-27",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Unearned Revenue",
+  "description": "Pelanggan Umum — BI-FAST CR TRANSFER   DR 009 AYU ATIKAH    ",
+  "amount": "600000"
+ },
+ {
+  "row": 17,
+  "date": "2026-08-27",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB Dari BCA 8577 KE BCA 8585",
+  "amount": "-400000000"
+ },
+ {
+  "row": 18,
+  "date": "2026-08-27",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB dari bca 8577",
+  "amount": "400000000"
+ },
+ {
+  "row": 19,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "KRISWANTININGSIH — KRISWANTININGSIH, BIAYA EXPEDISI 2 MOBILxRP.4.500.000, BIAYA ",
+  "amount": "-14615000"
+ },
+ {
+  "row": 20,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PT AGRO INTAN PRATAMA INDONESIA — PT AGRO INTAN PRATAMA INDONESIA, BIAYA EXPEDIS",
+  "amount": "-882000"
+ },
+ {
+  "row": 21,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PT DEWAWEB — PT DEWAWEB, PEMBAYARAN REGISTRASI EMAIL RP.333.000, -PPH 2%, 10/8/2",
+  "amount": "-326340"
+ },
+ {
+  "row": 22,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PT JAYA MANDIRI EXPEDISI — PT JAYA MANDIRI EXPEDISI, SEWA MOBIL B 9212 BXT 1LOTx",
+  "amount": "-1526000"
+ },
+ {
+  "row": 23,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PT LINTAS DIRGA NUSANTARA — PT LINTAS DIRGA NUSANTARA, OVERTIME HARI KERJA 38872",
+  "amount": "-3667573"
+ },
+ {
+  "row": 24,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PT SARANA ABADI MAKMUR BERSAMA — SARANA ABADI MAKMU2700027183, Biaya Foto Copy",
+  "amount": "-12905"
+ },
+ {
+  "row": 25,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "PUSPEL KESEHATAN HEWAN DAN PETERNAKAN — PUSPEL KHP RPU RAWA TERATE, Sewa RPA jan",
+  "amount": "-1133790000"
+ },
+ {
+  "row": 26,
+  "date": "2026-08-28",
+  "cf_category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+  "bs_counter_line": "Other Payable - Third Parties",
+  "description": "TOKO DWITAMA SERASI — DICKY FEBRIAN, DWITAMA SERASI, PEMBELIAN ATK RP.253.000 (1",
+  "amount": "-661500"
+ },
+ {
+  "row": 27,
+  "date": "2026-08-28",
+  "cf_category": "Bayar karyawan",
+  "bs_counter_line": "Accrued Expenses - Third Parties",
+  "description": " — Salary Agustus 2026 ",
+  "amount": "-79741706"
+ },
+ {
+  "row": 28,
+  "date": "2026-08-28",
+  "cf_category": "Bayar pemasok barang (live bird & trading)",
+  "bs_counter_line": "Advance Payment",
+  "description": "Pelanggan Umum — Albertus Condro 3.534,7kg, 4.000kg, 4001 kg, 4001.5kg LB (394.8",
+  "amount": "17735800"
+ },
+ {
+  "row": 29,
+  "date": "2026-08-28",
+  "cf_category": "Bayar pemasok barang (live bird & trading)",
+  "bs_counter_line": "Trade Payables - Affiliates",
+  "description": "ALBERTUS CONDRO RUDY KURNIAWAN — Albertus Condro 3.748,3 kg, 4.000 kg, 4.000 kg,",
+  "amount": "-361200000"
+ },
+ {
+  "row": 30,
+  "date": "2026-08-28",
+  "cf_category": "Bunga & biaya bank",
+  "bs_counter_line": "Accrued Expenses - Third Parties",
+  "description": " —  Biaya Admin",
+  "amount": "-90000"
+ },
+ {
+  "row": 31,
+  "date": "2026-08-28",
+  "cf_category": "Bunga & biaya bank",
+  "bs_counter_line": "Accrued Expenses - Third Parties",
+  "description": " — Biaya Admin",
+  "amount": "-2500"
+ },
+ {
+  "row": 32,
+  "date": "2026-08-28",
+  "cf_category": "Bunga & biaya bank",
+  "bs_counter_line": "Accrued Expenses - Third Parties",
+  "description": " — Biaya Admin ",
+  "amount": "-25000"
+ },
+ {
+  "row": 33,
+  "date": "2026-08-28",
+  "cf_category": "Bunga & biaya bank",
+  "bs_counter_line": "Accrued Expenses - Third Parties",
+  "description": " — SARANA ABADI MAKMU2700027183, Biaya Foto Copy, Biaya Admn ",
+  "amount": "-2500"
+ },
+ {
+  "row": 34,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "CLARA SARI — 0333/INV/KGR/08/2026 CLARA SARI    ",
+  "amount": "34633420"
+ },
+ {
+  "row": 35,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "CV WANGUN UNGGAS PERKASA — 0255/INV/KGR/07/2026  WANGUN UNGGAS PER",
+  "amount": "120529420"
+ },
+ {
+  "row": 36,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ERWIN ALAMSYAH — 0331/INV/KGR/08/2026 RIZKI RAMADHAN  ",
+  "amount": "93623988"
+ },
+ {
+  "row": 37,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ERWIN ALAMSYAH — 0334/INV/KGR/08/2026 AGRO INTAN PRATAMA    ",
+  "amount": "12355730"
+ },
+ {
+  "row": 38,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "ERWIN ALAMSYAH — 0335/INV/KGR/08/2026  AGUS DUDI  ",
+  "amount": "66124300"
+ },
+ {
+  "row": 39,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0330/INV/KGR/08/2026 petik segar",
+  "amount": "167258500"
+ },
+ {
+  "row": 40,
+  "date": "2026-08-28",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0332/INV/KGR/08/2026 Petik segar",
+  "amount": "25081930"
+ },
+ {
+  "row": 41,
+  "date": "2026-08-28",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB DARI 8585",
+  "amount": "80000000"
+ },
+ {
+  "row": 42,
+  "date": "2026-08-28",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB Dari BCA 8577 KE BCA 8585",
+  "amount": "-400000000"
+ },
+ {
+  "row": 43,
+  "date": "2026-08-28",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB dari bca 8577",
+  "amount": "400000000"
+ },
+ {
+  "row": 44,
+  "date": "2026-08-28",
+  "cf_category": "Transfer antar rekening",
+  "bs_counter_line": "Advance Payment",
+  "description": " — PB ke bank Permata (salary) ",
+  "amount": "-80000000"
+ },
+ {
+  "row": 45,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "HARTINI — 0342/INV/KGR/08/2026  HARTINI  ",
+  "amount": "129249400"
+ },
+ {
+  "row": 46,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "HARTINI — 0343/INV/KGR/08/2026  HARTINI  ",
+  "amount": "860000"
+ },
+ {
+  "row": 47,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0336/INV/KGR/08/2026 petik segar",
+  "amount": "99551250"
+ },
+ {
+  "row": 48,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0337/INV/KGR/08/2026 Petik segar",
+  "amount": "140581500"
+ },
+ {
+  "row": 49,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "MUHAMAD HARISUDDIN — 0340/INV/KGR/08/2026 petik segar",
+  "amount": "40137970"
+ },
+ {
+  "row": 50,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Trade Receivables - Third Parties",
+  "description": "RIZKI RAMADHAN — 0341/INV/KGR/08/2026 RIZKI RAMADHAN  ",
+  "amount": "38146000"
+ },
+ {
+  "row": 51,
+  "date": "2026-08-29",
+  "cf_category": "Penerimaan dari pelanggan",
+  "bs_counter_line": "Unearned Revenue",
+  "description": "NATALIA PRIHATI — 0338/INV/KGR/08/2026 NATALIA PRIHATI  131482730",
+  "amount": "80000000"
+ }
+]

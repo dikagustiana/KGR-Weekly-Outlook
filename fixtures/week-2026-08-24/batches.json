@@ -1,0 +1,90 @@
+[
+ {
+  "row": 6,
+  "date": "2026-08-25",
+  "status": "Aktual",
+  "batch_ref": "125/PO/KGR/08/2026",
+  "supplier": "Alberus",
+  "lb_kg": "12211.6",
+  "lb_price": "23659.91",
+  "freight": "25500000",
+  "maklon": "18666880",
+  "processed_kg": "11666.8",
+  "output": {
+   "karkas_fresh": "6186.3",
+   "karkas_frozen": "2388.9",
+   "kepala": "491.5",
+   "ceker": "307.8",
+   "usus": "501.1",
+   "hja": "577",
+   "lemak": "43.3",
+   "other": "0"
+  }
+ },
+ {
+  "row": 7,
+  "date": "2026-08-26",
+  "status": "Aktual",
+  "batch_ref": "126/PO/KGR/08/2026",
+  "supplier": "Alberus",
+  "lb_kg": "12089.6",
+  "lb_price": "24148.14",
+  "freight": "13500000",
+  "maklon": "21762080",
+  "processed_kg": "11101.3",
+  "output": {
+   "karkas_fresh": "5004.7",
+   "karkas_frozen": "3214.5",
+   "kepala": "518.4",
+   "ceker": "325.6",
+   "usus": "514.9",
+   "hja": "622.3",
+   "lemak": "28.8",
+   "other": "0"
+  }
+ },
+ {
+  "row": 8,
+  "date": "2026-08-27",
+  "status": "Rencana",
+  "batch_ref": "128/PO/KGR/08/2026",
+  "supplier": "Alberus",
+  "lb_kg": "11681.4",
+  "lb_price": "24600",
+  "freight": "14400000",
+  "maklon": "17489600",
+  "processed_kg": "10931",
+  "output": {
+   "karkas_fresh": "5491.1",
+   "karkas_frozen": "2637.1",
+   "kepala": "489.9",
+   "ceker": "316.1",
+   "usus": "517.4",
+   "hja": "606.2",
+   "lemak": "17.9",
+   "other": "0"
+  }
+ },
+ {
+  "row": 9,
+  "date": "2026-08-28",
+  "status": "Rencana",
+  "batch_ref": "129/PO/KGR/08/2026",
+  "supplier": "Alberus",
+  "lb_kg": "15537.2",
+  "lb_price": "25412.04",
+  "freight": "15000000",
+  "maklon": "23472480",
+  "processed_kg": "14670.3",
+  "output": {
+   "karkas_fresh": "4611.8",
+   "karkas_frozen": "6314.3",
+   "kepala": "665.8",
+   "ceker": "429.3",
+   "usus": "640.6",
+   "hja": "804.9",
+   "lemak": "66.6",
+   "other": "0"
+  }
+ }
+]
