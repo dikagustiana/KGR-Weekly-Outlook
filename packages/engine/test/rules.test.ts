@@ -1,7 +1,7 @@
 /** Unit tests for every rule in PRD §5, on small synthetic weeks plus mutations of the example week. */
 import { describe, expect, it } from "vitest";
 import { Decimal } from "../src/decimal";
-import { addDays, mondayOf, daysInMonth } from "../src/dates";
+import { addDays, assertISODate, isISODate, mondayOf, daysInMonth } from "../src/dates";
 import { computeWeek } from "../src/week";
 import { loadFixtureWeek } from "../src/fixtures";
 import { fixed, pct } from "../src/format";
@@ -43,6 +43,16 @@ describe("dates", () => {
     expect(addDays("2026-08-30", 1)).toBe("2026-08-31");
     expect(daysInMonth("2026-02-10")).toBe(28);
     expect(daysInMonth("2026-08-27")).toBe(31);
+  });
+  it("only real calendar days are ISO dates", () => {
+    expect(isISODate("2026-08-31")).toBe(true);
+    expect(isISODate("2028-02-29")).toBe(true);
+    expect(isISODate("2026-02-29")).toBe(false);
+    expect(isISODate("2026-02-31")).toBe(false);
+    expect(isISODate("2026-13-01")).toBe(false);
+    expect(isISODate("26-08-31")).toBe(false);
+    expect(() => assertISODate("2026-09-31")).toThrow(/Tanggal tidak valid/);
+    expect(() => computeWeek({ ...base(), week: { ...base().week, update_date: "2026-08-32" } })).toThrow(/Tanggal tidak valid/);
   });
   it("house number format", () => {
     expect(fixed(new Decimal(24600))).toBe("24.600");
@@ -319,6 +329,14 @@ describe("control 20 — Ops vs Accurate", () => {
     expect(c.status).toBe("PERIKSA");
     w.superseded_ops_rows!.sales[0].kg = 99.8;
     expect(computeWeek(w).controls.controls.find((x) => x.no === 20)!.status).toBe("LULUS");
+  });
+  it("still-Ops rows are disclosed on the control without changing its status", () => {
+    const w = tiny({
+      sales_lines: [{ date: "2026-09-08", status: "Aktual", item_code: "T1", kg: 100, price: 45000, source: "Ops", document_ref: "SJ-2" }],
+    });
+    const c = computeWeek(w).controls.controls.find((x) => x.no === 20)!;
+    expect(c.status).toBe("LULUS");
+    expect(c.action).toContain("1 baris penjualan/penerimaan masih bersumber Ops");
   });
 });
 

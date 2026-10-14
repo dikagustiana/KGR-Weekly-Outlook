@@ -55,6 +55,11 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 - `apps/web/vercel.json` (functions in `hnd1`, next to the Supabase region); Supabase URL and publishable key default to the pilot project so a fresh Vercel import builds without configuration.
 - CI also typechecks and builds the web app.
 
+### Fixed
+- Week dates must be real calendar days: `2026-02-31` is rejected by the engine and gives 404 on `/w/…` and `/api/w/…` instead of a database error.
+- Control 20 states how many sales/receipt rows are still Ops-sourced (status unchanged; the rows are stored with each release).
+- Logged A18 in `docs/open-questions.md`: the cash-line counter account is matched on the amount rounded to Rp, as in `T_GL!P6:Q6`.
+
 ### Security
 - Self sign-up through the Auth API is refused: before, an allow-listed e-mail without a login could be claimed by anyone who called the sign-up endpoint (the trigger auto-confirms). Logins now come only from `set_login_password` / Admin, or Google OAuth for allow-listed e-mails (`20261014000600_signup_lock.sql`).
 - Trigger functions are no longer exposed under `/rest/v1/rpc`.

@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { computeWeek, type WeekInputs, type WeekResult } from "@kgr/engine";
+import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
 import { supabaseServer, type Supa } from "./supabase";
 
 export interface WeekRow {
@@ -43,6 +43,7 @@ export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
 }
 
 export async function getWeek(sb: Supa, weekStart: string): Promise<WeekRow | null> {
+  if (!isISODate(weekStart)) return null; // e.g. /w/2026-02-31: not a week, and Postgres would reject the literal
   const { data, error } = await sb.from("week").select("*").eq("week_start", weekStart).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as WeekRow) ?? null;

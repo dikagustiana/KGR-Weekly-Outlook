@@ -1,5 +1,6 @@
 import "server-only";
 import { notFound } from "next/navigation";
+import { isISODate } from "@kgr/engine";
 import { requireViewer, type Viewer } from "./session";
 import { computeForWeek, weeksCached, type Computed, type WeekRow } from "./data";
 import { supabaseServer } from "./supabase";
@@ -21,7 +22,7 @@ export interface WeekCtx {
 }
 
 export async function weekContext(weekStart: string): Promise<WeekCtx> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) notFound();
+  if (!isISODate(weekStart)) notFound();
   const viewer = await requireViewer();
   const [weeks, computed] = await Promise.all([weeksCached(), computeForWeek(weekStart)]);
   if (!computed) notFound();

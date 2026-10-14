@@ -25,6 +25,7 @@ Status legend: **OPEN** = needs a decision; **INFO** = documented behaviour, no 
 | A15 | Item master size | `I_Item` holds 125 codes | §7 "129 codes" | — | INFO — seed loads the 125 codes in the Excel |
 | A16 | Control 10 compares output kg to production receipts of the counted rows only | `Z_Kontrol!D14` | §8 | 0 | INFO |
 | A17 | P&L actual columns follow the journal (invoice date) while block 1 follows deliveries (DO) | `O_PnL!A39` note | §5.6 | revenue this week: GL 589,0 jt vs DO 571,1 jt | INFO — as designed in the Excel |
+| A18 | Counter account of a cash line is matched on the amount rounded to Rp | `T_GL!P6` key = voucher & `ROUND(O,0)`; `T_GL!Q6` MATCHes the rounded MAXIFS → when two non-cash lines of one voucher round to the same rupiah (e.g. 100,1 and 100,4) the first in sheet order wins, not the exact largest | §5.8 "largest counter account" | 0 vouchers of 606 in the example week | OPEN — engine keeps the Excel rule (`classifyCashLines`); matching the exact largest amount is a one-line change if preferred |
 
 ## B. PRD §11 open questions (decide before go-live)
 

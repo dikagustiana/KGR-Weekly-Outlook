@@ -188,8 +188,9 @@ export function computeControls(
   if (c20) {
     const r = control20(c20);
     const v = N(r.mismatches.length);
+    const opsNote = r.opsRowsActive > 0 ? ` · ${r.opsRowsActive} baris penjualan/penerimaan masih bersumber Ops (dicatat di rilis)` : "";
     add(20, "Data Ops vs Accurate (dokumen sama: kg ≤ 0,5%, nilai ≤ 1%)", v, ZERO, zeroIs(v, "PERIKSA"),
-      "Baris Accurate dipakai; cek selisih dengan dokumen ops");
+      "Baris Accurate dipakai; cek selisih dengan dokumen ops" + opsNote);
   }
 
   const counts: Record<ControlStatus, number> = { LULUS: 0, GAGAL: 0, PERIKSA: 0, "BELUM DIISI": 0 };

@@ -3,8 +3,16 @@ export type ISODate = string;
 
 const RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 'YYYY-MM-DD' that names a real calendar day (2026-02-31 is rejected, not rolled into March). */
+export function isISODate(d: string): boolean {
+  if (!RE.test(d)) return false;
+  const [y, m, day] = d.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, day));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === day;
+}
+
 export function assertISODate(d: string): ISODate {
-  if (!RE.test(d)) throw new Error(`Tanggal tidak valid (YYYY-MM-DD): ${d}`);
+  if (!isISODate(d)) throw new Error(`Tanggal tidak valid (YYYY-MM-DD): ${d}`);
   return d;
 }
 
