@@ -27,3 +27,5 @@ jobs:
           git diff --exit-code -- docs/parity.md docs/parity-cells.csv
       - name: CLI smoke test
         run: pnpm outlook --week 2026-08-24 --today 2026-08-27 --blocks 1-7
+      - name: Web app builds
+        run: pnpm build
