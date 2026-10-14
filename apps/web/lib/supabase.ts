@@ -1,19 +1,12 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
-export function supabaseEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY belum diisi");
-  return { url, key };
-}
+import { SUPABASE_KEY, SUPABASE_URL } from "./env";
 
 /** Per-request server client acting as the signed-in user (RLS applies). */
 export async function supabaseServer() {
-  const { url, key } = supabaseEnv();
   const store = await cookies();
-  return createServerClient(url, key, {
+  return createServerClient(SUPABASE_URL, SUPABASE_KEY, {
     cookies: {
       getAll: () => store.getAll(),
       setAll: (list) => {
