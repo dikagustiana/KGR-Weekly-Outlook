@@ -35,7 +35,7 @@ Status legend: **OPEN** = needs a decision; **INFO** = documented behaviour, no 
 | B3 | Collections: manual cash plan or AR aging with customer terms? | Manual cash plan (T_Kas_Rencana) |
 | B4 | HPP of actual sales: DO value from inventory valuation, or weekly average cost? | DO value when uploaded (`sales_line.hpp_actual`), else weekly average cost |
 | B5 | Karkas by size (Uk 0,5–2,0)? | Fresh/frozen only |
-| B6 | Hosting/ownership: SAMB Vercel/Supabase accounts, user administration | Deployed on the connected Vercel team and Supabase org (see `docs/handover.md`); Admin manages users in the app |
+| B6 | Hosting/ownership: SAMB Vercel/Supabase accounts, user administration | Supabase project `uxqbtverhnpiryhzbenr` and a Vercel project imported from this repo (root `apps/web`, see `docs/handover.md` §2); Admin manages users in the app. Move both to SAMB-owned accounts before go-live |
 | B7 | Accurate API on the current licence? | Uploads only |
 | B8 | Horizon fresh days 3, target shrink 3%, stock-age limit 30 days | Seeded as placeholders, flagged in `parameter.placeholder_note` |
 
@@ -46,3 +46,14 @@ Status legend: **OPEN** = needs a decision; **INFO** = documented behaviour, no 
 | C1 | PDF export | Server-side PDF generated in Node (pdfmake) from the engine snapshot, A4 landscape; the browser print view uses the same layout via print CSS | PRD §9 suggests headless Chromium; a Chromium binary in a Vercel function is fragile and slow on cold start during the 06:00–10:00 window. Numbers come from the same snapshot, so they match the screen |
 | C2 | Week rollover opening stock | From the Sunday inventory-valuation upload; if missing, carried from last week's projected closing per key and flagged `source = Ops` until the upload lands | PRD §2 weekly routine |
 | C3 | Money in the database | `numeric(18,2)`; kg `numeric(12,2)`; engine uses decimal.js | PRD §9 |
+| C4 | Login | E-mail + password; logins are created by the Admin (Admin → Pengguna) or, for the first Admin, with `set_login_password` in the SQL editor. Self sign-up is refused by the `auth.users` trigger; Google OAuth is optional and still limited to the allow-list | PRD §9 asks for Supabase Auth with Google Workspace e-mail. The Google provider needs an OAuth client in SAMB's Google Workspace (not available during the build), and Supabase's built-in mailer only delivers to project members (no SMTP configured), so e-mail links would not reach the team. Password logins work today; the "Masuk dengan Google" button is already built — enable the provider, add the redirect URL and set `NEXT_PUBLIC_AUTH_GOOGLE=1` |
+| C5 | Supabase URL / publishable key | Defaults in `apps/web/lib/env.ts`; env vars override | The publishable key is public by design (shipped to the browser, RLS protects data); a fresh Vercel import works without configuration |
+| C6 | Mobile | All pages render on a phone; input navigation is hidden below 760 px, wide tables scroll inside their card with the line label pinned | PRD §9 "mobile read-only Outlook and statement summary". Writes stay possible for roles that have them (the server and RLS do not depend on screen size) |
+
+## D. Pilot log (M5 — two live weeks in parallel with the Excel)
+
+One row per difference between the app and the Excel during the pilot. Rule unchanged until the owner decides; a decided change gets a test, a CHANGELOG line and a parity re-run.
+
+| Date | Week | Block / statement line | Excel (cell, value) | App (value) | Cause | Decision | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| — | — | — | — | — | — | — | — |

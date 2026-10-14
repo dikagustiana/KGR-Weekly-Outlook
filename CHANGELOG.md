@@ -22,3 +22,39 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 ### Added
 - §5.6 weekly P&L (O_PnL), §5.7 balance sheet with planned-flow roll-forward (O_BS), §5.8 direct cash flow with counter-account classification, tie-outs and daily cash (O_CF).
 - Controls 1–19 (Z_Kontrol) and control 20 (Ops vs Accurate), block 8 statement summary.
+
+## [M2] Data layer and uploads
+
+### Added
+- Supabase schema for PRD §4 (`supabase/migrations/`): weeks, parameters, SKU keys and prices, item/COA maps, opening stock, sales, receipts, batches, GL lines, opening TB, run-rate, cash plan, uploads, releases, audit log. Money `numeric(18,2)`, kg `numeric(12,2)`; provenance on every input row (source Accurate/Ops/Manual, document ref, line key, upload id); soft delete.
+- Row Level Security per role (Admin, Inventory Accounting, Finance, Sales, PPIC, Purchasing/Ops, Management) with column guards on parameters, prices and weeks; closed weeks are read-only; every change written to `audit_log` by trigger; `apply_changes` RPC applies an upload atomically under the caller's RLS.
+- Login allow-list on `auth.users` (only active `app_user` e-mails); Admin creates logins and resets passwords in the app; first Admin via `set_login_password` in the SQL editor.
+- `@kgr/parsers` (SheetJS): Accurate sales, goods receipts, inventory ledger and balance, journal, trial balance; Ops batch costing, delivery notes, trading GRN, stock count; CSV orders and plans; the full KGR_Weekly_Outlook workbook. Indonesian and English number/date notation; header detection by alias.
+- Upload wizard: file to private Storage, server-side parse, preview with new/updated/unchanged/superseded counts, item-mapping shortcuts, commit. Re-uploading the same file is idempotent (line keys; legacy rows matched by content).
+- Week rollover (Monday): parameters, prices, run-rate and TB carried; opening stock from last week's projected closing until the Monday inventory valuation lands; last-week summary from the latest release.
+
+## [M3] Outlook, input pages, controls 1–11 + 20, PDF
+
+### Added
+- Next.js App Router app (`apps/web`), Bahasa Indonesia UI with the Excel labels, house number format (`id-ID`), cream inputs, green source links, red warnings, a "Cara hitung" tooltip on every computed figure.
+- Pages: Outlook (blocks 1–8), Stok (O_Stok with status codes and CSV export), Batch RPA, input pages per table (Penjualan with "Terkirim", Penerimaan, Batch, Kas, Stok awal, Parameter, Harga, Run-rate) with keyboard entry and CSV paste, master Item/COA/SKU, Admin Minggu/Pengguna/Audit (restore).
+- Week banner: control status, last release, rows still sourced from Ops, opening-stock flag, closed week.
+- PDF export (pdfmake, A4 landscape, 3 pages) and a print view with the same layout; deterministic snapshot JSON per week.
+
+## [M4] Statements, controls 12–19, block 8, release
+
+### Added
+- Laba Rugi, Neraca and Arus Kas pages (statement lines in English as in the P&L deck), drill-down from actual figures to journal lines, cash-flow category override per voucher.
+- Kontrol page (controls 1–20, LULUS / PERIKSA / BELUM DIISI / GAGAL) and Rilis: a release stores the snapshot JSON and the PDF in Storage with who/when; any GAGAL blocks the release.
+
+## [M5] Pilot support
+
+### Added
+- Mobile read-only layout: input navigation hidden below 760 px, wide tables scroll inside their card with the line label pinned.
+- `docs/handover.md` (deploy, first Admin, weekly routine, roles, troubleshooting); pilot log section D in `docs/open-questions.md`.
+- `apps/web/vercel.json` (functions in `hnd1`, next to the Supabase region); Supabase URL and publishable key default to the pilot project so a fresh Vercel import builds without configuration.
+- CI also typechecks and builds the web app.
+
+### Security
+- Self sign-up through the Auth API is refused: before, an allow-listed e-mail without a login could be claimed by anyone who called the sign-up endpoint (the trigger auto-confirms). Logins now come only from `set_login_password` / Admin, or Google OAuth for allow-listed e-mails (`20261014000600_signup_lock.sql`).
+- Trigger functions are no longer exposed under `/rest/v1/rpc`.
