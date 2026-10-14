@@ -321,3 +321,11 @@ describe("control 20 — Ops vs Accurate", () => {
     expect(computeWeek(w).controls.controls.find((x) => x.no === 20)!.status).toBe("LULUS");
   });
 });
+
+describe("bundled example week", () => {
+  it("equals the fixtures loaded from disk", async () => {
+    const { exampleWeekInputs } = await import("../src/example-week");
+    const { snapshotJson } = await import("../src/snapshot");
+    expect(snapshotJson(computeWeek(exampleWeekInputs()))).toBe(snapshotJson(computeWeek(base())));
+  });
+});

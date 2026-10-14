@@ -309,7 +309,7 @@ export function prepare(inputs: WeekInputs): Prepared {
   const opening: OpeningP[] = inputs.opening_stock
     .map((r, idx) => ({
       idx, src: r,
-      key: isBlank(r.item_code) ? "" : keyOf(null, r.item_code),
+      key: !isBlank(r.key_manual) ? String(r.key_manual) : isBlank(r.item_code) ? "" : keyOf(null, r.item_code),
       kg: D(r.kg), value: D(r.value), age: D(r.avg_age_days), kgOverAge: D(r.kg_over_age_limit),
     }));
 

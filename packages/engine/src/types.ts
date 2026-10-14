@@ -101,6 +101,8 @@ export interface CoaMap {
 export interface OpeningStockRow extends Provenance {
   item_code: string | null;
   item_name?: string | null;
+  /** Only for rows carried from last week's projection per key (not in the Excel's I_Stok_Awal). */
+  key_manual?: string | null;
   kg: Num | null;
   value: Num | null;
   avg_age_days: Num | null;
