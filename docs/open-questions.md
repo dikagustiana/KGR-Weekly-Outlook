@@ -36,7 +36,7 @@ Status legend: **OPEN** = needs a decision; **INFO** = documented behaviour, no 
 | B3 | Collections: manual cash plan or AR aging with customer terms? | Manual cash plan (T_Kas_Rencana) |
 | B4 | HPP of actual sales: DO value from inventory valuation, or weekly average cost? | DO value when uploaded (`sales_line.hpp_actual`), else weekly average cost |
 | B5 | Karkas by size (Uk 0,5–2,0)? | Fresh/frozen only |
-| B6 | Hosting/ownership: SAMB Vercel/Supabase accounts, user administration | Supabase project `uxqbtverhnpiryhzbenr` and a Vercel project imported from this repo (root `apps/web`, see `docs/handover.md` §2); Admin manages users in the app. Move both to SAMB-owned accounts before go-live |
+| B6 | Hosting/ownership: SAMB Vercel/Supabase accounts, user administration | Supabase project `uxqbtverhnpiryhzbenr` and Vercel project `kgr-weekly-outlook` (https://kgr-weekly-outlook.vercel.app, root `apps/web`, see `docs/handover.md` §2); Admin manages users in the app. Move both to SAMB-owned accounts before go-live |
 | B7 | Accurate API on the current licence? | Uploads only |
 | B8 | Horizon fresh days 3, target shrink 3%, stock-age limit 30 days | Seeded as placeholders, flagged in `parameter.placeholder_note` |
 

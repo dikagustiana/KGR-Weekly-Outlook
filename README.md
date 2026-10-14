@@ -2,6 +2,7 @@
 
 Web app that replaces `KGR_Weekly_Outlook.xlsx` for PT Karya Gudang Rabat (SAMB Group): one source of truth per week for stock, RPA and trading decisions, weekly P&L, balance sheet, cash flow and the 20 controls — multi-user, role-based, released as a PDF.
 
+- Live: https://kgr-weekly-outlook.vercel.app (login allow-list; see the handover for the first Admin login).
 - Spec: [`docs/PRD.md`](docs/PRD.md). The Excel in [`reference/`](reference/) is the executable spec; where they differ the Excel wins and the difference is logged in [`docs/open-questions.md`](docs/open-questions.md).
 - Parity: [`docs/parity.md`](docs/parity.md) — 17.161 of 17.161 formula cells of the reference week reproduced (Rp 1 / 0,01 kg tolerance).
 - Running it, deploying it, first Admin login, weekly routine: [`docs/handover.md`](docs/handover.md).

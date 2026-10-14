@@ -54,6 +54,7 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 - `docs/handover.md` (deploy, first Admin, weekly routine, roles, troubleshooting); pilot log section D in `docs/open-questions.md`.
 - `apps/web/vercel.json` (functions in `hnd1`, next to the Supabase region); Supabase URL and publishable key default to the pilot project so a fresh Vercel import builds without configuration.
 - CI also typechecks and builds the web app.
+- Deployed to Vercel: https://kgr-weekly-outlook.vercel.app (project `kgr-weekly-outlook`, root `apps/web`, functions in `hnd1`), verified end to end on the live URL.
 
 ### Fixed
 - Week dates must be real calendar days: `2026-02-31` is rejected by the engine and gives 404 on `/w/…` and `/api/w/…` instead of a database error.

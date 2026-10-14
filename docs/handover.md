@@ -13,21 +13,22 @@ Repo: `dikagustiana/KGR-Weekly-Outlook`. Spesifikasi: `docs/PRD.md`; Excel acuan
 | Aplikasi web (`apps/web`) | Outlook, Stok, Batch RPA, Laba Rugi, Neraca, Arus Kas, Kontrol, Rilis, input per tabel, upload wizard, master Item/COA/SKU, Admin (minggu, pengguna, audit), PDF A4 landscape | snapshot dari database identik byte-per-byte dengan snapshot fixture (SHA-256 `947ce203…a83`) |
 | Mobile | Hanya baca: Outlook dan laporan; tabel lebar digeser ke samping dengan label baris tetap terlihat | dicek di viewport iPhone 13 |
 
-## 2. Deploy ke Vercel
+## 2. Vercel
 
-Build sudah divalidasi dengan `vercel build --prod` (output `.vercel/output` lengkap, font PDF dan fixture contoh ikut ter-bundle).
+**Live: https://kgr-weekly-outlook.vercel.app**
 
-Konektor Vercel di sesi pembuatan tidak punya izin membuat project (HTTP 403), jadi project dibuat sekali dari dashboard:
+| | |
+| --- | --- |
+| Project | `kgr-weekly-outlook` (`prj_ecSeflSq6gbm3fHMsQleU1MocXyc`) di tim `dikagirawan-4804s-projects` |
+| Repo | `dikagustiana/KGR-Weekly-Outlook`, production branch `main`, **Root Directory `apps/web`** |
+| Build | Next.js, pnpm (dari `pnpm-lock.yaml` + `packageManager`), Node 22.x |
+| Fungsi | region `hnd1` (Tokyo, dekat Supabase `ap-northeast-1`), diatur di `apps/web/vercel.json` |
+| Env vars | tidak wajib — default di `apps/web/lib/env.ts` menunjuk ke project Supabase pilot. Isi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` hanya bila pindah project; `NEXT_PUBLIC_AUTH_GOOGLE=1` menampilkan tombol Google |
+| Proteksi | domain production publik (aplikasi punya login sendiri); deployment preview memakai Vercel Authentication |
 
-1. Gabungkan [dikagustiana/KGR-Weekly-Outlook#1](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/1) ke `main` (production branch Vercel = `main`).
-2. vercel.com → **Add New… → Project** → impor `dikagustiana/KGR-Weekly-Outlook`.
-3. **Root Directory: `apps/web`** (wajib — monorepo). Framework terdeteksi Next.js; install/build biarkan default (pnpm terdeteksi dari `pnpm-lock.yaml` + `packageManager`).
-4. Environment variables: tidak wajib. Default di `apps/web/lib/env.ts` menunjuk ke project Supabase pilot. Isi `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` hanya bila pindah project. `NEXT_PUBLIC_AUTH_GOOGLE=1` menampilkan tombol Google setelah provider Google diaktifkan.
-5. Deploy. Region fungsi `hnd1` (Tokyo, dekat Supabase `ap-northeast-1`) diatur di `apps/web/vercel.json`.
+Deploy pertama (14 Okt 2026) dibuat dari branch [dikagustiana/KGR-Weekly-Outlook#1](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/1) ke production. Setelah PR di-merge, setiap push ke `main` otomatis deploy ke production; push ke branch lain = preview.
 
-Setelah itu setiap push ke `main` otomatis deploy ke production; push ke branch lain = preview.
-
-Cek setelah deploy: buka `/login`, masuk, buka `/w/2026-08-24/outlook` dan `/api/w/2026-08-24/pdf`.
+Diverifikasi di URL live: 29 halaman + PDF/CSV/JSON membalas 200, snapshot minggu contoh SHA-256 `947ce203…a83` (identik dengan fixture), simpan parameter mengubah kontrol 7 seperti di Excel, tanggal mustahil (`/w/2026-02-31`) → 404, tampilan mobile tanpa geser halaman.
 
 ## 3. Supabase
 
