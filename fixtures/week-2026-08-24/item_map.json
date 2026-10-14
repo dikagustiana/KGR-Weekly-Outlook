@@ -1,0 +1,627 @@
+[
+ {
+  "item_code": "JLB0055",
+  "item_name": "Parting Parting 10 Fresh Premium",
+  "key": "RPA|Paha (parting)|Fresh"
+ },
+ {
+  "item_code": "JLB0078",
+  "item_name": "Boneless BL Fresh Ceker",
+  "key": "RPA|Ceker|Fresh"
+ },
+ {
+  "item_code": "JLB0080",
+  "item_name": "Boneless BL Fresh HJA",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh"
+ },
+ {
+  "item_code": "JLB0081",
+  "item_name": "Boneless BL Fresh HJA - Ampela",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh"
+ },
+ {
+  "item_code": "JLB0084",
+  "item_name": "Boneless BL Fresh HJA - Hati",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh"
+ },
+ {
+  "item_code": "JLB0087",
+  "item_name": "Boneless BL Fresh HJA - Jantung",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh"
+ },
+ {
+  "item_code": "JLB0092",
+  "item_name": "Boneless BL Fresh Kepala",
+  "key": "RPA|Kepala|Fresh"
+ },
+ {
+  "item_code": "JLB0104",
+  "item_name": "Boneless BL Fresh KRK",
+  "key": "RPA|KRK (Kerangka)|Fresh"
+ },
+ {
+  "item_code": "JLB0113",
+  "item_name": "Boneless BL Fresh KRK - Tungir KRK",
+  "key": "RPA|KRK (Kerangka)|Fresh"
+ },
+ {
+  "item_code": "JLB0116",
+  "item_name": "Boneless BL Fresh Kulit",
+  "key": "RPA|Kulit|Fresh"
+ },
+ {
+  "item_code": "JLB0118",
+  "item_name": "Boneless BL Fresh Lemak",
+  "key": "RPA|Lemak|Fresh"
+ },
+ {
+  "item_code": "JLB0120",
+  "item_name": "Boneless BL Fresh Sayap Grade A",
+  "key": "RPA|Sayap|Fresh"
+ },
+ {
+  "item_code": "JLB0122",
+  "item_name": "Boneless BL Fresh Sayap Grade C",
+  "key": "RPA|Sayap|Fresh"
+ },
+ {
+  "item_code": "JLB0124",
+  "item_name": "Boneless BL Fresh Sayap Premium",
+  "key": "RPA|Sayap|Fresh"
+ },
+ {
+  "item_code": "JLB0125",
+  "item_name": "Boneless BL Fresh TLP",
+  "key": "RPA|TLP|Fresh"
+ },
+ {
+  "item_code": "JLB0135",
+  "item_name": "Boneless BL Fresh Usus Kotor",
+  "key": "RPA|Usus|Fresh"
+ },
+ {
+  "item_code": "JLB0138",
+  "item_name": "Boneless BL Frozen Ceker",
+  "key": "RPA|Ceker|Frozen"
+ },
+ {
+  "item_code": "JLB0140",
+  "item_name": "Boneless BL Frozen HJA",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen"
+ },
+ {
+  "item_code": "JLB0141",
+  "item_name": "Boneless BL Frozen HJA - Ampela",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen"
+ },
+ {
+  "item_code": "JLB0144",
+  "item_name": "Boneless BL Frozen HJA - Hati",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen"
+ },
+ {
+  "item_code": "JLB0147",
+  "item_name": "Boneless BL Frozen HJA - Jantung",
+  "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen"
+ },
+ {
+  "item_code": "JLB0152",
+  "item_name": "Boneless BL Frozen Kepala",
+  "key": "RPA|Kepala|Frozen"
+ },
+ {
+  "item_code": "JLB0164",
+  "item_name": "Boneless BL Frozen KRK",
+  "key": "RPA|KRK (Kerangka)|Frozen"
+ },
+ {
+  "item_code": "JLB0170",
+  "item_name": "Boneless BL Frozen KRK - Tulang Muda",
+  "key": "RPA|KRK (Kerangka)|Frozen"
+ },
+ {
+  "item_code": "JLB0172",
+  "item_name": "Boneless BL Frozen KRK - Tungir KRK",
+  "key": "RPA|KRK (Kerangka)|Frozen"
+ },
+ {
+  "item_code": "JLB0175",
+  "item_name": "Boneless BL Frozen Kulit",
+  "key": "RPA|Kulit|Frozen"
+ },
+ {
+  "item_code": "JLB0177",
+  "item_name": "Boneless BL Frozen Lemak",
+  "key": "RPA|Lemak|Frozen"
+ },
+ {
+  "item_code": "JLB0179",
+  "item_name": "Boneless BL Frozen Sayap Grade A",
+  "key": "RPA|Sayap|Frozen"
+ },
+ {
+  "item_code": "JLB0181",
+  "item_name": "Boneless BL Frozen Sayap Grade C",
+  "key": "RPA|Sayap|Frozen"
+ },
+ {
+  "item_code": "JLB0183",
+  "item_name": "Boneless BL Frozen Sayap Premium",
+  "key": "RPA|Sayap|Frozen"
+ },
+ {
+  "item_code": "JLB0184",
+  "item_name": "Boneless BL Frozen TLP",
+  "key": "RPA|TLP|Frozen"
+ },
+ {
+  "item_code": "JLB0194",
+  "item_name": "Boneless BL Frozen Usus Kotor",
+  "key": "RPA|Usus|Frozen"
+ },
+ {
+  "item_code": "JLB0198",
+  "item_name": "Boneless BLD Fresh Premium",
+  "key": "RPA|BLD|Fresh"
+ },
+ {
+  "item_code": "JLB0200",
+  "item_name": "Boneless BLD Frozen Grade B",
+  "key": "RPA|BLD|Frozen"
+ },
+ {
+  "item_code": "JLB0201",
+  "item_name": "Boneless BLD Frozen Premium",
+  "key": "RPA|BLD|Frozen"
+ },
+ {
+  "item_code": "JLB0204",
+  "item_name": "Boneless BLDK Fresh Premium",
+  "key": "RPA|BLDK|Fresh"
+ },
+ {
+  "item_code": "JLB0210",
+  "item_name": "Boneless BLP Fresh Premium",
+  "key": "RPA|BLP|Fresh"
+ },
+ {
+  "item_code": "JLB0211",
+  "item_name": "Boneless BLP Frozen Grade A",
+  "key": "RPA|BLP|Frozen"
+ },
+ {
+  "item_code": "JLB0212",
+  "item_name": "Boneless BLP Frozen Grade D",
+  "key": "RPA|BLP|Frozen"
+ },
+ {
+  "item_code": "JLB0213",
+  "item_name": "Boneless BLP Frozen Premium",
+  "key": "RPA|BLP|Frozen"
+ },
+ {
+  "item_code": "JLB0216",
+  "item_name": "Boneless BLPK Fresh Premium",
+  "key": "RPA|BLPK|Fresh"
+ },
+ {
+  "item_code": "JLB0219",
+  "item_name": "Boneless BLPK Frozen Premium",
+  "key": "RPA|BLPK|Frozen"
+ },
+ {
+  "item_code": "JLB0272",
+  "item_name": "Karkas Uk 0.4 Karkas Uk 0.4 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0338",
+  "item_name": "Karkas Uk 0.5 Karkas Uk 0.5 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0403",
+  "item_name": "Karkas Uk 0.6 Karkas Uk 0.6 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0468",
+  "item_name": "Karkas Uk 0.7 Karkas Uk 0.7 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0533",
+  "item_name": "Karkas Uk 0.8 Karkas Uk 0.8 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0593",
+  "item_name": "Karkas Uk 0.9 Karkas Uk 0.9 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0598",
+  "item_name": "Karkas Uk 0.9 Karkas Uk 0.9 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0599",
+  "item_name": "Karkas Uk 0.9 Karkas Uk 0.9 Frozen Grade B",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0658",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0663",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0690",
+  "item_name": "Karkas Uk 1.0 Karkas Uk 1.0 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0697",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Fresh Grade A",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0724",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0729",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0756",
+  "item_name": "Karkas Uk 1.1 Karkas Uk 1.1 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0763",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0790",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0795",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0822",
+  "item_name": "Karkas Uk 1.2 Karkas Uk 1.2 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0829",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0856",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0861",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0888",
+  "item_name": "Karkas Uk 1.3 Karkas Uk 1.3 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0922",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0927",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0954",
+  "item_name": "Karkas Uk 1.4 Karkas Uk 1.4 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB0988",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB0993",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1020",
+  "item_name": "Karkas Uk 1.5 Karkas Uk 1.5 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1054",
+  "item_name": "Karkas Uk 1.6 Karkas Uk 1.6 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB1059",
+  "item_name": "Karkas Uk 1.6 Karkas Uk 1.6 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1086",
+  "item_name": "Karkas Uk 1.6 Karkas Uk 1.6 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1120",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Fresh Premium",
+  "key": "RPA|Karkas|Fresh"
+ },
+ {
+  "item_code": "JLB1125",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1152",
+  "item_name": "Karkas Uk 1.7 Karkas Uk 1.7 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1192",
+  "item_name": "Karkas Uk 1.8 Karkas Uk 1.8 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1218",
+  "item_name": "Karkas Uk 1.8 Karkas Uk 1.8 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1257",
+  "item_name": "Karkas Uk 1.9 Karkas Uk 1.9 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1284",
+  "item_name": "Karkas Uk 1.9 Karkas Uk 1.9 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1323",
+  "item_name": "Karkas Uk 2.0 Karkas Uk 2.0 Frozen Grade A",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1350",
+  "item_name": "Karkas Uk 2.0 Karkas Uk 2.0 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1795",
+  "item_name": "usus bersih Usus bersih Fresh",
+  "key": "RPA|Usus|Fresh"
+ },
+ {
+  "item_code": "JLB1847-FRS",
+  "item_name": "Paha Utuh Fresh",
+  "key": "RPA|Paha (parting)|Fresh"
+ },
+ {
+  "item_code": "JLB1848",
+  "item_name": "Paha Bawah Fresh",
+  "key": "RPA|Paha (parting)|Fresh"
+ },
+ {
+  "item_code": "JLB1850",
+  "item_name": "Paha Bawah Frozen",
+  "key": "RPA|Paha (parting)|Frozen"
+ },
+ {
+  "item_code": "JLB1855",
+  "item_name": "Boneless BL Frozen Ceker Grade B",
+  "key": "RPA|Ceker|Frozen"
+ },
+ {
+  "item_code": "JLB1857",
+  "item_name": "Ayam Karkas Mix",
+  "key": "RPA|Karkas|n/a"
+ },
+ {
+  "item_code": "JLB1858",
+  "item_name": "Karkas Uk 0.9 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1859",
+  "item_name": "Karkas Uk 0.8 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1862",
+  "item_name": "Paha Atas Frozen",
+  "key": "RPA|Paha (parting)|Frozen"
+ },
+ {
+  "item_code": "JLB1864",
+  "item_name": "Karkas Uk 0.4 Karkas Uk 0.4 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1865",
+  "item_name": "Karkas Uk 0.5 Karkas Uk 0.5 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1866",
+  "item_name": "Karkas Uk 0.6 Karkas Uk 0.6 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "JLB1867",
+  "item_name": "Karkas Uk 0.7 Karkas Uk 0.7 Frozen Premium",
+  "key": "RPA|Karkas|Frozen"
+ },
+ {
+  "item_code": "TRD0001",
+  "item_name": "Kulit Leher",
+  "key": "Trading|Kulit|n/a"
+ },
+ {
+  "item_code": "TRD0003",
+  "item_name": "Kulit Body Frozen",
+  "key": "Trading|Kulit|Frozen"
+ },
+ {
+  "item_code": "TRD0004",
+  "item_name": "Hati Bersih",
+  "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a"
+ },
+ {
+  "item_code": "TRD0005",
+  "item_name": "Ampela Bersih",
+  "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a"
+ },
+ {
+  "item_code": "TRD0006",
+  "item_name": "Boneless Dada",
+  "key": "Trading|BLD|n/a"
+ },
+ {
+  "item_code": "TRD0007",
+  "item_name": "Usus Bersih Fresh",
+  "key": "Trading|Usus|Fresh"
+ },
+ {
+  "item_code": "TRD0008",
+  "item_name": "BLD Frozen",
+  "key": "Trading|BLD|Frozen"
+ },
+ {
+  "item_code": "TRD0010",
+  "item_name": "BLP Frozen",
+  "key": "Trading|BLP|Frozen"
+ },
+ {
+  "item_code": "TRD0012",
+  "item_name": "BLPK Frozen",
+  "key": "Trading|BLPK|Frozen"
+ },
+ {
+  "item_code": "TRD0018",
+  "item_name": "Jantung Bersih",
+  "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a"
+ },
+ {
+  "item_code": "TRD0019",
+  "item_name": "Karkas Uk 0.6",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0020",
+  "item_name": "Karkas Uk 0.7",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0021",
+  "item_name": "Karkas Uk 0.8",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0022",
+  "item_name": "Karkas Uk 0.9",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0023",
+  "item_name": "Karkas Uk 1.0",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0024",
+  "item_name": "Karkas Uk 1.1",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0025",
+  "item_name": "Karkas Uk 1.2",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0026",
+  "item_name": "Karkas Uk 1.3",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0027",
+  "item_name": "Karkas Uk 1.4",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0028",
+  "item_name": "Karkas Uk 1.5",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0029",
+  "item_name": "Karkas Uk 1.6",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0030",
+  "item_name": "Karkas Uk 1.7",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0031",
+  "item_name": "Karkas Uk 1.8",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0032",
+  "item_name": "Karkas Uk 1.9",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0034",
+  "item_name": "KRK",
+  "key": "Trading|KRK (Kerangka)|n/a"
+ },
+ {
+  "item_code": "TRD0036",
+  "item_name": "Karkas Uk 0.5",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0037",
+  "item_name": "Karkas Uk 0.3",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0038",
+  "item_name": "Karkas Uk 0.4",
+  "key": "Trading|Karkas|n/a"
+ },
+ {
+  "item_code": "TRD0039",
+  "item_name": "Sayap",
+  "key": "Trading|Sayap|n/a"
+ }
+]

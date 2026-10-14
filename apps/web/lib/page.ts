@@ -1,0 +1,43 @@
+import "server-only";
+import { notFound } from "next/navigation";
+import { isISODate } from "@kgr/engine";
+import { requireViewer, type Viewer } from "./session";
+import { computeForWeek, weeksCached, type Computed, type WeekRow } from "./data";
+import { supabaseServer } from "./supabase";
+
+export interface LastRelease {
+  id: string;
+  released_by: string;
+  released_at: string;
+  update_date: string;
+  control_status: string;
+}
+
+export interface WeekCtx {
+  viewer: Viewer;
+  weeks: WeekRow[];
+  week: WeekRow;
+  computed: Computed;
+  lastRelease: LastRelease | null;
+}
+
+export async function weekContext(weekStart: string): Promise<WeekCtx> {
+  if (!isISODate(weekStart)) notFound();
+  const viewer = await requireViewer();
+  const [weeks, computed] = await Promise.all([weeksCached(), computeForWeek(weekStart)]);
+  if (!computed) notFound();
+  const sb = await supabaseServer();
+  const { data } = await sb.from("release").select("id, released_by, released_at, update_date, control_status")
+    .eq("week_id", computed.loaded.week.id).order("released_at", { ascending: false }).limit(1).maybeSingle();
+  return { viewer, weeks, week: computed.loaded.week, computed, lastRelease: (data as LastRelease) ?? null };
+}
+
+export type PageProps = { params: Promise<{ week: string }>; searchParams: Promise<Record<string, string | undefined>> };
+
+/** Context for pages outside a week path (admin, master, account): the week from ?week= or the latest. */
+export async function plainContext(weekParam?: string) {
+  const viewer = await requireViewer();
+  const weeks = await weeksCached();
+  const week = weeks.find((w) => w.week_start === weekParam) ?? weeks.find((w) => w.status !== "closed") ?? weeks[0] ?? null;
+  return { viewer, weeks, week };
+}

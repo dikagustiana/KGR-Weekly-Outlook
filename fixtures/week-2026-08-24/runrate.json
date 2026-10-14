@@ -1,0 +1,110 @@
+[
+ {
+  "pl_line": "Other COGS - Expedition",
+  "monthly_amount": "27845558",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "COGS - Blasting",
+  "monthly_amount": "91758920",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Delivery Expenses",
+  "monthly_amount": "15400000",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Commission Expenses",
+  "monthly_amount": "3619566",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Packaging",
+  "monthly_amount": "38919766",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Salaries and allowance",
+  "monthly_amount": "52186369",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Storage Expenses",
+  "monthly_amount": "82311726",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Office Transportation expenses",
+  "monthly_amount": "18858284",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Rent Expenses",
+  "monthly_amount": "3287526",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Professional Fee",
+  "monthly_amount": "0",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Office Supplies & Utilities",
+  "monthly_amount": "6239100",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Maintenance Expenses",
+  "monthly_amount": "0",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Tax expenses",
+  "monthly_amount": "-543214",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Other operating expenses",
+  "monthly_amount": "0",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Interest Expense",
+  "monthly_amount": "24441666",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Other Income",
+  "monthly_amount": "26363121",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Other Expense",
+  "monthly_amount": "366348",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ },
+ {
+  "pl_line": "Depreciation & amortisation",
+  "monthly_amount": "10393461",
+  "week_adjustment": "0",
+  "basis": "Contoh: aktual Juli 2026 per GL (bulan lalu)"
+ }
+]

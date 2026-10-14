@@ -1,0 +1,1250 @@
+[
+ {
+  "row": 6,
+  "account": "1101",
+  "name": "CASH",
+  "balance": "0"
+ },
+ {
+  "row": 7,
+  "account": "1101001",
+  "name": "Petty Cash - IDR",
+  "balance": "5000000"
+ },
+ {
+  "row": 8,
+  "account": "1102",
+  "name": "BANK",
+  "balance": "0"
+ },
+ {
+  "row": 9,
+  "account": "1102001",
+  "name": "BCA 484-0348-577",
+  "balance": "285078852"
+ },
+ {
+  "row": 10,
+  "account": "1102002",
+  "name": "BCA 484-0348-585",
+  "balance": "304502378.68"
+ },
+ {
+  "row": 11,
+  "account": "1102003",
+  "name": "Permata 702-214-459",
+  "balance": "5260193"
+ },
+ {
+  "row": 12,
+  "account": "1102004",
+  "name": "Permata 702-214-173",
+  "balance": "0"
+ },
+ {
+  "row": 13,
+  "account": "1102005",
+  "name": "BRI 186-0100-2495-300",
+  "balance": "0"
+ },
+ {
+  "row": 14,
+  "account": "1102006",
+  "name": "Mandiri 120-0051-680-168",
+  "balance": "0"
+ },
+ {
+  "row": 15,
+  "account": "1102007",
+  "name": "Cash On Hand",
+  "balance": "0"
+ },
+ {
+  "row": 16,
+  "account": "1102008",
+  "name": "Temporary Account",
+  "balance": "0"
+ },
+ {
+  "row": 17,
+  "account": "1102009",
+  "name": "Time Deposit",
+  "balance": "0"
+ },
+ {
+  "row": 18,
+  "account": "1103",
+  "name": "Receivable ( Customer )",
+  "balance": "0"
+ },
+ {
+  "row": 19,
+  "account": "1103101",
+  "name": "Account Receivable - Third Party",
+  "balance": "310674730"
+ },
+ {
+  "row": 20,
+  "account": "1103102",
+  "name": "Account Receivable - Affiliates",
+  "balance": "0"
+ },
+ {
+  "row": 21,
+  "account": "1103103",
+  "name": "Other Receivable - Third Party",
+  "balance": "0"
+ },
+ {
+  "row": 22,
+  "account": "1103104",
+  "name": "Others Receivable - Affiliates",
+  "balance": "0"
+ },
+ {
+  "row": 23,
+  "account": "1103105",
+  "name": "Employee Receivable",
+  "balance": "0"
+ },
+ {
+  "row": 24,
+  "account": "1103106",
+  "name": "Uncollectibe Accounts",
+  "balance": "0"
+ },
+ {
+  "row": 25,
+  "account": "1103120",
+  "name": "Cash Advance",
+  "balance": "1881947.55"
+ },
+ {
+  "row": 26,
+  "account": "1103121",
+  "name": "PT KGR Advance Payment",
+  "balance": "1470162550"
+ },
+ {
+  "row": 27,
+  "account": "1103122",
+  "name": "Rental Deposit",
+  "balance": "0"
+ },
+ {
+  "row": 28,
+  "account": "1103123",
+  "name": "Unbilled AR",
+  "balance": "0"
+ },
+ {
+  "row": 29,
+  "account": "1104",
+  "name": "Inventory",
+  "balance": "0"
+ },
+ {
+  "row": 30,
+  "account": "1104001",
+  "name": "Inventory - KGR",
+  "balance": "18963944.49"
+ },
+ {
+  "row": 31,
+  "account": "1104002",
+  "name": "Inventory In Transit - KGR",
+  "balance": "0.01"
+ },
+ {
+  "row": 32,
+  "account": "1104003",
+  "name": "Inventory Live Bird",
+  "balance": "646895042.62"
+ },
+ {
+  "row": 33,
+  "account": "1104004",
+  "name": "Inventory Other Products",
+  "balance": "105335657.09"
+ },
+ {
+  "row": 34,
+  "account": "1104005",
+  "name": "Inventory Packaging",
+  "balance": "0"
+ },
+ {
+  "row": 35,
+  "account": "1104006",
+  "name": "Inventory Trading",
+  "balance": "2124560080.04"
+ },
+ {
+  "row": 36,
+  "account": "1105",
+  "name": "Prepayment",
+  "balance": "0"
+ },
+ {
+  "row": 37,
+  "account": "1105001",
+  "name": "Prepaid Rent - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 38,
+  "account": "1105002",
+  "name": "Prepaid Insurance - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 39,
+  "account": "1105003",
+  "name": "Prepaid Income - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 40,
+  "account": "1105004",
+  "name": "Prepaid Other - KGR",
+  "balance": "79400000"
+ },
+ {
+  "row": 41,
+  "account": "1106",
+  "name": "Prepaid Tax",
+  "balance": "0"
+ },
+ {
+  "row": 42,
+  "account": "1106001",
+  "name": "VAT IN - KGR",
+  "balance": "123668554.67"
+ },
+ {
+  "row": 43,
+  "account": "1106002",
+  "name": "Prepaid WHT 21 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 44,
+  "account": "1106003",
+  "name": "Prepaid WHT 22 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 45,
+  "account": "1106004",
+  "name": "Prepaid WHT 23 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 46,
+  "account": "1106005",
+  "name": "Prepaid WHT 25 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 47,
+  "account": "1106006",
+  "name": "Prepaid WHT 4 (2) - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 48,
+  "account": "1107",
+  "name": "Other Current Asset",
+  "balance": "0"
+ },
+ {
+  "row": 49,
+  "account": "1107002",
+  "name": "Fixed Asset Transaction",
+  "balance": "0"
+ },
+ {
+  "row": 50,
+  "account": "1108",
+  "name": "Fixed Assets",
+  "balance": "0"
+ },
+ {
+  "row": 51,
+  "account": "1108001",
+  "name": "Cost Land - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 52,
+  "account": "1108002",
+  "name": "Cost Building - KGR",
+  "balance": "1291505000"
+ },
+ {
+  "row": 53,
+  "account": "1108003",
+  "name": "Cost Vehicle - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 54,
+  "account": "1108004",
+  "name": "Cost Tools & Equipment 1 - KGR",
+  "balance": "202011860"
+ },
+ {
+  "row": 55,
+  "account": "1108005",
+  "name": "Cost Tools & Equipment 2 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 56,
+  "account": "1108006",
+  "name": "Cost Computer Equipment 1 - KGR",
+  "balance": "37934293.61"
+ },
+ {
+  "row": 57,
+  "account": "1108007",
+  "name": "Cost Computer Equipment 2 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 58,
+  "account": "1108008",
+  "name": "Cost Software - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 59,
+  "account": "1109",
+  "name": "Accumulated Depreciation of Fixed Asset",
+  "balance": "0"
+ },
+ {
+  "row": 60,
+  "account": "1109001",
+  "name": "Accumulated Building Depreciation - KGR",
+  "balance": "-222035104.29"
+ },
+ {
+  "row": 61,
+  "account": "1109002",
+  "name": "Accumulated Depreciation Vehicles - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 62,
+  "account": "1109003",
+  "name": "Accumulated Depreciation Tools & Equipment 1 - KGR",
+  "balance": "-172938211.32"
+ },
+ {
+  "row": 63,
+  "account": "1109004",
+  "name": "Accumulated Depreciation Tools & Equipment 2 - KGR",
+  "balance": "-0.73"
+ },
+ {
+  "row": 64,
+  "account": "1109005",
+  "name": "Accumulated Depreciation Computer Equipment 1 - KGR",
+  "balance": "-33112632.01"
+ },
+ {
+  "row": 65,
+  "account": "1109006",
+  "name": "Accumulated Depreciation Computer Equipment 2 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 66,
+  "account": "1109007",
+  "name": "Accumulated Depreciation Software - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 67,
+  "account": "2101",
+  "name": "Account Payable [Vendor]",
+  "balance": "0"
+ },
+ {
+  "row": 68,
+  "account": "2101001",
+  "name": "Account Payable - Third Party - KGR",
+  "balance": "-4172730"
+ },
+ {
+  "row": 69,
+  "account": "2101002",
+  "name": "Account Payable - Affiliates - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 70,
+  "account": "2101003",
+  "name": "Others Payable - Third Party - KGR",
+  "balance": "-316670549.13"
+ },
+ {
+  "row": 71,
+  "account": "2101004",
+  "name": "Others Payable - Affiliates - KGR",
+  "balance": "-4429890485.97"
+ },
+ {
+  "row": 72,
+  "account": "2101005",
+  "name": "Employee Others Payable",
+  "balance": "0"
+ },
+ {
+  "row": 73,
+  "account": "2101006",
+  "name": "Unknown Receipt",
+  "balance": "0"
+ },
+ {
+  "row": 74,
+  "account": "2101020",
+  "name": "Down Payment From 3rd Parties - KGR",
+  "balance": "-628415"
+ },
+ {
+  "row": 75,
+  "account": "2102",
+  "name": "Tax Payable",
+  "balance": "0"
+ },
+ {
+  "row": 76,
+  "account": "2102001",
+  "name": "VAT OUT - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 77,
+  "account": "2102002",
+  "name": "Tax Payable WHT 21 - KGR",
+  "balance": "-940123.26"
+ },
+ {
+  "row": 78,
+  "account": "2102003",
+  "name": "Tax Payable WHT 23 - KGR",
+  "balance": "-8785608.39"
+ },
+ {
+  "row": 79,
+  "account": "2102004",
+  "name": "Tax Payable WHT 29 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 80,
+  "account": "2102005",
+  "name": "Tax Payable WHT 4  (2) - KGR",
+  "balance": "-328752.2"
+ },
+ {
+  "row": 81,
+  "account": "2102006",
+  "name": "Tax Payable WHT Final",
+  "balance": "0"
+ },
+ {
+  "row": 82,
+  "account": "2102007",
+  "name": "Tax Payable WHT 22 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 83,
+  "account": "2103",
+  "name": "Accrued Payable",
+  "balance": "0"
+ },
+ {
+  "row": 84,
+  "account": "2103001",
+  "name": "Salary, THR, Gratification Payable - KGR",
+  "balance": "1"
+ },
+ {
+  "row": 85,
+  "account": "2103002",
+  "name": "Accrued Social Security Payable - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 86,
+  "account": "2103003",
+  "name": "Accrued Electricity - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 87,
+  "account": "2103004",
+  "name": "Accrued Telecommunication and Internet - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 88,
+  "account": "2103005",
+  "name": "Accrued Water - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 89,
+  "account": "2103006",
+  "name": "Accrued Other - KGR",
+  "balance": "-3204200"
+ },
+ {
+  "row": 90,
+  "account": "2103007",
+  "name": "Accrued Cleanliness & Security - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 91,
+  "account": "2103008",
+  "name": "Deposit Rental From Customer",
+  "balance": "0"
+ },
+ {
+  "row": 92,
+  "account": "2103009",
+  "name": "Bank Loan - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 93,
+  "account": "2103010",
+  "name": "Non Bank Loan - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 94,
+  "account": "2103011",
+  "name": "Unbilled Vendor",
+  "balance": "0"
+ },
+ {
+  "row": 95,
+  "account": "2103012",
+  "name": "Unearned Income",
+  "balance": "-180998400"
+ },
+ {
+  "row": 96,
+  "account": "3100",
+  "name": "Equity",
+  "balance": "0"
+ },
+ {
+  "row": 97,
+  "account": "3100001",
+  "name": "Paid In Capital - KGR",
+  "balance": "-5000000000"
+ },
+ {
+  "row": 98,
+  "account": "3100002",
+  "name": "Deviden - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 99,
+  "account": "3100003",
+  "name": "Retained Earning - KGR",
+  "balance": "2495400101.18"
+ },
+ {
+  "row": 100,
+  "account": "3100004",
+  "name": "Current Year Earning - KGR",
+  "balance": "203034567.44"
+ },
+ {
+  "row": 101,
+  "account": "4101",
+  "name": "Sales",
+  "balance": "0"
+ },
+ {
+  "row": 102,
+  "account": "4101001",
+  "name": "Sales - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 103,
+  "account": "4101002",
+  "name": "Service Fee - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 104,
+  "account": "4101003",
+  "name": "Sales Returns - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 105,
+  "account": "4101004",
+  "name": "Sales Discount - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 106,
+  "account": "4101005",
+  "name": "Other Sales - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 107,
+  "account": "4101006",
+  "name": "Sales Live Bird",
+  "balance": "-2486192807.5"
+ },
+ {
+  "row": 108,
+  "account": "4101007",
+  "name": "Sales Other Products",
+  "balance": "-491638410"
+ },
+ {
+  "row": 109,
+  "account": "4101008",
+  "name": "Sales Return Live Bird",
+  "balance": "0"
+ },
+ {
+  "row": 110,
+  "account": "4101009",
+  "name": "Sales Return Other Products",
+  "balance": "0"
+ },
+ {
+  "row": 111,
+  "account": "4101010",
+  "name": "Sales Discount Live Bird",
+  "balance": "-7268180"
+ },
+ {
+  "row": 112,
+  "account": "4101011",
+  "name": "Sales Discount Other Products",
+  "balance": "0"
+ },
+ {
+  "row": 113,
+  "account": "4101012",
+  "name": "Sales Trading",
+  "balance": "-3992970083.2"
+ },
+ {
+  "row": 114,
+  "account": "4101013",
+  "name": "Unbilled Revenue",
+  "balance": "0"
+ },
+ {
+  "row": 115,
+  "account": "5100",
+  "name": "COGS",
+  "balance": "0"
+ },
+ {
+  "row": 116,
+  "account": "5100001",
+  "name": "COGS - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 117,
+  "account": "5100002",
+  "name": "OTHER COGS - Freight In - KGR",
+  "balance": "68000000"
+ },
+ {
+  "row": 118,
+  "account": "5100003",
+  "name": "OTHER COGS - Logistic Cost - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 119,
+  "account": "5100004",
+  "name": "COGS Live Bird",
+  "balance": "2471982972.74"
+ },
+ {
+  "row": 120,
+  "account": "5100005",
+  "name": "COGS Other Products",
+  "balance": "244918425.67"
+ },
+ {
+  "row": 121,
+  "account": "5100006",
+  "name": "Other COGS Labor",
+  "balance": "312986814.6"
+ },
+ {
+  "row": 122,
+  "account": "5100007",
+  "name": "Other COGS Expedition",
+  "balance": "211365236"
+ },
+ {
+  "row": 123,
+  "account": "5100008",
+  "name": "Other COGS Packaging",
+  "balance": "109091396"
+ },
+ {
+  "row": 124,
+  "account": "5100009",
+  "name": "Other COGS Blasting",
+  "balance": "201783911.44"
+ },
+ {
+  "row": 125,
+  "account": "5100010",
+  "name": "Other COGS Highway, Parking & Oil For Delivery",
+  "balance": "1659500"
+ },
+ {
+  "row": 126,
+  "account": "5100011",
+  "name": "COGS - Trading",
+  "balance": "3381669134.96"
+ },
+ {
+  "row": 127,
+  "account": "5100012",
+  "name": "Other COGS - Storage Expenses",
+  "balance": "114063612.25"
+ },
+ {
+  "row": 128,
+  "account": "5100013",
+  "name": "Other COGS - Handling In",
+  "balance": "16913714.45"
+ },
+ {
+  "row": 129,
+  "account": "5100014",
+  "name": "Other COGS - Handling Out",
+  "balance": "7245937.15"
+ },
+ {
+  "row": 130,
+  "account": "6000",
+  "name": "Operating Costs",
+  "balance": "0"
+ },
+ {
+  "row": 131,
+  "account": "610000",
+  "name": "Sales & Marketing Expenses",
+  "balance": "0"
+ },
+ {
+  "row": 132,
+  "account": "6100001",
+  "name": "Salary, THR, and Gratification for Sales Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 133,
+  "account": "6100002",
+  "name": "Social Security for Sales Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 134,
+  "account": "6100003",
+  "name": "Advertising & Promotion - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 135,
+  "account": "6100004",
+  "name": "Entertainment, Gift & Donation for Sales Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 136,
+  "account": "6100005",
+  "name": "Sales Commission - KGR",
+  "balance": "1610802"
+ },
+ {
+  "row": 137,
+  "account": "6100006",
+  "name": "Freight Out - KGR",
+  "balance": "15400000"
+ },
+ {
+  "row": 138,
+  "account": "6100007",
+  "name": "Snack and Comsumption for Sales Team - KGR",
+  "balance": "46000"
+ },
+ {
+  "row": 139,
+  "account": "6100008",
+  "name": "Transportation for Sales Team - KGR",
+  "balance": "7000000"
+ },
+ {
+  "row": 140,
+  "account": "6100009",
+  "name": "Highway, Parking & Oil for Sales Team - KGR",
+  "balance": "8844020"
+ },
+ {
+  "row": 141,
+  "account": "6100010",
+  "name": "Travelling & Accomodation for Sales Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 142,
+  "account": "620000",
+  "name": "General & Administrative Expenses",
+  "balance": "0"
+ },
+ {
+  "row": 143,
+  "account": "6200001",
+  "name": "Salary, THR, and Gratification for Backend Team - KGR",
+  "balance": "176713169"
+ },
+ {
+  "row": 144,
+  "account": "6200002",
+  "name": "Social Security for Backend Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 145,
+  "account": "6200003",
+  "name": "Snack and Consumption for Backend Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 146,
+  "account": "6200004",
+  "name": "Transportation for Backend Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 147,
+  "account": "6200005",
+  "name": "Highway, Parking & Oil for Backend Team - KGR",
+  "balance": "26363206"
+ },
+ {
+  "row": 148,
+  "account": "6200006",
+  "name": "Travelling & Accomodation for Backend Team - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 149,
+  "account": "6200007",
+  "name": "Entertainment, Gift & Donation for Management - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 150,
+  "account": "6200008",
+  "name": "Electricity - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 151,
+  "account": "6200009",
+  "name": "Telecommunication and Internet - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 152,
+  "account": "6200010",
+  "name": "Water - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 153,
+  "account": "6200011",
+  "name": "Stationery - KGR",
+  "balance": "728600"
+ },
+ {
+  "row": 154,
+  "account": "6200012",
+  "name": "Office Supplies - KGR",
+  "balance": "12529200"
+ },
+ {
+  "row": 155,
+  "account": "6200013",
+  "name": "Printing & Photocopy - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 156,
+  "account": "6200014",
+  "name": "Professional Fee - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 157,
+  "account": "6200015",
+  "name": "Rental Building - KGR",
+  "balance": "106383687"
+ },
+ {
+  "row": 158,
+  "account": "6200016",
+  "name": "Rental Space - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 159,
+  "account": "6200017",
+  "name": "Rental - Other - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 160,
+  "account": "6200018",
+  "name": "Post and Courier - KGR",
+  "balance": "24100"
+ },
+ {
+  "row": 161,
+  "account": "6200019",
+  "name": "Pantry - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 162,
+  "account": "6200020",
+  "name": "Cleanliness and Environment Security - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 163,
+  "account": "6200021",
+  "name": "Retribution - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 164,
+  "account": "6200022",
+  "name": "Donation - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 165,
+  "account": "6200023",
+  "name": "Stamp duty - KGR",
+  "balance": "21000"
+ },
+ {
+  "row": 166,
+  "account": "6200024",
+  "name": "Outsourcing Management fee - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 167,
+  "account": "6200025",
+  "name": "Commission Fee - KGR",
+  "balance": "35845565"
+ },
+ {
+  "row": 168,
+  "account": "6200026",
+  "name": "Miscellaneous General/Adm Expense",
+  "balance": "0"
+ },
+ {
+  "row": 169,
+  "account": "6200027",
+  "name": "Maintenance Expense - Building - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 170,
+  "account": "6200028",
+  "name": "Maintenance Expense - Vehicles - KGR",
+  "balance": "564000"
+ },
+ {
+  "row": 171,
+  "account": "6200029",
+  "name": "Maintenance Expense - Office Equipment - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 172,
+  "account": "6200030",
+  "name": "Maintenance Expense - Computer Software - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 173,
+  "account": "6200031",
+  "name": "Uniform",
+  "balance": "0"
+ },
+ {
+  "row": 174,
+  "account": "630000",
+  "name": "Repair & Maintenance Expense",
+  "balance": "0"
+ },
+ {
+  "row": 175,
+  "account": "6300001",
+  "name": "Maintenance Expense - Building - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 176,
+  "account": "6300002",
+  "name": "Maintenance Expense - Vehicles - KGR",
+  "balance": "45000"
+ },
+ {
+  "row": 177,
+  "account": "6300003",
+  "name": "Maintenance Expense - Office Equipment - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 178,
+  "account": "6300004",
+  "name": "Maintenance Expense - Computer Software - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 179,
+  "account": "6350001",
+  "name": "Tax Expense - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 180,
+  "account": "640000",
+  "name": "Depreciation & Amortization Expenses",
+  "balance": "0"
+ },
+ {
+  "row": 181,
+  "account": "6400001",
+  "name": "Depreciation Expense - Building - KGR",
+  "balance": "37668895.88"
+ },
+ {
+  "row": 182,
+  "account": "6400002",
+  "name": "Depreciation Expense - Vehicles - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 183,
+  "account": "6400003",
+  "name": "Depreciation Expense - Office Equipment 1 - KGR",
+  "balance": "29460062.94"
+ },
+ {
+  "row": 184,
+  "account": "6400004",
+  "name": "Depreciation Expense - Office Equipment 2 - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 185,
+  "account": "6400005",
+  "name": "Depreciation Expense - Computer Equipment - KGR",
+  "balance": "5625270.63"
+ },
+ {
+  "row": 186,
+  "account": "6400006",
+  "name": "Amortization Software  - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 187,
+  "account": "6400007",
+  "name": "Stock Difference Expenses",
+  "balance": "0"
+ },
+ {
+  "row": 188,
+  "account": "6500001",
+  "name": "Depreciation RoU Building",
+  "balance": "0"
+ },
+ {
+  "row": 189,
+  "account": "7100",
+  "name": "Non-operating income",
+  "balance": "0"
+ },
+ {
+  "row": 190,
+  "account": "7100001",
+  "name": "Interest Income - Deposit - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 191,
+  "account": "7100002",
+  "name": "Interest Income - Saving - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 192,
+  "account": "7100003",
+  "name": "Gain on Portfolio Investment - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 193,
+  "account": "7100004",
+  "name": "Gain of Fixed Asset Disposal - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 194,
+  "account": "7100005",
+  "name": "Write-off Inventory - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 195,
+  "account": "7100006",
+  "name": "Inventory Opname Adjustment - KGR",
+  "balance": "-1.05"
+ },
+ {
+  "row": 196,
+  "account": "7100008",
+  "name": "Rounding - KGR",
+  "balance": "79.25"
+ },
+ {
+  "row": 197,
+  "account": "7100009",
+  "name": "Other Income",
+  "balance": "-3937706.87"
+ },
+ {
+  "row": 198,
+  "account": "7100010",
+  "name": "Rental Income",
+  "balance": "0"
+ },
+ {
+  "row": 199,
+  "account": "7100011",
+  "name": "Other Income Blasting",
+  "balance": "-6"
+ },
+ {
+  "row": 200,
+  "account": "7200",
+  "name": "Non-operating  expenditure",
+  "balance": "0"
+ },
+ {
+  "row": 201,
+  "account": "7200001",
+  "name": "Bank Loan Interest - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 202,
+  "account": "7200002",
+  "name": "Interest Expense - KGR",
+  "balance": "1263888.89"
+ },
+ {
+  "row": 203,
+  "account": "7200003",
+  "name": "Bank Administration and Provision - KGR",
+  "balance": "1681980"
+ },
+ {
+  "row": 204,
+  "account": "7200004",
+  "name": "Losses on Portfolio Investment - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 205,
+  "account": "7200005",
+  "name": "Losses of Fixed Asset Disposal - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 206,
+  "account": "7200006",
+  "name": "Realized Gain or Loss Exchange Rate IDR - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 207,
+  "account": "7200007",
+  "name": "UN Realized Gain or Loss Exchange Rate IDR - KGR",
+  "balance": "0"
+ },
+ {
+  "row": 208,
+  "account": "7200008",
+  "name": "Other Expenses - KGR",
+  "balance": "189568"
+ },
+ {
+  "row": 209,
+  "account": "7200009",
+  "name": "Non Bank Loan Interest - KGR",
+  "balance": "33901388.72"
+ },
+ {
+  "row": 210,
+  "account": "7200010",
+  "name": "Tax Expense - KGR",
+  "balance": "852515"
+ },
+ {
+  "row": 211,
+  "account": "910002",
+  "name": "Realize Gain or Loss IDR",
+  "balance": "0"
+ },
+ {
+  "row": 212,
+  "account": "910003",
+  "name": "Unrealize Gain or Loss IDR",
+  "balance": "0"
+ },
+ {
+  "row": 213,
+  "account": "910004",
+  "name": "Temporary Account",
+  "balance": "0"
+ }
+]

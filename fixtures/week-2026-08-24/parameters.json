@@ -1,0 +1,34 @@
+{
+ "horizon_fresh_days": "3",
+ "target_shrink": "0.03",
+ "freight_plan_per_kg_lb": "1000",
+ "maklon_per_kg_processed": "1600",
+ "lb_price_today": "24600",
+ "min_trading_spread": "2000",
+ "stock_age_limit_days": "30",
+ "terms_lb_days": "7",
+ "terms_trading_days": "14",
+ "terms_freight_maklon_days": "30",
+ "yield_default": {
+  "karkas": "0.7367",
+  "kepala": "0.0467",
+  "ceker": "0.0294",
+  "usus": "0.0436",
+  "hja": "0.056",
+  "lemak": "0.0034"
+ },
+ "last_week": {
+  "RPA": {
+   "kg": "26718",
+   "revenue": "706116468",
+   "gp": "-4133933"
+  },
+  "Trading": {
+   "kg": "25461",
+   "revenue": "876172743",
+   "gp": "50226637"
+  }
+ },
+ "accurate_sales_kg": null,
+ "accurate_opening_stock_value": null
+}

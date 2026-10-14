@@ -1,0 +1,39 @@
+import { weekContext, type PageProps } from "@/lib/page";
+import { WeekShell } from "@/components/WeekShell";
+import { Badge, Card } from "@/components/ui";
+import { supabaseServer } from "@/lib/supabase";
+import { tgl } from "@/lib/fmt";
+
+export const dynamic = "force-dynamic";
+
+export default async function RilisPage({ params }: PageProps) {
+  const { week } = await params;
+  const ctx = await weekContext(week);
+  const sb = await supabaseServer();
+  const { data } = await sb.from("release").select("id, update_date, engine_version, snapshot_sha256, pdf_path, control_status, ops_rows, released_by, released_at")
+    .eq("week_id", ctx.week.id).order("released_at", { ascending: false });
+  const rows = (data ?? []) as { id: string; update_date: string; engine_version: string; snapshot_sha256: string; pdf_path: string; control_status: string; ops_rows: unknown[]; released_by: string; released_at: string }[];
+  return (
+    <WeekShell ctx={ctx} active="rilis">
+      <h1>Riwayat rilis</h1>
+      <p className="muted">Setiap rilis menyimpan snapshot JSON lengkap (byte-identik untuk input yang sama) dan PDF, sehingga outlook masa lalu bisa dibuka lagi walau input berubah.</p>
+      <Card>
+        {rows.length === 0 ? <p className="muted">Belum ada rilis untuk minggu ini.</p> : (
+          <table className="t">
+            <thead><tr><th>Dirilis</th><th>Oleh</th><th>Tanggal update</th><th>Kontrol</th><th>Baris Ops</th><th>Engine</th><th>SHA-256 snapshot</th><th>Unduh</th></tr></thead>
+            <tbody>
+              {rows.map((x) => (
+                <tr key={x.id}>
+                  <td>{new Date(x.released_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</td>
+                  <td>{x.released_by}</td><td>{tgl(x.update_date, true)}</td><td><Badge s={x.control_status === "ADA GAGAL" ? "GAGAL" : x.control_status}>{x.control_status}</Badge></td>
+                  <td>{x.ops_rows.length}</td><td>v{x.engine_version}</td><td><code>{x.snapshot_sha256.slice(0, 16)}…</code></td>
+                  <td className="row"><a href={`/api/release/${x.id}/pdf`} target="_blank" rel="noreferrer">PDF</a><a href={`/api/release/${x.id}/json`}>JSON</a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
+    </WeekShell>
+  );
+}
