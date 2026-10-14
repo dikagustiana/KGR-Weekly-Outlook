@@ -16,7 +16,7 @@ export function WeekShell({ ctx, active, children }: { ctx: WeekCtx; active: str
       <span>Kontrol: <Badge s={c.overall === "ADA GAGAL" ? "GAGAL" : c.overall}>{c.overall}</Badge></span>
       <span>{c.counts.LULUS} LULUS · {c.counts.PERIKSA} PERIKSA · {c.counts["BELUM DIISI"]} BELUM DIISI · {c.counts.GAGAL} GAGAL</span>
       <Link href={`/w/${w.week_start}/kontrol`}>lihat kontrol</Link>
-      <span className="muted">|</span>
+      <span className="muted desktop-only">|</span>
       {ctx.lastRelease ? (
         <span>Rilis terakhir: update {tgl(ctx.lastRelease.update_date)} oleh {ctx.lastRelease.released_by} ({new Date(ctx.lastRelease.released_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })})</span>
       ) : (

@@ -147,6 +147,15 @@ a.b:hover { text-decoration: none; }
   .nav .inputs, .nav .grp, .desktop-only { display: none; }
   table.t th, table.t td { padding: 3px 4px; font-size: 12px; }
   .topbar { gap: 8px; }
+  /* wide tables scroll sideways inside their card; keep the line label in view */
+  .card { overflow-x: auto; }
+  table.t th:first-child, table.t td:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; max-width: 46vw; }
+  /* sticky stops at the card's content edge; cover the padding strip so scrolled numbers don't show through */
+  table.t th:first-child::before, table.t td:first-child::before { content: ""; position: absolute; top: 0; bottom: 0; left: -15px; width: 15px; background: inherit; }
+  table.t th:first-child { background: var(--head); z-index: 2; }
+  table.t th:first-child::before { background: var(--card); }
+  table.t tr.total td:first-child { background: #fafbfc; }
+  table.t tr.sub td:first-child { background: #fcfcfd; }
 }
 
 /* print: A4 landscape, house format, no chrome */
