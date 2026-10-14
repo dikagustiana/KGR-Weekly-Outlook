@@ -3,7 +3,8 @@
 -- Expected (2026-10-14): sales insert order OK; sales insert batch denied; sales update parameter rows=0;
 -- sales update sell price rows=1; sales buy price denied; mgmt read rows>0; mgmt insert denied; ppic batch OK;
 -- ppic receipt RPA OK; ppic receipt trading denied; purch lb price rows=1; purch shrink denied;
--- finance cash plan on closed week denied; direct audit insert denied; stranger weeks=0, gl=0; anon sales=0.
+-- finance cash plan on closed week denied; direct audit insert denied; stranger weeks=0, gl=0; anon sales=0;
+-- audit rows by sales=1; self sign-up denied.
 do $$
 declare out text := ''; wid uuid; n int;
 begin
@@ -20,6 +21,7 @@ begin
   begin update public.sku_price set replacement_buy_price = 1 where week_id = wid; out := out || 'sales buy price: ALLOWED(!); ';
   exception when others then out := out || 'sales buy price: denied; '; end;
   execute 'reset role';
+  select count(*) into n from public.audit_log where actor = 't-sales@x.test'; out := out || 'audit rows by sales=' || n || '; ';
 
   perform set_config('request.jwt.claims', '{"email":"t-mgmt@x.test","role":"authenticated"}', true);
   execute 'set local role authenticated';
@@ -44,6 +46,13 @@ begin
   execute 'set local role authenticated';
   select count(*) into n from public.week; out := out || 'stranger read weeks=' || n || '; ';
   execute 'reset role';
+
+  -- self sign-up of an allow-listed e-mail (what the Auth API would insert) must be refused
+  begin
+    insert into auth.users (instance_id, id, aud, role, email, raw_app_meta_data)
+    values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 't-fin@x.test', '{"provider":"email","providers":["email"]}');
+    out := out || 'self sign-up: ALLOWED(!); ';
+  exception when others then out := out || 'self sign-up: denied; '; end;
 
   raise exception 'RLS-RESULTS (rolled back): %', out;
 end $$;
