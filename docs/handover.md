@@ -32,7 +32,8 @@ Diverifikasi di URL live: 29 halaman + PDF/CSV/JSON membalas 200, snapshot mingg
 
 ## 3. Supabase
 
-- Project ref `uxqbtverhnpiryhzbenr` (region `ap-northeast-1`). Semua migrasi di `supabase/migrations/` sudah diterapkan.
+- Project ref `uxqbtverhnpiryhzbenr` (region `ap-northeast-1`). Migrasi v1 (`20261014000100`…`000600`) sudah diterapkan; migrasi v3 (`20261016000100`…`001300`) belum — perintahnya di `docs/v3/SUMMARY.md` §2.
+- Project baru **KGR-OS** (`pczjhmzpkknzkziipvit`, `ap-northeast-2`) masih kosong; urutan penerapan (migrasi → seed → ulang migrasi v3), admin pertama dan env Vercel di `docs/v3/SUMMARY.md` §3.
 - Login memakai e-mail + kata sandi. E-mail harus ada di `app_user` (aktif). Pendaftaran mandiri ditolak oleh trigger `kgr_allowlist` (migrasi `…000600_signup_lock`); login dibuat oleh Admin.
 - **Admin pertama (sekali saja)** — di Supabase → SQL Editor:
 
