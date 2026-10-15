@@ -2,6 +2,19 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F7] Rilis bulanan, PDF, mobile, management view v3 (docs/PLAN-v3.md Fase 7)
+
+### Added
+- Engine `management.ts` (`inputSummary`, `cogsBySegment`, `rollForward`, `urgentStock`, `demandTotals`).
+- Web: monthly PDF `/api/m/[month]/pdf` and snapshot `/api/m/[month]/snapshot.json` (per locked version); weekly management view in PRD v3 §6 order with Input and COGS always present and the module sections / headline tiles when on (`lib/v3/management.ts`, `components/v3/ManagementV3.tsx`, `OutlookBody` split into parts); mobile read-only write forms on `/sku/[key]`, `/m/[month]`; `apps/web/vitest.config.ts` (alias + JSX) and `components/OutlookBody.test.tsx`.
+- Docs: `docs/handover.md` §4a (v3 daily rhythm, new roles), `docs/v3/SUMMARY.md`.
+
+### Fixed
+- `processRebuildQueue` does nothing when no module is on (`anyModuleOn`): a v1 upload no longer reads `rebuild_queue`, so the merged code runs on a database that does not have the v3 migrations yet (production before `db push`).
+
+### Verified
+- Preparer / management / print HTML without v3 slots identical to before the refactor; weekly snapshot unchanged.
+
 ## [v3-F6b] M7 Approval diskon + scorecard (docs/PLAN-v3.md Fase 6, PR 6b)
 
 ### Added

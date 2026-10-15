@@ -366,3 +366,27 @@ pnpm test:rls      → OK; F6b: sales file requests OK; sales insert approved de
                      edit request after decision denied; cl direct scorecard denied; cl mart_replace scorecard written=1
 ```
 
+## F7 — Rilis bulanan, PDF, mobile, management view v3
+
+Branch `v3/f7-release` (di atas `v3/f6b-approval`) · desain [`F7-design.md`](F7-design.md) · ringkasan seluruh v3: [`SUMMARY.md`](SUMMARY.md)
+
+### Migrasi
+
+Tidak ada.
+
+### Perintah untuk manusia
+
+1. Tidak ada `db push` baru. Setelah semua PR F0–F7 di-merge berurutan: periksa tampilan manajemen mingguan (Input + HPP tampil walau semua modul off), PDF bulanan dari `/m/[bulan]`.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 182 passed + 3 todo (baru: management.test.ts 4) · parsers 20 · web 14 (baru: OutlookBody.test.tsx 2)
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /api/m/[month]/pdf, ƒ /api/m/[month]/snapshot.json)
+Refactor OutlookBody → renderToStaticMarkup penyusun / manajemen × cetak / layar tanpa slot v3 = HTML versi sebelumnya (identik, 4 kasus)
+Golden             → COGS/kg RPA 32.721 dan revenue/kg 30.914 (PRD v3 §1) dari P&L proyeksi minggu ÷ kg proyeksi RPA;
+                     roll-forward ledger 24–26 Agu = saldo ledger 26 Agu; LB dibeli = batch Aktual blok 6
+```
+
