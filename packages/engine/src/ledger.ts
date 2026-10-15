@@ -287,7 +287,8 @@ export function computeLedger(x: LedgerInputs): LedgerResult {
       for (const a of explicit.get(s.ref) ?? []) {
         const lot = lotBy.get(a.lot_ref);
         if (!lot) { issues.push(`Alokasi ${s.ref}: lot ${a.lot_ref} tidak ada`); continue; }
-        take(lot, D(a.kg), false);
+        if (!left.gt(0)) break;
+        take(lot, Decimal.min(D(a.kg), left), false); // an allocation never takes more than the line sells
       }
       if (left.gt(0)) {
         for (const lot of fifo(s.item_code, key, s.date!, e.planned)) {

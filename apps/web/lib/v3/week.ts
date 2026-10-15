@@ -9,6 +9,14 @@ import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
 import { ledgerForWeek } from "./ledger";
+import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
+import { dayControls, loadDayAllocation } from "./allocation";
+import { loadMonthDrivers } from "./drivers";
+import { monthView, plDaily } from "./monthly";
+import { loadCash } from "./cash";
+import { computeCommercial } from "./commercial";
+import { weekFloorControls } from "./discount";
+import { firstOfMonth, monthSummary } from "@kgr/engine";
 
 export interface WeekV3 {
   controls: ControlV3[];
@@ -47,6 +55,63 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       } : null;
     }
   }
+  if (settings.m3_planning?.enabled) {
+    const src = await loadPlanning(sb, week);
+    controls.push(...weekPlanningControls(src, week.update_date));
+    snapshot.demand = (await demandWeekly(sb, week.week_start)).map((r) => ({
+      key: r.key, confirmed_kg: r.confirmed_kg, tentative_kg: r.tentative_kg, forecast_kg: r.forecast_kg, weighted_kg: r.weighted_kg,
+      stock_free_kg: r.stock_free_kg, net_kg: r.net_kg, heads: r.heads, binding: r.binding,
+    }));
+    const p = src.plans[0];
+    snapshot.plan = p ? {
+      version: p.version, head_count: p.head_count, heads_needed: p.heads_needed, frozen_planned_kg: p.frozen_planned_kg,
+      rp_downgrade: p.frozen_planned_rp_downgrade, approved_by: p.approved_by ?? null,
+      days: src.planDays.map((d) => ({ date: d.date, head_count: d.head_count })),
+    } : null;
+  }
+  if (settings.m3_planning?.enabled && settings.m2_ledger?.enabled) {
+    // allocation of the outlook's update date (F3b): C29 / C31
+    const d = await loadDayAllocation(sb, week.update_date);
+    if (d) {
+      controls.push(...dayControls(d));
+      snapshot.allocation = {
+        date: d.date, lines: d.orders.length, allocations: d.allocations.map((a) => ({ sales_line_id: a.sales_line_id, lot_ref: a.lot_ref, kg: a.kg, method: a.method })),
+        unallocated: d.proposal.unallocated.map((u) => ({ sales_ref: u.sales_ref, key: u.key, kg: u.kg })), cutoff: d.cutoffDone.map((b) => ({ lot_ref: b.lot_ref_from, kg: b.kg, rp_downgrade: b.rp_downgrade })),
+      };
+    }
+  }
+  if (settings.m5_drivers?.enabled) {
+    // fixed-cost drivers of the update date's month, journal through the day before (C33 / C34)
+    const m = await loadMonthDrivers(sb, week.update_date.slice(0, 7), week.update_date);
+    controls.push(...m.controls);
+    snapshot.drivers = { month: m.month, through: m.through, fixed: m.fixed.map((l) => ({ pl_line: l.pl_line, scheduled: l.scheduled, actual_mtd: l.actual_mtd, outlook: l.outlook, missing: l.missing })) };
+  }
+  if (settings.m4_monthly?.enabled) {
+    // monthly outlook of the update date's month, from the data mart (C32 + snapshot key monthly)
+    const first = firstOfMonth(week.update_date);
+    const [rows, mv] = await Promise.all([plDaily(sb, first), monthView(sb, first)]);
+    controls.push(...mv.controls);
+    const sm = monthSummary(rows, first, null, "0.10");
+    snapshot.monthly = {
+      month: first, last_actual: sm.lastActual, actual: sm.actual, forecast: sm.forecast, outlook: sm.outlook, share_po: sm.sharePo,
+      versions: mv.versions.map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt, sha256: v.snapshot_sha256 })),
+    };
+  }
+  if (settings.m6_cash?.enabled) {
+    // cash position on the update date, 13-week low, CCC, solvency (C35–C37)
+    const c = await loadCash(sb, week.update_date, { m4: settings.m4_monthly?.enabled === true });
+    controls.push(...c.controls);
+    snapshot.cash = { date: c.date, closing: c.projection.startClosing, lowest_13w: c.projection.lowest, lowest_date: c.projection.lowestDate, weeks: c.projection.weeks.map((w) => ({ week_start: w.week_start, closing: w.closing, lowest: w.lowest })) };
+    snapshot.ccc = c.ccc ? { dio: c.ccc.dio, dso: c.ccc.dso, dpo: c.ccc.dpo, ccc: c.ccc.ccc, working_capital: c.ccc.workingCapital, window_days: c.cccWindowDays } : null;
+    snapshot.solvency = c.solvency;
+  }
+  if (settings.m7_commercial?.enabled && settings.m2_ledger?.enabled) {
+    // commercial view on the update date (C39 / C40); snapshot keeps the ranking without the specific lot cost
+    const c = await computeCommercial(sb, week.update_date);
+    controls.push(...c.controls);
+    snapshot.commercial = { date: c.date, stock_date: c.stockDate, rows: c.rows.map((r) => ({ rank: r.rank, key: r.key, urgency: r.urgency, free_kg: r.free_fresh_kg.plus(r.free_frozen_kg), price_floor: r.price_floor, priority_score: r.priority_score })) };
+  }
+  if (settings.m7_approval?.enabled && settings.m7_commercial?.enabled) controls.push(...await weekFloorControls(sb, week)); // C38
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };
 }

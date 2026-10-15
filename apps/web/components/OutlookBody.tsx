@@ -20,7 +20,16 @@ const T = {
 };
 
 /** O_Outlook blocks 1–8; shared by the Outlook page and the print view. */
-export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: WeekResult; week: string; print?: boolean; view?: ViewMode }) {
+/** v3 management sections (PRD v3 §6), rendered only in the management view when modules provide them. */
+export interface V3Slots {
+  input?: ReactNode;
+  cogs?: ReactNode;
+  cash?: ReactNode;
+  demand?: ReactNode;
+  accuracy?: ReactNode;
+}
+
+export function OutlookBody({ r, week, print = false, view = "preparer", v3 }: { r: WeekResult; week: string; print?: boolean; view?: ViewMode; v3?: V3Slots | null }) {
   const b2 = r.block2;
   const p = r.prepared.params;
   const mgmt = view === "management";
@@ -35,7 +44,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
   const sup = mgmt ? "support" : undefined;
   // R11: one date convention in the management view
   const day = (d: string) => (mgmt ? tgl(d) : tgl(d, true));
-  return (
+  const partRingkasan = (
     <>
       <Card id="ringkasan" title={title("1. Ringkasan minggu — GP produk (HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk)",
         <>Ringkasan GP minggu ini<Ref n={1} /><Ref n={2} /></>)}>
@@ -64,7 +73,9 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
         </div>
       </Card>
 
-      <div className="grid2">
+    </>
+  );
+  const partRpa = (
         <Card id="keputusan-rpa" title={title("2. Keputusan RPA — potong berapa, beli live bird di harga berapa", <>Keputusan RPA hari ini<Ref n={3} /></>)}>
           {mgmt ? <RpaDecisionManagement r={r} /> : (
             <>
@@ -94,7 +105,19 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
             </>
           )}
         </Card>
-
+  );
+  const partAlerts = (
+    <>
+          <h2 id="peringatan">{mgmt ? "Peringatan" : "7. Peringatan"}</h2>
+          {alerts.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : mgmt ? (
+            // R8: a text prefix, not a colour
+            <ul className="alerts plain">{alerts.map((a) => <li key={a.code}><b>Peringatan:</b> {h(a.text)}</li>)}</ul>
+          ) : (
+            <ul className="alerts">{alerts.map((a) => <li key={a.code}>{a.text}</li>)}</ul>
+          )}
+    </>
+  );
+  const partStok = (withAlerts: boolean) => (
         <Card id="stok" title={title("4. Stok — yang harus dijual / dibeli", "Stok yang harus dijual atau dibeli")} extra={<Link href={`/w/${week}/stok`}>detail per SKU →</Link>}>
           <table className="t compact">
             <thead><tr><th>Status{mgmt ? <Ref n={4} /> : null}</th><th className="n">Jumlah SKU</th><th className="n">kg hari ini</th><th className="n">Nilai Rp</th></tr></thead>
@@ -109,17 +132,10 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               ))}
             </tbody>
           </table>
-          <h2 id="peringatan">{mgmt ? "Peringatan" : "7. Peringatan"}</h2>
-          {alerts.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : mgmt ? (
-            // R8: a text prefix, not a colour
-            <ul className="alerts plain">{alerts.map((a) => <li key={a.code}><b>Peringatan:</b> {h(a.text)}</li>)}</ul>
-          ) : (
-            <ul className="alerts">{alerts.map((a) => <li key={a.code}>{a.text}</li>)}</ul>
-          )}
+          {withAlerts ? partAlerts : null}
         </Card>
-      </div>
-
-      {print ? <div className="pagebreak" /> : null}
+  );
+  const partTrading = (
       <Card id="keputusan-trading" title={title("3. Keputusan Trading — beli apa, berapa, di spread berapa", <>Keputusan trading hari ini<Ref n={5} /></>)}>
         <div className="scroll">
           <table className="t compact">
@@ -148,8 +164,8 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
         </div>
         {mgmt ? null : <p className="muted" style={{ fontSize: 11 }}>Spread minimum: Rp {num(p.minSpread)}/kg (placeholder, lihat parameter).</p>}
       </Card>
-
-      <div className="grid2">
+  );
+  const partKas = (
         <Card id="kas-keluar" title={title("5. Kas keluar — live bird dan pembelian trading (sesuai termin)", <>Kas keluar untuk live bird dan pembelian trading<Ref n={6} /></>)}>
           <table className="t compact">
             <thead><tr><th>Tanggal</th><th className="n">Bayar live bird Rp</th><th className="n">Bayar pembelian trading Rp</th><th className="n">Total Rp</th><th>Basis</th></tr></thead>
@@ -167,7 +183,8 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
           </table>
           {mgmt ? null : <p className="muted" style={{ fontSize: 11 }}>Penerimaan kas dari pelanggan ada di Arus Kas. Catatan: lihat docs/open-questions A2 (pembayaran jatuh tempo dari minggu sebelumnya).</p>}
         </Card>
-
+  );
+  const partBatch = (
         <Card id="batch-rpa" title={title("6. Batch RPA minggu ini — aktual vs rencana", "Batch RPA minggu ini: aktual dan rencana")} extra={<Link href={`/w/${week}/batch`}>detail batch →</Link>}>
           <div className="scroll">
             <table className="t compact">
@@ -193,9 +210,8 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
             </table>
           </div>
         </Card>
-      </div>
-
-      {print ? <div className="pagebreak" /> : null}
+  );
+  const partFs = (
       <Card id="laporan-keuangan" title={title("8. Laporan keuangan minggu ini — ringkasan", "Laporan keuangan minggu ini")} extra={<span className="row"><Link href={`/w/${week}/laba-rugi`}>Laba Rugi</Link><Link href={`/w/${week}/neraca`}>Neraca</Link><Link href={`/w/${week}/arus-kas`}>Arus Kas</Link></span>}>
         <table className="t compact">
           <thead><tr><th>Indikator</th><th className="n">Minggu lalu</th><th className="n">Proyeksi minggu ini</th><th className="n">Δ</th></tr></thead>
@@ -206,6 +222,44 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
           </tbody>
         </table>
       </Card>
+  );
+  if (mgmt && v3) {
+    // PRD v3 §6 order: headline → segmen → keputusan RPA + batch → Input → COGS → spread trading → stok per umur → kas →
+    // demand → akurasi → peringatan (sections a module does not provide are left out)
+    return (
+      <>
+        {partRingkasan}
+        <div className="grid2">{partRpa}{partBatch}</div>
+        {v3.input}
+        {v3.cogs}
+        {partTrading}
+        <div className="grid2">{partStok(false)}{partKas}</div>
+        {v3.cash}
+        {v3.demand}
+        {v3.accuracy}
+        <Card id="peringatan-v3">{partAlerts}</Card>
+        {partFs}
+        <Notes r={r} />
+      </>
+    );
+  }
+  return (
+    <>
+      {partRingkasan}
+      <div className="grid2">
+        {partRpa}
+        {partStok(true)}
+      </div>
+
+      {print ? <div className="pagebreak" /> : null}
+      {partTrading}
+      <div className="grid2">
+        {partKas}
+        {partBatch}
+      </div>
+
+      {print ? <div className="pagebreak" /> : null}
+      {partFs}
       {mgmt ? <Notes r={r} /> : null}
     </>
   );
