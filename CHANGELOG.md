@@ -2,6 +2,101 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F7] Rilis bulanan, PDF, mobile, management view v3 (docs/PLAN-v3.md Fase 7)
+
+### Added
+- Engine `management.ts` (`inputSummary`, `cogsBySegment`, `rollForward`, `urgentStock`, `demandTotals`).
+- Web: monthly PDF `/api/m/[month]/pdf` and snapshot `/api/m/[month]/snapshot.json` (per locked version); weekly management view in PRD v3 §6 order with Input and COGS always present and the module sections / headline tiles when on (`lib/v3/management.ts`, `components/v3/ManagementV3.tsx`, `OutlookBody` split into parts); mobile read-only write forms on `/sku/[key]`, `/m/[month]`; `apps/web/vitest.config.ts` (alias + JSX) and `components/OutlookBody.test.tsx`.
+- Docs: `docs/handover.md` §4a (v3 daily rhythm, new roles), `docs/v3/SUMMARY.md`.
+
+### Fixed
+- `processRebuildQueue` does nothing when no module is on (`anyModuleOn`): a v1 upload no longer reads `rebuild_queue`, so the merged code runs on a database that does not have the v3 migrations yet (production before `db push`).
+
+### Verified
+- Preparer / management / print HTML without v3 slots identical to before the refactor; weekly snapshot unchanged.
+
+## [v3-F6b] M7 Approval diskon + scorecard (docs/PLAN-v3.md Fase 6, PR 6b)
+
+### Added
+- Migration `20261016001300_m7_approval.sql`: `discount_limit()`, decision guard on `discount_approval` (pending only on insert; commercial_lead ≤ limit, finance above; decisions final), `needs_rebuild` on `sales_target`.
+- Engine: `guardOrders` (order guard under the price floor) in `commercial.ts`.
+- Web: `lib/v3/discount.ts` (floor guard on Input → Penjualan save / paste and `po_lines`, approvals, C38, scorecard builder), `/komersial/approval`, `/komersial/scorecard`, C38 on Kontrol.
+
+### Verified
+- Order under the floor refused without approval; lead / finance limits enforced in the database; snapshot unchanged.
+
+## [v3-F6a] M7 Commercial view (docs/PLAN-v3.md Fase 6, PR 6a)
+
+### Added
+- Migration `20261016001200_m7_commercial.sql`: `sales_assignment`, `sales_target`, `urgency_rule` (seed Q18), `price_floor_rule`, `discount_approval`, data marts `commercial_daily`, `sales_scorecard_weekly`, view `commercial_daily_sales` (no SI cost), parameters `sales_sees_cost`, `discount_limit_rp_per_kg`.
+- Engine `commercial.ts` (urgency, price floor, commercial rows + ranking, realised price, below-floor approver, C38–C40, scorecard).
+- Web: `lib/v3/commercial.ts` (builder), `lib/v3/commercial-view.ts` (role view model, tested), `/komersial`, `/komersial/[key]`, C39/C40 and snapshot key `commercial`.
+
+### Verified
+- Sales view without SI / cost pool / batch reference; ranking changes with age; snapshot unchanged.
+
+## [v3-F5] M6 Kas, CCC, solvabilitas (docs/PLAN-v3.md Fase 5)
+
+### Added
+- Migration `20261016001100_m6_cash.sql`: `bank_account`, `cash_daily`, `cash_daily_plan`, data marts `cash_position_daily`, `ccc_daily`, `solvency_monthly`.
+- Engine `cash.ts` (position, scheduled payments, 13 weeks, 12 months, solvency, C35–C37) and `ccc.ts` (DIO/DSO/DPO/CCC, working capital, simulation).
+- Parsers `cash_balance` / `cash_plan_daily`; template `reference/templates/Template_Kas_Harian.xlsx` (`scripts/make_cash_template.py`).
+- Web: `lib/v3/cash.ts` (upload kind `cash_daily`, builder), `/kas`, `/kas/ccc`, C35–C37 and snapshot keys `cash`, `ccc`, `solvency`.
+
+### Verified
+- FS Sep 2026: equity 702,6 jt, paid-in 5.000 jt, affiliates 9.845,9 jt; DI-01…DI-04 amounts; snapshot unchanged.
+
+## [v3-F4b] M4 Outlook bulanan (docs/PLAN-v3.md Fase 4, PR 4b)
+
+### Added
+- Migration `20261016001000_m4_monthly.sql`: `month_outlook`, `month_outlook_version` (immutable, SHA-256), `outlook_assumption`, `closing_adjustment` (seed DI-01…DI-05 Sep 2026), data mart `pl_daily`, `outlook_accuracy`, `week.month_outlook_id`, parameters `v1_lock_day` / `forecast_tolerance_pct`, `needs_rebuild` on `gl_line`.
+- Engine `monthly.ts` (actual per day incl. unbilled DO, run-rate without anomalies, forecast per day, opex from drivers, outlook + range + budget, V1 lock day, bridge, accuracy, calibration, C32); fixture `fixtures/month-2026-08` (extractor `month`).
+- Web: `lib/v3/monthly.ts` (pl_daily builder, versions, FINAL + accuracy + calibration), `/m/[month]`, `/m/[month]/tutup-buku`, SVG daily chart, C32 and snapshot key `monthly`.
+
+### Verified
+- Actual 1–26 Aug = O_PnL MTD (6.385,9 / 347,4 jt); PO days 27–29 Aug; run-rate 31 Aug (258,7) not reproduced — todo, docs/open-questions.md §E.4.
+
+## [v3-F4a] M5 Biaya dengan driver (docs/PLAN-v3.md Fase 4, PR 4a)
+
+### Added
+- Migration `20261016000900_m5_drivers.sql`: `coa_map` driver columns (+ Finance guard), `cash_plan` link columns, `fixed_cost_schedule` (seed from FS September 2026), default drivers.
+- Engine `drivers.ts` (`monthlyAmount`, `dailyFixed`, `monthFixedOutlook`, `variableCost`, `workingDays`, `runrateDaily`, `costActualByLine`, `driverControls` C33–C34); fixture `fixtures/fs-2026-09` (extractor `fs`).
+- Web: `/m/[month]/biaya` (schedule, drivers per account, fixed outlook), C33/C34 and snapshot key `drivers` when `m5_drivers` is on.
+
+### Verified
+- Sewa RPA 94,48 jt/month from 2026-11-01 (prepaid 1.133,79 jt / 12); fixed outlook never counts a line twice; snapshot unchanged.
+
+## [v3-F3b] M3 Alokasi FEFO + cut-off (docs/PLAN-v3.md Fase 3, PR 3b)
+
+### Added
+- Migration `20261016000800_m3_allocation.sql` (allocation write for ppic / commercial_lead, `needs_rebuild` on `allocation`, indexes).
+- Engine `allocation.ts` (`allocateFEFO`, `cutoffBlasts`, `lotsForAllocation`, `sellableOn`, `stockAllocationRecon` = B_Alokasi_Stok); C29 sums allocations per line; ledger explicit allocations never take more than the line sells.
+- Web: `/hari/[date]/alokasi` ("Alokasikan hari ini", "Cut-off", "Terkirim"), M3 allocations as ledger input (follow a superseded line to its Accurate posting), v1 Terkirim also sets `fulfilled_kg` when `m3_planning` is on, PO columns on Input → Penjualan, C29/C31 and snapshot key `allocation`.
+
+### Verified
+- B_Alokasi_Stok: 2.000 kg allocated of 100.000 kg on hand, per SKU and per customer; example-week end-to-end (allocation → Terkirim → cut-off → ledger); snapshot unchanged.
+
+## [v3-F3a] M3 Demand → rencana mingguan / harian (docs/PLAN-v3.md Fase 3, PR 3a)
+
+### Added
+- Migrations `20261016000600_m3_planning.sql` (`sales_line` PO columns `delivery_date`, `demand_status`, `sales_rep`, `po_ref`, `po_date`, `fulfilled_kg`, `price_floor_at_sale`, `discount_approval_id`; parameters `tentative_weight`, `forecast_weight`, `downgrade_approval_threshold`, `lead_time_days`; `weight_class`, `yield_matrix`, `substitution`, `forecast_line`, `capacity`, `lb_supply`, `plan_week`, `plan_day`, `allocation`, data mart `demand_weekly`; approval guard; week-scoped `needs_rebuild`) and `20261016000700_m3_backfill.sql` (existing Order rows → Confirmed + delivery date; placeholder weight class STD and yield matrix `karkas` / `boneless`).
+- Engine `demand.ts` (`demandRate`, `forecastDaily`, `weeklyDemand`, `eligibleFree`, `netDemand`, `toHeads`, `headsByPattern`, `weekDemand`), `plan.ts` (`jointEconomics`, `weeklyPlan`, `dailyPlan`, `mixParts`, `splitHeadsByDay`, `demandByDay`, `proposeWeekPlan`, `planBatchRow`) and C28–C31 in `controls-v3.ts`; fixture `fixtures/demand-2026-09` from `KGR_Demand_Forecast.xlsx`.
+- Parsers: v3 kinds `po_lines`, `forecast_sales`, `yield_matrix`, `lb_supply` (+ `normDemandStatus`, `normSupplyStatus`, `yieldFraction`).
+- Web: `lib/v3/planning.ts` (loader, `demand_weekly` builder, plan save / approve / "Salin ke batch rencana", upload kinds), `/w/[week]/demand`, `/w/[week]/rencana`; C28/C30 and snapshot keys `demand`, `plan` when `m3_planning` is on.
+
+### Verified
+- 7.051 heads, BLD binding, profit Base 70.817.907 reproduced (`O_Optimizer`), forecast D7:K30 cell by cell; example-week snapshot unchanged.
+
+## [v3-F2] M2 Lot ledger + stok per SKU (docs/PLAN-v3.md Fase 2)
+
+### Added
+- Migrations `20261016000400_m2_ledger.sql` (`lot`, `lot_movement`, `lot_balance_daily`, `sku_balance_daily`, `stock_card_snapshot`, `blast_event`, SKU/parameter ledger columns, `mart_replace` keeps input rows, `needs_rebuild` triggers) and `20261016000500_m2_backfill.sql` (queues every date for the engine to build).
+- Engine `ledger.ts` (`computeLedger`, `balanceAt`, `reconcile`, `ledgerInputsFromWeek`, `keyResolver`) and C25–C27 in `controls-v3.ts`.
+- Web: ledger builder for `rebuildDay` (`lib/v3/ledger.ts`), upload kind `stock_card`, `/sku`, `/sku/[key]` (lots → movements, opname, blast), "Ledger lot" card on Stok, ledger controls and snapshot key `ledger`.
+
+### Verified
+- Roll-forward of the example week 162.687,92 → 156.956,05 kg; every day × key equals O_Stok ± 0,01 kg. MA vs Accurate HPP on 30/34 lines (target 95% not reproduced — `docs/open-questions.md` §E.4).
+
 ## [v3-F1] M1 Costing per batch → SKU (docs/PLAN-v3.md Fase 1)
 
 ### Added

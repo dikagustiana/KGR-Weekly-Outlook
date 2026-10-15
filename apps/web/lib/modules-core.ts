@@ -44,6 +44,11 @@ export function isModuleOn(setting: ModuleSetting | undefined, role: Role | null
   return !setting.roles || setting.roles.length === 0 || setting.roles.includes(role);
 }
 
+/** Any module enabled (for any role). None = nothing v3 to rebuild, so v1 flows never touch the v3 tables. */
+export function anyModuleOn(settings: ModuleSettings): boolean {
+  return Object.values(settings).some((s) => s?.enabled === true);
+}
+
 export interface NavCtx {
   week?: string | null;
   month?: string | null;
@@ -62,13 +67,16 @@ interface NavDef {
 
 const PREP: Role[] = ["admin", "inventory_accounting", "ppic", "purchasing", "finance", "commercial_lead", "cost_accounting"];
 
+/** Sales reads SKU stock through the commercial view (M7); the lot ledger itself is not for sales (PLAN F2). */
+export const SKU_READERS: Role[] = [...PREP, "management"];
+
 export const MODULE_NAV: NavDef[] = [
   // cost per batch is finance detail: not for sales (PRD v3 Q17)
   { module: "m1_costing", label: "Costing", roles: [...PREP, "management"], href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },
   { module: "m1_costing", label: "Input costing", roles: ["admin", "cost_accounting"], href: (c) => (c.week ? `/w/${c.week}/input/costing` : null) },
   { module: "m2_ledger", label: "Stok per SKU", roles: [...PREP, "management"], href: () => "/sku", management: true },
   { module: "m3_planning", label: "Demand", roles: ["admin", "sales", "commercial_lead", "ppic", "management"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },
-  { module: "m3_planning", label: "Rencana", roles: ["admin", "ppic"], href: (c) => (c.week ? `/w/${c.week}/rencana` : null) },
+  { module: "m3_planning", label: "Rencana", roles: ["admin", "ppic", "finance"], href: (c) => (c.week ? `/w/${c.week}/rencana` : null) },
   { module: "m3_planning", label: "Alokasi hari ini", roles: ["admin", "ppic", "sales", "commercial_lead"], href: (c) => (c.today ? `/hari/${c.today}/alokasi` : null) },
   { module: "m4_monthly", label: "Bulanan", roles: "all", href: (c) => (c.month ? `/m/${c.month}` : null), management: true },
   { module: "m4_monthly", label: "Tutup buku", roles: ["admin", "finance"], href: (c) => (c.month ? `/m/${c.month}/tutup-buku` : null) },

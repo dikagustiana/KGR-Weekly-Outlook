@@ -5,6 +5,8 @@ import { InputTable, markDelivered } from "@/components/InputTable";
 import { N } from "@/components/ui";
 import { guardInputs, lists, readOnly } from "@/lib/inputPage";
 import { canWriteRow, TABLES } from "@/lib/tables";
+import { moduleEnabled } from "@/lib/modules";
+import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,8 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
   const st = sp.status ?? "";
   const rows = ctx.computed.loaded.db.sales.filter((x) => !st || x.status === st);
   const today = r.week.today;
+  // M3 (PRD v3 §4.1): PO columns shown when the module is on; they are written by the "PO lines" upload
+  const m3 = await moduleEnabled("m3_planning", ctx.viewer);
   return (
     <WeekShell ctx={ctx} active="input/penjualan">
       <h1>Penjualan — aktual (Accurate) dan order (sales)</h1>
@@ -31,11 +35,12 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
       <InputTable
         table="sales_line" week={week} path="input/penjualan" rows={rows} role={ctx.viewer.role} editId={sp.edit} {...lists(ctx)}
         msg={{ ok: sp.ok, err: sp.err }} readOnly={readOnly(ctx)}
-        computedHead={["Key dipakai", "Nilai Rp", "HPP dipakai Rp", "GP Rp", "Segmen", "Dihitung"]}
+        computedHead={[...(m3 ? ["Tgl kirim", "Status demand", "Sales"] : []), "Key dipakai", "Nilai Rp", "HPP dipakai Rp", "GP Rp", "Segmen", "Dihitung"]}
         computed={(row) => {
           const s = byId.get(String(row.id));
-          if (!s) return ["", "", "", "", "", ""];
-          return [
+          const po = m3 ? [row.delivery_date ? tgl(String(row.delivery_date)) : "", String(row.demand_status ?? ""), String(row.sales_rep ?? "")] : [];
+          if (!s) return [...po, "", "", "", "", "", ""];
+          return [...po,
             <span key="k" className={s.key === "KODE BARU" ? "warn" : ""}>{s.key}</span>,
             <N key="v" v={s.value} tip="kg × harga" />,
             <N key="h" v={s.hpp} tip={s.hppActual ? "HPP aktual Accurate (DO)" : "kg × biaya rata-rata stok minggu ini"} />,

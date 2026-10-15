@@ -19,7 +19,7 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     throw new WriteError(`Tidak bisa dirilis — kontrol GAGAL: ${bad.join("; ")}`);
   }
   // v3 module outputs (only modules that are on) under their own keys; all flags off = the v1 snapshot byte for byte
-  const v3 = await v3ForWeek(sb, loaded.week, moduleSettingsGlobal(await moduleSettings()));
+  const v3 = await v3ForWeek(sb, loaded.week, moduleSettingsGlobal(await moduleSettings()), result);
   const json = snapshotJsonV3(result, v3.snapshot);
   const sha = createHash("sha256").update(json).digest("hex");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
