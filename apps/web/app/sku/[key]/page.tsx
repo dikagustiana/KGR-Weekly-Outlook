@@ -76,7 +76,7 @@ export default async function SkuKeyPage({ params, searchParams }: { params: Pro
         <div className="grid2">
           {can(viewer.role, "lot_adjust") ? (
             <Card title="Opname / koreksi lot">
-              <ActionForm action={adjustLot} submit="Catat penyesuaian" className="row">
+              <ActionForm action={adjustLot} submit="Catat penyesuaian" className="row desktop-only">
                 <input type="hidden" name="key" value={key} />
                 <div className="field"><label>Tanggal</label><input className="in" type="date" name="date" defaultValue={date ?? want} required /></div>
                 <div className="field"><label>Lot (kosong = FIFO)</label><select className="in" name="lot_ref"><option value="">—</option>{bal.map((b) => <option key={String(b.lot_ref)} value={String(b.lot_ref)}>{String(b.lot_ref)}</option>)}</select></div>
@@ -87,7 +87,7 @@ export default async function SkuKeyPage({ params, searchParams }: { params: Pro
           ) : null}
           {can(viewer.role, "blast_event") && key.endsWith("|Fresh") ? (
             <Card title="Blast fresh → frozen">
-              <ActionForm action={blastLot} submit="Catat blast" className="row">
+              <ActionForm action={blastLot} submit="Catat blast" className="row desktop-only">
                 <input type="hidden" name="key" value={key} />
                 <div className="field"><label>Tanggal</label><input className="in" type="date" name="date" defaultValue={date ?? want} required /></div>
                 <div className="field"><label>Lot</label><select className="in" name="lot_ref" required>{bal.map((b) => <option key={String(b.lot_ref)} value={String(b.lot_ref)}>{String(b.lot_ref)}</option>)}</select></div>

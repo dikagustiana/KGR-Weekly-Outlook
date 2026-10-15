@@ -43,6 +43,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
     <Shell viewer={viewer} weeks={weeks} week={week} active="/m">
       <h1>Outlook bulanan — {first.slice(0, 7)}</h1>
       <div className="row noprint"><Link className="b small sec" href={`/m/${prev}`}>← {prev}</Link><Link className="b small sec" href={`/m/${next}`}>{next} →</Link>
+        <a className="b small sec" href={`/api/m/${first.slice(0, 7)}/pdf`} target="_blank" rel="noreferrer">Unduh PDF</a>
         {canWrite && !mgmt ? <><Link className="b small sec" href={`/m/${first.slice(0, 7)}/tutup-buku`}>Tutup buku</Link><Link className="b small sec" href={`/m/${first.slice(0, 7)}/biaya`}>Biaya</Link></> : null}</div>
       <p className="muted">Aktual = jurnal s.d. {tgl(sm.lastActual)} (+ DO belum difaktur). Sisa bulan: hari dengan PO = PO berbobot; hari kerja tanpa PO = rata-rata revenue 20 hari kerja terakhir tanpa hari anomali, pada GP% 4 minggu terakhir; biaya mengikuti driver. Rentang = ± <N v={tolerance} percent /> dari bagian forecast.</p>
       {rows.length === 0 ? <Card><p>Bulan ini belum dibangun.{canWrite ? " Tekan Bangun ulang." : ""}</p></Card> : null}
@@ -72,9 +73,9 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
         <Card title="Versi">
           <table className="t compact">
             <thead><tr><th>Versi</th><th>Cut-off</th><th className="n">Revenue</th><th className="n">GP</th><th className="n">NIBT</th><th>Dikunci</th><th>SHA-256</th></tr></thead>
-            <tbody>{mv.versions.map((x) => <tr key={String(x.id)}><td>{String(x.version)}</td><td>{tgl(String(x.cut_off_date ?? ""))}</td><Td v={String(x.revenue)} /><Td v={String(x.gp)} /><Td v={String(x.nibt)} /><td>{String(x.locked_by ?? "")}</td><td className="muted">{String(x.snapshot_sha256).slice(0, 12)}…</td></tr>)}</tbody>
+            <tbody>{mv.versions.map((x) => <tr key={String(x.id)}><td>{String(x.version)}</td><td>{tgl(String(x.cut_off_date ?? ""))}</td><Td v={String(x.revenue)} /><Td v={String(x.gp)} /><Td v={String(x.nibt)} /><td>{mgmt ? "dikunci" : String(x.locked_by ?? "")}</td><td className="muted">{String(x.snapshot_sha256).slice(0, 12)}… <a href={`/api/m/${first.slice(0, 7)}/pdf?version=${String(x.version)}`} target="_blank" rel="noreferrer">PDF</a> · <a href={`/api/m/${first.slice(0, 7)}/snapshot.json?version=${String(x.version)}`} target="_blank" rel="noreferrer">JSON</a></td></tr>)}</tbody>
           </table>
-          {canWrite && !mgmt ? <div className="row">
+          {canWrite && !mgmt ? <div className="row desktop-only">
             {(["V1", "V2", "FINAL"] as const).filter((k) => !ver(k)).map((k) => <ActionForm key={k} action={lockAction} submit={`Kunci ${k}`} confirm={`Kunci ${k}? Versi yang dikunci tidak bisa diubah.`}><input type="hidden" name="month" value={first} /><input type="hidden" name="version" value={k} /></ActionForm>)}
             <ActionForm action={rebuildMonthAction} submit="Bangun ulang"><input type="hidden" name="month" value={first} /></ActionForm>
           </div> : null}
@@ -99,7 +100,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
         </Card>
       ) : null}
       {canWrite && !mgmt ? (
-        <Card title="Budget dan cut-off">
+        <div className="desktop-only"><Card title="Budget dan cut-off">
           <ActionForm action={budgetAction} submit="Simpan" className="row">
             <input type="hidden" name="month" value={first} />
             <label>Budget revenue <input name="budget_revenue" defaultValue={String(o?.budget_revenue ?? "")} size={14} /></label>
@@ -107,7 +108,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
             <label>Budget NIBT <input name="budget_nibt" defaultValue={String(o?.budget_nibt ?? "")} size={12} /></label>
             <label>Cut-off (kosong = kemarin) <input name="cut_off_date" defaultValue={String(o?.cut_off_date ?? "")} size={10} /></label>
           </ActionForm>
-        </Card>
+        </Card></div>
       ) : null}
       {!mgmt ? <Card title="Kontrol (C32)"><ControlsV3Table controls={mv.controls} /></Card> : null}
     </Shell>

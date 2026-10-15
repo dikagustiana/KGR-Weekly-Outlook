@@ -7,7 +7,7 @@ import { num, pct, tgl } from "./fmt";
 type V = Decimal | null | undefined;
 
 let printer: InstanceType<typeof PdfPrinter> | null = null;
-function getPrinter() {
+export function getPrinter() {
   if (!printer) {
     const f = (n: string) => Buffer.from(vfs[n], "base64");
     printer = new PdfPrinter({
@@ -17,17 +17,17 @@ function getPrinter() {
   return printer;
 }
 
-const n0 = (v: V) => num(v ?? null, 0);
-const p1 = (v: V) => (v === null || v === undefined ? "" : pct(v, 1));
+export const n0 = (v: V) => num(v ?? null, 0);
+export const p1 = (v: V) => (v === null || v === undefined ? "" : pct(v, 1));
 const isNeg = (v: V) => !!v && v.isNegative() && !v.isZero();
-const cellN = (v: V, f: (x: V) => string = n0) => {
+export const cellN = (v: V, f: (x: V) => string = n0) => {
   const text = f(v);
   return { text, alignment: "right", color: isNeg(v) && text.startsWith("-") ? "#c62828" : undefined };
 };
 const TEXT_HEADS = new Set(["Satuan", "Cara hitung", "REKOMENDASI", "Basis", "Tanggal", "Status", "Indikator", "Baris", "Segmen", "SKU (key)"]);
 const head = (cols: string[]) => cols.map((c, i) => ({ text: c, bold: true, fillColor: "#eef1f6", alignment: i === 0 || TEXT_HEADS.has(c) ? "left" : "right", fontSize: 7 }));
 
-function table(widths: (string | number)[], header: string[], body: unknown[][], fontSize = 7.5) {
+export function table(widths: (string | number)[], header: string[], body: unknown[][], fontSize = 7.5) {
   return {
     table: { headerRows: 1, widths, body: [head(header), ...body] },
     layout: { hLineWidth: () => 0.4, vLineWidth: () => 0, hLineColor: () => "#d6dae2", paddingTop: () => 1.5, paddingBottom: () => 1.5 },
@@ -36,7 +36,7 @@ function table(widths: (string | number)[], header: string[], body: unknown[][],
   };
 }
 
-const h = (text: string) => ({ text, bold: true, fontSize: 9.5, color: "#12355b", margin: [0, 4, 0, 3] });
+export const h = (text: string) => ({ text, bold: true, fontSize: 9.5, color: "#12355b", margin: [0, 4, 0, 3] });
 
 /** A4 landscape outlook: page 1 blocks 1–2, page 2 blocks 3–7, page 3 statement summary (PRD §6). */
 export async function outlookPdf(r: WeekResult, meta: { releasedBy?: string; generatedAt: string }): Promise<Buffer> {
