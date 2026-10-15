@@ -1,6 +1,7 @@
 import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { OutlookBody } from "@/components/OutlookBody";
+import { Headline } from "@/components/outlook/Headline";
 import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,8 @@ export default async function OutlookPage({ params }: PageProps) {
           <a className="b sec" href={`/w/${week}/print`} target="_blank" rel="noreferrer">Tampilan cetak</a>
         </div>
       </div>
-      <OutlookBody r={r} week={week} />
+      {ctx.view === "management" ? <Headline r={r} week={week} /> : null}
+      <OutlookBody r={r} week={week} view={ctx.view} />
       <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p>
     </WeekShell>
   );

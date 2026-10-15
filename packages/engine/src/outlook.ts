@@ -65,6 +65,19 @@ export function weekSummary(p: Prepared, sales: SalesValued[]): SummaryRow[] {
 
 export type RpaRecommendationCode = "TUNDA / NEGOSIASI" | "KURANGI" | "POTONG HANYA SESUAI ORDER" | "LANJUT";
 
+/** Management View v2 R4: the recommendation as one action from {TUNDA, NEGOSIASI ≤ Rp X, BELI, POTONG N kg}. */
+export type RpaActionKind = "TUNDA" | "NEGOSIASI" | "BELI" | "POTONG";
+
+export interface RpaAction {
+  kind: RpaActionKind;
+  /** NEGOSIASI: highest live-bird price that still breaks even on today's cutting plan (B21). */
+  targetPrice: Decimal | null;
+  /** POTONG: kg live bird to cut. */
+  kg: Decimal | null;
+  /** `[AKSI]: [alasan satu klausa]` */
+  text: string;
+}
+
 export interface RpaDecision {
   /** B12 */ lbPriceToday: Decimal;
   /** B13 */ freshOrdersInHorizon: Decimal;
@@ -82,6 +95,8 @@ export interface RpaDecision {
   /** B25 */ frozenPriceGap: Decimal;
   /** B26 */ recommendation: RpaRecommendationCode;
   recommendationText: string;
+  /** The same recommendation as a single action (R4); reads only the figures above. */
+  action: RpaAction;
   horizonFrom: ISODate;
   horizonTo: ISODate;
   yieldsUsed: "aktual" | "default";
@@ -152,9 +167,33 @@ export function rpaDecision(p: Prepared, stock: StockResult): RpaDecision {
     lbMaxWithoutFrozen: lbMax, lbPlannedInHorizon: planned, karkasAtRiskOfFreezing: atRisk, freshShareOfPlan: f,
     valuePerKgLbAtPlanShare: v, breakevenAtPlanShare: be, breakevenAt100Fresh: be100, marginPerKgLb: margin,
     expectedMarginOfPlan: margin.times(planned), frozenPriceGap: atRisk.times(p.prices.karkasFresh.minus(p.prices.karkasFrozen)),
-    recommendation: code, recommendationText: text, horizonFrom: from, horizonTo: to,
+    recommendation: code, recommendationText: text, action: rpaAction(code, lb, be, lbMax, planned), horizonFrom: from, horizonTo: to,
     yieldsUsed: p.yieldsActual ? "aktual" : "default",
   };
+}
+
+/**
+ * R4 mapping of the Excel recommendation (B26) to one action. TUNDA / NEGOSIASI becomes NEGOSIASI with the
+ * breakeven of today's cutting plan (B21) as the target price; TUNDA only when there is no positive target.
+ * KURANGI and POTONG HANYA SESUAI ORDER cut the live bird that the fresh orders need (B16); LANJUT cuts the plan (B17).
+ */
+export function rpaAction(code: RpaRecommendationCode, lb: Decimal, breakevenPlan: Decimal, lbMax: Decimal, planned: Decimal): RpaAction {
+  switch (code) {
+    case "TUNDA / NEGOSIASI":
+      return breakevenPlan.greaterThan(0)
+        ? { kind: "NEGOSIASI", targetPrice: breakevenPlan, kg: null,
+            text: `NEGOSIASI ≤ Rp ${fixed(breakevenPlan)}: harga live bird hari ini Rp ${fixed(lb)} di atas breakeven rencana potong` }
+        : { kind: "TUNDA", targetPrice: null, kg: null, text: "TUNDA: harga live bird di atas breakeven dan tidak ada harga target" };
+    case "KURANGI":
+      return { kind: "POTONG", targetPrice: null, kg: lbMax,
+        text: `POTONG ${fixed(lbMax)} kg LB: rencana ${fixed(planned)} kg melebihi kebutuhan karkas fresh` };
+    case "POTONG HANYA SESUAI ORDER":
+      return { kind: "POTONG", targetPrice: null, kg: lbMax,
+        text: `POTONG ${fixed(lbMax)} kg LB: margin per kg live bird negatif, potong hanya untuk order` };
+    case "LANJUT":
+      return { kind: "POTONG", targetPrice: null, kg: planned,
+        text: `POTONG ${fixed(planned)} kg LB: harga di bawah breakeven dan kebutuhan fresh tertutup` };
+  }
 }
 
 /* ------------------------------------------------------------------ Block 3 */

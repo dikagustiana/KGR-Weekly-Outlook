@@ -44,6 +44,12 @@ export function jt(v: DecLike, dp = 1): string {
   return n === null ? "" : `${num(n / 1e6, dp)} jt`;
 }
 
+/** Billions in the house short form: 2.782.158.916 → "2,78 M". */
+export function mrd(v: DecLike, dp = 2): string {
+  const n = toNum(v, 2);
+  return n === null ? "" : `${num(n / 1e9, dp)} M`;
+}
+
 export function isNeg(v: DecLike): boolean {
   const n = toNum(v, 6);
   return n !== null && n < -0.0000005;

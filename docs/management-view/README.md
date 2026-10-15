@@ -41,3 +41,22 @@ Tes: engine 63, parser 10, web 3 lulus; `pnpm typecheck` dan `pnpm build` lulus.
 | --- | --- |
 | ![preparer](img/stage1-preparer-1366x768.png) | ![manajemen](img/stage1-management-1366x768.png) |
 
+### Tahap 2 — R2, R4, R9 (baris nol)
+
+Tes: engine 65, parser 10, web 3 lulus; `pnpm typecheck` dan `pnpm build` lulus.
+
+| # | Kriteria (PRD §5) | Status | Bukti |
+|---|---|---|---|
+| 1 | Snapshot JSON engine minggu 24–30 Agu 2026 identik byte-per-byte (kecuali `warning.audience`, `recommendation.action`) | PASS | `pnpm snapshot:diff`: new fields present: block2.action={"kind":"NEGOSIASI","targetPrice":"20725.657457","kg":null,"text":"NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong"}; block7[].audience=—,—,— / diff vs baseline (without block2.action, block7[].audience): EMPTY — byte-identical |
+| 2 | Login manajemen: tidak ada I_, O_, T_, @kgr-weekly-outlook, "bersumber Ops" di DOM | FAIL — dikerjakan di Tahap 3 (R5, R12) | grep page.content() (127465 char): I_/O_/T_: 150 (mis. «an class="tip" data-tip="T_Penjualan: Σ kg baris A»); @kgr-weekly-outlook: 2 (mis. «-> oleh <!-- -->qa.claude@kgr-weekly-outlook.test<»); bersumber Ops: 2 (mis. «-->2<!-- --> baris masih bersumber Ops</span></div») |
+| 3 | Blok headline (R2) tampil di 1366×768 tanpa scroll | PASS | [data-headline] y=183 tinggi=83 → bawah 266 px ≤ 768 (scrollY=0, viewport 1366×768) |
+| 4 | Rekomendasi mengandung tepat satu aksi dari enum | PASS | [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726; [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726 |
+| 5 | Tidak ada background merah/kuning kecuali teks nilai negatif | FAIL — dikerjakan di Tahap 3–4 (R8, R9, R12) | 3 elemen, mis.: div.banner.PERIKSA rgb(255, 243, 214); span.badge.PERIKSA rgb(255, 243, 214); span.badge.PERHATIAN rgb(255, 243, 214) |
+| 6 | Preparer bisa toggle ke view manajemen dan kembali | PASS | HTTP 200; main[data-view]: preparer → klik "Pratinjau tampilan manajemen" → management (/w/2026-08-24/outlook) → klik "Kembali ke tampilan penyusun" → preparer |
+| 7 | Tab keyboard menjangkau tooltip R5 dan link "detail per SKU" | FAIL — tooltip R5 dikerjakan di Tahap 3 | tooltip R5 [data-r5-tip]: tidak terjangkau/tidak ada; link [data-detail-sku]: Tab ke-16 («detail per SKU →») |
+| + | Role manajemen selalu view manajemen (R1) | PASS | HTTP 200; main[data-view]=management; tombol toggle tidak ada |
+
+| Preparer (1366×768) | Manajemen (1366×768) |
+| --- | --- |
+| ![preparer](img/stage2-preparer-1366x768.png) | ![manajemen](img/stage2-management-1366x768.png) |
+
