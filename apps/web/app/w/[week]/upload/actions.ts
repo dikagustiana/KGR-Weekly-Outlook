@@ -5,13 +5,15 @@ import { requireViewer } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
 import { getWeek } from "@/lib/data";
 import { commitUpload, kindsFor, stageUpload, type AnyKind, type StageResult } from "@/lib/upload";
+import { moduleSettings } from "@/lib/modules";
+import { moduleSettingsGlobal, processRebuildQueue } from "@/lib/rebuild";
 
 export async function stage(input: {
   week: string; kind: AnyKind; path: string; fileName: string; mapping?: Mapping; makeProductionReceipts?: boolean; replaces?: string;
 }): Promise<StageResult | { error: string }> {
   try {
     const v = await requireViewer();
-    if (!kindsFor(v.role).some((k) => k.kind === input.kind)) return { error: "Peran Anda tidak boleh mengunggah jenis ini" };
+    if (!kindsFor(v.role, await moduleSettings()).some((k) => k.kind === input.kind)) return { error: "Peran Anda tidak boleh mengunggah jenis ini" };
     if (!input.path.startsWith(`${input.week}/`)) return { error: "Lokasi file tidak valid" };
     const sb = await supabaseServer();
     const week = await getWeek(sb, input.week);
@@ -27,10 +29,13 @@ export async function commit(uploadId: string, week: string): Promise<{ ok?: str
   try {
     const v = await requireViewer();
     const sb = await supabaseServer();
-    const msg = await commitUpload(sb, v, uploadId);
+    const settings = await moduleSettings();
+    const msg = await commitUpload(sb, v, uploadId, settings);
+    // PRD v3 §3: rebuild the data mart for the dates the upload touched (modules that are on)
+    const rb = await processRebuildQueue(sb, moduleSettingsGlobal(settings));
     revalidatePath(`/w/${week}`, "layout");
     revalidatePath("/", "layout");
-    return { ok: msg };
+    return { ok: rb.done || rb.failed ? `${msg} Data harian dibangun ulang: ${rb.done} selesai${rb.failed ? `, ${rb.failed} gagal (lihat Admin → Modul)` : ""}.` : msg };
   } catch (e) {
     return { error: (e as Error).message };
   }

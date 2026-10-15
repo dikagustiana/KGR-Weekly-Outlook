@@ -1,10 +1,13 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { computeWeek, snapshotJson, toSnapshot } from "@kgr/engine";
+import { computeWeek, snapshotJsonV3, toSnapshotV3 } from "@kgr/engine";
 import type { Supa } from "./supabase";
 import { loadWeek } from "./data";
 import { outlookPdf } from "./pdf";
 import { WriteError } from "./write";
+import { moduleSettings } from "./modules";
+import { moduleSettingsGlobal } from "./rebuild";
+import { v3ForWeek } from "./v3/week";
 
 /** Release = frozen snapshot (JSON + PDF) of the computed outlook; blocked when any control is GAGAL (PRD §8). */
 export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string) {
@@ -15,7 +18,9 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     const bad = result.controls.controls.filter((c) => c.status === "GAGAL").map((c) => `${c.no}. ${c.name}`);
     throw new WriteError(`Tidak bisa dirilis — kontrol GAGAL: ${bad.join("; ")}`);
   }
-  const json = snapshotJson(result);
+  // v3 module outputs (only modules that are on) under their own keys; all flags off = the v1 snapshot byte for byte
+  const v3 = await v3ForWeek(sb, loaded.week, moduleSettingsGlobal(await moduleSettings()), result);
+  const json = snapshotJsonV3(result, v3.snapshot);
   const sha = createHash("sha256").update(json).digest("hex");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const base = `${weekStart}/${loaded.week.update_date}_${stamp}`;
@@ -32,7 +37,7 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     ...i.batches.filter((r) => r.source === "Ops").map((r) => ({ table: "batch", id: r.id, document_ref: r.document_ref })),
     ...i.opening_stock.filter((r) => r.source === "Ops").map((r) => ({ table: "opening_stock", id: r.id, document_ref: r.document_ref })),
   ];
-  const snap = toSnapshot(result);
+  const snap = toSnapshotV3(result, v3.snapshot);
   const { data, error } = await sb.from("release").insert({
     week_id: loaded.week.id, update_date: loaded.week.update_date, engine_version: result.engineVersion, snapshot: snap, snapshot_sha256: sha,
     pdf_path: `${base}.pdf`, control_status: result.controls.overall, controls: snap.controls, ops_rows: ops, released_by: releasedBy,

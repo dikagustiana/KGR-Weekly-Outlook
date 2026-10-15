@@ -1,5 +1,11 @@
-/** Roles and what each may write (PRD §2). Server actions check this; RLS enforces it again in the database. */
-export type Role = "admin" | "inventory_accounting" | "sales" | "ppic" | "purchasing" | "finance" | "management";
+/** Roles and what each may write (PRD §2, PRD v3 §2). Server actions check this; RLS enforces it again in the database. */
+export type Role =
+  | "admin" | "inventory_accounting" | "sales" | "ppic" | "purchasing" | "finance" | "management"
+  | "commercial_lead" | "cost_accounting";
+
+export const ROLES: Role[] = [
+  "admin", "inventory_accounting", "sales", "ppic", "purchasing", "finance", "management", "commercial_lead", "cost_accounting",
+];
 
 export const ROLE_LABEL: Record<Role, string> = {
   admin: "Admin",
@@ -9,16 +15,23 @@ export const ROLE_LABEL: Record<Role, string> = {
   purchasing: "Purchasing / Ops",
   finance: "Finance",
   management: "Management",
+  commercial_lead: "Kepala Sales",
+  cost_accounting: "Cost Accounting",
 };
 
 export type Area =
   | "orders" | "sales_actual" | "receipts_production" | "receipts_trading" | "receipts_actual" | "batch" | "cash_plan"
   | "parameter_lb" | "parameter_terms" | "parameter_accurate" | "parameter_all" | "price_sell" | "price_buy" | "runrate"
-  | "opening_stock" | "gl" | "tb" | "master" | "users" | "week" | "update_date" | "release" | "gl_override";
+  | "opening_stock" | "gl" | "tb" | "master" | "users" | "week" | "update_date" | "release" | "gl_override"
+  // v3 (PRD v3 §2)
+  | "costing_upload" | "cost_pool" | "overhead_rate" | "allocation_run" | "lot_adjust" | "blast_event" | "po_line"
+  | "forecast_line" | "sales_target" | "sales_assignment" | "discount_approval" | "yield_matrix" | "weight_class"
+  | "capacity" | "lb_supply" | "plan_week" | "plan_day" | "fixed_cost_schedule" | "cost_driver" | "cash_daily"
+  | "monthly_outlook_version" | "closing_adjustment" | "urgency_rule" | "price_floor_rule" | "rebuild";
 
 const W: Record<Area, Role[]> = {
-  orders: ["admin", "sales"],
-  sales_actual: ["admin", "inventory_accounting", "sales"],
+  orders: ["admin", "sales", "commercial_lead"],
+  sales_actual: ["admin", "inventory_accounting", "sales", "commercial_lead"],
   receipts_production: ["admin", "inventory_accounting", "ppic"],
   receipts_trading: ["admin", "inventory_accounting", "purchasing"],
   receipts_actual: ["admin", "inventory_accounting"],
@@ -28,7 +41,7 @@ const W: Record<Area, Role[]> = {
   parameter_terms: ["admin", "purchasing", "finance"],
   parameter_accurate: ["admin", "inventory_accounting"],
   parameter_all: ["admin"],
-  price_sell: ["admin", "sales"],
+  price_sell: ["admin", "sales", "commercial_lead"],
   price_buy: ["admin", "purchasing"],
   runrate: ["admin", "finance"],
   opening_stock: ["admin", "inventory_accounting"],
@@ -38,12 +51,42 @@ const W: Record<Area, Role[]> = {
   master: ["admin"],
   users: ["admin"],
   week: ["admin"],
-  update_date: ["admin", "inventory_accounting", "finance", "ppic", "sales", "purchasing"],
+  update_date: ["admin", "inventory_accounting", "finance", "ppic", "sales", "purchasing", "commercial_lead", "cost_accounting"],
   release: ["admin", "finance"],
+  costing_upload: ["admin", "cost_accounting"],
+  cost_pool: ["admin", "cost_accounting"],
+  overhead_rate: ["admin", "cost_accounting"],
+  allocation_run: ["admin", "cost_accounting"],
+  lot_adjust: ["admin", "inventory_accounting"],
+  blast_event: ["admin", "ppic"],
+  po_line: ["admin", "sales"],
+  forecast_line: ["admin", "sales", "commercial_lead"],
+  sales_target: ["admin", "commercial_lead"],
+  sales_assignment: ["admin", "commercial_lead"],
+  discount_approval: ["admin", "commercial_lead", "finance"],
+  yield_matrix: ["admin", "ppic"],
+  weight_class: ["admin", "ppic"],
+  capacity: ["admin", "ppic"],
+  lb_supply: ["admin", "ppic", "purchasing"],
+  plan_week: ["admin", "ppic"],
+  plan_day: ["admin", "ppic"],
+  fixed_cost_schedule: ["admin", "finance"],
+  cost_driver: ["admin", "finance"],
+  cash_daily: ["admin", "finance"],
+  monthly_outlook_version: ["admin", "finance"],
+  closing_adjustment: ["admin", "finance"],
+  urgency_rule: ["admin", "finance", "commercial_lead"],
+  price_floor_rule: ["admin", "finance", "commercial_lead"],
+  rebuild: ["admin", "inventory_accounting", "sales", "ppic", "purchasing", "finance", "commercial_lead", "cost_accounting"],
 };
 
 export function can(role: Role | null | undefined, area: Area): boolean {
   return !!role && W[area].includes(role);
+}
+
+/** Who may write an area (for labels and tests). */
+export function writers(area: Area): Role[] {
+  return [...W[area]];
 }
 
 /** Management sees no input pages (PRD §10 role test). */

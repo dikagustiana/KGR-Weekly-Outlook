@@ -8,10 +8,15 @@ import type { Supa } from "./supabase";
 import { fetchAll, loadWeek, type WeekRow } from "./data";
 import { applyChanges, loadWeekInputs, WriteError } from "./write";
 import type { Viewer } from "./session";
+import { isModuleOn, type ModuleSettings } from "./modules-core";
+import { V3_KINDS, v3Kind } from "./v3/uploads";
+import { queueRebuild } from "./rebuild";
+import "./v3/costing";
 
 type Row = Record<string, unknown>;
 
-export type AnyKind = UploadKind | "workbook";
+/** v1 kinds, the workbook import, and the v3 kinds registered in lib/v3 (PRD v3 §5). */
+export type AnyKind = UploadKind | "workbook" | (string & { readonly v3?: true });
 
 export const WORKBOOK_KIND = {
   kind: "workbook" as const, label: "Workbook KGR Weekly Outlook (.xlsx)", source: "Manual", target: "semua tabel minggu",
@@ -19,8 +24,12 @@ export const WORKBOOK_KIND = {
   roles: ["admin"],
 };
 
-export function kindsFor(role: string) {
-  return [...KINDS.filter((k) => k.roles.includes(role) && k.kind !== "batch_plan"), ...(role === "admin" ? [WORKBOOK_KIND] : [])];
+export function kindsFor(role: string, settings: ModuleSettings = {}) {
+  // PRD v3 §2: the head of sales may do everything sales may
+  const as = role === "commercial_lead" ? ["commercial_lead", "sales"] : [role];
+  const v3 = V3_KINDS.filter((k) => k.roles.includes(role as never) && isModuleOn(settings[k.module], role as never))
+    .map((k) => ({ kind: k.kind, label: k.label, description: k.description, target: k.target, source: k.source, roles: k.roles as string[] }));
+  return [...KINDS.filter((k) => k.roles.some((r) => as.includes(r)) && k.kind !== "batch_plan"), ...(role === "admin" ? [WORKBOOK_KIND] : []), ...v3];
 }
 
 export interface PlanTarget {
@@ -105,6 +114,8 @@ export interface StageResult {
   unmappedItems: Plan["unmappedItems"];
   unmappedAccounts: Plan["unmappedAccounts"];
   workbookWeek?: string;
+  /** v3 kinds: one line describing what was read (shown instead of the header-detection line). */
+  v3Note?: string;
   error?: string;
 }
 
@@ -338,6 +349,28 @@ export async function stageUpload(
   const sha = createHash("sha256").update(bytes).digest("hex");
   const sheets = readWorkbook(bytes, fileName);
 
+  const v3 = v3Kind(kind);
+  if (v3) {
+    const st = await v3.stage({ sb, viewer, week, sheets, fileName });
+    const ins = await sb.from("upload").insert({
+      week_id: week.id, kind, file_name: fileName, file_sha256: sha, file_path: path, uploaded_by: viewer.email, status: "staged",
+      date_from: st.dateFrom ?? null, date_to: st.dateTo ?? null, row_count: st.rows.length, issues: st.issues,
+      plan: { targets: st.plan, unmappedItems: st.unmappedItems, unmappedAccounts: [], v3: true },
+    }).select("id").single();
+    if (ins.error) throw new WriteError(ins.error.message);
+    const uploadId = (ins.data as { id: string }).id;
+    for (let i = 0; i < st.rows.length; i += 500) {
+      const part = st.rows.slice(i, i + 500).map((r, j) => ({ upload_id: uploadId, row_no: i + j + 1, target: r.target, data: r.data }));
+      const e = await sb.from("upload_row").insert(part);
+      if (e.error) throw new WriteError(`staging: ${e.error.message}`);
+    }
+    return {
+      uploadId, kind, fileName, sha, v3Note: st.note,
+      parse: { issues: st.issues, dateFrom: st.dateFrom ?? null, dateTo: st.dateTo ?? null, columns: [], mapping: null, headerRow: null, sheet: null, rowCount: st.rows.length, badRows: [], sample: st.sample },
+      plan: st.plan, unmappedItems: st.unmappedItems, unmappedAccounts: [],
+    };
+  }
+
   if (kind === "workbook") {
     if (viewer.role !== "admin") throw new WriteError("Impor workbook hanya untuk Admin");
     const inputs = parseWeekWorkbook(sheets);
@@ -359,8 +392,8 @@ export async function stageUpload(
     };
   }
 
-  const res = parseUpload(kind, sheets, { mapping: opts.mapping, weekStart: week.week_start, stockAgeLimit: 30, makeProductionReceipts: opts.makeProductionReceipts });
-  const plan = res.sets.length ? await planUpload(sb, week, kind, res.sets, viewer) : { targets: [], unmappedItems: [], unmappedAccounts: [] };
+  const res = parseUpload(kind as UploadKind, sheets, { mapping: opts.mapping, weekStart: week.week_start, stockAgeLimit: 30, makeProductionReceipts: opts.makeProductionReceipts });
+  const plan = res.sets.length ? await planUpload(sb, week, kind as UploadKind, res.sets, viewer) : { targets: [], unmappedItems: [], unmappedAccounts: [] };
   const ins = await sb.from("upload").insert({
     week_id: week.id, kind, file_name: fileName, file_sha256: sha, file_path: path, uploaded_by: viewer.email, status: "staged",
     date_from: res.dateFrom, date_to: res.dateTo, row_count: res.rows.length, issues: res.issues, mapping: res.detected?.mapping ?? null,
@@ -375,7 +408,7 @@ export async function stageUpload(
     const e = await sb.from("upload_row").insert(part);
     if (e.error) throw new WriteError(`staging: ${e.error.message}`);
   }
-  const def = kindDef(kind);
+  const def = kindDef(kind as UploadKind);
   return {
     uploadId, kind, fileName, sha,
     parse: {
@@ -390,12 +423,21 @@ export async function stageUpload(
 }
 
 /** Commit a staged upload: re-plan against the current data and apply every target in RLS-checked RPC calls. */
-export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string): Promise<string> {
+export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, settings: ModuleSettings = {}): Promise<string> {
   const { data: up, error } = await sb.from("upload").select("*, week:week_id(*)").eq("id", uploadId).single();
   if (error || !up) throw new WriteError("Upload tidak ditemukan");
   if (up.status !== "staged") throw new WriteError(`Upload sudah ${up.status}`);
   const week = up.week as WeekRow;
   const kind = up.kind as AnyKind;
+  const v3 = v3Kind(kind);
+  if (v3) {
+    if (!isModuleOn(settings[v3.module], viewer.role) || !v3.roles.includes(viewer.role)) throw new WriteError(`Modul ${v3.module} belum aktif untuk peran Anda`);
+    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
+    const r = await v3.commit({ sb, viewer, week, uploadId, rows });
+    await queueRebuild(sb, r.dates, `upload ${kind}`);
+    await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: r.inserted, updated: r.updated, deleted: r.deleted }).eq("id", uploadId);
+    return `Disimpan: ${r.inserted} baris baru, ${r.updated} diubah, ${r.deleted} dihapus (soft). ${r.message}`;
+  }
   let counts = { inserted: 0, updated: 0, deleted: 0, superseded: 0 };
   if (kind === "workbook") {
     if (viewer.role !== "admin") throw new WriteError("Hanya Admin");
@@ -410,7 +452,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string): 
     const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
     const sets = new Map<string, Row[]>();
     for (const r of rows) sets.set(r.target, [...(sets.get(r.target) ?? []), r.data]);
-    const plan = await planUpload(sb, week, kind, [...sets.entries()].map(([target, rs]) => ({ target: target as StagedSet["target"], rows: rs })), viewer);
+    const plan = await planUpload(sb, week, kind as UploadKind, [...sets.entries()].map(([target, rs]) => ({ target: target as StagedSet["target"], rows: rs })), viewer);
     for (const t of plan.targets) {
       let seq = await nextSeq(sb, t.table, t.table === "gl_line" ? null : week.id);
       const ins = t.inserts.map((r) => {

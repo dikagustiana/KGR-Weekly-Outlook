@@ -17,6 +17,8 @@ const ROLE_HELP: Record<string, string> = {
   purchasing: "Harga LB hari ini, rencana beli trading, harga beli pengganti, termin, rencana kas (pembayaran)",
   finance: "Rencana kas, run-rate, rilis outlook",
   management: "Baca saja (tanpa halaman input)",
+  commercial_lead: "Semua hak Sales; approval diskon di bawah harga lantai; scorecard dan target per sales",
+  cost_accounting: "Upload WP potong per batch, cost pool, tarif overhead, alokasi biaya ke SKU",
 };
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

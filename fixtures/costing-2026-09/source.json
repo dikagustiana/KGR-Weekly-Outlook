@@ -1,0 +1,45 @@
+{
+ "fixture": "costing-2026-09",
+ "generated_by": "scripts/extract_fixtures.py",
+ "sources": [
+  {
+   "file": "reference/202609_Data_COGS_LB.xlsx",
+   "sha256": "790eb20bb34eef3a9d69a2db0f0a217eb57777262a33af20f40dfd5d92ee1c3f",
+   "sheets": [
+    "Sheet3",
+    "Pot_ISA11+Blasting",
+    "Pot_ISA10+Blasting",
+    "Pot_ISA30",
+    "Pot_ISA29",
+    "Pot_AGRO30",
+    "Pot_AGRO29",
+    "Pot_ISA28",
+    "Pot_AGRO28",
+    "Pot_AGRO25",
+    "Pot_ISA25",
+    "Pot_AGRO24",
+    "Pot_ISA24",
+    "Pot_AGRO22",
+    "Pot_ISA22",
+    "Pot_ISA21",
+    "Pot_ISA18",
+    "Pot_ISA17",
+    "Pot_ISA16",
+    "Pot_ISA10",
+    "Pot_ISA09 (2)",
+    "Pot_ISA09",
+    "Pot_ISA07",
+    "Boneless",
+    "Pot_ISA03",
+    "Pot_ISA02",
+    "Pot_ISA01",
+    "List_item",
+    "Price list",
+    "Albertus_TRD",
+    "Pot_ISA",
+    "Pot_ISA (2)",
+    "Sheet5"
+   ]
+  }
+ ]
+}

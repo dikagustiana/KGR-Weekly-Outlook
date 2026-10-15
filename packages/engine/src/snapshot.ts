@@ -66,3 +66,21 @@ export function toSnapshot(r: WeekResult, dp = 6): Snapshot {
 export function snapshotJson(r: WeekResult): string {
   return JSON.stringify(toSnapshot(r), null, 1) + "\n";
 }
+
+/**
+ * v3 (PRD v3 rule 2): module outputs go under new top-level keys appended after the v1 keys — never inside the v1
+ * structure. With no v3 output the JSON is byte-identical to snapshotJson().
+ */
+export const V3_SNAPSHOT_KEYS = ["controls_v3", "costing", "ledger", "demand", "plan", "allocation", "monthly", "drivers", "cash", "ccc", "solvency", "commercial"] as const;
+export type V3SnapshotKey = (typeof V3_SNAPSHOT_KEYS)[number];
+export type V3Snapshot = Partial<Record<V3SnapshotKey, unknown>>;
+
+export function toSnapshotV3(r: WeekResult, v3: V3Snapshot, dp = 6): Snapshot & V3Snapshot {
+  const out = toSnapshot(r, dp) as Snapshot & V3Snapshot;
+  for (const k of V3_SNAPSHOT_KEYS) if (v3[k] !== undefined) out[k] = plain(v3[k], dp);
+  return out;
+}
+
+export function snapshotJsonV3(r: WeekResult, v3: V3Snapshot): string {
+  return JSON.stringify(toSnapshotV3(r, v3), null, 1) + "\n";
+}

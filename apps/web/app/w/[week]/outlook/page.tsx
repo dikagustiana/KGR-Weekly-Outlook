@@ -3,6 +3,10 @@ import { WeekShell } from "@/components/WeekShell";
 import { OutlookBody } from "@/components/OutlookBody";
 import { Headline } from "@/components/outlook/Headline";
 import { tgl } from "@/lib/fmt";
+import { MODULE_KEYS, isModuleOn, moduleSettings, type ModuleSettings } from "@/lib/modules";
+import { supabaseServer } from "@/lib/supabase";
+import { managementV3 } from "@/lib/v3/management";
+import { HeadlineV3, managementSlots } from "@/components/v3/ManagementV3";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +14,10 @@ export default async function OutlookPage({ params }: PageProps) {
   const { week } = await params;
   const ctx = await weekContext(week);
   const r = ctx.computed.result;
+  // v3 (PRD v3 §6): headline tiles and sections of the modules that are on; Input and COGS always
+  const all = await moduleSettings();
+  const mine: ModuleSettings = Object.fromEntries(MODULE_KEYS.map((k) => [k, { enabled: isModuleOn(all[k], ctx.viewer.role) }]));
+  const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r) : null;
   return (
     <WeekShell ctx={ctx} active="outlook">
       {ctx.view === "management" ? (
@@ -35,8 +43,8 @@ export default async function OutlookPage({ params }: PageProps) {
           </div>
         </div>
       )}
-      {ctx.view === "management" ? <Headline r={r} week={week} /> : null}
-      <OutlookBody r={r} week={week} view={ctx.view} />
+      {ctx.view === "management" ? <Headline r={r} week={week} extra={m3 ? <HeadlineV3 m={m3} month={ctx.week.update_date.slice(0, 7)} /> : null} /> : null}
+      <OutlookBody r={r} week={week} view={ctx.view} v3={m3 ? managementSlots(m3) : null} />
       {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p> : null}
     </WeekShell>
   );

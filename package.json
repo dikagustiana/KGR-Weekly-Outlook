@@ -1,7 +1,7 @@
 {
   "name": "kgr-weekly-outlook",
   "private": true,
-  "description": "KGR Weekly Outlook \u2014 PT Karya Gudang Rabat (SAMB Group)",
+  "description": "KGR Weekly Outlook — PT Karya Gudang Rabat (SAMB Group)",
   "packageManager": "pnpm@10.28.0",
   "engines": {
     "node": ">=20"
@@ -14,7 +14,8 @@
     "dev": "pnpm --filter @kgr/web dev",
     "build": "pnpm --filter @kgr/web build",
     "parity": "tsx packages/engine/scripts/parity.ts",
-    "snapshot:diff": "tsx packages/engine/scripts/snapshot-diff.ts"
+    "snapshot:diff": "tsx packages/engine/scripts/snapshot-diff.ts",
+    "test:rls": "bash scripts/test-rls.sh"
   },
   "devDependencies": {
     "tsx": "4.21.0",
