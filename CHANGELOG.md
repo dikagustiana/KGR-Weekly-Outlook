@@ -2,6 +2,19 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F0] Data fixes, fondasi, backup (docs/PLAN-v3.md Fase 0)
+
+### Added
+- `docs/PRD-v3-kgr-platform.md`, `docs/PLAN-v3.md`; source workbooks `reference/202609_Data_COGS_LB.xlsx`, `reference/KGR_Demand_Forecast.xlsx`, `reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx` (as received).
+- Migration `20261016000100_v3_foundation.sql`: roles `commercial_lead` and `cost_accounting`; `app_setting` with module flags `m1_costing … m7_commercial, m7_approval` (off); `module_enabled()`; `rebuild_queue` and `tg_needs_rebuild()`; `data_fix` log; data mart registry `mart_table` and writer RPC `mart_replace()`; policies for the new roles on existing tables; private bucket `backups`.
+- `apps/web/lib/modules.ts` (`moduleEnabled`, `requireModulePage` → 404, `requireModuleAction` → `WriteError`), `lib/rebuild.ts` (rebuild registry and queue), `/admin/modul` (flags per module and role, rebuild queue, "Bangun ulang"), "Modul" group in the navigation (only modules that are on for the role).
+- Data fixes `supabase/fixes/F0-D3.sql`, `F0-D4.sql`, `F0-D7-D9-runrate.sql`, `F0-D8.sql` (run by a person after testing); `docs/open-questions.md` §E (D1–D9, Q1–Q20 defaults, v3 implementation choices).
+- `.github/workflows/backup.yml` (daily `pg_dump`, manual dispatch before `db push`); CI: `pnpm snapshot:diff`, job `rls` (PostgreSQL 16 + `supabase/tests/supabase_shim.sql`, migrations twice, seed, `rls_roles.sql`); `pnpm test:rls`.
+- `scripts/extract_fixtures.py v3|costing|demand|fs|month` and fixture skeletons `fixtures/costing-2026-09`, `demand-2026-09`, `fs-2026-09`, `month-2026-08`.
+
+### Unchanged
+- Engine v1, golden tests, parity (17.161/17.161), snapshot of the example week (SHA-256 `947ce203…a83`).
+
 ## [M1] Engine and golden tests
 
 ### Added

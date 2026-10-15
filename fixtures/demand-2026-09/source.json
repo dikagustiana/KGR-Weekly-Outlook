@@ -1,0 +1,29 @@
+{
+ "fixture": "demand-2026-09",
+ "generated_by": "scripts/extract_fixtures.py",
+ "sources": [
+  {
+   "file": "reference/KGR_Demand_Forecast.xlsx",
+   "sha256": "9691f085544956a27d89c2206499642c31c6cc62e05d2b41a5f24cf2fe3c24d5",
+   "sheets": [
+    "Model_Details",
+    "I_Products",
+    "I_Live_Bird",
+    "I_Yield",
+    "I_Sales_History",
+    "I_Market_Intelligence",
+    "I_MEV",
+    "O_Demand_Rate",
+    "O_Scenario_Multipliers",
+    "O_Monte_Carlo",
+    "O_Granger_Test",
+    "O_Demand_Forecast",
+    "O_Optimizer",
+    "B_Purchase_Plan",
+    "B_Alokasi_Stok",
+    "O_Accuracy_Tracker",
+    "Z_Model_Governance"
+   ]
+  }
+ ]
+}

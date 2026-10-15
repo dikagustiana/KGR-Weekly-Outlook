@@ -8,6 +8,8 @@ import { WeekSelect } from "./WeekSelect";
 import { ViewToggle } from "./ViewToggle";
 import { canToggleView } from "@/lib/view";
 import { currentView } from "@/lib/view-server";
+import { moduleSettings, navModules } from "@/lib/modules";
+import { jakartaToday } from "@kgr/engine";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -26,6 +28,10 @@ export async function Shell({
   const view = await currentView(viewer);
   // R13: the management view renders the reports only (no INPUT / ADMIN groups, Kontrol via the release line)
   const mgmt = view === "management";
+  // PRD v3 rule 5: only modules that are on, and only the pages the role may open
+  const mods = navModules(await moduleSettings(), viewer.role, {
+    week: w ?? null, month: week ? week.update_date.slice(0, 7) : jakartaToday().slice(0, 7), today: jakartaToday(),
+  }, mgmt);
   return (
     <>
       <header className="topbar">
@@ -44,6 +50,15 @@ export async function Shell({
         {w ? REPORTS.filter(([p]) => !(mgmt && p === "kontrol")).map(([p, l]) => (
           <Link key={p} href={`/w/${w}/${p}`} className={active === p ? "on" : ""}>{l}</Link>
         )) : null}
+        {mods.length ? (
+          <>
+            <span className="sep" />
+            <span className="grp">Modul</span>
+            {mods.map((m) => (
+              <Link key={m.href} href={m.href} className={active === m.href || active === m.module + ":" + m.label ? "on" : ""}>{m.label}</Link>
+            ))}
+          </>
+        ) : null}
         {w && !mgmt && seesInputs(viewer.role) ? (
           <>
             <span className="sep inputs" />
@@ -60,6 +75,7 @@ export async function Shell({
             {viewer.role === "admin" ? <Link href={`/admin/minggu${w ? `?week=${w}` : ""}`} className={`inputs ${active === "admin/minggu" ? "on" : ""}`}>Minggu</Link> : null}
             <Link href={`/master/item${w ? `?week=${w}` : ""}`} className={`inputs ${active.startsWith("master") ? "on" : ""}`}>Master</Link>
             {viewer.role === "admin" ? <Link href={`/admin/pengguna${w ? `?week=${w}` : ""}`} className={`inputs ${active === "admin/pengguna" ? "on" : ""}`}>Pengguna</Link> : null}
+            {viewer.role === "admin" ? <Link href={`/admin/modul${w ? `?week=${w}` : ""}`} className={`inputs ${active === "admin/modul" ? "on" : ""}`}>Modul</Link> : null}
             <Link href={`/admin/audit${w ? `?week=${w}` : ""}`} className={`inputs ${active === "admin/audit" ? "on" : ""}`}>Audit</Link>
           </>
         ) : null}

@@ -1,0 +1,48 @@
+{
+ "fixture": "fs-2026-09",
+ "generated_by": "scripts/extract_fixtures.py",
+ "sources": [
+  {
+   "file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx",
+   "sha256": "7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5",
+   "sheets": [
+    "BS - Management Report",
+    "PL - Management Report",
+    "Slide",
+    "PL - Performance",
+    "DI - Note",
+    "DI - Sep wp",
+    "GL Aug Sep",
+    "Sheet1",
+    "BS",
+    "PL",
+    "TB Accurate",
+    "UNEARNED INCOME",
+    "Sep 26",
+    "FA",
+    "PREPAID RENT",
+    "Stock",
+    "AR",
+    "PREPAID OTHER",
+    "AP 26",
+    "Jan 26",
+    "Feb 26",
+    "Mar 26",
+    "Apr 26",
+    "Mei 26",
+    "MANUAL DISPOS",
+    "GL SUMM",
+    "INVENTORY",
+    "RETAL DEPOSIT AR",
+    "RENTAL DEPOSIT AP",
+    "AP",
+    "Jun 26",
+    "Jul 26",
+    "Agt 26",
+    "Okt 24",
+    "Nov 24",
+    "Des 24"
+   ]
+  }
+ ]
+}

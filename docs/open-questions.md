@@ -58,3 +58,57 @@ One row per difference between the app and the Excel during the pilot. Rule unch
 | Date | Week | Block / statement line | Excel (cell, value) | App (value) | Cause | Decision | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | — | — | — | — | — | — | — |
+
+## E. v3 — data fixes (D1–D9), default decisions (PRD v3 §9 Q1–Q20) and implementation choices
+
+Rule (PRD v3 §9, prompt rule 7): execution does not wait for answers. Every default below is in use, can be changed through the
+parameter / master named in the row without changing code, and lists what moves when it changes. Status: **OPEN** = owner
+decision still needed; **DEFAULT** = default in use; **FIXED** = script/control in place; **INFO** = documented.
+
+### E.1 Data issues D1–D9 (PRD v3 §1, Fase 0)
+
+| ID | Issue | Decision / fix | Control that flags it | Where it changes | Impact if it changes | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| D1 | Hasil potong per batch (WP kolom K5) vs Σ hasil SKU (kolom I) selisih 8–10% (contoh Pot_ISA30: 17.568,9 vs 15.893,9 kg = 9,5%) | Diperlakukan sebagai susut proses (Q4) sampai PPIC konfirmasi; alokasi biaya memakai Σ kg SKU (semua biaya batch habis ke SKU) | C22 (Fase 1) GAGAL bila gap > `parameter.yield_gap_tolerance` (2%) | `parameter.yield_gap_tolerance`; WP dari PPIC | Toleransi naik → C22 hijau tanpa memperbaiki data; bila gap ternyata output yang tidak ditimbang, COGS/kg SKU turun ±9% | OPEN (PPIC) |
+| D2 | Batch Pot_AGRO28, Pot_AGRO29, Pot_AGRO30 tanpa output SKU (kolom I kosong, Σ=0) | Batch tetap dibuat dari header WP; tanpa `batch_output_sku` tidak ada lot dan alokasi (`allocation_run` tidak bisa jalan) | C22 GAGAL (Σ output 0); C24 (rilis bulanan) GAGAL selama batch Aktual belum `posted` | Upload ulang WP setelah PPIC mengisi output | Setelah diisi: lot terbentuk, COGS/kg batch itu muncul | OPEN (PPIC / cost_accounting) |
+| D3 | Stok awal 3.955,0 jt (kartu stok, `I_Stok_Awal` E306 = 3.954.932.012) vs persediaan neraca 3.780,6 jt (`O_Outlook` B83 = 3.780.606.405) — selisih 174.325.607 | `supabase/fixes/F0-D3.sql`: selisih per minggu dicatat sebagai baris penyesuaian beralasan di `data_fix` (D3, `opening_vs_bs`); stok awal **tidak** diubah (engine v1 dan Excel memakai kartu stok). Dugaan penyebab: HPP faktur unbilled sudah mengkredit persediaan di GL, DO in-transit | C27 (Fase 2) nilai MA ledger vs neraca persediaan, dengan pos rekonsiliasi D3 | Inventory Accounting mencocokkan per item ke Inventory Valuation; penyesuaian dibukukan di Accurate | Bila dibukukan: neraca naik 174,3 jt, C27 hijau tanpa pos D3 | FIXED (dicatat) / OPEN (pembukuan) |
+| D4 | Tanda utang dagang di proyeksi (debit) — contoh minggu: Trade Payables - Third Parties debit 707,8 jt akhir minggu lalu, 420,3 jt kemarin; Trade Payables - Affiliates −361,2 jt di proyeksi dari rencana kas | `supabase/fixes/F0-D4.sql` mencatat setiap pos utang bersaldo debit per minggu di `data_fix` (D4); tidak mengubah jurnal (penyebab: pembayaran sebelum PI / pos lawan rencana kas) | C37 (Fase 5) AP bertanda negatif di proyeksi | Finance: reklas uang muka pemasok di Accurate; pos lawan di Input → Kas | CF kategori "Bayar pemasok" dan DPO (CCC) berubah arah | FIXED (dicatat) / OPEN (pembukuan) |
+| D5 | Blok 5 (kas keluar model) vs arus kas tidak cocok | Tetap perilaku Excel (A2: blok 5 struktural nol untuk pembayaran minggu lalu). Satu angka kas di v3 = posisi kas harian M6 (`cash_position_daily`) dari saldo rekening + rencana | C35 (Σ rekening vs kas neraca), C36 (hari kerja tanpa upload kas) | M6 template kas harian | Blok 5 tidak lagi dipakai manajemen; headline memakai kas terendah 13 minggu | DEFAULT |
+| D6 | Revenue 25 Agu 2026 = 0 (hari kerja, GL tanpa penjualan) | Hari itu ditandai anomali; run-rate harian M4 mengecualikan hari `anomaly=true` (revenue 0 pada hari kerja atau > 3σ) | `pl_daily.anomaly` (Fase 4) | Otomatis dari data; bila penjualan 25 Agu diposting belakangan, anomali hilang | Run-rate naik bila hari nol ikut dihitung | DEFAULT |
+| D7 | Depresiasi September belum dibukukan (FS Sep 0 vs 10.393.461 Jan–Agu) | `supabase/fixes/F0-D7-D9-runrate.sql`: run-rate D&A minggu ≥ 1 Sep = 10.393.461 bila 0/kosong; dari Fase 4 masuk `fixed_cost_schedule` (seed 10.400.000) | C34 (pos tetap actual MTD vs jadwal) | `runrate` / `fixed_cost_schedule` | NI outlook −10,4 jt/bulan | FIXED |
+| D8 | Kontrol neraca −0,32 (FS Sep, `BS - Management Report` L8) | `supabase/fixes/F0-D8.sql`: baris pembulatan TB ke `7100008 Rounding - KGR` (−Σ TB) bila 0 < |Σ| ≤ 1, minggu ≥ 1 Sep | Kontrol 12 / 15 tetap; selisih menjadi 0 | `tb_opening` | Other Income berubah ≤ Rp 1 | FIXED |
+| D9 | Run-rate gaji di app 29,8 jt vs FS 85,6 jt (Agu 85.565.549; Sep 82.677.332) | Skrip yang sama: run-rate gaji = gaji FS bulan tutup terakhir bila lebih kecil (Sep → Agu 85.565.549; Okt+ → Sep 82.677.332); Fase 4: nominal di `fixed_cost_schedule` diisi Finance | C33/C34 (Fase 4) | `runrate` / `fixed_cost_schedule` | Opex outlook naik ~55 jt/bulan | FIXED |
+
+### E.2 Default decisions PRD v3 §9 (Q1–Q20)
+
+| ID | Decision | Default in use | Where it is changed | Impact when changed |
+| --- | --- | --- | --- | --- |
+| Q1 | By-product: joint vs NRV | `joint` — by-product ikut share relative sales value | `parameter.by_product_method` (`joint`/`nrv`) | `nrv`: by-product dinilai NRV, sisa biaya ke produk utama → COGS/kg karkas naik |
+| Q2 | Cost pool: PI saja atau PI + akrual | PI + akrual GL; tie-out ke GL akun biaya RPA | `cost_pool_line` (sumber), `cost_pool.total_gl` | PI saja → C23 GAGAL selama akrual belum ada PI |
+| Q3 | Harga alokasi fresh vs frozen | Harga daftar WP / `sku_price` minggu potong; key fresh dan frozen berbeda | `allocation_run.price_list_week_id`, Master → Harga | Share per SKU bergeser; total biaya batch tetap |
+| Q4 | Arti gap hasil potong 8–10% (D1) | Susut proses; C22 toleransi 2% | `parameter.yield_gap_tolerance` | Lihat D1 |
+| Q5 | Sumber ekor per batch | `batch.head_count` dari WP; kosong → `lb_kg / parameter.avg_lb_kg_default` (2,0 kg; `KGR_Demand_Forecast.xlsx` I_Live_Bird B3) | `batch.head_count`, `parameter.avg_lb_kg_default` | Overhead mode own per ekor dan rencana ekor berubah |
+| Q6 | Lot di DO | Tidak ada di Accurate → FIFO per key, baris `lot_movement.assumed=true`; target: kolom lot di DO Ops | C25 menampilkan % kg keluar assumed | SI per lot lebih akurat bila lot dicatat di DO |
+| Q7 | Tabel substitusi | Kosong (tidak ada substitusi) | tabel `substitution` | Netting demand memakai stok SKU pengganti |
+| Q8 | Fresh window / cut-off | 48 jam / 14:00 | `sku_key.fresh_window_hours`, `parameter.cut_off_time` | Lebih panjang → lebih sedikit blast ke frozen |
+| Q9 | Penyebab 63% frozen | Ditampilkan sebagai `rp_downgrade` di rencana mingguan; tidak diputuskan sistem | `plan_week` | — |
+| Q10 | Threshold approval downgrade | Rp 25 jt per minggu | `parameter.downgrade_approval_threshold` | Rencana dengan downgrade di atasnya butuh `approved_by` |
+| Q11 | MA Accurate per item atau per gudang | Per item (kode Accurate); `sku_balance_daily` = agregat per key | — (aturan engine `ledger.ts`) | Per gudang butuh kolom gudang di upload |
+| Q12 | V1 lock | Hari kerja ke-20 bulan | `parameter.v1_lock_day` | Versi V1 dikunci lebih awal/lambat |
+| Q13 | Toleransi forecast | ±10% porsi forecast | `parameter.forecast_tolerance_pct` | Lebar band outlook |
+| Q14 | Unbilled DO | Masuk actual basis `do_unbilled`, dinilai harga PO | `pl_daily.basis` | Actual MTD bergeser antara jurnal dan DO |
+| Q15 | Margin acuan commercial | Margin/kg pada harga list dan realisasi 7 hari | `commercial_daily` | Ranking urgensi tidak berubah; kolom margin berubah |
+| Q16 | Granularitas budget | Bulanan per pl_line | `month_outlook.budget_*`, `outlook_assumption` | "Butuh per hari" dihitung dari budget bulanan |
+| Q17 | Sales lihat cost? | Ya: cost/kg MA per SKU, harga lantai, margin; tidak: cost pool, biaya per batch, SI per lot | `parameter.sales_sees_cost` | `false` → kolom cost/kg disembunyikan untuk sales |
+| Q18 | Urgensi fresh/frozen | Fresh > 24 jam = jual hari ini; frozen > 21 hari = jual minggu ini; > `frozen_age_limit_days` (30) = di atas batas umur | tabel `urgency_rule`, `sku_key.frozen_age_limit_days` | Status urgensi dan ranking berubah |
+| Q19 | Batas approval diskon commercial_lead | Rp 500/kg; di atas itu Finance | `parameter.discount_limit_rp_per_kg` | Antrian approval berpindah ke Finance |
+| Q20 | Bobot Tentative / Forecast | 70% / 50% | `parameter.tentative_weight`, `parameter.forecast_weight` | Demand berbobot dan rencana ekor berubah |
+
+### E.3 Implementation choices (v3)
+
+| ID | Topic | Choice | Why | Where it changes |
+| --- | --- | --- | --- | --- |
+| V1 | Feature flag value | `app_setting.value = {"enabled": bool, "roles": [..]}`; tanpa `roles` = semua peran | PLAN: "flag on untuk admin dulu", lalu peran pemakai, lalu semua | `/admin/modul` |
+| V2 | Penulisan data mart | RPC `mart_replace(table, scope, rows)` (security definer, hanya tabel di `mart_table`, hanya peran penulis); baris yang tidak berubah tidak disentuh, sehingga `tg_audit` hanya mencatat perubahan nyata | `tg_audit` wajib di setiap tabel baru; rebuild harian tanpa perubahan tidak boleh membanjiri `audit_log` | `supabase/migrations/20261016000100_v3_foundation.sql` |
+| V3 | Uji RLS di CI | Job `rls` dengan PostgreSQL 16 (service container) + `supabase/tests/supabase_shim.sql` (stand-in `auth`/`storage`), semua migrasi dijalankan dua kali (idempoten), seed, lalu `rls_roles.sql`; hasil bertanda `(!)` = gagal | Tidak ada database Supabase uji di CI; production tidak disentuh | `scripts/test-rls.sh` |
+| V4 | Backup | `.github/workflows/backup.yml`: `pg_dump` harian + manual dispatch; artefak privat 14 hari, dan ke bucket privat `backups` bila secret service role tersedia | PLAN §0 | Secret `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` di GitHub |

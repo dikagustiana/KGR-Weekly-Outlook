@@ -6,7 +6,15 @@ input columns) and golden.json (cached values of every formula cell in the
 O_* sheets, Z_Kontrol, I_Parameter and the derived columns of the T_* sheets).
 
 Usage: python3 -I scripts/extract_fixtures.py [path/to/workbook.xlsx]
+
+v3 fixtures (docs/PLAN-v3.md, golden data for the new engine modules; files in reference/ are read as-is):
+  python3 -I scripts/extract_fixtures.py v3        all of the below
+  python3 -I scripts/extract_fixtures.py costing   reference/202609_Data_COGS_LB.xlsx            -> fixtures/costing-2026-09/
+  python3 -I scripts/extract_fixtures.py demand    reference/KGR_Demand_Forecast.xlsx            -> fixtures/demand-2026-09/
+  python3 -I scripts/extract_fixtures.py fs        reference/09._Laporan_Keuangan_Per_Sep_...    -> fixtures/fs-2026-09/
+  python3 -I scripts/extract_fixtures.py month     fixtures/week-2026-08-24 + FS Aug             -> fixtures/month-2026-08/
 """
+import hashlib
 import datetime as dt
 import json
 import os
@@ -264,5 +272,59 @@ def main():
     print(f"wrote {len(files)} files to {os.path.relpath(outdir, ROOT)}; golden cells: {len(golden)}")
 
 
+# ---------------------------------------------------------------------------------------------------- v3 fixtures
+
+REF = os.path.join(ROOT, "reference")
+V3_SOURCES = {
+    "costing": ("costing-2026-09", ["202609_Data_COGS_LB.xlsx"]),
+    "demand": ("demand-2026-09", ["KGR_Demand_Forecast.xlsx"]),
+    "fs": ("fs-2026-09", ["09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"]),
+    "month": ("month-2026-08", ["KGR_Weekly_Outlook.xlsx", "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"]),
+}
+V3_EXTRACTORS = {}
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def write_fixture(name, files):
+    outdir = os.path.join(ROOT, "fixtures", name)
+    os.makedirs(outdir, exist_ok=True)
+    for fname, data in files.items():
+        with open(os.path.join(outdir, fname), "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=1, sort_keys=False)
+            f.write("\n")
+    return outdir
+
+
+def v3_source(name, srcs):
+    out = {"fixture": name, "generated_by": "scripts/extract_fixtures.py", "sources": []}
+    for s in srcs:
+        path = os.path.join(REF, s)
+        wb = openpyxl.load_workbook(path, read_only=True)
+        out["sources"].append({"file": f"reference/{s}", "sha256": sha256(path), "sheets": wb.sheetnames})
+        wb.close()
+    return out
+
+
+def main_v3(cmd):
+    cmds = list(V3_SOURCES) if cmd == "v3" else [cmd]
+    for c in cmds:
+        name, srcs = V3_SOURCES[c]
+        files = {"source.json": v3_source(name, srcs)}
+        if c in V3_EXTRACTORS:
+            files.update(V3_EXTRACTORS[c]())
+        outdir = write_fixture(name, files)
+        print(f"{c}: wrote {len(files)} files to {os.path.relpath(outdir, ROOT)}")
+
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and (sys.argv[1] == "v3" or sys.argv[1] in V3_SOURCES):
+        main_v3(sys.argv[1])
+    else:
+        main()

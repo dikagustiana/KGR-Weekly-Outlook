@@ -20,7 +20,9 @@ export const WORKBOOK_KIND = {
 };
 
 export function kindsFor(role: string) {
-  return [...KINDS.filter((k) => k.roles.includes(role) && k.kind !== "batch_plan"), ...(role === "admin" ? [WORKBOOK_KIND] : [])];
+  // PRD v3 §2: the head of sales may do everything sales may
+  const as = role === "commercial_lead" ? ["commercial_lead", "sales"] : [role];
+  return [...KINDS.filter((k) => k.roles.some((r) => as.includes(r)) && k.kind !== "batch_plan"), ...(role === "admin" ? [WORKBOOK_KIND] : [])];
 }
 
 export interface PlanTarget {
