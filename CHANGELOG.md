@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F6b] M7 Approval diskon + scorecard (docs/PLAN-v3.md Fase 6, PR 6b)
+
+### Added
+- Migration `20261016001300_m7_approval.sql`: `discount_limit()`, decision guard on `discount_approval` (pending only on insert; commercial_lead ≤ limit, finance above; decisions final), `needs_rebuild` on `sales_target`.
+- Engine: `guardOrders` (order guard under the price floor) in `commercial.ts`.
+- Web: `lib/v3/discount.ts` (floor guard on Input → Penjualan save / paste and `po_lines`, approvals, C38, scorecard builder), `/komersial/approval`, `/komersial/scorecard`, C38 on Kontrol.
+
+### Verified
+- Order under the floor refused without approval; lead / finance limits enforced in the database; snapshot unchanged.
+
 ## [v3-F6a] M7 Commercial view (docs/PLAN-v3.md Fase 6, PR 6a)
 
 ### Added

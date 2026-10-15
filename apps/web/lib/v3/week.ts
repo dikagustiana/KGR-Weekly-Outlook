@@ -15,6 +15,7 @@ import { loadMonthDrivers } from "./drivers";
 import { monthView, plDaily } from "./monthly";
 import { loadCash } from "./cash";
 import { computeCommercial } from "./commercial";
+import { weekFloorControls } from "./discount";
 import { firstOfMonth, monthSummary } from "@kgr/engine";
 
 export interface WeekV3 {
@@ -110,6 +111,7 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
     controls.push(...c.controls);
     snapshot.commercial = { date: c.date, stock_date: c.stockDate, rows: c.rows.map((r) => ({ rank: r.rank, key: r.key, urgency: r.urgency, free_kg: r.free_fresh_kg.plus(r.free_frozen_kg), price_floor: r.price_floor, priority_score: r.priority_score })) };
   }
+  if (settings.m7_approval?.enabled && settings.m7_commercial?.enabled) controls.push(...await weekFloorControls(sb, week)); // C38
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };
 }

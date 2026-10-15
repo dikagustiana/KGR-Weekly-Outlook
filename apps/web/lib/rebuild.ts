@@ -15,6 +15,7 @@ import "./v3/planning";
 import "./v3/monthly";
 import "./v3/cash";
 import "./v3/commercial";
+import "./v3/discount";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

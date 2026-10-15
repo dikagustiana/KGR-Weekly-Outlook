@@ -151,6 +151,10 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | V40 | Penugasan sales ke login | `sales_assignment.email` (kolom tambahan) memetakan login ke sales_rep; sales tanpa penugasan melihat semua SKU dengan catatan (bukan kosong) dan C40 menandai BELUM DIISI | PRD tidak menyebut cara memetakan login | migrasi m7, `/komersial` |
 | V41 | Risiko downgrade | Semua stok bebas fresh dihitung (fresh − frozen harga daftar) × kg; prioritas membagi dengan max(1, jam ke cut-off / 24) — jam kosong = 24 | PRD "untuk fresh yang akan lewat cut-off" | `commercialRows` |
 | V42 | View sales | `commercial_daily_sales` = view daftar kolom (tanpa SI), dijalankan dengan hak pemilik view dan disaring `is_app_user()`; bukan perhitungan di SQL | Aturan "tidak ada perhitungan di SQL view untuk angka laporan" | migrasi m7 |
+| V43 | Cakupan guard harga lantai | Dijaga: simpan baris Order di Input → Penjualan, tempel CSV, upload `po_lines`. Tidak dijaga: upload v1 `orders` dan baris Aktual (sudah terkirim) | PLAN 6b menyebut Input → Penjualan dan `po_lines` | `lib/v3/discount.ts` `floorGuard` |
+| V44 | Approval mana yang menutup baris | Key + pelanggan sama, harga baris ≥ harga diminta, kg baris ≤ kg disetujui, belum dipakai; satu approval = satu baris (`sales_line_id`) | PRD §4.8 tidak merinci | `guardOrders` |
+| V45 | Sales pemilik penjualan (scorecard) | `sales_line.sales_rep`, else `sales_assignment` per pelanggan, else per key; blast cut-off per key; diskon per email peminta | Accurate tidak membawa sales | `computeScorecard` |
+| V46 | Jadwal scorecard | Rebuild hari Senin membangun minggu lalu; hari lain memperbarui minggu berjalan (sebagian) | PRD "dihitung Senin untuk minggu lalu" | builder `scorecard` |
 
 ### E.4 Target numbers (PRD v3 §8) — reproduced / not reproduced
 
@@ -176,3 +180,5 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | M6 | Upload template kas → posisi harian; Σ rekening = kas neraca (C35); 13 minggu / 12 bulan; CCC + simulasi; solvabilitas | **Engine reproduced (rule)**: template dibaca kedua sheet (`packages/parsers/test/m3-tables.test.ts`), C35–C37, proyeksi, simulasi CCC; UI belum dicoba di Supabase | idem |
 | M7 | View sales memuat cost/kg MA tetapi tidak cost pool / batch_ref / SI per lot di DOM | **Reproduced (view model + RLS)**: `commercialView` untuk sales tanpa SI / cost pool / batch_ref (`apps/web/lib/v3/commercial-view.test.ts`), RLS: sales tidak membaca `commercial_daily`, view tanpa kolom SI (`rls_roles.sql` F6a) | idem |
 | M7 | Ranking berubah saat umur berubah | **Reproduced**: frozen 10 → 35 hari pindah dari #2 ke #1 (di atas batas umur) | `packages/engine/test/commercial.test.ts` |
+| M7 | Order < price_floor ditolak tanpa approval | **Reproduced (rule + DB)**: `guardOrders` menolak dan membuat satu permintaan pending; approval disetujui menutup satu baris; commercial lead ≤ Rp 500/kg, Finance di atas (`commercial.test.ts`); trigger DB: sales tidak bisa menyetujui, lead tidak bisa di atas batas, keputusan final (`rls_roles.sql` F6b) | idem |
+| M7 | Scorecard mingguan terbentuk | **Reproduced (rule)**: `scorecard` target vs aktual, frozen tak terjual, error forecast, diskon; mart via `mart_replace` (RLS F6b); UI belum dicoba di Supabase | idem |
