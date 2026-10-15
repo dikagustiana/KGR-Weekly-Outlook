@@ -8,7 +8,7 @@ import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { currentView } from "@/lib/view-server";
 import { commercialMart, computeCommercial } from "@/lib/v3/commercial";
-import { URGENCY_LABEL, commercialView } from "@/lib/v3/commercial-view";
+import { URGENCY_LABEL, assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
 import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
   const mart = await commercialMart(sb, date, sales);
   const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);
   const own = (asg ?? []) as { key: string | null }[];
-  const assignedKeys = !sales || own.length === 0 || own.some((a) => a.key === null) ? null : new Set(own.map((a) => String(a.key)));
+  const assignedKeys = assignedKeysFor(v.role, own);
   const { data: par } = week ? await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle() : { data: null };
   const rows = commercialView(mart.rows, { role: v.role, salesSeesCost: (par as { sales_sees_cost?: boolean } | null)?.sales_sees_cost !== false, assignedKeys });
   const showMa = rows.some((r) => r.cost_per_kg_ma !== null);
@@ -34,7 +34,8 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/komersial">
       <h1>Komersial — stok yang harus dijual {mart.date ? `(${tgl(mart.date)})` : ""}</h1>
-      <p className="muted">Urutan: status umur (di atas batas umur → jual hari ini → jual minggu ini → aman), lalu kerugian simpan per hari + risiko turun ke frozen. Harga lantai = biaya rata-rata + markup. {sales && own.length === 0 ? "Belum ada penugasan SKU untuk Anda — semua SKU ditampilkan." : ""}</p>
+      <p className="muted">Urutan: status umur (di atas batas umur → jual hari ini → jual minggu ini → aman), lalu kerugian simpan per hari + risiko turun ke frozen. Harga lantai = biaya rata-rata + markup. </p>
+      {sales && own.length === 0 ? <Card><p>Belum ada penugasan SKU untuk Anda. Minta penugasan ke commercial lead.</p></Card> : null}
       {!mart.date ? <Card><p>Belum dibangun untuk tanggal ini.</p></Card> : null}
       <div className="kpis">
         <div className="kpi"><div className="l">SKU jual hari ini / di atas umur</div><div className="v">{urgent.length}</div><div className="l">{urgent.filter((r) => Number(r.ordered_today_kg) === 0).length} tanpa order hari ini</div></div>

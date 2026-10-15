@@ -12,6 +12,7 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { WriteError } from "../write";
+import { stockMartControl } from "./stale";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
 import { consumeApprovals, floorGuard } from "./discount";
@@ -247,6 +248,9 @@ export async function demandWeekly(sb: Supa, weekStart: string): Promise<Row[]> 
 // ------------------------------------------------------------------------------------------------ plan writes (PPIC)
 
 export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { classCode?: string | null; supplyCommittedHeads?: number | null; note?: string | null }): Promise<string> {
+  // C45 (PRD v4 §3.1 P3.3): a plan is not saved on a stock mart older than its inputs (stock date = the Sunday before)
+  const c45 = await stockMartControl(sb, addDays(week.week_start, -1));
+  if (c45.status === "STALE") throw new WriteError(`C45 STALE: ${c45.action}`);
   const src = await loadPlanning(sb, week);
   const p = proposePlan(src, opts);
   const version = (src.plans.length ? Math.max(...src.plans.map((x) => Number(x.version))) : 0) + 1;

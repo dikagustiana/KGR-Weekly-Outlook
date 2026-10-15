@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addDays, isISODate } from "@kgr/engine";
+import { addDays, isISODate, outstandingKg } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
@@ -9,6 +9,7 @@ import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleEnabled, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { dayControls, loadDayAllocation } from "@/lib/v3/allocation";
+import { stockMartControl } from "@/lib/v3/stale";
 import { tgl } from "@/lib/fmt";
 import { allocateAction, cutoffAction, deliverAction } from "./actions";
 
@@ -23,8 +24,9 @@ export default async function AlokasiPage({ params }: { params: Promise<{ date: 
   const sb = await supabaseServer();
   const ledgerOn = await moduleEnabled("m2_ledger", v);
   const d = ledgerOn ? await loadDayAllocation(sb, date) : null;
+  const c45 = ledgerOn ? await stockMartControl(sb, date) : null;
   const canCut = v.role === "admin" || v.role === "ppic";
-  const canDeliver = v.role === "admin" || v.role === "sales" || v.role === "commercial_lead";
+  const canDeliver = v.role === "admin" || v.role === "inventory_accounting" || v.role === "sales" || v.role === "commercial_lead";
   const byLine = new Map<string, { lot_ref: string; kg: string; method: string }[]>();
   for (const a of d?.allocations ?? []) byLine.set(String(a.sales_line_id), [...(byLine.get(String(a.sales_line_id)) ?? []), { lot_ref: String(a.lot_ref), kg: String(a.kg), method: String(a.method) }]);
   const unalloc = new Map((d?.proposal.unallocated ?? []).map((u) => [u.sales_ref, u.kg]));
@@ -50,12 +52,16 @@ export default async function AlokasiPage({ params }: { params: Promise<{ date: 
             {canCut ? <ActionForm action={cutoffAction} submit="Cut-off" confirm="Blast sisa fresh ke frozen sekarang?"><input type="hidden" name="date" value={date} /></ActionForm> : null}
           </span>}>
             <table className="t compact">
-              <thead><tr><th>PO</th><th>Pelanggan</th><th>SKU</th><th>Status</th><th>Sales</th><th className="n">kg</th><th>Lot teralokasi</th><th className="n">Belum tertutup kg</th><th /></tr></thead>
+              <thead><tr><th>PO</th><th>Pelanggan</th><th>SKU</th><th>Status</th><th>Sales</th><th className="n">kg</th><th className="n">Terkirim kg</th><th>Lot teralokasi</th><th className="n">Belum tertutup kg</th><th /></tr></thead>
               <tbody>{d.orders.map((o) => (
-                <tr key={o.id}><td>{o.po_ref ?? o.document_ref ?? "—"}</td><td>{o.customer ?? "—"}</td><td>{o.key}</td><td>{o.status === "Order" ? o.demand_status : "terkirim"}</td><td>{o.sales_rep ?? "—"}</td><Td v={o.kg as string} dp={2} />
+                <tr key={o.id}><td>{o.po_ref ?? o.document_ref ?? "—"}</td><td>{o.customer ?? "—"}</td><td>{o.key}</td><td>{o.status === "Order" ? o.demand_status : "terkirim"}</td><td>{o.sales_rep ?? "—"}</td><Td v={o.kg as string} dp={2} /><Td v={o.fulfilled_kg ?? null} dp={2} />
                   <td>{(byLine.get(o.id) ?? []).map((a) => <div key={a.lot_ref}><Link href={`/sku/${encodeURIComponent(o.key)}`}>{a.lot_ref}</Link> <N v={a.kg} dp={2} /> kg{a.method === "manual" ? " (manual)" : ""}</div>)}</td>
                   <Td v={o.status === "Order" ? unalloc.get(o.id) ?? null : null} dp={2} />
-                  <td>{o.status === "Order" && canDeliver ? <ActionForm action={deliverAction} submit="Terkirim"><input type="hidden" name="date" value={date} /><input type="hidden" name="id" value={o.id} /></ActionForm> : null}</td></tr>
+                  <td>{o.status === "Order" && canDeliver ? <ActionForm action={deliverAction} submit="Terkirim" className="row">
+                    <input type="hidden" name="date" value={date} /><input type="hidden" name="id" value={o.id} />
+                    <input className="in small" name="kg" inputMode="decimal" size={7} aria-label="kg terkirim" defaultValue={outstandingKg(o).toFixed(2)} />
+                    <input className="in small" name="document_ref" size={9} placeholder="No. DO" aria-label="nomor DO / surat jalan" />
+                  </ActionForm> : null}</td></tr>
               ))}</tbody>
             </table>
           </Card>
@@ -83,7 +89,7 @@ export default async function AlokasiPage({ params }: { params: Promise<{ date: 
               ); })}</tbody>
             </table>
           </Card>
-          <Card title="Kontrol alokasi (C29, C31)"><ControlsV3Table controls={dayControls(d)} /></Card>
+          <Card title="Kontrol alokasi (C29, C31, C45)"><ControlsV3Table controls={[...dayControls(d), ...(c45 ? [c45] : [])]} /></Card>
         </>
       ) : null}
     </Shell>

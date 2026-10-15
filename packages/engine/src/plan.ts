@@ -11,6 +11,7 @@
 import { D, Decimal, ZERO, div, max, min, sum, type Num } from "./decimal";
 import { addDays, type ISODate } from "./dates";
 import { SCENARIOS, type Scenario } from "./demand";
+import { outstandingKg } from "./delivery";
 
 export interface JointPart {
   sku: string;
@@ -317,13 +318,13 @@ export function proposeWeekPlan(x: {
 }
 
 /** Weighted open PO kg per delivery day (cut keys only) and weighted forecast kg of the week, for splitHeadsByDay. */
-export function demandByDay(x: { orders: { key: string; delivery_date: ISODate | null; demand_status: string | null; kg: Num; fulfilled_kg?: Num | null }[];
+export function demandByDay(x: { orders: { key: string; delivery_date: ISODate | null; demand_status: string | null; kg: Num; fulfilled_kg?: Num | null; cancelled_kg?: Num | null }[];
   forecasts: { key: string; kg: Num }[]; weights: { tentative: Num; forecast: Num }; weekStart: ISODate; isCut: (key: string) => boolean }): { orderKgByDay: Record<ISODate, Decimal>; forecastKg: Decimal } {
   const end = addDays(x.weekStart, 6);
   const by: Record<ISODate, Decimal> = {};
   for (const o of x.orders) {
     if (!o.delivery_date || o.delivery_date < x.weekStart || o.delivery_date > end || !x.isCut(o.key)) continue;
-    const open = max(ZERO, D(o.kg).minus(D(o.fulfilled_kg ?? 0)));
+    const open = outstandingKg(o);
     const w = o.demand_status === "Tentative" ? D(x.weights.tentative) : o.demand_status === "Forecast" ? D(x.weights.forecast) : D(1);
     by[o.delivery_date] = (by[o.delivery_date] ?? ZERO).plus(open.times(w));
   }

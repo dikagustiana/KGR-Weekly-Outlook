@@ -2,6 +2,24 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-0] Foundation (docs/PRD-v4.md irisan 0)
+
+### Added
+- `docs/PRD-v4.md` (otoritas produk), `reference/design/tokens.css`, `docs/v4/QUESTIONS.md`, `docs/v4/irisan-0.md`.
+- Migration `20261017000100_v4_schema.sql`: §4.1 columns (`sku_key.product_class`, `sales_line.channel` / `cancelled_kg`, `forecast_line.forecast_source` / `scenario`, template 8.3 fields on `fixed_cost_schedule`, `coa_map.segment` + driver `event`, `parameter.runrate_window_days` / `v1_lock_week` / `spot_enabled`, provenance on `month_outlook_version`); §4.2 tables `delivery`, `cost_event`, `budget`, `assumption_register`, marts `pl_daily_v4`, `demand_shortfall`, `plan_variance_daily`, `forecast_accuracy_daily`; §4.3 `data_status`, `status_map`; K7 triggers (Σ delivery ≤ kg − cancelled, `fulfilled_kg` derived).
+- Migration `20261017000200_v4_security.sql`: S1 (`mart_replace` service role only, restrictive no-client-write policies on the v3 marts, `data_status` written per scope), S2 (commercial view and discount requests default deny for sales), S4 (cost audit rows hidden from sales), S5 (C29 `allocation_cap`, C38 `floor_guard`, locked version not deleted, approved plan not edited, no self-approval), S6 (definer hygiene check).
+- Engine: `delivery.ts` (`outstandingKg`, `deliveryCheck`), `cancelled_kg` in allocation / demand / plan / C28, `ControlV3Status` with `STALE` and `N/A`, `staleControl` (C45), `blocking`.
+- Web: `lib/supabase-service.ts` (rebuild with the server's service role when `SUPABASE_SERVICE_ROLE_KEY` is set), `lib/v3/delivery.ts` (Terkirim with kg and DO number), `lib/v3/stale.ts` (C45 on Rencana and Alokasi; save and allocate refused when STALE), `assignedKeysFor`.
+- Fixture `fixtures/delivery-partial`.
+
+### Changed
+- `processRebuildQueue(settings)` no longer takes the user's client; without the server key it leaves the queue and says why.
+- `scripts/test-rls.sh` re-runs the v3/v4 migrations after the seed and fails when a test block does not report.
+- `rls_roles.sql`: the v3 expectations that signed-in roles write marts through `mart_replace` now expect a refusal; new blocks for the 9-role matrix, K7, S5, §4.2.
+
+### Verified
+- Snapshot of week 2026-08-24 byte-identical; parity 17.161/17.161; RLS 13 blocks without (!). Evidence `docs/v4/bukti/`.
+
 ## [v3-F7] Rilis bulanan, PDF, mobile, management view v3 (docs/PLAN-v3.md Fase 7)
 
 ### Added

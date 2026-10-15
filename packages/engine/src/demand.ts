@@ -12,6 +12,7 @@
  */
 import { D, Decimal, ZERO, div, max, min, sum, type Num } from "./decimal";
 import { diffDays, type ISODate } from "./dates";
+import { outstandingKg } from "./delivery";
 
 // ------------------------------------------------------------------------------------------------ A. forecast
 
@@ -115,6 +116,8 @@ export interface OrderLine {
   kg: Num;
   /** kg already delivered (fulfilled_kg). */
   fulfilled_kg?: Num | null;
+  /** K7: kg cancelled on the line. */
+  cancelled_kg?: Num | null;
   price?: Num | null;
   customer?: string | null;
 }
@@ -154,7 +157,7 @@ export function weeklyDemand(x: { orders: OrderLine[]; forecasts: ForecastLine[]
     if (!o.delivery_date) continue;
     const dd = diffDays(o.delivery_date, x.weekStart);
     if (dd < 0 || dd > 6) continue;
-    const open = max(ZERO, D(o.kg).minus(D(o.fulfilled_kg ?? 0)));
+    const open = outstandingKg(o);
     const r = row(o.key);
     if (o.demand_status === "Tentative") r.tentative_kg = r.tentative_kg.plus(open);
     else if (o.demand_status === "Forecast") r.forecast_kg = r.forecast_kg.plus(open);

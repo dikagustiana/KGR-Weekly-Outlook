@@ -32,10 +32,11 @@ export async function commit(uploadId: string, week: string): Promise<{ ok?: str
     const settings = await moduleSettings();
     const msg = await commitUpload(sb, v, uploadId, settings);
     // PRD v3 §3: rebuild the data mart for the dates the upload touched (modules that are on)
-    const rb = await processRebuildQueue(sb, moduleSettingsGlobal(settings));
+    const rb = await processRebuildQueue(moduleSettingsGlobal(settings));
     revalidatePath(`/w/${week}`, "layout");
     revalidatePath("/", "layout");
-    return { ok: rb.done || rb.failed ? `${msg} Data harian dibangun ulang: ${rb.done} selesai${rb.failed ? `, ${rb.failed} gagal (lihat Admin → Modul)` : ""}.` : msg };
+    const rebuilt = rb.done || rb.failed ? ` Data harian dibangun ulang: ${rb.done} selesai${rb.failed ? `, ${rb.failed} gagal (lihat Admin → Modul)` : ""}.` : rb.notes.length ? ` ${rb.notes[0]}` : "";
+    return { ok: `${msg}${rebuilt}` };
   } catch (e) {
     return { error: (e as Error).message };
   }

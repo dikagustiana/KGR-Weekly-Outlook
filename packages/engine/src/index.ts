@@ -16,6 +16,7 @@ export * from "./ledger";
 export * from "./demand";
 export * from "./plan";
 export * from "./allocation";
+export * from "./delivery";
 export * from "./drivers";
 export * from "./monthly";
 export * from "./cash";

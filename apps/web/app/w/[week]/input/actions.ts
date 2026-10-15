@@ -8,6 +8,8 @@ import { TABLES, canWriteRow, type TableDef } from "@/lib/tables";
 import { applyChanges } from "@/lib/write";
 import { moduleSettings } from "@/lib/modules";
 import { consumeApprovals, floorGuard } from "@/lib/v3/discount";
+import { recordDelivery } from "@/lib/v3/delivery";
+import { jakartaToday } from "@kgr/engine";
 import { weekIdOf } from "@/lib/rollover";
 
 type Row = Record<string, unknown>;
@@ -90,18 +92,29 @@ export async function deleteRow(form: FormData) {
   back(week, path, "Baris dihapus (soft delete — bisa dipulihkan Admin dari Audit)");
 }
 
-/** Sales marks a delivered order: Order → Aktual (PRD §2 step 2). */
+/**
+ * Sales marks a delivered order. M3 off: Order → Aktual for the whole line (PRD §2 step 2, v1 unchanged). M3 on
+ * (PRD v4 K7): the form carries the delivered kg; a delivery row is recorded and the line stays Order while kg remain.
+ */
 export async function markDelivered(form: FormData) {
   const v = await requireViewer();
   const week = String(form.get("week"));
   const id = String(form.get("id"));
   const sb = await supabaseServer();
+  const m3 = (await moduleSettings()).m3_planning?.enabled === true;
+  if (m3) {
+    let msg = "";
+    try {
+      const kg = parseNumber(String(form.get("kg") ?? ""));
+      const date = String(form.get("date") || "") || jakartaToday();
+      msg = await recordDelivery(sb, v, { id, date, kg: kg === null ? null : String(kg), documentRef: String(form.get("document_ref") ?? "").trim() || null });
+    } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
+    revalidatePath(`/w/${week}`, "layout");
+    back(week, "input/penjualan", msg);
+  }
   const { data: old } = await sb.from("sales_line").select("*").eq("id", id).maybeSingle();
   if (!old || !canWriteRow(v.role, TABLES.sales_line, { ...(old as Row), status: "Aktual" })) back(week, "input/penjualan", "Tidak berwenang", "err");
-  // M3 on: the PO line is fulfilled in full, so its lot allocations become the out_sale (PLAN Fase 3b)
-  const m3 = (await moduleSettings()).m3_planning?.enabled === true;
-  const upd = m3 ? { id, status: "Aktual", confirmed_by: v.email, fulfilled_kg: (old as Row).kg } : { id, status: "Aktual", confirmed_by: v.email };
-  try { await applyChanges(sb, "sales_line", [], [upd]); } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
+  try { await applyChanges(sb, "sales_line", [], [{ id, status: "Aktual", confirmed_by: v.email }]); } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
   revalidatePath(`/w/${week}`, "layout");
   back(week, "input/penjualan", "Order ditandai terkirim (Aktual)");
 }

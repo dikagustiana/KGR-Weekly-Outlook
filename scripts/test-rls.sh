@@ -11,12 +11,12 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
   URL="$DATABASE_URL"
   psql "$URL" -v ON_ERROR_STOP=1 -q -f supabase/tests/supabase_shim.sql || exit 1
   for f in supabase/migrations/*.sql; do psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null || { echo "migration failed: $f"; exit 1; }; done
-  # re-run: every migration must be idempotent
+  for f in supabase/seed/*.sql; do psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null || { echo "seed failed: $f"; exit 1; }; done
+  # re-run on the seeded database (as production: v1 + seed first, then v3/v4): every migration must be idempotent
   for f in supabase/migrations/2026101[6-9]*.sql supabase/migrations/202610[2-9]*.sql; do
     [[ -f "$f" ]] || continue
     psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null 2>&1 || { echo "migration not re-runnable: $f"; exit 1; }
   done
-  for f in supabase/seed/*.sql; do psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null || { echo "seed failed: $f"; exit 1; }; done
   for f in supabase/tests/v3_*.sql; do [[ -f "$f" ]] && { psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" || exit 1; }; done
 elif [[ -n "${SUPABASE_DB_URL:-}" ]]; then
   URL="$SUPABASE_DB_URL"
@@ -27,5 +27,8 @@ fi
 OUT=$(psql "$URL" -q -f supabase/tests/rls_roles.sql 2>&1)
 echo "$OUT" | grep -o 'RLS-RESULTS[^$]*' | sed 's/; /;\n  /g'
 if ! echo "$OUT" | grep -q 'RLS-RESULTS'; then echo "$OUT"; echo "test:rls FAILED (no results)"; exit 1; fi
+WANT=$(grep -c "raise exception 'RLS-RESULTS" supabase/tests/rls_roles.sql)
+GOT=$(echo "$OUT" | grep -c 'RLS-RESULTS')
+if [[ "$GOT" -ne "$WANT" ]]; then echo "$OUT" | grep -v 'RLS-RESULTS' | tail -8; echo "test:rls FAILED ($GOT of $WANT blocks reported)"; exit 1; fi
 if echo "$OUT" | grep -q '(!)'; then echo "test:rls FAILED (unexpected outcome marked (!))"; exit 1; fi
 echo "test:rls OK"
