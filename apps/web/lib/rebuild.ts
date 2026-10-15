@@ -18,6 +18,7 @@ import "./v3/monthly";
 import "./v3/cash";
 import "./v3/commercial";
 import "./v3/discount";
+import "./v4/week-pl";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 
