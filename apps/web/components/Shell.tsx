@@ -1,10 +1,13 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { ROLE_LABEL, seesInputs, type Role } from "@/lib/roles";
 import type { Viewer } from "@/lib/session";
 import type { WeekRow } from "@/lib/data";
 import { tgl } from "@/lib/fmt";
 import { WeekSelect } from "./WeekSelect";
+import { ViewToggle } from "./ViewToggle";
+import { canToggleView } from "@/lib/view";
+import { currentView } from "@/lib/view-server";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -16,10 +19,11 @@ const INPUTS: [string, string, Role[] | null][] = [
   ["input/runrate", "Run-rate", null], ["input/stok-awal", "Stok awal", null], ["upload", "Upload", null],
 ];
 
-export function Shell({
+export async function Shell({
   viewer, weeks, week, active, children, banner,
 }: { viewer: Viewer; weeks: WeekRow[]; week: WeekRow | null; active: string; children: ReactNode; banner?: ReactNode }) {
   const w = week?.week_start;
+  const view = await currentView(viewer);
   return (
     <>
       <header className="topbar">
@@ -27,6 +31,7 @@ export function Shell({
         {w ? <WeekSelect weeks={weeks.map((x) => ({ start: x.week_start, end: x.week_end, status: x.status }))} current={w} active={active} /> : null}
         {week ? <span className="who">Update: <b>{tgl(week.update_date, true)}</b></span> : null}
         <span className="spacer" />
+        {canToggleView(viewer.role) ? <Suspense fallback={null}><ViewToggle view={view} /></Suspense> : null}
         <span className="who">{viewer.fullName ?? viewer.email} · {ROLE_LABEL[viewer.role]}</span>
         <Link href={w ? `/akun?week=${w}` : "/akun"} className="who">Akun</Link>
         <form action="/auth/signout" method="post"><button className="b sec small">Keluar</button></form>
@@ -56,7 +61,7 @@ export function Shell({
           </>
         ) : null}
       </nav>
-      <main>{children}</main>
+      <main data-view={view}>{children}</main>
     </>
   );
 }

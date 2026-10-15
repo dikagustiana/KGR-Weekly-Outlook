@@ -64,3 +64,11 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 ### Security
 - Self sign-up through the Auth API is refused: before, an allow-listed e-mail without a login could be claimed by anyone who called the sign-up endpoint (the trigger auto-confirms). Logins now come only from `set_login_password` / Admin, or Google OAuth for allow-listed e-mails (`20261014000600_signup_lock.sql`).
 - Trigger functions are no longer exposed under `/rest/v1/rpc`.
+
+## [Management View v2] Role-based Outlook (`docs/PRD-management-view-v2.md`)
+
+Evidence per stage (checklist PRD §5, screenshots 1366×768): `docs/management-view/README.md`. Engine numbers are guarded by `tests/snapshots/outlook-2026-08-24.before.json` (`pnpm snapshot:diff`, `snapshot-baseline.test.ts`).
+
+### Stage 1 — R1 role split
+- `viewMode` (`management` | `preparer`) from the existing role: `management` always gets the management view; every other role is a preparer and can preview the management view from the topbar (cookie `kgr_view`). Presentation only; access rules are unchanged.
+- Root `pnpm test` also runs the web unit tests.

@@ -7,13 +7,14 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "pnpm -r --filter \"./packages/**\" test",
+    "test": "pnpm -r --filter \"./packages/**\" --filter @kgr/web test",
     "typecheck": "pnpm -r typecheck",
     "outlook": "tsx packages/engine/src/cli.ts",
     "fixtures": "python3 -I scripts/extract_fixtures.py",
     "dev": "pnpm --filter @kgr/web dev",
     "build": "pnpm --filter @kgr/web build",
-    "parity": "tsx packages/engine/scripts/parity.ts"
+    "parity": "tsx packages/engine/scripts/parity.ts",
+    "snapshot:diff": "tsx packages/engine/scripts/snapshot-diff.ts"
   },
   "devDependencies": {
     "tsx": "4.21.0",
