@@ -12,8 +12,14 @@ export function WeekShell({ ctx, active, children }: { ctx: WeekCtx; active: str
   const cls = c.overall === "ADA GAGAL" ? "GAGAL" : c.overall;
   const w = ctx.week;
   if (ctx.view === "management") {
-    // R12: one small grey line instead of the control bar — release date, controls passed, the open conditions; no e-mail
-    const parts = [ctx.lastRelease ? `Rilis ${tgl(ctx.lastRelease.update_date)}` : "Belum dirilis", `${c.counts.LULUS}/${c.controls.length} kontrol lulus`];
+    // R12: one small grey line instead of the control bar — release date, controls passed, the open conditions; no e-mail.
+    // The counts are those of the numbers on screen; when they differ from the frozen release, say so.
+    const rel = ctx.lastRelease;
+    const relCounts = rel?.controls?.counts;
+    const sameAsRelease = !!relCounts && (["LULUS", "PERIKSA", "BELUM DIISI", "GAGAL"] as const).every((k) => (relCounts[k] ?? 0) === c.counts[k]);
+    const parts = [rel ? `Rilis ${tgl(rel.update_date)}` : "Belum dirilis"];
+    if (rel && !sameAsRelease) parts.push("data berubah sejak rilis");
+    parts.push(`${c.counts.LULUS}/${c.controls.length} kontrol lulus`);
     if (c.counts["BELUM DIISI"]) parts.push(`${c.counts["BELUM DIISI"]} belum diisi`);
     if (c.counts.PERIKSA) parts.push(`${c.counts.PERIKSA} perlu diperiksa`);
     if (c.counts.GAGAL) parts.push(`${c.counts.GAGAL} gagal`);

@@ -34,7 +34,8 @@ export async function Shell({
         {week ? <span className="who">Update: <b>{tgl(week.update_date, !mgmt)}</b></span> : null}
         <span className="spacer" />
         {canToggleView(viewer.role) ? <Suspense fallback={null}><ViewToggle view={view} /></Suspense> : null}
-        <span className="who">{viewer.fullName ?? viewer.email} · {ROLE_LABEL[viewer.role]}</span>
+        {/* R12: no e-mail in the management view, also when the account has no name */}
+        <span className="who">{mgmt ? (viewer.fullName ? `${viewer.fullName} · ` : "") : `${viewer.fullName ?? viewer.email} · `}{ROLE_LABEL[viewer.role]}</span>
         <Link href={w ? `/akun?week=${w}` : "/akun"} className="who">Akun</Link>
         <form action="/auth/signout" method="post"><button className="b sec small">Keluar</button></form>
       </header>

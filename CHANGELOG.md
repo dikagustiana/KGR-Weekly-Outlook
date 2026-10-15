@@ -89,3 +89,8 @@ Evidence per stage (checklist PRD §5, screenshots 1366×768): `docs/management-
 - One meaning per colour: red only for negative values; the recommendation box is neutral (`--surface-2`, 3px accent border); warnings are default text with a "Peringatan:" prefix; stock status and trading recommendations are plain text, not coloured pills.
 - One date format ("24 Agu 2026") in the header, week selector and tables; the subtitle under the title is gone.
 - One "Unduh PDF" button with "Tampilan cetak" as a text link; the unit column does not wrap.
+
+### Fixes after review (Codex findings on #3 and #4)
+- R4: `LANJUT` with no plan, or a plan smaller than the fresh orders need, reads `POTONG {LB maksimum} kg LB: rencana … kg belum menutup order fresh` instead of keeping the undersized plan.
+- R12: when the live control counts differ from those frozen in the latest release, the release line says "data berubah sejak rilis" before the current counts.
+- R12: the management header never falls back to the e-mail when an account has no name.
