@@ -3,6 +3,8 @@ import type { WeekResult } from "@kgr/engine";
 import { Badge, Card, N, Td, statusClass } from "@/components/ui";
 import { num, tgl, tglShort } from "@/lib/fmt";
 import type { ViewMode } from "@/lib/view";
+import { humanize } from "@/lib/sources";
+import { RpaDecisionManagement } from "@/components/outlook/RpaDecisionManagement";
 
 const T = {
   b1kgA: "T_Penjualan: Σ kg baris Aktual yang dihitung (tanggal di minggu ini)",
@@ -21,6 +23,10 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
   const b2 = r.block2;
   const p = r.prepared.params;
   const mgmt = view === "management";
+  /** R5: plain source names in the management view */
+  const h = (t: string | undefined) => (mgmt ? humanize(t) : t);
+  // R10: management sees only its own warnings, and not the ones already in the headline / recommendation (R2, R4)
+  const alerts = mgmt ? r.block7.filter((a) => a.audience === "management" && a.code !== "LB_DI_ATAS_BREAKEVEN") : r.block7;
   return (
     <>
       <Card title="1. Ringkasan minggu — GP produk (HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk)">
@@ -38,10 +44,10 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               {r.block1.map((s) => (
                 <tr key={s.segment} className={s.segment === "TOTAL KGR" ? "total" : ""}>
                   <td className="lbl">{s.segment}</td>
-                  <Td v={s.kgActual} dp={0} tip={T.b1kgA} /><Td v={s.revenueActual} tip={T.b1revA} /><Td v={s.gpActual} tip={T.b1gpA} />
-                  <Td v={s.kgOrder} tip={T.b1kgO} /><Td v={s.revenueOrder} tip="Σ kg × harga order sisa minggu" /><Td v={s.gpOrder} tip={T.b1gpO} />
-                  <Td v={s.kgProjection} tip={T.b1proj} /><Td v={s.revenueProjection} tip={T.b1proj} /><Td v={s.gpProjection} tip={T.b1proj} />
-                  <Td v={s.gpPerKg} tip={T.b1gpkg} /><Td v={s.gpPct} percent tip={T.b1gppct} /><Td v={s.gpPerKgLastWeek} tip={T.b1lw} /><Td v={s.deltaGpPerKg} tip="GP/kg proyeksi − GP/kg minggu lalu" />
+                  <Td v={s.kgActual} dp={0} tip={h(T.b1kgA)} /><Td v={s.revenueActual} tip={h(T.b1revA)} /><Td v={s.gpActual} tip={h(T.b1gpA)} />
+                  <Td v={s.kgOrder} tip={h(T.b1kgO)} /><Td v={s.revenueOrder} tip={h("Σ kg × harga order sisa minggu")} /><Td v={s.gpOrder} tip={h(T.b1gpO)} />
+                  <Td v={s.kgProjection} tip={h(T.b1proj)} /><Td v={s.revenueProjection} tip={h(T.b1proj)} /><Td v={s.gpProjection} tip={h(T.b1proj)} />
+                  <Td v={s.gpPerKg} tip={h(T.b1gpkg)} /><Td v={s.gpPct} percent tip={h(T.b1gppct)} /><Td v={s.gpPerKgLastWeek} tip={h(T.b1lw)} /><Td v={s.deltaGpPerKg} tip={h("GP/kg proyeksi − GP/kg minggu lalu")} />
                 </tr>
               ))}
             </tbody>
@@ -51,31 +57,33 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
 
       <div className="grid2">
         <Card title="2. Keputusan RPA — potong berapa, beli live bird di harga berapa">
-          <table className="t compact">
-            <thead><tr><th>Indikator</th><th className="n">Nilai</th><th>Satuan</th><th>Cara hitung</th></tr></thead>
-            <tbody>
-              <Row l="Harga live bird hari ini (penawaran)" v={b2.lbPriceToday} u="Rp/kg LB" h={<Link href={`/w/${week}/input/parameter`}>I_Parameter</Link>} />
-              <Row l={`Order karkas fresh — ${tglShort(b2.horizonFrom)} s.d. ${tglShort(b2.horizonTo)}`} v={b2.freshOrdersInHorizon} u="kg" h="T_Penjualan: order RPA|Karkas|Fresh dalam horizon" dp={0} />
-              <Row l="Stok karkas fresh hari ini" v={b2.freshStockToday} u="kg" h={<Link href={`/w/${week}/stok?q=RPA|Karkas|Fresh`}>O_Stok</Link>} />
-              <Row l="Kebutuhan bersih karkas fresh" v={b2.netFreshNeed} u="kg" h="order − stok (min 0)" />
-              <Row l="Live bird maksimum tanpa menambah karkas frozen" v={b2.lbMaxWithoutFrozen} u="kg LB" h="kebutuhan bersih ÷ ((1 − shrink) × yield karkas)" />
-              <Row l="Live bird yang sudah direncanakan potong (horizon)" v={b2.lbPlannedInHorizon} u="kg LB" h={<Link href={`/w/${week}/input/batch`}>T_Batch: Rencana</Link>} />
-              <Row l="Karkas yang berpotensi jadi frozen" v={b2.karkasAtRiskOfFreezing} u="kg" h="kelebihan potong × (1 − shrink) × yield karkas" />
-              <Row l="Porsi karkas fresh dari potong rencana" v={b2.freshShareOfPlan} u="%" pctv h="kebutuhan bersih ÷ (LB rencana × (1 − shrink) × yield karkas), maks 100%" />
-              <Row l="Nilai output per kg live bird (porsi fresh rencana)" v={b2.valuePerKgLbAtPlanShare} u="Rp/kg LB" h="(1 − s)[y_k(f·P_fresh + (1−f)·P_frozen) + Σ y_i·P_i]" />
-              <Row l="Breakeven live bird — porsi fresh rencana" v={b2.breakevenAtPlanShare} u="Rp/kg LB" h="nilai output − angkut − maklon × (1 − shrink)" />
-              <Row l="Breakeven live bird — 100% karkas fresh" v={b2.breakevenAt100Fresh} u="Rp/kg LB" h="batas atas (f = 100%)" />
-              <Row l="Margin per kg live bird di harga hari ini" v={b2.marginPerKgLb} u="Rp/kg LB" h="breakeven − harga" />
-              <Row l="Perkiraan margin potong rencana" v={b2.expectedMarginOfPlan} u="Rp" h="margin/kg × kg LB rencana" />
-              <Row l="Potensi selisih harga karkas yang jadi frozen" v={b2.frozenPriceGap} u="Rp" h="kg frozen × (harga fresh − frozen)" />
-            </tbody>
-          </table>
-          {mgmt
-            ? <div className="reco" data-reco>{b2.action.text}</div>
-            : <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>}
-          <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-            Yield dipakai: {b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas {num(r.prepared.yields.karkas.times(100), 2)}%; shrink target {num(p.shrink.times(100), 1)}%; angkut Rp {num(p.freight)}/kg LB; maklon Rp {num(p.maklon)}/kg diproses.
-          </p>
+          {mgmt ? <RpaDecisionManagement r={r} /> : (
+            <>
+            <table className="t compact">
+              <thead><tr><th>Indikator</th><th className="n">Nilai</th><th>Satuan</th><th>Cara hitung</th></tr></thead>
+              <tbody>
+                <Row l="Harga live bird hari ini (penawaran)" v={b2.lbPriceToday} u="Rp/kg LB" h={<Link href={`/w/${week}/input/parameter`}>I_Parameter</Link>} />
+                <Row l={`Order karkas fresh — ${tglShort(b2.horizonFrom)} s.d. ${tglShort(b2.horizonTo)}`} v={b2.freshOrdersInHorizon} u="kg" h="T_Penjualan: order RPA|Karkas|Fresh dalam horizon" dp={0} />
+                <Row l="Stok karkas fresh hari ini" v={b2.freshStockToday} u="kg" h={<Link href={`/w/${week}/stok?q=RPA|Karkas|Fresh`}>O_Stok</Link>} />
+                <Row l="Kebutuhan bersih karkas fresh" v={b2.netFreshNeed} u="kg" h="order − stok (min 0)" />
+                <Row l="Live bird maksimum tanpa menambah karkas frozen" v={b2.lbMaxWithoutFrozen} u="kg LB" h="kebutuhan bersih ÷ ((1 − shrink) × yield karkas)" />
+                <Row l="Live bird yang sudah direncanakan potong (horizon)" v={b2.lbPlannedInHorizon} u="kg LB" h={<Link href={`/w/${week}/input/batch`}>T_Batch: Rencana</Link>} />
+                <Row l="Karkas yang berpotensi jadi frozen" v={b2.karkasAtRiskOfFreezing} u="kg" h="kelebihan potong × (1 − shrink) × yield karkas" />
+                <Row l="Porsi karkas fresh dari potong rencana" v={b2.freshShareOfPlan} u="%" pctv h="kebutuhan bersih ÷ (LB rencana × (1 − shrink) × yield karkas), maks 100%" />
+                <Row l="Nilai output per kg live bird (porsi fresh rencana)" v={b2.valuePerKgLbAtPlanShare} u="Rp/kg LB" h="(1 − s)[y_k(f·P_fresh + (1−f)·P_frozen) + Σ y_i·P_i]" />
+                <Row l="Breakeven live bird — porsi fresh rencana" v={b2.breakevenAtPlanShare} u="Rp/kg LB" h="nilai output − angkut − maklon × (1 − shrink)" />
+                <Row l="Breakeven live bird — 100% karkas fresh" v={b2.breakevenAt100Fresh} u="Rp/kg LB" h="batas atas (f = 100%)" />
+                <Row l="Margin per kg live bird di harga hari ini" v={b2.marginPerKgLb} u="Rp/kg LB" h="breakeven − harga" />
+                <Row l="Perkiraan margin potong rencana" v={b2.expectedMarginOfPlan} u="Rp" h="margin/kg × kg LB rencana" />
+                <Row l="Potensi selisih harga karkas yang jadi frozen" v={b2.frozenPriceGap} u="Rp" h="kg frozen × (harga fresh − frozen)" />
+              </tbody>
+            </table>
+            <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>
+            <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+              Yield dipakai: {b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas {num(r.prepared.yields.karkas.times(100), 2)}%; shrink target {num(p.shrink.times(100), 1)}%; angkut Rp {num(p.freight)}/kg LB; maklon Rp {num(p.maklon)}/kg diproses.
+            </p>
+            </>
+          )}
         </Card>
 
         <Card title="4. Stok — yang harus dijual / dibeli" extra={<Link href={`/w/${week}/stok`}>detail per SKU →</Link>}>
@@ -85,14 +93,14 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               {r.block4.filter((s) => !(mgmt && s.keys === 0)).map((s) => (
                 <tr key={s.status} className={s.keys === 0 ? "dim" : undefined}>
                   <td><Link href={`/w/${week}/stok?status=${s.status}`}><Badge s={s.status}>{s.label}</Badge></Link></td>
-                  <Td v={s.keys} tip="O_Stok: jumlah SKU dengan status ini" /><Td v={s.kgToday} tip="Σ stok hari ini" /><Td v={s.value} tip="Σ stok hari ini × biaya rata-rata" />
+                  <Td v={s.keys} tip={h("O_Stok: jumlah SKU dengan status ini")} /><Td v={s.kgToday} tip={h("Σ stok hari ini")} /><Td v={s.value} tip={h("Σ stok hari ini × biaya rata-rata")} />
                 </tr>
               ))}
             </tbody>
           </table>
           <h2>7. Peringatan</h2>
-          {r.block7.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : (
-            <ul className="alerts">{r.block7.map((a) => <li key={a.code}>{a.text}</li>)}</ul>
+          {alerts.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : (
+            <ul className="alerts">{alerts.map((a) => <li key={a.code}>{h(a.text)}</li>)}</ul>
           )}
         </Card>
       </div>
@@ -112,12 +120,12 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               {r.block3.map((t) => (
                 <tr key={t.key}>
                   <td className="lbl"><Link href={`/w/${week}/stok?q=${encodeURIComponent(t.key)}`}>{t.label}</Link></td>
-                  <Td v={t.stockToday} tip="O_Stok: stok akhir kemarin" /><Td v={t.ordersRestOfWeek} tip="Σ order hari ini s.d. akhir minggu" />
-                  <Td v={t.plannedReceipts} tip="T_Penerimaan: Rencana, hari ini s.d. akhir minggu" /><Td v={t.netNeed} tip="max(0, order − stok − rencana terima)" />
-                  <Td v={t.sellPrice} tip={t.sellPriceFromOrders ? "Harga rata-rata tertimbang order ≥ hari ini" : "Tidak ada order: harga jual acuan I_Master"} />
-                  <td className="n">{t.buyPrice === null ? <span className="muted">kosong</span> : <N v={t.buyPrice} tip="I_Master: harga beli pengganti" />}</td>
-                  <Td v={t.spread} tip="harga jual − harga beli pengganti" /><Td v={t.spreadPct} percent tip="spread ÷ harga jual" />
-                  <Td v={t.avgStockCost} tip="(nilai stok awal + nilai terima) ÷ (kg stok awal + kg terima)" />
+                  <Td v={t.stockToday} tip={h("O_Stok: stok akhir kemarin")} /><Td v={t.ordersRestOfWeek} tip={h("Σ order hari ini s.d. akhir minggu")} />
+                  <Td v={t.plannedReceipts} tip={h("T_Penerimaan: Rencana, hari ini s.d. akhir minggu")} /><Td v={t.netNeed} tip={h("max(0, order − stok − rencana terima)")} />
+                  <Td v={t.sellPrice} tip={h(t.sellPriceFromOrders ? "Harga rata-rata tertimbang order ≥ hari ini" : "Tidak ada order: harga jual acuan I_Master")} />
+                  <td className="n">{t.buyPrice === null ? <span className="muted">kosong</span> : <N v={t.buyPrice} tip={h("I_Master: harga beli pengganti")} />}</td>
+                  <Td v={t.spread} tip={h("harga jual − harga beli pengganti")} /><Td v={t.spreadPct} percent tip={h("spread ÷ harga jual")} />
+                  <Td v={t.avgStockCost} tip={h("(nilai stok awal + nilai terima) ÷ (kg stok awal + kg terima)")} />
                   <td><Badge s={t.recommendation.split(" ")[0]}>{t.recommendationText}</Badge></td>
                 </tr>
               ))}
@@ -135,15 +143,15 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               {r.block5.rows.map((c) => (
                 <tr key={c.date}>
                   <td className="lbl">{tgl(c.date, true)}</td>
-                  <Td v={c.liveBird} tip={`Nilai LB batch bertanggal tanggal − ${p.termsLb} hari`} />
-                  <Td v={c.trading} tip={`Penerimaan Beli Trading bertanggal tanggal − ${p.termsTrading} hari`} />
+                  <Td v={c.liveBird} tip={h(`Nilai LB batch bertanggal tanggal − ${p.termsLb} hari`)} />
+                  <Td v={c.trading} tip={h(`Penerimaan Beli Trading bertanggal tanggal − ${p.termsTrading} hari`)} />
                   <Td v={c.total} /><td>{c.basis}</td>
                 </tr>
               ))}
               <tr className="total"><td>Total minggu</td><Td v={r.block5.total.liveBird} /><Td v={r.block5.total.trading} /><Td v={r.block5.total.total} /><td /></tr>
             </tbody>
           </table>
-          <p className="muted" style={{ fontSize: 11 }}>Penerimaan kas dari pelanggan ada di Arus Kas. Catatan: lihat docs/open-questions A2 (pembayaran jatuh tempo dari minggu sebelumnya).</p>
+          <p className="muted" style={{ fontSize: 11 }}>Penerimaan kas dari pelanggan ada di Arus Kas.{mgmt ? null : " Catatan: lihat docs/open-questions A2 (pembayaran jatuh tempo dari minggu sebelumnya)."}</p>
         </Card>
 
         <Card title="6. Batch RPA minggu ini — aktual vs rencana" extra={<Link href={`/w/${week}/batch`}>detail batch →</Link>}>
@@ -156,16 +164,16 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               <tbody>
                 {r.block6.rows.map((b) => (
                   <tr key={b.status}>
-                    <td>{b.status}</td><Td v={b.batches} /><Td v={b.lbKg} /><Td v={b.avgLbPrice} tip="Σ nilai LB ÷ Σ kg LB" />
-                    <Td v={b.shrink} percent tip="1 − kg diproses ÷ kg dibeli" warnNeg={false} className={b.shrink && b.shrink.greaterThan(p.shrink) ? "warn" : ""} />
-                    <Td v={b.karkasYield} percent tip="(fresh + frozen) ÷ kg diproses" /><Td v={b.freshPct} percent tip="fresh ÷ (fresh + frozen)" />
-                    <Td v={b.margin} tip="nilai output di harga acuan − total biaya" /><Td v={b.marginPerKgLb} /><Td v={b.costPerKgOutput} tip="total biaya ÷ kg output" />
-                    <Td v={b.valuePerKgOutput} tip="nilai output ÷ kg output" /><Td v={b.breakevenLb} tip="(nilai output − angkut − maklon) ÷ kg LB" />
+                    <td>{b.status}</td><Td v={b.batches} /><Td v={b.lbKg} /><Td v={b.avgLbPrice} tip={h("Σ nilai LB ÷ Σ kg LB")} />
+                    <Td v={b.shrink} percent tip={h("1 − kg diproses ÷ kg dibeli")} warnNeg={false} className={b.shrink && b.shrink.greaterThan(p.shrink) ? "warn" : ""} />
+                    <Td v={b.karkasYield} percent tip={h("(fresh + frozen) ÷ kg diproses")} /><Td v={b.freshPct} percent tip={h("fresh ÷ (fresh + frozen)")} />
+                    <Td v={b.margin} tip={h("nilai output di harga acuan − total biaya")} /><Td v={b.marginPerKgLb} /><Td v={b.costPerKgOutput} tip={h("total biaya ÷ kg output")} />
+                    <Td v={b.valuePerKgOutput} tip={h("nilai output ÷ kg output")} /><Td v={b.breakevenLb} tip={h("(nilai output − angkut − maklon) ÷ kg LB")} />
                   </tr>
                 ))}
                 <tr className="dim">
                   <td>Target / benchmark</td><td /><td /><td /><Td v={r.block6.target.shrink} percent /><Td v={r.block6.target.karkasYield} percent /><td /><td /><td /><td /><td />
-                  <Td v={r.block6.target.breakevenLb100Fresh} tip="Breakeven 100% fresh (blok 2)" />
+                  <Td v={r.block6.target.breakevenLb100Fresh} tip={h("Breakeven 100% fresh (blok 2)")} />
                 </tr>
               </tbody>
             </table>
@@ -179,7 +187,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
           <thead><tr><th>Indikator</th><th className="n">Minggu lalu</th><th className="n">Proyeksi minggu ini</th><th className="n">Δ</th></tr></thead>
           <tbody>
             {r.block8.map((s) => (
-              <tr key={s.label}><td>{s.label}</td><Td v={s.lastWeek} tip={s.source} /><Td v={s.projection} tip={s.source} /><Td v={s.delta} /></tr>
+              <tr key={s.label}><td>{s.label}</td><Td v={s.lastWeek} tip={h(s.source)} /><Td v={s.projection} tip={h(s.source)} /><Td v={s.delta} /></tr>
             ))}
           </tbody>
         </table>
