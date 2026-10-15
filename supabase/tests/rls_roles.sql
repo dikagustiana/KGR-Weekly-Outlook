@@ -228,3 +228,78 @@ begin
 
   raise exception 'RLS-RESULTS v3 F2 (rolled back): %', out;
 end $$;
+
+-- v3 F3a (M3 planning): PO lines by sales, forecasts by sales/commercial_lead, plans and yields by PPIC, LB supply by
+-- purchasing, approval by finance only, demand mart written only through mart_replace.
+do $$
+declare out text := ''; n int; wid uuid; pid uuid;
+begin
+  insert into public.app_user(email, role) values ('t6-sales@x.test','sales'),('t6-cl@x.test','commercial_lead'),('t6-ppic@x.test','ppic'),
+    ('t6-purch@x.test','purchasing'),('t6-fin@x.test','finance'),('t6-mgmt@x.test','management');
+  select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
+  insert into public.plan_week (week_start, version, head_count, frozen_planned_rp_downgrade, needs_approval) values ('2030-01-07', 1, 100, 30000000, true) returning id into pid;
+
+  perform set_config('request.jwt.claims', '{"email":"t6-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line(week_id, date, status, item_code, kg, price, delivery_date, demand_status, sales_rep, po_ref, line_key)
+    values (wid, (select week_start from public.week where id = wid), 'Order', 'T6', 10, 1000, (select week_start from public.week where id = wid), 'Tentative', 'rep', 'PO-T6', 'PO-T6|T6|1');
+    out := out || 'sales insert PO line: OK; ';
+  exception when others then out := out || 'sales insert PO line: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line(week_id, status, kg, demand_status) values (wid, 'Order', 1, 'Maybe'); out := out || 'bad demand_status: ALLOWED(!); ';
+  exception when others then out := out || 'bad demand_status: denied; '; end;
+  begin insert into public.forecast_line(week_start, key, kg) values ('2030-01-07', 'RPA|BLD|Fresh', 100); out := out || 'sales insert forecast: OK; ';
+  exception when others then out := out || 'sales insert forecast: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_week(week_start, version, head_count) values ('2030-01-07', 9, 1); out := out || 'sales insert plan: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert plan: denied; '; end;
+  begin insert into public.demand_weekly(week_start, key) values ('2030-01-07', 'x'); out := out || 'sales insert demand_weekly: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert demand_weekly: denied; '; end;
+  select count(*) into n from public.yield_matrix; out := out || 'sales read yield_matrix=' || n || case when n > 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t6-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.forecast_line(week_start, key, kg) values ('2030-01-07', 'RPA|BLP|Fresh', 50); out := out || 'cl insert forecast: OK; ';
+  exception when others then out := out || 'cl insert forecast: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t6-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.yield_matrix(weight_class, cut_pattern, key, yield_pct) values ('STD', 'karkas', 'T6', 0.5); out := out || 'ppic insert yield: OK; ';
+  exception when others then out := out || 'ppic insert yield: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.capacity(date, cut_capacity_head) values ('2030-01-07', 1500); out := out || 'ppic insert capacity: OK; ';
+  exception when others then out := out || 'ppic insert capacity: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_day(plan_week_id, date, head_count) values (pid, '2030-01-07', 100); out := out || 'ppic insert plan_day: OK; ';
+  exception when others then out := out || 'ppic insert plan_day: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_week set approved_by = 't6-ppic@x.test', approved_at = now() where id = pid; out := out || 'ppic approve plan: ALLOWED(!); ';
+  exception when others then out := out || 'ppic approve plan: denied; '; end;
+  begin insert into public.forecast_line(week_start, key, kg) values ('2030-01-07', 'x', 1); out := out || 'ppic insert forecast: ALLOWED(!); ';
+  exception when others then out := out || 'ppic insert forecast: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t6-purch@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.lb_supply(date, supplier, weight_class, head_count, status) values ('2030-01-07', 'ISA', 'STD', 1000, 'confirmed'); out := out || 'purch insert lb_supply: OK; ';
+  exception when others then out := out || 'purch insert lb_supply: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.yield_matrix(weight_class, cut_pattern, key, yield_pct) values ('STD', 'karkas', 'T6b', 0.5); out := out || 'purch insert yield: ALLOWED(!); ';
+  exception when others then out := out || 'purch insert yield: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t6-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  update public.plan_week set approved_by = 't6-fin@x.test', approved_at = now() where id = pid; get diagnostics n = row_count;
+  out := out || 'finance approve plan rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin update public.plan_week set head_count = 5 where id = pid; out := out || 'finance edit plan: ALLOWED(!); ';
+  exception when others then out := out || 'finance edit plan: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t6-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.plan_week where id = pid; out := out || 'mgmt read plan=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin perform public.mart_replace('demand_weekly', '2030-01-07', '[]'::jsonb); out := out || 'mgmt mart_replace: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt mart_replace: denied; '; end;
+  execute 'reset role';
+  select count(*) into n from public.rebuild_queue where date = '2030-01-07' and status = 'queued';
+  out := out || 'forecast queued rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v3 F3a (rolled back): %', out;
+end $$;

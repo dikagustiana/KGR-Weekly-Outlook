@@ -366,6 +366,79 @@ def extract_costing():
 V3_EXTRACTORS["costing"] = extract_costing
 
 
+def extract_demand():
+    """KGR_Demand_Forecast.xlsx: inputs of the forecast + joint-production optimizer and the stock allocation sheet.
+
+    inputs.json mirrors the I_* sheets (and the hard-coded inputs of O_Demand_Forecast, O_Scenario_Multipliers,
+    O_Optimizer, B_Alokasi_Stok); golden.json holds the cached value of every formula cell of O_Demand_Rate,
+    O_Scenario_Multipliers, O_Demand_Forecast, O_Optimizer, B_Purchase_Plan and B_Alokasi_Stok.
+    """
+    path = os.path.join(REF, "KGR_Demand_Forecast.xlsx")
+    wbf = openpyxl.load_workbook(path)
+    wbv = openpyxl.load_workbook(path, data_only=True)
+    v = lambda sh, c: wbv[sh][c].value
+    prods = []
+    ws = wbv["I_Products"]
+    for r in range(4, ws.max_row + 1):
+        if not ws.cell(r, 1).value:
+            continue
+        prods.append({
+            "sku": ws.cell(r, 1).value, "name": ws.cell(r, 2).value, "cut_type": ws.cell(r, 3).value,
+            "fresh_shelf_days": num(ws.cell(r, 4).value), "frozen_capable": ws.cell(r, 5).value == "Y",
+            "frozen_shelf_days": num(ws.cell(r, 6).value), "sell_price": num(ws.cell(r, 7).value),
+            "frozen_price_factor": num(ws.cell(r, 8).value), "tier": ws.cell(r, 9).value,
+        })
+    yld = []
+    ws = wbv["I_Yield"]
+    for r in range(6, ws.max_row + 1):
+        if ws.cell(r, 1).value in (None, "TOTAL"):
+            continue
+        yld.append({"part": ws.cell(r, 1).value, "sellable": ws.cell(r, 3).value == "Y", "yield_pct": num(ws.cell(r, 4).value)})
+    hist = []
+    ws = wbv["I_Sales_History"]
+    for r in range(4, ws.max_row + 1):
+        if ws.cell(r, 1).value is None:
+            continue
+        hist.append({"date": iso(ws.cell(r, 1).value), "sku": ws.cell(r, 2).value, "kg": num(ws.cell(r, 4).value), "flag": ws.cell(r, 5).value})
+    ws = wbv["I_Market_Intelligence"]
+    season = {ws.cell(r, 1).value: num(ws.cell(r, 2).value) for r in range(6, 13)}
+    overrides = [{"date": iso(ws.cell(r, 1).value), "uplift": num(ws.cell(r, 2).value), "note": ws.cell(r, 3).value}
+                 for r in range(17, ws.max_row + 1) if isinstance(ws.cell(r, 1).value, (dt.date, dt.datetime))]
+    ws = wbv["O_Scenario_Multipliers"]
+    tiers = {ws.cell(r, 1).value: {"bear": num(ws.cell(r, 2).value), "bull": num(ws.cell(r, 3).value)} for r in range(5, 8)}
+    lb = wbv["I_Live_Bird"]
+    inputs = {
+        "products": prods, "yield": yld, "sales_history": hist,
+        "live_bird": {
+            "avg_weight_kg": num(lb["B3"].value), "price_per_kg": num(lb["B4"].value), "cut_cost_per_head": num(lb["B6"].value),
+            "freezer_capacity_kg": num(lb["B8"].value), "frozen_handling_per_kg": num(lb["B9"].value), "salvage_per_kg": num(lb["B10"].value),
+            "cut_capacity_per_day": num(lb["B11"].value), "window_days": num(lb["B14"].value), "trend_mode": lb["B15"].value,
+            "trend_clamp": num(lb["B16"].value), "mev_overlay": lb["B17"].value,
+        },
+        "seasonality": season, "overrides": overrides, "tiers": tiers,
+        "mev": {"bear": num(v("O_Scenario_Multipliers", "B10")), "base": num(v("O_Scenario_Multipliers", "B11")), "bull": num(v("O_Scenario_Multipliers", "B12"))},
+        "wow_trend": {wbv["O_Demand_Rate"].cell(r, 1).value: num(wbv["O_Demand_Rate"].cell(r, 6).value) for r in range(4, 12)},
+        "forecast_days": [iso(wbv["O_Demand_Forecast"].cell(6, c).value) for c in range(4, 11)],
+        "scenario_weights": {"bear": num(v("O_Optimizer", "B39")), "base": num(v("O_Optimizer", "C39")), "bull": num(v("O_Optimizer", "D39"))},
+        "stock_on_hand": [{"sku": wbv["B_Alokasi_Stok"].cell(r, 2).value, "kg": num(wbv["B_Alokasi_Stok"].cell(r, 4).value)} for r in range(6, 14)],
+        "stock_allocations": [
+            {"no": num(wbv["B_Alokasi_Stok"].cell(r, 1).value), "sku": wbv["B_Alokasi_Stok"].cell(r, 2).value, "customer": wbv["B_Alokasi_Stok"].cell(r, 4).value,
+             "kg": num(wbv["B_Alokasi_Stok"].cell(r, 5).value), "price": num(wbv["B_Alokasi_Stok"].cell(r, 6).value), "note": wbv["B_Alokasi_Stok"].cell(r, 8).value}
+            for r in range(19, 49) if wbv["B_Alokasi_Stok"].cell(r, 2).value],
+    }
+    golden = {}
+    for sh in ["O_Demand_Rate", "O_Scenario_Multipliers", "O_Demand_Forecast", "O_Optimizer", "B_Purchase_Plan", "B_Alokasi_Stok"]:
+        for row in wbf[sh].iter_rows():
+            for c in row:
+                if isinstance(c.value, str) and c.value.startswith("="):
+                    val = wbv[sh][c.coordinate].value
+                    golden[f"{sh}!{c.coordinate}"] = num(val) if isinstance(val, (int, float)) and not isinstance(val, bool) else (iso(val) if isinstance(val, (dt.date, dt.datetime)) else val)
+    return {"inputs.json": inputs, "golden.json": golden}
+
+
+V3_EXTRACTORS["demand"] = extract_demand
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:

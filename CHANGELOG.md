@@ -2,6 +2,17 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F3a] M3 Demand → rencana mingguan / harian (docs/PLAN-v3.md Fase 3, PR 3a)
+
+### Added
+- Migrations `20261016000600_m3_planning.sql` (`sales_line` PO columns `delivery_date`, `demand_status`, `sales_rep`, `po_ref`, `po_date`, `fulfilled_kg`, `price_floor_at_sale`, `discount_approval_id`; parameters `tentative_weight`, `forecast_weight`, `downgrade_approval_threshold`, `lead_time_days`; `weight_class`, `yield_matrix`, `substitution`, `forecast_line`, `capacity`, `lb_supply`, `plan_week`, `plan_day`, `allocation`, data mart `demand_weekly`; approval guard; week-scoped `needs_rebuild`) and `20261016000700_m3_backfill.sql` (existing Order rows → Confirmed + delivery date; placeholder weight class STD and yield matrix `karkas` / `boneless`).
+- Engine `demand.ts` (`demandRate`, `forecastDaily`, `weeklyDemand`, `eligibleFree`, `netDemand`, `toHeads`, `headsByPattern`, `weekDemand`), `plan.ts` (`jointEconomics`, `weeklyPlan`, `dailyPlan`, `mixParts`, `splitHeadsByDay`, `demandByDay`, `proposeWeekPlan`, `planBatchRow`) and C28–C31 in `controls-v3.ts`; fixture `fixtures/demand-2026-09` from `KGR_Demand_Forecast.xlsx`.
+- Parsers: v3 kinds `po_lines`, `forecast_sales`, `yield_matrix`, `lb_supply` (+ `normDemandStatus`, `normSupplyStatus`, `yieldFraction`).
+- Web: `lib/v3/planning.ts` (loader, `demand_weekly` builder, plan save / approve / "Salin ke batch rencana", upload kinds), `/w/[week]/demand`, `/w/[week]/rencana`; C28/C30 and snapshot keys `demand`, `plan` when `m3_planning` is on.
+
+### Verified
+- 7.051 heads, BLD binding, profit Base 70.817.907 reproduced (`O_Optimizer`), forecast D7:K30 cell by cell; example-week snapshot unchanged.
+
 ## [v3-F2] M2 Lot ledger + stok per SKU (docs/PLAN-v3.md Fase 2)
 
 ### Added

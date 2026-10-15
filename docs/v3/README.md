@@ -146,3 +146,40 @@ Golden M2          → saldo awal per key = stok awal (162.687,92 kg; Rp 3.954.9
                      setiap hari × key = O_Stok ± 0,01 kg; MA = HPP Accurate 30/34 baris (target 95%: todo, §E.4);
                      C25 assumed 100%; C27 dengan pos rekonsiliasi D3 = 0
 ```
+
+## F3a — M3 Demand → rencana mingguan / harian
+
+Branch `v3/f3a-demand` (di atas `v3/f2-ledger`) · desain [`F3a-design.md`](F3a-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016000600_m3_planning.sql` | kolom PO `sales_line`; parameter M3; `weight_class`, `yield_matrix`, `substitution`, `forecast_line`, `capacity`, `lb_supply`, `plan_week`, `plan_day`, `allocation`, `demand_weekly` (mart); guard approval; `tg_needs_rebuild` + `week_start` |
+| `20261016000700_m3_backfill.sql` | Order lama → Confirmed + `delivery_date = date`; seed kelas STD + yield placeholder; antrikan Senin minggu ber-PO |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016000600`, `20261016000700`), setelah F0–F2.
+2. PPIC: ganti yield placeholder (`yield_matrix`, upload "PPIC — yield matrix") dan kelas berat bila ada lebih dari STD; isi kapasitas harian di `/w/[minggu]/rencana`.
+3. `/admin/modul`: `m3_planning` on untuk Admin → **Proses antrian** → periksa `/w/[minggu]/demand` dan `/rencana`; lalu on untuk sales, commercial_lead, ppic, finance, management.
+4. Sales mulai upload "Sales — PO lines" (status demand, tanggal kirim, sales) dan "forecast per minggu"; Purchasing upload "supply live bird".
+
+### Bukti
+
+```
+pnpm typecheck     → Done (exit 0)
+pnpm test          → engine 138 passed + 1 todo (baru: demand.test.ts 15) · parsers 18 (baru: m3-tables.test.ts 3) · web 9
+pnpm parity        → 17161/17161 cells match, git diff --exit-code docs/parity.md docs/parity-cells.csv bersih
+pnpm snapshot:diff → diff vs baseline … EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /w/[week]/demand, ƒ /w/[week]/rencana)
+pnpm test:rls      → OK (DB baru, semua migrasi dua kali); F3a: sales insert PO line OK; bad demand_status denied;
+                     sales insert forecast OK; sales insert plan denied; sales insert demand_weekly denied; sales read yield_matrix=14;
+                     cl insert forecast OK; ppic insert yield / capacity / plan_day OK; ppic approve plan denied; ppic insert forecast denied;
+                     purch insert lb_supply OK; purch insert yield denied; finance approve plan rows=1; finance edit plan denied;
+                     mgmt read plan=1; mgmt mart_replace denied; forecast queued rebuild=1
+mart_replace       → payload engine minggu contoh (98 baris Order, yield seed): demand_weekly 12 key ditulis, run kedua 0 ditulis / 0 dihapus
+Golden M3          → O_Demand_Rate C:E, O_Demand_Forecast D7:K30 per sel, O_Optimizer G6:I13, B16 BLD, B20 7.051, C24:M32,
+                     B34:B40 (Base 70.817.907); app flow weekDemand → proposeWeekPlan = 7.051 ekor, surplus = F24:F31
+```
+

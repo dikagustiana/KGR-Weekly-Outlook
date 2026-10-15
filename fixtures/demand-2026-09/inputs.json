@@ -1,0 +1,1273 @@
+{
+ "products": [
+  {
+   "sku": "BLD",
+   "name": "Boneless Dada (fillet)",
+   "cut_type": "Boneless",
+   "fresh_shelf_days": "2",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "55000",
+   "frozen_price_factor": "0.9",
+   "tier": "Neutral"
+  },
+  {
+   "sku": "BLP",
+   "name": "Boneless Paha (fillet)",
+   "cut_type": "Boneless",
+   "fresh_shelf_days": "2",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "48000",
+   "frozen_price_factor": "0.9",
+   "tier": "Neutral"
+  },
+  {
+   "sku": "SYP",
+   "name": "Sayap",
+   "cut_type": "Bone-in",
+   "fresh_shelf_days": "2",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "38000",
+   "frozen_price_factor": "0.92",
+   "tier": "Neutral"
+  },
+  {
+   "sku": "CKR",
+   "name": "Ceker",
+   "cut_type": "Byproduct",
+   "fresh_shelf_days": "2",
+   "frozen_capable": true,
+   "frozen_shelf_days": "120",
+   "sell_price": "28000",
+   "frozen_price_factor": "0.95",
+   "tier": "Cyclical"
+  },
+  {
+   "sku": "KPL",
+   "name": "Kepala",
+   "cut_type": "Byproduct",
+   "fresh_shelf_days": "1",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "12000",
+   "frozen_price_factor": "0.95",
+   "tier": "Cyclical"
+  },
+  {
+   "sku": "KLT",
+   "name": "Kulit",
+   "cut_type": "Byproduct",
+   "fresh_shelf_days": "1",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "25000",
+   "frozen_price_factor": "0.92",
+   "tier": "Cyclical"
+  },
+  {
+   "sku": "JRN",
+   "name": "Jeroan (ati ampela)",
+   "cut_type": "Byproduct",
+   "fresh_shelf_days": "1",
+   "frozen_capable": true,
+   "frozen_shelf_days": "60",
+   "sell_price": "22000",
+   "frozen_price_factor": "0.9",
+   "tier": "Cyclical"
+  },
+  {
+   "sku": "TLG",
+   "name": "Tulang / carcass frame",
+   "cut_type": "Byproduct",
+   "fresh_shelf_days": "2",
+   "frozen_capable": true,
+   "frozen_shelf_days": "90",
+   "sell_price": "8000",
+   "frozen_price_factor": "0.95",
+   "tier": "Defensive"
+  }
+ ],
+ "yield": [
+  {
+   "part": "BLD",
+   "sellable": true,
+   "yield_pct": "0.18"
+  },
+  {
+   "part": "BLP",
+   "sellable": true,
+   "yield_pct": "0.13"
+  },
+  {
+   "part": "SYP",
+   "sellable": true,
+   "yield_pct": "0.09"
+  },
+  {
+   "part": "CKR",
+   "sellable": true,
+   "yield_pct": "0.04"
+  },
+  {
+   "part": "KPL",
+   "sellable": true,
+   "yield_pct": "0.03"
+  },
+  {
+   "part": "KLT",
+   "sellable": true,
+   "yield_pct": "0.06"
+  },
+  {
+   "part": "JRN",
+   "sellable": true,
+   "yield_pct": "0.05"
+  },
+  {
+   "part": "TLG",
+   "sellable": true,
+   "yield_pct": "0.28"
+  },
+  {
+   "part": "SUSUT",
+   "sellable": false,
+   "yield_pct": "0.1399999999999999"
+  }
+ ],
+ "sales_history": [
+  {
+   "date": "2026-06-01",
+   "sku": "BLD",
+   "kg": "319.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "BLP",
+   "kg": "215.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "SYP",
+   "kg": "141.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "CKR",
+   "kg": "60.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "KPL",
+   "kg": "28.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "KLT",
+   "kg": "58.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "JRN",
+   "kg": "53.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-01",
+   "sku": "TLG",
+   "kg": "185.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "BLD",
+   "kg": "310.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "BLP",
+   "kg": "215.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "SYP",
+   "kg": "142.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "CKR",
+   "kg": "61",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "KPL",
+   "kg": "29.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "KLT",
+   "kg": "65.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "JRN",
+   "kg": "48.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-02",
+   "sku": "TLG",
+   "kg": "170.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "BLD",
+   "kg": "329.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "BLP",
+   "kg": "241.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "SYP",
+   "kg": "143",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "CKR",
+   "kg": "56.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "KPL",
+   "kg": "29.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "KLT",
+   "kg": "58.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "JRN",
+   "kg": "50.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-03",
+   "sku": "TLG",
+   "kg": "197.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "BLD",
+   "kg": "363.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "BLP",
+   "kg": "225.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "SYP",
+   "kg": "154.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "CKR",
+   "kg": "61.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "KPL",
+   "kg": "31.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "KLT",
+   "kg": "63.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "JRN",
+   "kg": "57.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-04",
+   "sku": "TLG",
+   "kg": "175.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "BLD",
+   "kg": "295.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "BLP",
+   "kg": "240.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "SYP",
+   "kg": "152.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "CKR",
+   "kg": "70.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "KPL",
+   "kg": "34.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "KLT",
+   "kg": "69.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "JRN",
+   "kg": "64.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-05",
+   "sku": "TLG",
+   "kg": "202.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "BLD",
+   "kg": "187",
+   "flag": "Stockout"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "BLP",
+   "kg": "269.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "SYP",
+   "kg": "181.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "CKR",
+   "kg": "76.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "KPL",
+   "kg": "37.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "KLT",
+   "kg": "86.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "JRN",
+   "kg": "69.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-06",
+   "sku": "TLG",
+   "kg": "249.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "BLD",
+   "kg": "371.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "BLP",
+   "kg": "249.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "SYP",
+   "kg": "166",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "CKR",
+   "kg": "71.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "KPL",
+   "kg": "33.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "KLT",
+   "kg": "95.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "JRN",
+   "kg": "59.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-07",
+   "sku": "TLG",
+   "kg": "209.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "BLD",
+   "kg": "342.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "BLP",
+   "kg": "243.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "SYP",
+   "kg": "148.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "CKR",
+   "kg": "60.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "KPL",
+   "kg": "31.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "KLT",
+   "kg": "66",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "JRN",
+   "kg": "46.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-08",
+   "sku": "TLG",
+   "kg": "181.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "BLD",
+   "kg": "340.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "BLP",
+   "kg": "189.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "SYP",
+   "kg": "139.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "CKR",
+   "kg": "56.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "KPL",
+   "kg": "27.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "KLT",
+   "kg": "68.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "JRN",
+   "kg": "53.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-09",
+   "sku": "TLG",
+   "kg": "220.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "BLD",
+   "kg": "339",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "BLP",
+   "kg": "207.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "SYP",
+   "kg": "136.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "CKR",
+   "kg": "53.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "KPL",
+   "kg": "30.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "KLT",
+   "kg": "63.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "JRN",
+   "kg": "52",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-10",
+   "sku": "TLG",
+   "kg": "201.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "BLD",
+   "kg": "320.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "BLP",
+   "kg": "224.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "SYP",
+   "kg": "127.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "CKR",
+   "kg": "54.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "KPL",
+   "kg": "28.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "KLT",
+   "kg": "72.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "JRN",
+   "kg": "60.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-11",
+   "sku": "TLG",
+   "kg": "199.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "BLD",
+   "kg": "381.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "BLP",
+   "kg": "256.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "SYP",
+   "kg": "179.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "CKR",
+   "kg": "70.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "KPL",
+   "kg": "33.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "KLT",
+   "kg": "70.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "JRN",
+   "kg": "64.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-12",
+   "sku": "TLG",
+   "kg": "226.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "BLD",
+   "kg": "187",
+   "flag": "Stockout"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "BLP",
+   "kg": "275.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "SYP",
+   "kg": "208.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "CKR",
+   "kg": "69.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "KPL",
+   "kg": "40.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "KLT",
+   "kg": "84.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "JRN",
+   "kg": "63.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-13",
+   "sku": "TLG",
+   "kg": "218.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "BLD",
+   "kg": "386.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "BLP",
+   "kg": "294.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "SYP",
+   "kg": "183.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "CKR",
+   "kg": "72.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "KPL",
+   "kg": "27.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "KLT",
+   "kg": "85.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "JRN",
+   "kg": "66.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-14",
+   "sku": "TLG",
+   "kg": "219.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "BLD",
+   "kg": "306.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "BLP",
+   "kg": "218.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "SYP",
+   "kg": "162.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "CKR",
+   "kg": "52.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "KPL",
+   "kg": "27.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "KLT",
+   "kg": "73.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "JRN",
+   "kg": "50.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-15",
+   "sku": "TLG",
+   "kg": "184.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "BLD",
+   "kg": "318.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "BLP",
+   "kg": "192.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "SYP",
+   "kg": "142",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "CKR",
+   "kg": "50.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "KPL",
+   "kg": "29.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "KLT",
+   "kg": "65.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "JRN",
+   "kg": "60.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-16",
+   "sku": "TLG",
+   "kg": "190.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "BLD",
+   "kg": "358.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "BLP",
+   "kg": "195.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "SYP",
+   "kg": "141.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "CKR",
+   "kg": "58.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "KPL",
+   "kg": "32.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "KLT",
+   "kg": "57.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "JRN",
+   "kg": "56.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-17",
+   "sku": "TLG",
+   "kg": "199",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "BLD",
+   "kg": "381.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "BLP",
+   "kg": "243.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "SYP",
+   "kg": "150.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "CKR",
+   "kg": "57.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "KPL",
+   "kg": "27",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "KLT",
+   "kg": "71.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "JRN",
+   "kg": "54.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-18",
+   "sku": "TLG",
+   "kg": "232.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "BLD",
+   "kg": "355.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "BLP",
+   "kg": "259.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "SYP",
+   "kg": "144.3",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "CKR",
+   "kg": "63.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "KPL",
+   "kg": "33.7",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "KLT",
+   "kg": "82.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "JRN",
+   "kg": "67.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-19",
+   "sku": "TLG",
+   "kg": "219.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "BLD",
+   "kg": "371.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "BLP",
+   "kg": "286.1",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "SYP",
+   "kg": "187.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "CKR",
+   "kg": "74.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "KPL",
+   "kg": "34",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "KLT",
+   "kg": "91.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "JRN",
+   "kg": "66.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-20",
+   "sku": "TLG",
+   "kg": "253.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "BLD",
+   "kg": "430.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "BLP",
+   "kg": "277.4",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "SYP",
+   "kg": "176.5",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "CKR",
+   "kg": "80.9",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "KPL",
+   "kg": "35.2",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "KLT",
+   "kg": "78.6",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "JRN",
+   "kg": "63.8",
+   "flag": "Normal"
+  },
+  {
+   "date": "2026-06-21",
+   "sku": "TLG",
+   "kg": "257.3",
+   "flag": "Normal"
+  }
+ ],
+ "live_bird": {
+  "avg_weight_kg": "2",
+  "price_per_kg": "19000",
+  "cut_cost_per_head": "3000",
+  "freezer_capacity_kg": "5000",
+  "frozen_handling_per_kg": "500",
+  "salvage_per_kg": "1000",
+  "cut_capacity_per_day": "1500",
+  "window_days": "7",
+  "trend_mode": "Flat",
+  "trend_clamp": "0.1",
+  "mev_overlay": "Off"
+ },
+ "seasonality": {
+  "Monday": "0.95",
+  "Tuesday": "0.93",
+  "Wednesday": "0.95",
+  "Thursday": "1",
+  "Friday": "1.1",
+  "Saturday": "1.2",
+  "Sunday": "1.15"
+ },
+ "overrides": [
+  {
+   "date": "2027-03-20",
+   "uplift": "1.35",
+   "note": "Contoh: H-2 Lebaran (di luar window skeleton)"
+  }
+ ],
+ "tiers": {
+  "Defensive": {
+   "bear": "0.97",
+   "bull": "1.03"
+  },
+  "Neutral": {
+   "bear": "0.93",
+   "bull": "1.07"
+  },
+  "Cyclical": {
+   "bear": "0.85",
+   "bull": "1.15"
+  }
+ },
+ "mev": {
+  "bear": "1",
+  "base": "1",
+  "bull": "1"
+ },
+ "wow_trend": {
+  "BLD": "0",
+  "BLP": "0",
+  "SYP": "0",
+  "CKR": "0",
+  "KPL": "0",
+  "KLT": "0",
+  "JRN": "0",
+  "TLG": "0"
+ },
+ "forecast_days": [
+  "2026-06-23",
+  "2026-06-24",
+  "2026-06-25",
+  "2026-06-26",
+  "2026-06-27",
+  "2026-06-28",
+  "2026-06-29"
+ ],
+ "scenario_weights": {
+  "bear": "0.25",
+  "base": "0.5",
+  "bull": "0.25"
+ },
+ "stock_on_hand": [
+  {
+   "sku": "BLD",
+   "kg": "22000"
+  },
+  {
+   "sku": "BLP",
+   "kg": "16000"
+  },
+  {
+   "sku": "SYP",
+   "kg": "11000"
+  },
+  {
+   "sku": "CKR",
+   "kg": "8000"
+  },
+  {
+   "sku": "KPL",
+   "kg": "4000"
+  },
+  {
+   "sku": "KLT",
+   "kg": "9000"
+  },
+  {
+   "sku": "JRN",
+   "kg": "6000"
+  },
+  {
+   "sku": "TLG",
+   "kg": "24000"
+  }
+ ],
+ "stock_allocations": [
+  {
+   "no": "1",
+   "sku": "BLD",
+   "customer": "CV Distribusi Nusantara",
+   "kg": "2000",
+   "price": null,
+   "note": null
+  },
+  {
+   "no": "2",
+   "sku": "BLD",
+   "customer": null,
+   "kg": null,
+   "price": null,
+   "note": null
+  }
+ ]
+}

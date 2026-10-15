@@ -9,6 +9,7 @@ import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
 import { ledgerForWeek } from "./ledger";
+import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 
 export interface WeekV3 {
   controls: ControlV3[];
@@ -46,6 +47,20 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
         perKey: l.balance.perKey.map((k) => ({ key: k.key, kg: k.kg, cost_ma: k.cost_ma, free_kg: k.free_kg, over_age_kg: k.over_age_kg })),
       } : null;
     }
+  }
+  if (settings.m3_planning?.enabled) {
+    const src = await loadPlanning(sb, week);
+    controls.push(...weekPlanningControls(src, week.update_date));
+    snapshot.demand = (await demandWeekly(sb, week.week_start)).map((r) => ({
+      key: r.key, confirmed_kg: r.confirmed_kg, tentative_kg: r.tentative_kg, forecast_kg: r.forecast_kg, weighted_kg: r.weighted_kg,
+      stock_free_kg: r.stock_free_kg, net_kg: r.net_kg, heads: r.heads, binding: r.binding,
+    }));
+    const p = src.plans[0];
+    snapshot.plan = p ? {
+      version: p.version, head_count: p.head_count, heads_needed: p.heads_needed, frozen_planned_kg: p.frozen_planned_kg,
+      rp_downgrade: p.frozen_planned_rp_downgrade, approved_by: p.approved_by ?? null,
+      days: src.planDays.map((d) => ({ date: d.date, head_count: d.head_count })),
+    } : null;
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };
