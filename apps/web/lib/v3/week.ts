@@ -13,6 +13,7 @@ import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 import { dayControls, loadDayAllocation } from "./allocation";
 import { loadMonthDrivers } from "./drivers";
 import { monthView, plDaily } from "./monthly";
+import { loadCash } from "./cash";
 import { firstOfMonth, monthSummary } from "@kgr/engine";
 
 export interface WeekV3 {
@@ -93,6 +94,14 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       month: first, last_actual: sm.lastActual, actual: sm.actual, forecast: sm.forecast, outlook: sm.outlook, share_po: sm.sharePo,
       versions: mv.versions.map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt, sha256: v.snapshot_sha256 })),
     };
+  }
+  if (settings.m6_cash?.enabled) {
+    // cash position on the update date, 13-week low, CCC, solvency (C35–C37)
+    const c = await loadCash(sb, week.update_date, { m4: settings.m4_monthly?.enabled === true });
+    controls.push(...c.controls);
+    snapshot.cash = { date: c.date, closing: c.projection.startClosing, lowest_13w: c.projection.lowest, lowest_date: c.projection.lowestDate, weeks: c.projection.weeks.map((w) => ({ week_start: w.week_start, closing: w.closing, lowest: w.lowest })) };
+    snapshot.ccc = c.ccc ? { dio: c.ccc.dio, dso: c.ccc.dso, dpo: c.ccc.dpo, ccc: c.ccc.ccc, working_capital: c.ccc.workingCapital, window_days: c.cccWindowDays } : null;
+    snapshot.solvency = c.solvency;
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };

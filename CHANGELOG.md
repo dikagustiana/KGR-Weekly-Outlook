@@ -2,6 +2,17 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F5] M6 Kas, CCC, solvabilitas (docs/PLAN-v3.md Fase 5)
+
+### Added
+- Migration `20261016001100_m6_cash.sql`: `bank_account`, `cash_daily`, `cash_daily_plan`, data marts `cash_position_daily`, `ccc_daily`, `solvency_monthly`.
+- Engine `cash.ts` (position, scheduled payments, 13 weeks, 12 months, solvency, C35–C37) and `ccc.ts` (DIO/DSO/DPO/CCC, working capital, simulation).
+- Parsers `cash_balance` / `cash_plan_daily`; template `reference/templates/Template_Kas_Harian.xlsx` (`scripts/make_cash_template.py`).
+- Web: `lib/v3/cash.ts` (upload kind `cash_daily`, builder), `/kas`, `/kas/ccc`, C35–C37 and snapshot keys `cash`, `ccc`, `solvency`.
+
+### Verified
+- FS Sep 2026: equity 702,6 jt, paid-in 5.000 jt, affiliates 9.845,9 jt; DI-01…DI-04 amounts; snapshot unchanged.
+
 ## [v3-F4b] M4 Outlook bulanan (docs/PLAN-v3.md Fase 4, PR 4b)
 
 ### Added

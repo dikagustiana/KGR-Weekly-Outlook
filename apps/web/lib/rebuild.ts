@@ -13,6 +13,7 @@ import { BUILDERS } from "./rebuild-registry";
 import "./v3/ledger";
 import "./v3/planning";
 import "./v3/monthly";
+import "./v3/cash";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

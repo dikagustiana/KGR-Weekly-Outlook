@@ -427,3 +427,46 @@ begin
 
   raise exception 'RLS-RESULTS v3 F4b (rolled back): %', out;
 end $$;
+
+-- v3 F5 (M6 cash): Finance uploads balances and plans; management reads; sales / ppic see no cash; marts via mart_replace.
+do $$
+declare out text := ''; n int;
+begin
+  insert into public.app_user(email, role) values ('t10-fin@x.test','finance'),('t10-mgmt@x.test','management'),('t10-sales@x.test','sales'),('t10-ppic@x.test','ppic');
+
+  perform set_config('request.jwt.claims', '{"email":"t10-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.bank_account (account_no, bank) values ('T10-BCA', 'BCA'); insert into public.cash_daily (date, account_no, closing) values ('2030-04-01', 'T10-BCA', 100); out := out || 'finance cash_daily: OK; ';
+  exception when others then out := out || 'finance cash_daily: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cash_daily (date, account_no, closing) values ('2030-04-01', 'T10-BCA', 5); out := out || 'duplicate date × account: ALLOWED(!); ';
+  exception when others then out := out || 'duplicate date × account: denied; '; end;
+  begin insert into public.cash_daily_plan (date, account_no, amount, line_key) values ('2030-04-02', 'T10-BCA', -50, 't10'); out := out || 'finance plan: OK; ';
+  exception when others then out := out || 'finance plan: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cash_position_daily (date, total_closing) values ('2030-04-01', 1); out := out || 'finance direct mart: ALLOWED(!); ';
+  exception when others then out := out || 'finance direct mart: denied; '; end;
+  select (public.mart_replace('cash_position_daily', '2030-04-01', '[{"date":"2030-04-01","total_closing":100}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'finance mart_replace cash_position written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cash_daily where account_no = 'T10-BCA'; out := out || 'mgmt read cash=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.cash_daily (date, account_no, closing) values ('2030-04-03', 'T10-BCA', 1); out := out || 'mgmt write cash: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt write cash: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cash_daily; out := out || 'sales read cash=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.cash_position_daily; out := out || 'sales read cash position=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.solvency_monthly; out := out || 'ppic read solvency=' || n || '; ';
+  execute 'reset role';
+  select count(*) into n from public.rebuild_queue where date = '2030-04-01' and status = 'queued';
+  out := out || 'cash upload queued rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v3 F5 (rolled back): %', out;
+end $$;

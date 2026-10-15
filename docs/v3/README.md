@@ -276,3 +276,35 @@ Tidak tereproduksi → run-rate 31 Agu: app 319,29 vs 258,7 jt; forecast 1.387,1
                      outlook 7.773,00 / 312,24 vs 7.712,4 / 293,4; ber-PO 77,0% vs 80,5% (§E.4, test todo)
 ```
 
+## F5 — M6 Kas, CCC, solvabilitas
+
+Branch `v3/f5-cash` (di atas `v3/f4b-monthly`) · desain [`F5-design.md`](F5-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001100_m6_cash.sql` | `bank_account`, `cash_daily`, `cash_daily_plan`, mart `cash_position_daily`, `ccc_daily`, `solvency_monthly`; RLS admin/finance/management |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001100`), setelah F4b.
+2. Finance: unduh `reference/templates/Template_Kas_Harian.xlsx`, isi saldo semua rekening per hari kerja + rencana kas (isi `id_jadwal_tetap` untuk pembayaran jadwal biaya tetap), upload jenis "Finance — template kas harian"; isi `cash_day_of_month` di jadwal biaya tetap (`/m/[bulan]/biaya`) untuk pembayaran otomatis di proyeksi.
+3. Flag `m6_cash` on (admin, finance, management). C35 harus LULUS (Σ rekening = kas neraca) sebelum headline manajemen memakai "kas terendah 13 minggu" (F7).
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 169 passed + 3 todo (baru: cash.test.ts 8) · parsers 20 (baru: template kas 2) · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /kas, ƒ /kas/ccc)
+pnpm test:rls      → OK; F5: finance cash_daily OK; duplicate date × account denied; finance plan OK; finance direct mart denied;
+                     finance mart_replace cash_position written=1; mgmt read cash=1; mgmt write cash denied; sales read cash=0;
+                     sales read cash position=0; ppic read solvency=0; cash upload queued rebuild=1
+Golden M6 (FS Sep) → ekuitas 702.553.474,90 (702,6 jt), modal 5.000 jt, afiliasi 9.845.918.888,89 (9.845,9 jt); 0,8 bulan sampai
+                     ekuitas negatif pada NIBT Sep; DI-01 48,35 · DI-02 48,08 · DI-03 12 · DI-04 62,45 + 69,66 = seed M4;
+                     CCC Sep: DIO 37,5 · DSO 4,5 · DPO 0,8 hari
+Template           → scripts/make_cash_template.py → 12 kategori arus kas (seed coa_map); kedua sheet terbaca parser
+```
+
