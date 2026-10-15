@@ -81,6 +81,8 @@ Pilot (PRD §11 M5): jalankan dua minggu nyata paralel dengan Excel. Bandingkan 
 | Purchasing / Ops | harga live bird, termin, harga beli, penerimaan trading, rencana kas |
 | Management | — hanya baca (Outlook dan laporan, juga di mobile); tidak melihat halaman input |
 
+**Tampilan (Management View v2, `docs/PRD-management-view-v2.md`).** Role Management selalu melihat tampilan manajemen: blok ringkasan di atas (GP proyeksi, keputusan RPA hari ini dalam satu aksi, stok di atas batas umur), tanpa istilah sheet Excel, tanpa menu Input/Admin, dengan baris rilis abu-abu. Role lain melihat tampilan penyusun (istilah dan nomor blok Excel, kolom "Cara hitung", bar kontrol) dan bisa menekan "Pratinjau tampilan manajemen" di topbar untuk melihat yang diterima manajemen. Bukti per tahap: `docs/management-view/README.md`.
+
 Semua peran kecuali Management boleh mengubah tanggal update. Semua perubahan tercatat di Admin → Audit (bisa dipulihkan).
 
 ## 6. Untuk pengembang

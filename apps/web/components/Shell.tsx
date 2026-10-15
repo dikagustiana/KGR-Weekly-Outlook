@@ -30,8 +30,8 @@ export async function Shell({
     <>
       <header className="topbar">
         <Link href="/" className="brand">KGR Weekly Outlook</Link>
-        {w ? <WeekSelect weeks={weeks.map((x) => ({ start: x.week_start, end: x.week_end, status: x.status }))} current={w} active={active} /> : null}
-        {week ? <span className="who">Update: <b>{tgl(week.update_date, true)}</b></span> : null}
+        {w ? <WeekSelect weeks={weeks.map((x) => ({ start: x.week_start, end: x.week_end, status: x.status }))} current={w} active={active} longDates={mgmt} /> : null}
+        {week ? <span className="who">Update: <b>{tgl(week.update_date, !mgmt)}</b></span> : null}
         <span className="spacer" />
         {canToggleView(viewer.role) ? <Suspense fallback={null}><ViewToggle view={view} /></Suspense> : null}
         <span className="who">{viewer.fullName ?? viewer.email} · {ROLE_LABEL[viewer.role]}</span>

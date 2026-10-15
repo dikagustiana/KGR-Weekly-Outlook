@@ -82,3 +82,10 @@ Evidence per stage (checklist PRD §5, screenshots 1366×768): `docs/management-
 - Management view, section 2: the action, the four deciding figures (LB price, breakeven 100% fresh, margin/kg, expected margin of the plan), the "stock already covers the orders" sentence instead of zero rows, the rest under "Lihat perhitungan".
 - "Cara hitung" becomes a tooltip on the label (keyboard focusable, one `?` hint in the header); sheet names are shown in plain words (`lib/sources.ts`), and no technical name reaches the management DOM.
 - Management view: only management warnings, without the ones already in the headline; the yellow control bar becomes one grey line "Rilis 27 Agu 2026 · 18/20 kontrol lulus · 2 belum diisi" linking to Kontrol, with no e-mail; nav shows the seven report pages only; the release page drops e-mail and audit columns.
+
+### Stage 4 — R6, R7, R8, R9 (status text), R11, R14, R15, R16 (management view; the preparer view keeps the Excel block numbers and vocabulary)
+- Section headings are statements without numbers; the methodology parentheticals, the yield note, the stock status definitions, the spread minimum and the payment terms are numbered notes ("Catatan") linked by anchors.
+- Summary table: GP projection, GP % and Δ GP/kg at weight 600; order columns secondary.
+- One meaning per colour: red only for negative values; the recommendation box is neutral (`--surface-2`, 3px accent border); warnings are default text with a "Peringatan:" prefix; stock status and trading recommendations are plain text, not coloured pills.
+- One date format ("24 Agu 2026") in the header, week selector and tables; the subtitle under the title is gone.
+- One "Unduh PDF" button with "Tampilan cetak" as a text link; the unit column does not wrap.
