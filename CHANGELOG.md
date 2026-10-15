@@ -9,6 +9,9 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 - Web: monthly PDF `/api/m/[month]/pdf` and snapshot `/api/m/[month]/snapshot.json` (per locked version); weekly management view in PRD v3 §6 order with Input and COGS always present and the module sections / headline tiles when on (`lib/v3/management.ts`, `components/v3/ManagementV3.tsx`, `OutlookBody` split into parts); mobile read-only write forms on `/sku/[key]`, `/m/[month]`; `apps/web/vitest.config.ts` (alias + JSX) and `components/OutlookBody.test.tsx`.
 - Docs: `docs/handover.md` §4a (v3 daily rhythm, new roles), `docs/v3/SUMMARY.md`.
 
+### Fixed
+- `processRebuildQueue` does nothing when no module is on (`anyModuleOn`): a v1 upload no longer reads `rebuild_queue`, so the merged code runs on a database that does not have the v3 migrations yet (production before `db push`).
+
 ### Verified
 - Preparer / management / print HTML without v3 slots identical to before the refactor; weekly snapshot unchanged.
 
