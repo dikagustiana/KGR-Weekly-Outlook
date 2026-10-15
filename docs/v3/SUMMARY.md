@@ -7,9 +7,8 @@ desain per fase `docs/v3/F<n>-design.md`. Fase 8 tidak dikerjakan (sesuai perint
 Status per 15 Okt 2026:
 
 - Semua fase F0 sampai F7 selesai sebagai 11 PR bertumpuk. Tidak ada yang di-merge.
-- **Belum ada migrasi v3 yang diterapkan ke Supabase mana pun.**
-  - Semua migrasi dan uji peran hanya dijalankan pada PostgreSQL 16 lokal dengan shim Supabase.
-  - Tujuan baru yang disebut pemilik: project **KGR-OS** (`pczjhmzpkknzkziipvit`). Lihat §3.
+- **KGR-OS** (`pczjhmzpkknzkziipvit`), project tujuan baru dari pemilik: atas izin eksplisit pemilik, migrasi v1 dan seed sudah diterapkan dan diverifikasi.
+- **Migrasi v3 belum diterapkan ke Supabase mana pun.** Penerapan ke KGR-OS menunggu konfirmasi pemilik (§3). Di project lama juga belum.
 - `computeWeek` dan golden v1 tidak bergeser di setiap commit:
   - `pnpm parity`: 17.161/17.161 sel, diff bersih.
   - `pnpm snapshot:diff`: kosong, SHA-256 snapshot minggu contoh tetap `947ce203…a83`.
@@ -82,15 +81,26 @@ Urutan untuk manusia, setelah setiap PR di-merge berurutan. Rinciannya di README
 
 ## 3. Project baru KGR-OS (`pczjhmzpkknzkziipvit`, ap-northeast-2)
 
-Keadaan KGR-OS saat diperiksa 15 Okt 2026:
+Sebelum diisi (15 Okt 2026): kosong (0 migrasi, 0 tabel), tanpa repo terhubung, ditandai PRODUCTION oleh Supabase (branch `main`).
 
-- Kosong: 0 migrasi, 0 tabel di `public`.
-- Tanpa repo terhubung.
-- Ditandai PRODUCTION oleh Supabase (branch `main`).
+**Yang sudah diterapkan Claude Code lewat Supabase MCP**, atas izin eksplisit pemilik ("ya, terapkan migrasi + seed ke KGR-OS"), dengan urutan gladi bersih "v1 → seed → v3":
 
-**Apa yang sudah dilakukan.** Claude Code membaca isi project (hanya baca) lewat Supabase MCP. Penerapan migrasi diblokir oleh izin sesi (dikategorikan *production deploy*). Tidak ada yang ditulis ke KGR-OS. Penerapan butuh izin eksplisit pemilik, atau dijalankan manusia dengan urutan di bawah.
+| Langkah | Status | Verifikasi |
+| --- | --- | --- |
+| Migrasi v1 `20261014000100` … `000600` | **diterapkan** | Tanda tangan skema `public` identik dengan PG16 lokal di 9 jenis objek: 14 fungsi, 58 policy, 33 trigger, 36 index, 63 constraint, 305 kolom, RLS 19 tabel, hak eksekusi `anon`/`authenticated`, bucket `uploads` + `releases` |
+| Riwayat migrasi | **diselaraskan** | `supabase_migrations.schema_migrations` memakai versi nama file (`20261014000100` …). `supabase db push` berikutnya hanya menerapkan migrasi v3 |
+| Seed `supabase/seed/*.sql` (39 potongan ≤ 24 KB) | **dimuat** | Master + minggu contoh, 14 tabel identik dengan lokal (jumlah baris + md5 kolom stabil, urutan `collate "C"`): `gl_line` 1.840, `coa_map` 208, `tb_opening` 208, `sales_line` 132, `item_map` 125, `receipt_line` 115, `opening_stock` 107, `cash_plan` 46, `sku_key` 41, `sku_price` 41, `runrate` 18, `batch` 4, `week` 1, `parameter` 1. Tidak ada baris `app_user` |
+| Uji peran v1 (`rls_roles.sql` blok 1, rollback) | **lulus** | 11 hasil, 0 bertanda `(!)`. `audit rows by sales=1` sesuai ekspektasi v1 di kepala file; nilai 2 di lokal berasal dari trigger rebuild v3 (`m2_ledger.sql` baris 277) |
+| Advisor keamanan Supabase | info | 2 jenis WARN pada fungsi `SECURITY DEFINER` v1 (`app_role`, `week_writable`, `admin_set_password`). Dipakai policy / memeriksa admin di dalam fungsi; sama dengan project lama. Tidak diubah (migrasi lama tidak boleh diubah) |
+| Migrasi v3 `20261016000100` … `001300` | **belum** | `apply_migration` untuk `20261016000100_v3_foundation` kembali berstatus *cancelled* (dua kali), tanpa error database. Konektor Supabase meminta konfirmasi untuk perintah destruktif: file ini memuat `alter table public.app_user drop constraint if exists app_user_role_check` lalu `add constraint` yang sama ditambah peran `commercial_lead` dan `cost_accounting`. Konfirmasi itu tidak masuk, jadi tidak diputari lewat `execute_sql`. Migrasi `000200`+ bergantung pada `000100` |
 
-Urutan berikut sudah dicoba pada database kosong (PostgreSQL 16 lokal, `kgr_os_pathb`) dan dibandingkan dengan gladi bersih "v1 → seed → v3":
+Untuk menyelesaikan v3 di KGR-OS, pilih salah satu:
+
+- Pemilik menyetujui konfirmasi Supabase saat Claude Code menerapkan ulang `20261016000100` dan seterusnya.
+- Atau manusia menjalankan `supabase db push --db-url "$KGR_OS_DB_URL"`. Riwayat sudah selaras, jadi hanya 13 migrasi v3 yang diterapkan, berurutan. Tidak perlu mengulang seed atau migrasi v3: seed sudah ada sebelum backfill v3, persis seperti gladi bersih.
+- Lalu `SUPABASE_DB_URL="$KGR_OS_DB_URL" pnpm test:rls` (136 hasil diharapkan, 0 `(!)`).
+
+Pemeriksaan pembanding (dipakai untuk menulis langkah manusia di bawah, untuk database Supabase lain yang masih kosong): urutan berikut sudah dicoba pada database kosong (PostgreSQL 16 lokal, `kgr_os_pathb`) dan dibandingkan dengan gladi bersih "v1 → seed → v3":
 
 - 62 dari 64 tabel `public` identik (jumlah baris + md5 kolom stabil).
 - `closing_adjustment` isinya identik (md5 kode/uraian/nominal sama); yang beda hanya `month_outlook_id` acak.
@@ -223,7 +233,7 @@ Pilihan implementasi V1–V46 (mis. V5 grain `batch_output_sku`, V13 tanggal PO,
 
 | Siapa | Item | Di mana |
 | --- | --- | --- |
-| Pemilik | Pilih project Supabase tujuan (KGR-OS atau project lama). Jalankan §2 atau §3, atau beri izin eksplisit agar Claude Code menerapkannya lewat Supabase MCP | §2, §3 |
+| Pemilik | KGR-OS: setujui konfirmasi Supabase untuk migrasi v3 (atau jalankan `supabase db push --db-url`), lalu `pnpm test:rls`. Project lama: §2 bila tetap dipakai | §2, §3 |
 | Pemilik / Admin | Env Vercel bila pindah ke KGR-OS. Merge PR #7 → #17 berurutan. Pulihkan kuota GitHub Actions lalu jalankan ulang CI | Vercel, GitHub |
 | Admin | Admin pertama di project baru. Login peran baru **Kepala Sales** (`commercial_lead`) dan **Cost Accounting** (`cost_accounting`) lewat Admin → Pengguna → "Set kata sandi" | §3, aplikasi |
 | Admin | Secret workflow Backup (`SUPABASE_DB_URL`, opsional `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`). Skrip `supabase/fixes/F0-*.sql` di SQL Editor setelah dicoba di branch | GitHub, SQL Editor |
@@ -238,7 +248,7 @@ Pilihan implementasi V1–V46 (mis. V5 grain `batch_output_sku`, V13 tanggal PO,
 
 ## 8. Yang tidak dilakukan Claude Code (sesuai aturan)
 
-- Tidak ada `db push` / penerapan migrasi ke Supabase mana pun.
+- Tidak ada `db push` ke project lama `uxqbtverhnpiryhzbenr`. KGR-OS hanya diisi setelah izin eksplisit pemilik (§3); perintah yang butuh konfirmasi Supabase tidak diputari.
 - Tidak membuat atau menghapus user `app_user`.
 - Tidak mengubah `apps/web/lib/env.ts`, `vercel.json`, atau env Vercel.
 - Tidak ada merge PR.
