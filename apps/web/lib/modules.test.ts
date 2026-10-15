@@ -18,7 +18,9 @@ describe("module flags (PRD v3 rule 5)", () => {
     const st: ModuleSettings = { m1_costing: { enabled: true }, m6_cash: { enabled: false } };
     const admin = navModules(st, "admin", { week: "2026-08-24" });
     expect(admin.map((n) => n.label)).toEqual(["Costing", "Input costing"]);
-    expect(navModules(st, "sales", { week: "2026-08-24" }).map((n) => n.label)).toEqual(["Costing"]);
+    expect(navModules(st, "finance", { week: "2026-08-24" }).map((n) => n.label)).toEqual(["Costing"]);
+    // cost per batch is finance detail (PRD v3 Q17): sales gets no costing page
+    expect(navModules(st, "sales", { week: "2026-08-24" })).toEqual([]);
     expect(navModules({}, "admin", { week: "2026-08-24" })).toEqual([]);
   });
   it("management view lists read pages only", () => {

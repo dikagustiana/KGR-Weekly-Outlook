@@ -90,7 +90,7 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
         <>
           <div className="card">
             <h2>2. Pratinjau — {res.fileName}</h2>
-            <p className="muted">SHA-256 {res.sha.slice(0, 16)}… · {res.workbookWeek ? `Minggu workbook: ${res.workbookWeek}` : `Sheet "${res.parse?.sheet}", judul kolom baris ${res.parse?.headerRow}, ${res.parse?.rowCount} baris terbaca, tanggal ${res.parse?.dateFrom ?? "—"} s.d. ${res.parse?.dateTo ?? "—"}`}</p>
+            <p className="muted">SHA-256 {res.sha.slice(0, 16)}… · {res.v3Note ? res.v3Note : res.workbookWeek ? `Minggu workbook: ${res.workbookWeek}` : `Sheet "${res.parse?.sheet}", judul kolom baris ${res.parse?.headerRow}, ${res.parse?.rowCount} baris terbaca, tanggal ${res.parse?.dateFrom ?? "—"} s.d. ${res.parse?.dateTo ?? "—"}`}</p>
             {res.parse?.issues.length ? <ul className="alerts">{res.parse.issues.map((i) => <li key={i}>{i}</li>)}</ul> : null}
             {res.workbookWeek && res.workbookWeek !== week ? <div className="msg info">Workbook ini untuk minggu {res.workbookWeek}; data akan dimuat ke minggu itu (dibuat bila belum ada).</div> : null}
           </div>

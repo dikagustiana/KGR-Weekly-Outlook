@@ -11,3 +11,18 @@ describe("engine snapshot vs Management View v2 baseline", () => {
     expect(withoutAllowedFields(snap)).toBe(readBaseline());
   });
 });
+
+import { snapshotJson, snapshotJsonV3, toSnapshotV3 } from "../src/snapshot";
+
+describe("v3 snapshot keys (PRD v3 rule 2)", () => {
+  const r = computeWeek(loadFixtureWeek("2026-08-24", "2026-08-27"));
+  it("no v3 output → byte-identical to snapshotJson", () => {
+    expect(snapshotJsonV3(r, {})).toBe(snapshotJson(r));
+  });
+  it("v3 output is appended under new keys; without them the snapshot equals the baseline", () => {
+    const s = toSnapshotV3(r, { controls_v3: [{ code: "C21" }], costing: { batches: [] } });
+    const keys = Object.keys(s);
+    expect(keys.slice(-2)).toEqual(["controls_v3", "costing"]);
+    expect(withoutAllowedFields(s)).toBe(readBaseline());
+  });
+});

@@ -129,3 +129,57 @@ begin
 
   raise exception 'RLS-RESULTS v3 (rolled back): %', out;
 end $$;
+
+-- v3 F1 (M1 costing): cost detail is not readable by sales; admin + cost_accounting write it; batch_output_sku upsert key.
+do $$
+declare out text := ''; wid uuid; bid uuid; pid uuid; n int;
+begin
+  insert into public.app_user(email, role) values ('t4-sales@x.test','sales'),('t4-mgmt@x.test','management'),
+    ('t4-ca@x.test','cost_accounting'),('t4-ppic@x.test','ppic');
+  select id into wid from public.week order by week_start desc limit 1;
+  select id into bid from public.batch where week_id = wid order by seq limit 1;
+
+  perform set_config('request.jwt.claims', '{"email":"t4-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.cost_pool(period_start, period_end, description) values ('2026-08-01','2026-08-31','rls') returning id into pid; out := out || 'ca insert cost_pool: OK; ';
+  exception when others then out := out || 'ca insert cost_pool: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cost_pool_line(cost_pool_id, component, amount, batch_id) values (pid, 'LB', 1000, bid); out := out || 'ca insert cost_pool_line: OK; ';
+  exception when others then out := out || 'ca insert cost_pool_line: DENIED(!) ' || sqlerrm || '; '; end;
+  begin
+    insert into public.batch_output_sku(batch_id, key, item_code, kg, source) values (bid, 'RPA|Karkas|Fresh', 'X1', 10, 'WP');
+    insert into public.batch_output_sku(batch_id, key, item_code, kg, source) values (bid, 'RPA|Karkas|Fresh', 'X1', 12, 'WP')
+      on conflict (batch_id, key, item_code) do update set kg = excluded.kg;
+    insert into public.batch_output_sku(batch_id, key, item_code, kg, source) values (bid, null, null, 1, 'WP');
+    insert into public.batch_output_sku(batch_id, key, item_code, kg, source) values (bid, null, null, 2, 'WP')
+      on conflict (batch_id, key, item_code) do update set kg = excluded.kg;
+    select count(*) into n from public.batch_output_sku where batch_id = bid and source = 'WP';
+    out := out || 'ca upsert batch_output_sku rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'ca upsert batch_output_sku: DENIED(!) ' || sqlerrm || '; '; end;
+  update public.batch set costing_status = 'uploaded' where id = bid; get diagnostics n = row_count;
+  out := out || 'ca update batch costing rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.allocation_run(batch_id, total_cost, total_allocated) values (bid, 1000, 1000); out := out || 'ca insert allocation_run: OK; ';
+  exception when others then out := out || 'ca insert allocation_run: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t4-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cost_pool; out := out || 'sales read cost_pool=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.allocation_run; out := out || 'sales read allocation_run=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.batch_output_sku; out := out || 'sales read batch_output_sku=' || n || case when n > 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t4-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cost_pool where description = 'rls'; out := out || 'mgmt read cost_pool=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t4-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.cost_pool(period_start, period_end) values ('2026-08-01','2026-08-31'); out := out || 'ppic insert cost_pool: ALLOWED(!); ';
+  exception when others then out := out || 'ppic insert cost_pool: denied; '; end;
+  begin insert into public.overhead_rate(period_start, period_end, rate_per_kg_lb) values ('2026-11-01','2026-11-30', 1500); out := out || 'ppic insert overhead_rate: ALLOWED(!); ';
+  exception when others then out := out || 'ppic insert overhead_rate: denied; '; end;
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F1 (rolled back): %', out;
+end $$;

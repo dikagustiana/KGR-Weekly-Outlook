@@ -284,6 +284,88 @@ V3_SOURCES = {
 V3_EXTRACTORS = {}
 
 
+def _cell_num(v):
+    return num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def extract_costing():
+    """202609_Data_COGS_LB.xlsx: every Pot_* batch sheet with the WP layout (header row 'Produk' in column A).
+
+    batches.json: per sheet the header (supplier, cut date, kg LB, kg hasil potong, cost lines, documents) and the
+    SKU rows (product, price list Rp/kg, kg non-blasting F, item code G, item name H, kg I) as the costing_wp parser
+    reads them. golden.json: the cached value of column L (COGS/kg, relative sales value) for every row with kg,
+    plus the totals K (sales value), M (allocated cost) and F (cost pool) of each sheet.
+    """
+    path = os.path.join(REF, "202609_Data_COGS_LB.xlsx")
+    wbf = openpyxl.load_workbook(path)
+    wbv = openpyxl.load_workbook(path, data_only=True)
+    batches, golden = [], {}
+    for name in wbf.sheetnames:
+        if not name.startswith("Pot_"):
+            continue
+        wf, wv = wbf[name], wbv[name]
+        hdr = next((r for r in range(1, 25) if wv.cell(r, 1).value == "Produk"), None)
+        tot = (hdr or 0) + 1
+        if hdr is None or not isinstance(wv.cell(tot, 6).value, (int, float)):
+            continue  # e.g. "Pot_ISA (2)": a scenario layout without a cost pool, not a batch costing sheet
+        costs = []
+        for r in range(3, hdr):
+            lab = wv.cell(r, 1).value
+            amt = wv.cell(r, 2).value
+            if isinstance(lab, str) and lab.strip() and lab.strip().lower() != "total" and isinstance(amt, (int, float)):
+                costs.append({"label": lab.strip(), "amount": num(amt), "document": text(wv.cell(r, 7).value), "pi": text(wv.cell(r, 8).value)})
+        bl = None
+        for r in range(3, hdr):
+            for c in range(1, 8):
+                if isinstance(wv.cell(r, c).value, str) and wv.cell(r, c).value.strip().lower() == "biaya bl":
+                    bl = _cell_num(wv.cell(r, c + 1).value)
+        def lab_val(label):
+            for r in range(1, hdr):
+                for c in range(1, 16):
+                    v = wv.cell(r, c).value
+                    if isinstance(v, str) and v.strip().lower() == label:
+                        return wv.cell(r, c + 1).value
+            return None
+        date = lab_val("tgl. potong")
+        rows = []
+        for r in range(tot + 1, wv.max_row + 1):
+            a = wv.cell(r, 1).value
+            if isinstance(a, str) and a.strip().lower().startswith(("dibuat", "diperiksa", "disetujui")):
+                break
+            f_kg, i_kg = _cell_num(wv.cell(r, 6).value), _cell_num(wv.cell(r, 9).value)
+            if not float(f_kg or 0) and not float(i_kg or 0):
+                continue  # rows without kg carry no cost (column L = 0)
+            lf = wf.cell(r, 12).value
+            row = {
+                "row": r, "product": text(a), "price": _cell_num(wv.cell(r, 2).value), "unit": text(wv.cell(r, 3).value),
+                "sku_fresh": text(wv.cell(r, 5).value), "kg_non_blasting": f_kg, "item_code": text(wv.cell(r, 7).value),
+                "item_name": text(wv.cell(r, 8).value), "kg": i_kg,
+                "boneless_pool": isinstance(lf, str) and "Boneless" in lf,
+            }
+            rows.append(row)
+            kg = (float(f_kg or 0) + float(i_kg or 0))
+            if kg > 0:
+                golden[f"{name}!L{r}"] = _cell_num(wv.cell(r, 12).value)
+                golden[f"{name}!M{r}"] = _cell_num(wv.cell(r, 13).value)
+        golden[f"{name}!K{tot}"] = _cell_num(wv.cell(tot, 11).value)
+        golden[f"{name}!M{tot}"] = _cell_num(wv.cell(tot, 13).value)
+        golden[f"{name}!F{tot}"] = _cell_num(wv.cell(tot, 6).value)
+        golden[f"{name}!I{tot}"] = _cell_num(wv.cell(tot, 9).value)
+        k5 = wv.cell(5, 11).value
+        batches.append({
+            "sheet": name, "header_row": hdr, "total_row": tot,
+            "supplier": text(lab_val("supplier")), "date": iso(date) if isinstance(date, (dt.date, dt.datetime)) else None,
+            "lb_kg": _cell_num(lab_val("total kg lb")), "processed_kg": _cell_num(k5),
+            "dead_head": _cell_num(wv.cell(5, 14).value) if wv.cell(4, 14).value == "Ayam Mati" else None,
+            "dead_kg": _cell_num(wv.cell(5, 15).value) if wv.cell(4, 15).value == "KG Mati" else None,
+            "costs": costs, "cost_bl": bl, "total_cost": _cell_num(wv.cell(tot, 6).value), "rows": rows,
+        })
+    return {"batches.json": batches, "golden.json": golden}
+
+
+V3_EXTRACTORS["costing"] = extract_costing
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:

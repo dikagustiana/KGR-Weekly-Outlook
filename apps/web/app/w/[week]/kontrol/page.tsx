@@ -5,6 +5,11 @@ import { ActionForm } from "@/components/ActionForm";
 import { Badge, Card, Msg, N } from "@/components/ui";
 import { can } from "@/lib/roles";
 import { release } from "./actions";
+import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
+import { moduleSettings } from "@/lib/modules";
+import { moduleSettingsGlobal } from "@/lib/rebuild";
+import { supabaseServer } from "@/lib/supabase";
+import { v3ForWeek } from "@/lib/v3/week";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +24,7 @@ export default async function KontrolPage({ params }: PageProps) {
   const ctx = await weekContext(week);
   const c = ctx.computed.result.controls;
   const canRelease = can(ctx.viewer.role, "release");
+  const v3 = await v3ForWeek(await supabaseServer(), ctx.week, moduleSettingsGlobal(await moduleSettings()));
   return (
     <WeekShell ctx={ctx} active="kontrol">
       <h1>Kontrol — cek sebelum outlook dikirim</h1>
@@ -43,6 +49,12 @@ export default async function KontrolPage({ params }: PageProps) {
         </table>
         <p className="muted" style={{ fontSize: 11 }}>Kontrol 14, 17 dan 18 mengikuti Excel (lulus bila ≤ 1) — lihat docs/open-questions.md A1. Kontrol 20 membandingkan baris Ops dengan posting Accurate untuk dokumen yang sama.</p>
       </Card>
+      {v3.controls.length ? (
+        <Card title="Kontrol modul v3 (C21–C40)">
+          <p className="muted">Kontrol modul yang aktif. Tidak memengaruhi status rilis mingguan; C24 dipakai rilis bulanan.</p>
+          <ControlsV3Table controls={v3.controls} management={ctx.view === "management"} />
+        </Card>
+      ) : null}
       <Card title="Rilis outlook">
         {!c.releasable ? <Msg kind="err">Ada kontrol GAGAL — perbaiki dulu sebelum rilis.</Msg> : c.overall !== "LULUS" ? <Msg kind="info">Rilis diizinkan dengan peringatan ({c.counts.PERIKSA} PERIKSA, {c.counts["BELUM DIISI"]} BELUM DIISI).</Msg> : <Msg kind="ok">Semua kontrol LULUS.</Msg>}
         {canRelease ? (

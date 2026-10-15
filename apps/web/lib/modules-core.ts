@@ -63,7 +63,8 @@ interface NavDef {
 const PREP: Role[] = ["admin", "inventory_accounting", "ppic", "purchasing", "finance", "commercial_lead", "cost_accounting"];
 
 export const MODULE_NAV: NavDef[] = [
-  { module: "m1_costing", label: "Costing", roles: "all", href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },
+  // cost per batch is finance detail: not for sales (PRD v3 Q17)
+  { module: "m1_costing", label: "Costing", roles: [...PREP, "management"], href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },
   { module: "m1_costing", label: "Input costing", roles: ["admin", "cost_accounting"], href: (c) => (c.week ? `/w/${c.week}/input/costing` : null) },
   { module: "m2_ledger", label: "Stok per SKU", roles: [...PREP, "management"], href: () => "/sku", management: true },
   { module: "m3_planning", label: "Demand", roles: ["admin", "sales", "commercial_lead", "ppic", "management"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },

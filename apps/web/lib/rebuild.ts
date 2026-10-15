@@ -30,6 +30,13 @@ export async function martReplace(sb: Supa, table: string, scope: string, rows: 
   return data as { written: number; deleted: number };
 }
 
+/** Rebuilds run for every module whose flag is enabled, whatever the role list (the data mart is shared). */
+export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
+  const out: ModuleSettings = {};
+  for (const [k, v] of Object.entries(s)) out[k as keyof ModuleSettings] = v ? { enabled: v.enabled, roles: null } : v;
+  return out;
+}
+
 export async function rebuildDay(sb: Supa, date: string, settings: ModuleSettings): Promise<string[]> {
   const out: string[] = [];
   for (const b of BUILDERS) {

@@ -5,15 +5,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { repoRoot } from "../src/fixtures";
-import type { Snapshot } from "../src/snapshot";
+import { V3_SNAPSHOT_KEYS, type Snapshot } from "../src/snapshot";
 
 export const BASELINE = join(repoRoot(), "tests/snapshots/outlook-2026-08-24.before.json");
-export const ALLOWED_NEW_FIELDS = ["block2.action", "block7[].audience"];
+export const ALLOWED_NEW_FIELDS = ["block2.action", "block7[].audience", ...V3_SNAPSHOT_KEYS.map((k) => `${k} (v3)`)];
 
 /** The snapshot JSON with the allowed new fields removed, in the same serialisation as snapshotJson. */
 export function withoutAllowedFields(s: Snapshot): string {
   const c = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
   delete (c.block2 as Record<string, unknown>).action;
+  for (const k of V3_SNAPSHOT_KEYS) delete c[k];
   for (const a of c.block7 as Record<string, unknown>[]) delete a.audience;
   return JSON.stringify(c, null, 1) + "\n";
 }

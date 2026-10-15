@@ -112,3 +112,13 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | V2 | Penulisan data mart | RPC `mart_replace(table, scope, rows)` (security definer, hanya tabel di `mart_table`, hanya peran penulis); baris yang tidak berubah tidak disentuh, sehingga `tg_audit` hanya mencatat perubahan nyata | `tg_audit` wajib di setiap tabel baru; rebuild harian tanpa perubahan tidak boleh membanjiri `audit_log` | `supabase/migrations/20261016000100_v3_foundation.sql` |
 | V3 | Uji RLS di CI | Job `rls` dengan PostgreSQL 16 (service container) + `supabase/tests/supabase_shim.sql` (stand-in `auth`/`storage`), semua migrasi dijalankan dua kali (idempoten), seed, lalu `rls_roles.sql`; hasil bertanda `(!)` = gagal | Tidak ada database Supabase uji di CI; production tidak disentuh | `scripts/test-rls.sh` |
 | V4 | Backup | `.github/workflows/backup.yml`: `pg_dump` harian + manual dispatch; artefak privat 14 hari, dan ke bucket privat `backups` bila secret service role tersedia | PLAN §0 | Secret `SUPABASE_DB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` di GitHub |
+| V5 | `batch_output_sku` grain | Satu baris per batch × key × **item code** (unique `(batch_id, key, item_code)`), bukan batch × key | Harga daftar WP berbeda per item dalam satu key (Premium 37.000 vs Grade A 34.000 untuk key Karkas Frozen); per-key = jumlah baris. PRD §4.2 menulis unique(batch_id, key) | `supabase/migrations/20261016000200_m1_costing.sql` |
+| V6 | Upload WP ke batch yang sudah ada | Batch dicocokkan per minggu (nama sheet = `batch_ref`, atau tanggal sama + kg LB ±0,5); kolom v1 batch yang cocok tidak diubah (hanya `costing_status`, `processed_kg` bila kosong); batch baru dibuat Aktual dengan `out_*` agregat dari SKU | Angka mingguan v1 tidak bergeser diam-diam; batch yang belum ada tetap lengkap untuk blok 2/6 | `apps/web/lib/v3/costing.ts` |
+| V7 | Halaman Costing untuk sales | Tidak tersedia (404) dan RLS menolak baca cost pool / alokasi / tarif | PRD Q17: sales tidak melihat biaya per batch; PRD §6 menulis "semua" | `lib/modules-core.ts` `MODULE_NAV`, RLS `*_read` |
+| V8 | Harga acuan alokasi | `batch_output_sku.price_ref` (harga daftar WP minggu potong); kosong → `sku_price.ref_sell_price` minggu itu (Q3) | WP adalah sumber harga kolom L | `lib/v3/costing.ts` `allocationInput` |
+
+### E.4 Target numbers (PRD v3 §8) — reproduced / not reproduced
+
+| Module | Target | Result | Test |
+| --- | --- | --- | --- |
+| M1 | Kolom L `Pot_ISA` / `Pot_AGRO` per SKU ± Rp 1 | **Reproduced**: 26 sheet, 637 baris SKU, L dan M ± Rp 1, Σ M = total per sheet (dari fixture openpyxl dan dari file xlsx lewat parser SheetJS) | `packages/engine/test/costing.test.ts`, `packages/parsers/test/costing-wp.test.ts` |

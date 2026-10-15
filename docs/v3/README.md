@@ -70,3 +70,43 @@ supabase/fixes/F0-*.sql (seed minggu contoh, dijalankan 2×):
 ```
 
 Snapshot minggu contoh tidak berubah: koreksi D3/D4/D8 tidak menyentuh minggu contoh (D3/D4 hanya dicatat, D7–D9/D8 hanya minggu ≥ 1 Sep).
+
+---
+
+## F1 — M1 Costing per batch → SKU
+
+Branch `v3/f1-costing` (di atas `v3/f0-data-fixes`) · desain [`F1-design.md`](F1-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016000200_m1_costing.sql` | kolom costing `batch`, `sku_key.group_code/cut_component`, parameter costing; tabel `cost_pool`, `cost_pool_line`, `batch_output_sku`, `overhead_rate`, `allocation_run`, `allocation_line`; RLS (sales tidak membaca detail biaya), index |
+| `20261016000300_m1_backfill.sql` | grup/komponen potong default per key; `batch_output_sku` dari `out_*` batch Aktual (source `manual`, note "assumed") |
+
+### Perintah untuk manusia (setelah PR F0 dan F1 di-merge)
+
+1. Workflow **Backup** (manual dispatch).
+2. `supabase db push` → menerapkan `20261016000200_m1_costing.sql`, `20261016000300_m1_backfill.sql` (setelah `20261016000100` dari F0).
+3. `/admin/modul`: `m1_costing` **on untuk Admin + Cost Accounting** (DoD PLAN F1). Setelah diterima: tambah peran baca (Finance, Management, PPIC) atau kosongkan daftar peran (semua kecuali sales — halaman Costing menolak sales).
+4. Cost Accounting: Upload → "WP potong per batch" (`202609_Data_COGS_LB.xlsx`), lalu "Daftar PI pemasok"; Input costing → isi Σ GL cost pool → Alokasikan → Posting.
+
+### Bukti
+
+```
+pnpm typecheck     → Done (engine, parsers, web)
+pnpm test          → engine 109 passed (baru: costing.test.ts 39, snapshot v3 2) · parsers 15 passed (baru: costing-wp.test.ts 5) · web 9 passed
+pnpm parity        → 17161/17161; git diff --exit-code docs/parity.md docs/parity-cells.csv → clean
+pnpm snapshot:diff → EMPTY — byte-identical (exit 0)
+pnpm build         → exit 0; ƒ /w/[week]/costing, ƒ /w/[week]/input/costing
+pnpm test:rls      → OK; F1: ca insert cost_pool/line OK; ca upsert batch_output_sku rows=2 (nulls not distinct);
+                     ca update batch costing rows=1; sales read cost_pool=0, allocation_run=0, batch_output_sku>0;
+                     mgmt read cost_pool=1; ppic insert cost_pool/overhead_rate denied
+Golden M1          → 26 sheet Pot_ISA*/Pot_AGRO*, 637 baris SKU: kolom L (COGS/kg) dan M (COGS/item) ± Rp 1;
+                     Σ M = total biaya sheet; C21 hijau untuk batch berisi output; D2: Pot_AGRO28/29/30 tanpa output;
+                     D1: Pot_ISA30 Σ SKU 15.893,9 vs hasil potong 17.568,9 kg (9,5%) → C22 GAGAL pada toleransi 2%
+Migrasi lokal      → 20261016000200/000300 diterapkan 2× (idempoten); backfill minggu contoh: 14 baris SKU dari out_*
+```
+
+Screenshot halaman: tidak dibuat di sesi ini (tidak ada database Supabase uji / login; production tidak boleh disentuh).
+Verifikasi visual di Vercel preview setelah `db push` ke branch uji: login Admin dan Cost Accounting, buka `/w/<minggu>/input/costing` dan `/w/<minggu>/costing`; login Sales → `/w/<minggu>/costing` harus 404.

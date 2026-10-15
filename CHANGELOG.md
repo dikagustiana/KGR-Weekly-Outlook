@@ -2,6 +2,17 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F1] M1 Costing per batch → SKU (docs/PLAN-v3.md Fase 1)
+
+### Added
+- Migrations `20261016000200_m1_costing.sql` (batch costing columns, `sku_key.group_code/cut_component`, costing parameters, `cost_pool`, `cost_pool_line`, `batch_output_sku`, `overhead_rate`, `allocation_run`, `allocation_line`, RLS: cost detail not readable by sales) and `20261016000300_m1_backfill.sql` (default groups / cut components; SKU rows from v1 `out_*`, marked assumed).
+- Engine `costing.ts` (`allocateBatch` relative sales value with secondary "Biaya BL" pool, NRV option and NRV test, own-mode overhead, `computeCostPool`, `groupCostPerKg`, `idleCapacity`) and `controls-v3.ts` (C21–C24); snapshot keys v3 (`toSnapshotV3`, `snapshotJsonV3`).
+- Parsers `costing-wp.ts` (WP batch sheets) and `v3-tables.ts` (`cost_pool_pi`); fixture `fixtures/costing-2026-09` from `202609_Data_COGS_LB.xlsx`.
+- Web: v3 upload kinds in the existing wizard (`lib/v3/uploads.ts`, WP + PI), `/w/[week]/input/costing`, `/w/[week]/costing`, v3 controls on Kontrol, v3 keys in release / snapshot.json when the module is on.
+
+### Verified
+- Column L of every Pot_ISA / Pot_AGRO sheet reproduced ± Rp 1 (637 SKU rows); snapshot of the example week unchanged.
+
 ## [v3-F0] Data fixes, fondasi, backup (docs/PLAN-v3.md Fase 0)
 
 ### Added

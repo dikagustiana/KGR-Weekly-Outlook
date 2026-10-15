@@ -40,7 +40,7 @@ export interface KindDef {
   fields: FieldDef[];
 }
 
-const F = (field: string, label: string, type: FieldDef["type"], aliases: string[], required = false): FieldDef => ({
+export const F = (field: string, label: string, type: FieldDef["type"], aliases: string[], required = false): FieldDef => ({
   field, label, type, aliases: [label, field, ...aliases], required,
 });
 
@@ -196,7 +196,7 @@ export interface Detected {
 }
 
 /** Find the header row and map fields to columns. */
-export function detect(sheets: Sheet[], def: KindDef): Detected | null {
+export function detect(sheets: Sheet[], def: Pick<KindDef, "fields">): Detected | null {
   let best: Detected | null = null;
   for (const s of sheets) {
     const limit = Math.min(s.rows.length, 40);
@@ -229,7 +229,7 @@ export interface ParsedRow {
 }
 
 /** Extract typed records below the header using a mapping (detected or overridden by the user). */
-export function extract(sheets: Sheet[], def: KindDef, d: Detected): ParsedRow[] {
+export function extract(sheets: Sheet[], def: Pick<KindDef, "fields">, d: Detected): ParsedRow[] {
   const s = sheets.find((x) => x.name === d.sheet)!;
   const out: ParsedRow[] = [];
   let blankRun = 0;

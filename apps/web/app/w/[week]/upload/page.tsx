@@ -5,6 +5,7 @@ import { guardInputs } from "@/lib/inputPage";
 import { kindsFor } from "@/lib/upload";
 import { supabaseServer } from "@/lib/supabase";
 import { UploadWizard } from "./UploadWizard";
+import { moduleSettings } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -16,7 +17,7 @@ export default async function UploadPage({ params }: PageProps) {
   const sb = await supabaseServer();
   const { data: hist } = await sb.from("upload").select("id, kind, file_name, file_sha256, status, row_count, inserted, updated, deleted, uploaded_by, uploaded_at, date_from, date_to")
     .eq("week_id", ctx.week.id).order("uploaded_at", { ascending: false }).limit(50);
-  const kinds = kindsFor(ctx.viewer.role).map((k) => ({ kind: k.kind, label: k.label, description: k.description, target: k.target, source: k.source }));
+  const kinds = kindsFor(ctx.viewer.role, await moduleSettings()).map((k) => ({ kind: k.kind, label: k.label, description: k.description, target: k.target, source: k.source }));
   return (
     <WeekShell ctx={ctx} active="upload">
       <h1>Upload — export Accurate dan dokumen operasional</h1>
