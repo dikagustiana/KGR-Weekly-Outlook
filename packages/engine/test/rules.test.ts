@@ -166,9 +166,23 @@ describe("§5.3 RPA recommendation branches", () => {
     const b = withPlan(15000, 1000, 100_000);
     expect(b.freshShareOfPlan.toNumber()).toBe(1);
     expect(b.recommendation).toBe("LANJUT");
+    // the plan (1.000 kg LB) is far below what 100.000 kg of fresh orders need → cut the demand-backed quantity
     expect(b.action.kind).toBe("POTONG");
+    expect(b.action.kg!.equals(b.lbMaxWithoutFrozen)).toBe(true);
+    expect(b.action.text).toBe(`POTONG ${fixed(b.lbMaxWithoutFrozen)} kg LB: rencana 1.000 kg belum menutup order fresh`);
+  });
+  it("R4: LANJUT with a plan that matches the fresh need cuts the plan", () => {
+    // need 714,599 kg karkas → LB max = 714,599 ÷ (0,97 × 0,7367) = 1.000 kg = plan
+    const b = withPlan(15000, 1000, 714.599);
+    expect(b.recommendation).toBe("LANJUT");
     expect(b.action.kg!.toNumber()).toBe(1000);
     expect(b.action.text).toBe("POTONG 1.000 kg LB: harga di bawah breakeven dan kebutuhan fresh tertutup");
+  });
+  it("R4: LANJUT with no plan yet still cuts what the fresh orders need", () => {
+    const b = withPlan(15000, 0, 1000);
+    expect(b.recommendation).toBe("LANJUT");
+    expect(b.action.kg!.equals(b.lbMaxWithoutFrozen)).toBe(true);
+    expect(b.action.text).toBe("POTONG 1.399 kg LB: rencana 0 kg belum menutup order fresh");
   });
   it("R4: TUNDA only when the plan has no positive breakeven to negotiate to", () => {
     const a = rpaAction("TUNDA / NEGOSIASI", new Decimal(24600), new Decimal(0), new Decimal(0), new Decimal(1000));

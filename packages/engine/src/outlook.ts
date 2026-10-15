@@ -175,7 +175,8 @@ export function rpaDecision(p: Prepared, stock: StockResult): RpaDecision {
 /**
  * R4 mapping of the Excel recommendation (B26) to one action. TUNDA / NEGOSIASI becomes NEGOSIASI with the
  * breakeven of today's cutting plan (B21) as the target price; TUNDA only when there is no positive target.
- * KURANGI and POTONG HANYA SESUAI ORDER cut the live bird that the fresh orders need (B16); LANJUT cuts the plan (B17).
+ * KURANGI and POTONG HANYA SESUAI ORDER cut the live bird that the fresh orders need (B16); LANJUT cuts the plan (B17),
+ * or B16 when the plan is smaller than what the fresh orders need.
  */
 export function rpaAction(code: RpaRecommendationCode, lb: Decimal, breakevenPlan: Decimal, lbMax: Decimal, planned: Decimal): RpaAction {
   switch (code) {
@@ -191,8 +192,13 @@ export function rpaAction(code: RpaRecommendationCode, lb: Decimal, breakevenPla
       return { kind: "POTONG", targetPrice: null, kg: lbMax,
         text: `POTONG ${fixed(lbMax)} kg LB: margin per kg live bird negatif, potong hanya untuk order` };
     case "LANJUT":
-      return { kind: "POTONG", targetPrice: null, kg: planned,
-        text: `POTONG ${fixed(planned)} kg LB: harga di bawah breakeven dan kebutuhan fresh tertutup` };
+      // An absent or undersized plan does not cover the fresh orders: cut what the orders need (B16), still at or
+      // below breakeven because the extra karkas sells fresh.
+      return planned.lessThan(lbMax.minus(0.5))
+        ? { kind: "POTONG", targetPrice: null, kg: lbMax,
+            text: `POTONG ${fixed(lbMax)} kg LB: rencana ${fixed(planned)} kg belum menutup order fresh` }
+        : { kind: "POTONG", targetPrice: null, kg: planned,
+            text: `POTONG ${fixed(planned)} kg LB: harga di bawah breakeven dan kebutuhan fresh tertutup` };
   }
 }
 

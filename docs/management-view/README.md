@@ -102,3 +102,12 @@ Tes: engine 66, parser 10, web 5 lulus; `pnpm typecheck` dan `pnpm build` lulus;
 
 Halaman penuh view manajemen: ![manajemen penuh](img/stage4-management-full.png)
 
+### Perbaikan setelah review (temuan Codex di PR #3 dan #4)
+
+| Temuan | Perbaikan | Bukti |
+| --- | --- | --- |
+| P1 (#3): `LANJUT` → "POTONG {rencana} kg" walau rencana belum menutup order fresh | `LANJUT` dengan rencana < LB maksimum − 0,5 kg → `POTONG {LB maksimum} kg LB: rencana … kg belum menutup order fresh` | tes `rules.test.ts`: rencana 1.000 kg vs order 100.000 kg; rencana 0 kg → "POTONG 1.399 kg LB: rencana 0 kg belum menutup order fresh"; rencana = kebutuhan → tetap POTONG rencana |
+| P2 (#4): angka kontrol di baris rilis dihitung dari data live, bukan dari rilis | Bila jumlah per status berbeda dari yang dibekukan di rilis terakhir, baris menyebut "data berubah sejak rilis" | update 27 Agu: "Rilis 27 Agu 2026 · 18/20 kontrol lulus · 2 belum diisi"; diubah ke 28 Agu: "Rilis 27 Agu 2026 · data berubah sejak rilis · 16/20 kontrol lulus · 2 belum diisi · 2 perlu diperiksa"; dikembalikan ke 27 Agu |
+| P2 (#4): header manajemen jatuh ke email bila nama kosong | View manajemen hanya menampilkan nama (bila ada) dan role | akun uji tanpa nama: header "Management", 0 alamat email di DOM |
+
+Kriteria PRD §5 dijalankan ulang setelah perbaikan: semua PASS; snapshot database = snapshot engine (SHA-256 `162ade6b…`, sudah termasuk field baru).

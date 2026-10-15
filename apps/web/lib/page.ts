@@ -13,6 +13,8 @@ export interface LastRelease {
   released_at: string;
   update_date: string;
   control_status: string;
+  /** Control summary frozen with the release (counts per status). */
+  controls: { counts?: Partial<Record<"LULUS" | "PERIKSA" | "BELUM DIISI" | "GAGAL", number>> } | null;
 }
 
 export interface WeekCtx {
@@ -31,7 +33,7 @@ export async function weekContext(weekStart: string): Promise<WeekCtx> {
   const [weeks, computed] = await Promise.all([weeksCached(), computeForWeek(weekStart)]);
   if (!computed) notFound();
   const sb = await supabaseServer();
-  const { data } = await sb.from("release").select("id, released_by, released_at, update_date, control_status")
+  const { data } = await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
     .eq("week_id", computed.loaded.week.id).order("released_at", { ascending: false }).limit(1).maybeSingle();
   return { viewer, weeks, week: computed.loaded.week, computed, lastRelease: (data as LastRelease) ?? null, view: await currentView(viewer) };
 }
