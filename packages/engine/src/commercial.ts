@@ -203,3 +203,34 @@ export function scorecard(x: {
     };
   });
 }
+
+export interface GuardLine { key: string; customer: string | null; price: Num | null; kg: Num | null }
+export interface DiscountRequest { id: string; key: string; customer: string | null; requested_price: Num; kg: Num; status: string; sales_line_id?: string | null }
+
+/**
+ * Order guard (PRD v3 §4.8): a line under the floor passes only when an approved, unused request covers it (same key
+ * and customer, requested price ≤ line price, kg ≥ line kg); otherwise it is refused and a pending request is proposed
+ * (unless an identical one is already pending). One approval covers one line.
+ */
+export function guardOrders(x: { lines: GuardLine[]; floors: Map<string, Num>; requests: DiscountRequest[]; limitRpPerKg: Num }): {
+  covered: string[];
+  refused: { line: GuardLine; floor: Decimal; rpPerKg: Decimal; total: Decimal; approver: "commercial_lead" | "finance" }[];
+  newRequests: { key: string; customer: string | null; requested_price: Decimal; floor_price: Decimal; rp_per_kg_below: Decimal; kg: Decimal; total_below: Decimal }[];
+} {
+  const covered: string[] = [];
+  const refused: ReturnType<typeof guardOrders>["refused"] = [];
+  const newRequests: ReturnType<typeof guardOrders>["newRequests"] = [];
+  const fits = (r: DiscountRequest, l: GuardLine) => r.key === l.key && (r.customer ?? "") === (l.customer ?? "") && !D(r.requested_price).gt(D(l.price!)) && !D(r.kg).lt(D(l.kg!));
+  for (const l of x.lines) {
+    if (l.price === null || l.price === undefined || l.price === "" || l.kg === null || l.kg === undefined || l.kg === "") continue;
+    const floor = x.floors.get(l.key) ?? null;
+    const b = belowFloor({ price: l.price, floor, kg: l.kg, limitRpPerKg: x.limitRpPerKg });
+    if (!b.below) continue;
+    const ok = x.requests.find((r) => r.status === "approved" && !r.sales_line_id && fits(r, l) && !covered.includes(r.id));
+    if (ok) { covered.push(ok.id); continue; }
+    refused.push({ line: l, floor: D(floor!), rpPerKg: b.rpPerKg, total: b.total, approver: b.approver! });
+    const dup = x.requests.some((r) => r.status === "pending" && fits(r, l) && D(r.requested_price).eq(D(l.price!))) || newRequests.some((r) => r.key === l.key && (r.customer ?? "") === (l.customer ?? "") && r.requested_price.eq(D(l.price!)) && r.kg.eq(D(l.kg!)));
+    if (!dup) newRequests.push({ key: l.key, customer: l.customer, requested_price: D(l.price), floor_price: D(floor!), rp_per_kg_below: b.rpPerKg, kg: D(l.kg), total_below: b.total });
+  }
+  return { covered, refused, newRequests };
+}

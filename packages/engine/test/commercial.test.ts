@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
 import { loadFixtureWeek } from "../src/fixtures";
 import { balanceAt, computeLedger, ledgerInputsFromWeek } from "../src/ledger";
-import { belowFloor, commercialControls, commercialRows, priceFloor, realizedPrice, scorecard, urgency, type CommercialInput, type UrgencyRule } from "../src/commercial";
+import { belowFloor, commercialControls, guardOrders, commercialRows, priceFloor, realizedPrice, scorecard, urgency, type CommercialInput, type UrgencyRule } from "../src/commercial";
 
 const Q18: UrgencyRule[] = [
   { form: "fresh", age_from: 0, age_to: 0, status: "aman" }, { form: "fresh", age_from: 1, age_to: null, status: "jual_hari_ini" },
@@ -58,6 +58,26 @@ describe("commercial rules", () => {
       forecasts: [{ sales_rep: "Budi", kg: "1000" }], blasts: [{ sales_rep: "Budi", kg: "50", rp_downgrade: "200000" }], discounts: [{ sales_rep: "Budi", total_below: "30000" }],
     });
     expect(s.map((r) => [r.sales_rep, r.pct?.toFixed(2) ?? null, r.forecast_mape?.toFixed(2) ?? null, r.kg_to_frozen_unsold.toFixed(0), r.discount_count])).toEqual([["Budi", "0.80", "0.20", "50", 1], ["Sari", null, null, "0", 0]]);
+  });
+});
+
+describe("order guard (PRD v3 §8 M7: order < price floor refused without approval)", () => {
+  const floors = new Map([["K|Fresh", "30500"]]);
+  const line = { key: "K|Fresh", customer: "PT A", price: "30000", kg: "100" };
+  it("under the floor without approval → refused, one pending request (lead ≤ Rp 500/kg)", () => {
+    const g = guardOrders({ lines: [line, { ...line }], floors, requests: [], limitRpPerKg: "500" });
+    expect(g.refused.length).toBe(2);
+    expect(g.refused[0].approver).toBe("commercial_lead");
+    expect(g.newRequests.map((r) => [r.key, r.rp_per_kg_below.toFixed(0), r.total_below.toFixed(0)])).toEqual([["K|Fresh", "500", "50000"]]);
+  });
+  it("approved request covers one line (same customer, price ≥ requested, kg ≤ approved); a pending one does not", () => {
+    const req = [{ id: "a1", key: "K|Fresh", customer: "PT A", requested_price: "30000", kg: "100", status: "approved" }, { id: "p1", key: "K|Fresh", customer: "PT B", requested_price: "30000", kg: "100", status: "pending" }];
+    const g = guardOrders({ lines: [line, { ...line, customer: "PT B" }, { ...line, kg: "150" }], floors, requests: req, limitRpPerKg: "500" });
+    expect(g.covered).toEqual(["a1"]);
+    expect(g.refused.map((r) => r.line.customer + "/" + r.line.kg)).toEqual(["PT B/100", "PT A/150"]);
+    expect(g.newRequests.map((r) => r.customer + "/" + r.kg.toFixed(0))).toEqual(["PT A/150"]);
+    expect(guardOrders({ lines: [{ ...line, price: "30600" }], floors, requests: [], limitRpPerKg: "500" }).refused).toEqual([]);
+    expect(guardOrders({ lines: [{ ...line, price: "29000" }], floors, requests: [], limitRpPerKg: "500" }).refused[0].approver).toBe("finance");
   });
 });
 

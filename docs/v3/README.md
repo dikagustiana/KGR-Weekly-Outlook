@@ -338,3 +338,55 @@ M7                 → DOM sales tanpa SI / cost pool / batch_ref (view model); 
                      ranking lengkap per key, status di atas batas umur / jual hari ini lebih dulu
 ```
 
+## F6b — M7 Approval diskon + scorecard
+
+Branch `v3/f6b-approval` (di atas `v3/f6a-commercial`) · desain [`F6b-design.md`](F6b-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001300_m7_approval.sql` | `discount_limit()`, trigger `discount_guard`, `needs_rebuild` di `sales_target` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001300`), setelah F6a.
+2. `m7_approval` on **setelah** `m7_commercial` berjalan dan harga lantai diperiksa commercial lead (order di bawah lantai langsung ditolak). Mulai dari admin + commercial_lead + finance, lalu sales.
+3. Finance konfirmasi batas `discount_limit_rp_per_kg` (Q19, Rp 500/kg) di Parameter.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 178 passed + 3 todo (baru: order guard 2) · parsers 20 · web 12
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /komersial/approval, ƒ /komersial/scorecard)
+pnpm test:rls      → OK; F6b: sales file requests OK; sales insert approved denied; sales approve denied; requested_by stamped=2;
+                     cl approve 300/kg OK; cl approve 1300/kg denied; change final decision denied; finance approve 1300/kg OK;
+                     edit request after decision denied; cl direct scorecard denied; cl mart_replace scorecard written=1
+```
+
+## F7 — Rilis bulanan, PDF, mobile, management view v3
+
+Branch `v3/f7-release` (di atas `v3/f6b-approval`) · desain [`F7-design.md`](F7-design.md) · ringkasan seluruh v3: [`SUMMARY.md`](SUMMARY.md)
+
+### Migrasi
+
+Tidak ada.
+
+### Perintah untuk manusia
+
+1. Tidak ada `db push` baru. Setelah semua PR F0–F7 di-merge berurutan: periksa tampilan manajemen mingguan (Input + HPP tampil walau semua modul off), PDF bulanan dari `/m/[bulan]`.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 182 passed + 3 todo (baru: management.test.ts 4) · parsers 20 · web 14 (baru: OutlookBody.test.tsx 2)
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /api/m/[month]/pdf, ƒ /api/m/[month]/snapshot.json)
+Refactor OutlookBody → renderToStaticMarkup penyusun / manajemen × cetak / layar tanpa slot v3 = HTML versi sebelumnya (identik, 4 kasus)
+Golden             → COGS/kg RPA 32.721 dan revenue/kg 30.914 (PRD v3 §1) dari P&L proyeksi minggu ÷ kg proyeksi RPA;
+                     roll-forward ledger 24–26 Agu = saldo ledger 26 Agu; LB dibeli = batch Aktual blok 6
+```
+

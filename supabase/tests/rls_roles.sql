@@ -511,3 +511,53 @@ begin
 
   raise exception 'RLS-RESULTS v3 F6a (rolled back): %', out;
 end $$;
+
+-- v3 F6b (M7 approval): sales file pending requests; commercial_lead decides up to the limit (Rp 500/kg), finance above;
+-- a decision is final; scorecard mart via mart_replace.
+do $$
+declare out text := ''; n int; small uuid; big uuid;
+begin
+  insert into public.app_user(email, role) values ('t12-sales@x.test','sales'),('t12-cl@x.test','commercial_lead'),('t12-fin@x.test','finance');
+
+  perform set_config('request.jwt.claims', '{"email":"t12-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below) values ('K', 30000, 30300, 300, 100, 30000) returning id into small;
+    insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below) values ('K', 29000, 30300, 1300, 100, 130000) returning id into big;
+    out := out || 'sales file requests: OK; ';
+  exception when others then out := out || 'sales file requests: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below, status) values ('K', 1, 2, 1, 1, 1, 'approved'); out := out || 'sales insert approved: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert approved: denied; '; end;
+  begin update public.discount_approval set status = 'approved' where id = small; out := out || 'sales approve: ALLOWED(!); ';
+  exception when others then out := out || 'sales approve: denied; '; end;
+  select count(*) into n from public.discount_approval where id in (small, big) and requested_by = 't12-sales@x.test'; out := out || 'requested_by stamped=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-cl@x.test', decided_at = now() where id = small; out := out || 'cl approve 300/kg: OK; ';
+  exception when others then out := out || 'cl approve 300/kg: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-cl@x.test', decided_at = now() where id = big; out := out || 'cl approve 1300/kg: ALLOWED(!); ';
+  exception when others then out := out || 'cl approve 1300/kg: denied; '; end;
+  begin update public.discount_approval set status = 'rejected' where id = small; out := out || 'change final decision: ALLOWED(!); ';
+  exception when others then out := out || 'change final decision: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-fin@x.test', decided_at = now() where id = big; out := out || 'finance approve 1300/kg: OK; ';
+  exception when others then out := out || 'finance approve 1300/kg: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.discount_approval set requested_price = 1 where id = big; out := out || 'edit request after decision: ALLOWED(!); ';
+  exception when others then out := out || 'edit request after decision: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_scorecard_weekly (week_start, sales_rep) values ('2030-05-06', 'x'); out := out || 'cl direct scorecard: ALLOWED(!); ';
+  exception when others then out := out || 'cl direct scorecard: denied; '; end;
+  select (public.mart_replace('sales_scorecard_weekly', '2030-05-06', '[{"week_start":"2030-05-06","sales_rep":"Budi","actual_kg":10}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'cl mart_replace scorecard written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F6b (rolled back): %', out;
+end $$;
