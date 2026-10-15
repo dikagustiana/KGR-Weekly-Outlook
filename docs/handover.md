@@ -69,6 +69,23 @@ Diverifikasi di URL live: 29 halaman + PDF/CSV/JSON membalas 200, snapshot mingg
 
 Pilot (PRD §11 M5): jalankan dua minggu nyata paralel dengan Excel. Bandingkan blok 1–8 dan laporan tiap hari; catat setiap selisih di `docs/open-questions.md` bagian D (tanggal, angka Excel, angka aplikasi, sel, penyebab, keputusan).
 
+### 4a. Ritme harian v3 (modul M1–M7, `docs/PRD-v3-kgr-platform.md`, flag di Admin → Modul)
+
+Modul baru menyala per peran lewat **Admin → Modul** (default off). Setelah upload, data harian (data mart) dibangun lewat antrian: Admin → Modul → **Proses antrian** (atau otomatis setelah upload v3).
+
+| Kapan | Siapa | Langkah |
+| --- | --- | --- |
+| Setiap hari, setelah batch potong | Cost Accounting (`cost_accounting`) | **Upload** WP potong per batch (format `Data_COGS_LB`) dan daftar PI pemasok → **Input costing**: periksa tie-out cost pool ke GL (C23) → **Alokasikan** → **Posting** (M1). Biaya per SKU dan per grup tampil di **Costing** |
+| Setiap hari 06:00–10:00 | Inventory Accounting | (tambahan) upload *saldo stok per item* Accurate untuk rekon ledger (C26); opname / koreksi lot di **Stok per SKU → SKU** |
+| Setiap hari | Sales | **Upload PO lines** (tgl kirim, status demand Confirmed/Tentative/Forecast, sales) dan *forecast per minggu*; order di bawah harga lantai ditolak sampai disetujui (M7 approval) |
+| Setiap hari | Commercial Lead (`commercial_lead`) | **Komersial**: SKU *jual hari ini* / *di atas batas umur* dulu (C39); **Approval diskon** ≤ Rp 500/kg (di atasnya Finance); penugasan sales (email login) dan target mingguan; Senin: **Scorecard** minggu lalu |
+| Setiap hari | PPIC | **Demand** → **Rencana** (simpan versi; downgrade > Rp 25 jt perlu persetujuan Finance; "Salin ke batch rencana" bila rencana dipakai di blok 2) → **Alokasi hari ini**: "Alokasikan hari ini", lalu **Cut-off pukul 14:00** (sisa fresh di-blast ke frozen) |
+| Setiap hari | Purchasing | upload *supply live bird* (tawaran / konfirmasi) |
+| Setiap hari kerja | Finance | **Upload template kas harian** (`reference/templates/Template_Kas_Harian.xlsx`: saldo semua rekening + rencana) — C35 Σ rekening = kas neraca, C36 hari tanpa upload; **Kas** / **CCC** |
+| Bulanan | Finance | **Biaya** (jadwal biaya tetap: gaji, sewa ABF NMG, bunga; sewa RPA 94,48 jt/bulan mulai Nov 2026); **Bulanan**: budget, kunci V1 (hari kerja ke-20), V2; **Tutup buku**: penyesuaian DI, posting, kunci FINAL (akurasi + kalibrasi bulan berikut); PDF / JSON versi |
+
+Urutan flag yang disarankan dan perintah `supabase db push` per fase: `docs/v3/README.md` dan `docs/v3/SUMMARY.md`.
+
 ## 5. Peran (`apps/web/lib/roles.ts`, ditegakkan lagi oleh RLS)
 
 | Peran | Bisa mengubah |
@@ -80,8 +97,10 @@ Pilot (PRD §11 M5): jalankan dua minggu nyata paralel dengan Excel. Bandingkan 
 | PPIC | batch, penerimaan produksi RPA |
 | Purchasing / Ops | harga live bird, termin, harga beli, penerimaan trading, rencana kas |
 | Management | — hanya baca (Outlook dan laporan, juga di mobile); tidak melihat halaman input |
+| Commercial Lead (v3) | semua yang boleh Sales + penugasan / target sales, aturan harga lantai dan urgensi, approval diskon ≤ batas |
+| Cost Accounting (v3) | upload WP potong dan PI pemasok, cost pool, tarif overhead, alokasi dan posting costing |
 
-**Tampilan (Management View v2, `docs/PRD-management-view-v2.md`).** Role Management selalu melihat tampilan manajemen: blok ringkasan di atas (GP proyeksi, keputusan RPA hari ini dalam satu aksi, stok di atas batas umur), tanpa istilah sheet Excel, tanpa menu Input/Admin, dengan baris rilis abu-abu. Role lain melihat tampilan penyusun (istilah dan nomor blok Excel, kolom "Cara hitung", bar kontrol) dan bisa menekan "Pratinjau tampilan manajemen" di topbar untuk melihat yang diterima manajemen. Bukti per tahap: `docs/management-view/README.md`.
+**Tampilan (Management View v2 + v3).** Dengan modul v3, tampilan manajemen mingguan memuat urutan PRD v3 §6: ringkasan (+ outlook bulan vs budget, kas terendah 13 minggu, SKU jual hari ini bila modulnya on) → segmen → keputusan RPA + batch → **Input** → **HPP** (per segmen, per grup SKU dari costing, roll-forward persediaan dari ledger) → trading → stok → kas → demand → akurasi → peringatan. `/sku`, `/komersial` dan `/m/[bulan]` baca-saja di ponsel (form disembunyikan di layar < 760 px). **Management View v2 (`docs/PRD-management-view-v2.md`).** Role Management selalu melihat tampilan manajemen: blok ringkasan di atas (GP proyeksi, keputusan RPA hari ini dalam satu aksi, stok di atas batas umur), tanpa istilah sheet Excel, tanpa menu Input/Admin, dengan baris rilis abu-abu. Role lain melihat tampilan penyusun (istilah dan nomor blok Excel, kolom "Cara hitung", bar kontrol) dan bisa menekan "Pratinjau tampilan manajemen" di topbar untuk melihat yang diterima manajemen. Bukti per tahap: `docs/management-view/README.md`.
 
 Semua peran kecuali Management boleh mengubah tanggal update. Semua perubahan tercatat di Admin → Audit (bisa dipulihkan).
 

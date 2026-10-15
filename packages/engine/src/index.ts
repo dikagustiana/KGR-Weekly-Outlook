@@ -21,3 +21,4 @@ export * from "./monthly";
 export * from "./cash";
 export * from "./ccc";
 export * from "./commercial";
+export * from "./management";
