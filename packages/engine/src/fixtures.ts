@@ -45,3 +45,10 @@ export function loadFixtureWeek(weekStart: string, today?: string): WeekInputs {
 export function loadGolden(weekStart: string): Record<string, string | null> {
   return read(fixtureDir(weekStart), "golden.json");
 }
+
+/** v3 fixtures (fixtures/<name>/<file>.json, written by scripts/extract_fixtures.py). Node only. */
+export function loadV3Fixture<T = unknown>(name: string, file: string): T {
+  const dir = join(repoRoot(), "fixtures", name);
+  if (!existsSync(join(dir, file))) throw new Error(`Fixture ${name}/${file} tidak ada — jalankan: python3 -I scripts/extract_fixtures.py`);
+  return read<T>(dir, file);
+}

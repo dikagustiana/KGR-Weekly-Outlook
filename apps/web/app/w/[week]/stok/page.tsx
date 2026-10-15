@@ -3,6 +3,11 @@ import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { Badge, Card, N, Td } from "@/components/ui";
 import { tglShort } from "@/lib/fmt";
+import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
+import { moduleEnabled } from "@/lib/modules";
+import { supabaseServer } from "@/lib/supabase";
+import { ledgerForWeek } from "@/lib/v3/ledger";
+import { bsInventoryYesterday } from "@/lib/v3/week";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,9 @@ export default async function StokPage({ params, searchParams }: PageProps) {
     return `?${p.toString()}`;
   };
   const day = r.stock.days;
+  // M2 "Ledger" tab for preparers (PLAN F2): C25–C27 next to the v1 projection, which stays the source of this page
+  const ledger = ctx.view === "preparer" && (await moduleEnabled("m2_ledger", ctx.viewer))
+    ? await ledgerForWeek(await supabaseServer(), ctx.week, bsInventoryYesterday(r)) : null;
   return (
     <WeekShell ctx={ctx} active="stok">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -77,6 +85,12 @@ export default async function StokPage({ params, searchParams }: PageProps) {
         </table>
       </div>
       <p className="muted">Nilai negatif ditandai merah. Ekspor CSV memakai titik desimal (untuk Excel id-ID buka lewat Data → From Text).</p>
+      {ledger ? (
+        <Card title={`Ledger lot (M2) — rekonsiliasi per ${tglShort(ledger.date)}`}>
+          <p className="muted">Ledger lot berjalan paralel; halaman ini tetap memakai proyeksi O_Stok. Total ledger {ledger.balance ? <><N v={ledger.balance.totalKg} dp={2} /> kg, nilai rata-rata <N v={ledger.balance.totalCostMa} /></> : "—"}. Detail per SKU dan lot: <Link href={`/sku?date=${ledger.date}`}>Stok per SKU</Link>.</p>
+          <ControlsV3Table controls={ledger.controls} />
+        </Card>
+      ) : null}
     </WeekShell>
   );
 }
