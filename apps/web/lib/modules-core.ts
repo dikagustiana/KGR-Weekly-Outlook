@@ -62,6 +62,9 @@ interface NavDef {
 
 const PREP: Role[] = ["admin", "inventory_accounting", "ppic", "purchasing", "finance", "commercial_lead", "cost_accounting"];
 
+/** Sales reads SKU stock through the commercial view (M7); the lot ledger itself is not for sales (PLAN F2). */
+export const SKU_READERS: Role[] = [...PREP, "management"];
+
 export const MODULE_NAV: NavDef[] = [
   // cost per batch is finance detail: not for sales (PRD v3 Q17)
   { module: "m1_costing", label: "Costing", roles: [...PREP, "management"], href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },

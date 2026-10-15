@@ -183,3 +183,48 @@ begin
 
   raise exception 'RLS-RESULTS v3 F1 (rolled back): %', out;
 end $$;
+
+-- v3 F2 (M2 ledger): lot detail not for sales; manual adjustments by inventory accounting queue a rebuild; blasts by PPIC.
+do $$
+declare out text := ''; n int;
+begin
+  insert into public.app_user(email, role) values ('t5-sales@x.test','sales'),('t5-ia@x.test','inventory_accounting'),('t5-ppic@x.test','ppic'),('t5-mgmt@x.test','management');
+  insert into public.lot (lot_ref, key, form, origin, origin_date, ledger_date, kg_in, cost_in, cost_per_kg_si) values ('opening:t5', 'RPA|Karkas|Fresh', 'fresh', 'opening', '2026-08-24', '2026-08-24', 10, 100, 10);
+  insert into public.sku_balance_daily (date, key, kg) values ('2026-08-24', 'RPA|Karkas|Fresh', 10);
+  insert into public.lot_balance_daily (date, lot_ref, key, form, kg) values ('2026-08-24', 'opening:t5', 'RPA|Karkas|Fresh', 'fresh', 10);
+  delete from public.rebuild_queue where date = '2026-08-25';
+
+  perform set_config('request.jwt.claims', '{"email":"t5-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lot; out := out || 'sales read lot=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.lot_balance_daily; out := out || 'sales read lot_balance_daily=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.sku_balance_daily; out := out || 'sales read sku_balance_daily=' || n || case when n > 0 then '' else '(!)' end || '; ';
+  begin insert into public.blast_event(date, lot_ref_from, kg) values ('2026-08-25', 'opening:t5', 1); out := out || 'sales insert blast: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert blast: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t5-ia@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.lot_movement(movement_ref, lot_ref, date, type, kg, ref_table, key) values ('manual:t5', 'opening:t5', '2026-08-25', 'adjust', -1, 'manual', 'RPA|Karkas|Fresh'); out := out || 'ia manual adjust: OK; ';
+  exception when others then out := out || 'ia manual adjust: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.lot_movement(movement_ref, lot_ref, date, type, kg, ref_table) values ('x:t5', 'opening:t5', '2026-08-25', 'out_sale', -1, 'sales_line'); out := out || 'ia derived movement: ALLOWED(!); ';
+  exception when others then out := out || 'ia derived movement: denied; '; end;
+  begin insert into public.stock_card_snapshot(date, item_code, kg) values ('2026-08-23', 'JLB0790', 1); out := out || 'ia stock card: OK; ';
+  exception when others then out := out || 'ia stock card: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select count(*) into n from public.rebuild_queue where date = '2026-08-25' and status = 'queued';
+  out := out || 'manual adjust queued rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  perform set_config('request.jwt.claims', '{"email":"t5-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.blast_event(date, lot_ref_from, kg, reason) values ('2026-08-25', 'opening:t5', 1, 'cutoff'); out := out || 'ppic insert blast: OK; ';
+  exception when others then out := out || 'ppic insert blast: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t5-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lot; out := out || 'mgmt read lot=' || n || case when n > 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F2 (rolled back): %', out;
+end $$;

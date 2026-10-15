@@ -3,18 +3,26 @@ import "server-only";
  * Everything the v3 modules add to one week: their controls (C21–C40) and their snapshot keys. Only modules whose
  * flag is on contribute — with every flag off the weekly snapshot and release are exactly v1.
  */
-import type { ControlV3, V3Snapshot } from "@kgr/engine";
+import type { ControlV3, V3Snapshot, WeekResult } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
+import { ledgerForWeek } from "./ledger";
 
 export interface WeekV3 {
   controls: ControlV3[];
   snapshot: V3Snapshot;
 }
 
-export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSettings): Promise<WeekV3> {
+/** Inventory (product + trading) on the balance sheet yesterday, from the v1 statements of the week. */
+export function bsInventoryYesterday(v1: WeekResult | undefined): string | null {
+  if (!v1) return null;
+  const v = v1.statements.bs.get("Inventory - Product").values.yesterday.plus(v1.statements.bs.get("Inventory - Trading").values.yesterday);
+  return v.toFixed(2);
+}
+
+export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSettings, v1?: WeekResult): Promise<WeekV3> {
   const controls: ControlV3[] = [];
   const snapshot: V3Snapshot = {};
   if (settings.m1_costing?.enabled) {
@@ -28,6 +36,16 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       })).sort((a, b) => String(a.batch_ref).localeCompare(String(b.batch_ref))),
       groups: groupsOfWeek(d),
     };
+  }
+  if (settings.m2_ledger?.enabled) {
+    const l = await ledgerForWeek(sb, week, bsInventoryYesterday(v1));
+    if (l) {
+      controls.push(...l.controls);
+      snapshot.ledger = l.balance ? {
+        date: l.date, totalKg: l.balance.totalKg, totalCostMa: l.balance.totalCostMa, totalCostSi: l.balance.totalCostSi,
+        perKey: l.balance.perKey.map((k) => ({ key: k.key, kg: k.kg, cost_ma: k.cost_ma, free_kg: k.free_kg, over_age_kg: k.over_age_kg })),
+      } : null;
+    }
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };

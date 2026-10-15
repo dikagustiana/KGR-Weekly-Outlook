@@ -7,28 +7,12 @@ import "server-only";
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
-import type { ModuleKey, ModuleSettings } from "./modules-core";
+import type { ModuleSettings } from "./modules-core";
+import { BUILDERS } from "./rebuild-registry";
+// builders register themselves on import (no cycle: they import the registry, not this file)
+import "./v3/ledger";
 
-export interface Builder {
-  module: ModuleKey;
-  name: string;
-  /** Build one date; returns a short summary for the queue row. */
-  build: (sb: Supa, date: string) => Promise<string>;
-}
-
-/** Registered per module (later phases add theirs here). */
-export const BUILDERS: Builder[] = [];
-
-export function registerBuilder(b: Builder): void {
-  if (!BUILDERS.some((x) => x.module === b.module && x.name === b.name)) BUILDERS.push(b);
-}
-
-/** Write one scope of a data mart table (rows = engine output, already plain JSON). */
-export async function martReplace(sb: Supa, table: string, scope: string, rows: Record<string, unknown>[]): Promise<{ written: number; deleted: number }> {
-  const { data, error } = await sb.rpc("mart_replace", { p_table: table, p_scope: scope, p_rows: rows });
-  if (error) throw new WriteError(`${table} ${scope}: ${error.message}`);
-  return data as { written: number; deleted: number };
-}
+export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 
 /** Rebuilds run for every module whose flag is enabled, whatever the role list (the data mart is shared). */
 export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
@@ -67,6 +51,7 @@ export async function processRebuildQueue(sb: Supa, settings: ModuleSettings, li
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r.id]);
   let done = 0, failed = 0;
   const notes: string[] = [];
+  if (byDate.size) for (const b of BUILDERS) if (settings[b.module]?.enabled && b.begin) await b.begin(sb);
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
     await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids);
     try {

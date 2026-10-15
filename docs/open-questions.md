@@ -117,8 +117,17 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | V7 | Halaman Costing untuk sales | Tidak tersedia (404) dan RLS menolak baca cost pool / alokasi / tarif | PRD Q17: sales tidak melihat biaya per batch; PRD §6 menulis "semua" | `lib/modules-core.ts` `MODULE_NAV`, RLS `*_read` |
 | V8 | Harga acuan alokasi | `batch_output_sku.price_ref` (harga daftar WP minggu potong); kosong → `sku_price.ref_sell_price` minggu itu (Q3) | WP adalah sumber harga kolom L | `lib/v3/costing.ts` `allocationInput` |
 
+| V9 | Sumber lot produksi | Lot hasil potong dari `receipt_line` Produksi RPA (GRN = kartu stok Accurate), biaya SI dari alokasi M1 posted (batch_ref × key) bila ada; `batch_output_sku` tidak membuat lot kedua | Menghindari kg ganda dan menjaga C26 (ledger = kartu stok); PLAN menyebut lot dari `batch_output_sku` — selisihnya persis D1 | `apps/web/lib/v3/ledger.ts` `loadLedgerSources` |
+| V10 | FIFO tanpa lot di DO | Per item code; key lain dipakai hanya bila item tidak pernah punya lot; kekurangan → lot defisit (stok negatif, assumed) | Q11: Accurate per item, stok item boleh negatif; fallback per key menggeser MA item lain | `packages/engine/src/ledger.ts` `fifo` |
+| V11 | Backfill M2 | Migrasi hanya mengantrikan tanggal; lot/mutasi/saldo dibangun engine lewat rebuild | Aturan "angka dari engine, bukan SQL" | `supabase/migrations/20261016000500_m2_backfill.sql` |
+| V12 | Kunci data mart lot | `lot_balance_daily` pk `(date, lot_ref)` (referensi engine), bukan `lot_id` | lot dibuat ulang oleh rebuild; referensi stabil | migrasi m2 |
+
 ### E.4 Target numbers (PRD v3 §8) — reproduced / not reproduced
 
 | Module | Target | Result | Test |
 | --- | --- | --- | --- |
 | M1 | Kolom L `Pot_ISA` / `Pot_AGRO` per SKU ± Rp 1 | **Reproduced**: 26 sheet, 637 baris SKU, L dan M ± Rp 1, Σ M = total per sheet (dari fixture openpyxl dan dari file xlsx lewat parser SheetJS) | `packages/engine/test/costing.test.ts`, `packages/parsers/test/costing-wp.test.ts` |
+| M2 | Saldo 24 Agu = stok awal per key ± 0,01 kg | **Reproduced** (34 key; 162.687,92 kg; nilai 3.954.932.012) | `packages/engine/test/ledger.test.ts` |
+| M2 | Roll-forward Agu 162.687 → 156.956 kg | **Reproduced**: 156.956,05 kg pada 30 Agu, dan setiap hari 24–30 Agu × setiap key = O_Stok ± 0,01 kg (162.687,92 + terima aktual 27.699,5 + rencana 30.594 − jual aktual 23.587,97 − order 40.437,4) | idem |
+| M2 | MA per key = `hpp_actual` Agu ± Rp 1/kg pada ≥ 95% baris | **Not reproduced: 88,2% (30/34 baris)**. Selisih: JLB0790 +17,25/kg, JLB0856 +180,28, JLB0922 +259,38, JLB0988 +196,32 (DO KGR26.00327, 26 Agu, `T_Penjualan` baris 36–39 kolom HPP). Dugaan penyebab: biaya GRN produksi di fixture = alokasi ops batch 125/126 (`T_Penerimaan` baris 20–53, Rp 36.879,59 dan 37.669,39/kg), sedangkan Accurate me-recost GRN Agustus (catatan WP Sales SKU v7: "Accurate re-costed August: JLB DO −Rp31.7m"); data recost per GRN tidak ada di fixture. Dua pendekatan dicoba: MA per item (terima sebelum jual, 30/34), per key (12/34), jual sebelum terima (16/34). Test ditandai `todo`; 30/34 dikunci sebagai regresi | idem (`it.todo`) |
+| M2 | C25 % assumed tampil | **Reproduced**: 100% (23.587,97 kg keluar tanpa lot di DO) | idem |

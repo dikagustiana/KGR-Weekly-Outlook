@@ -5,7 +5,7 @@
 import type { Sheet } from "./workbook";
 import { F, detect, extract, type Detected, type FieldDef, type Mapping, type ParsedRow } from "./tables";
 
-export type V3TableKind = "cost_pool_pi";
+export type V3TableKind = "cost_pool_pi" | "stock_card";
 
 export interface V3TableDef {
   kind: V3TableKind;
@@ -24,6 +24,16 @@ export const V3_TABLES: V3TableDef[] = [
       F("amount", "Jumlah Rp", "number", ["jumlah", "jumlah rp", "total", "nilai", "amount", "dpp", "subtotal"], true),
       F("batch_ref", "Batch", "text", ["batch", "no batch", "batch ref", "sheet wp", "pot"]),
       F("component", "Komponen", "text", ["komponen", "component", "jenis biaya"]),
+    ],
+  },
+  {
+    kind: "stock_card",
+    fields: [
+      F("date", "Tanggal saldo", "date", ["tanggal", "tgl", "per tanggal", "tanggal saldo", "date", "as of"], true),
+      F("item_code", "Kode item", "text", ["kode barang", "kode", "kode #", "no barang", "item no", "item code", "kode item"], true),
+      F("item_name", "Nama item", "text", ["nama barang", "nama", "deskripsi barang", "item description", "description"]),
+      F("kg", "Saldo kg", "number", ["saldo kts", "saldo kuantitas", "saldo qty", "kuantitas", "qty", "kts", "kg", "saldo"], true),
+      F("value", "Saldo nilai", "number", ["saldo nilai", "nilai", "nilai rp", "value", "total nilai", "saldo rp"]),
     ],
   },
 ];

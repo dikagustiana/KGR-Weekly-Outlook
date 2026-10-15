@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F2] M2 Lot ledger + stok per SKU (docs/PLAN-v3.md Fase 2)
+
+### Added
+- Migrations `20261016000400_m2_ledger.sql` (`lot`, `lot_movement`, `lot_balance_daily`, `sku_balance_daily`, `stock_card_snapshot`, `blast_event`, SKU/parameter ledger columns, `mart_replace` keeps input rows, `needs_rebuild` triggers) and `20261016000500_m2_backfill.sql` (queues every date for the engine to build).
+- Engine `ledger.ts` (`computeLedger`, `balanceAt`, `reconcile`, `ledgerInputsFromWeek`, `keyResolver`) and C25–C27 in `controls-v3.ts`.
+- Web: ledger builder for `rebuildDay` (`lib/v3/ledger.ts`), upload kind `stock_card`, `/sku`, `/sku/[key]` (lots → movements, opname, blast), "Ledger lot" card on Stok, ledger controls and snapshot key `ledger`.
+
+### Verified
+- Roll-forward of the example week 162.687,92 → 156.956,05 kg; every day × key equals O_Stok ± 0,01 kg. MA vs Accurate HPP on 30/34 lines (target 95% not reproduced — `docs/open-questions.md` §E.4).
+
 ## [v3-F1] M1 Costing per batch → SKU (docs/PLAN-v3.md Fase 1)
 
 ### Added

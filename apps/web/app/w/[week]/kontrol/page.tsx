@@ -24,7 +24,7 @@ export default async function KontrolPage({ params }: PageProps) {
   const ctx = await weekContext(week);
   const c = ctx.computed.result.controls;
   const canRelease = can(ctx.viewer.role, "release");
-  const v3 = await v3ForWeek(await supabaseServer(), ctx.week, moduleSettingsGlobal(await moduleSettings()));
+  const v3 = await v3ForWeek(await supabaseServer(), ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result);
   return (
     <WeekShell ctx={ctx} active="kontrol">
       <h1>Kontrol — cek sebelum outlook dikirim</h1>

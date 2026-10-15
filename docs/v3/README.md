@@ -110,3 +110,39 @@ Migrasi lokal      → 20261016000200/000300 diterapkan 2× (idempoten); backfil
 
 Screenshot halaman: tidak dibuat di sesi ini (tidak ada database Supabase uji / login; production tidak boleh disentuh).
 Verifikasi visual di Vercel preview setelah `db push` ke branch uji: login Admin dan Cost Accounting, buka `/w/<minggu>/input/costing` dan `/w/<minggu>/costing`; login Sales → `/w/<minggu>/costing` harus 404.
+
+---
+
+## F2 — M2 Lot ledger + stok per SKU
+
+Branch `v3/f2-ledger` (di atas `v3/f1-costing`) · desain [`F2-design.md`](F2-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016000400_m2_ledger.sql` | kolom ledger `sku_key`/`parameter`; `lot`, `lot_movement`, `lot_balance_daily`, `sku_balance_daily`, `stock_card_snapshot`, `blast_event`; `mart_replace` (keep_col); trigger `needs_rebuild` |
+| `20261016000500_m2_backfill.sql` | mengantrikan setiap tanggal sejak minggu pertama ber-stok-awal (lot dibangun engine) |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016000400`, `20261016000500`).
+2. `/admin/modul`: `m2_ledger` on untuk Admin → **Proses antrian sekarang** (membangun seluruh ledger dari antrian backfill) → periksa `/sku` dan kartu Ledger di Stok (C25–C27).
+3. Setelah diterima: `m2_ledger` on untuk semua kecuali sales (centang semua peran selain Sales; sales melihat stok lewat M7).
+4. Inventory Accounting: upload "saldo stok per item (kartu stok)" Accurate untuk C26.
+
+### Bukti
+
+```
+pnpm typecheck     → Done
+pnpm test          → engine 123 passed + 1 todo (baru: ledger.test.ts 14 + 1 todo) · parsers 15 · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY (exit 0) · pnpm build → exit 0 (ƒ /sku, ƒ /sku/[key])
+pnpm test:rls      → OK; F2: sales read lot=0, lot_balance_daily=0, sku_balance_daily>0; sales insert blast denied;
+                     ia manual adjust OK; ia derived movement denied; ia stock card OK; manual adjust queued rebuild=1;
+                     ppic insert blast OK; mgmt read lot>0
+mart_replace       → payload engine 24 Agu: lot 167, lot_movement 122, lot_balance_daily 107, sku_balance_daily 34 ditulis;
+                     run kedua 0 ditulis / 0 dihapus (idempoten, audit hanya perubahan nyata)
+Golden M2          → saldo awal per key = stok awal (162.687,92 kg; Rp 3.954.932.012); roll-forward 162.687,92 → 156.956,05 kg;
+                     setiap hari × key = O_Stok ± 0,01 kg; MA = HPP Accurate 30/34 baris (target 95%: todo, §E.4);
+                     C25 assumed 100%; C27 dengan pos rekonsiliasi D3 = 0
+```
