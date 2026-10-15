@@ -15,3 +15,4 @@ export * from "./controls-v3";
 export * from "./ledger";
 export * from "./demand";
 export * from "./plan";
+export * from "./allocation";

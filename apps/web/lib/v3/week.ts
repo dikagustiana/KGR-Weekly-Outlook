@@ -10,6 +10,7 @@ import type { ModuleSettings } from "../modules-core";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
 import { ledgerForWeek } from "./ledger";
 import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
+import { dayControls, loadDayAllocation } from "./allocation";
 
 export interface WeekV3 {
   controls: ControlV3[];
@@ -61,6 +62,17 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       rp_downgrade: p.frozen_planned_rp_downgrade, approved_by: p.approved_by ?? null,
       days: src.planDays.map((d) => ({ date: d.date, head_count: d.head_count })),
     } : null;
+  }
+  if (settings.m3_planning?.enabled && settings.m2_ledger?.enabled) {
+    // allocation of the outlook's update date (F3b): C29 / C31
+    const d = await loadDayAllocation(sb, week.update_date);
+    if (d) {
+      controls.push(...dayControls(d));
+      snapshot.allocation = {
+        date: d.date, lines: d.orders.length, allocations: d.allocations.map((a) => ({ sales_line_id: a.sales_line_id, lot_ref: a.lot_ref, kg: a.kg, method: a.method })),
+        unallocated: d.proposal.unallocated.map((u) => ({ sales_ref: u.sales_ref, key: u.key, kg: u.kg })), cutoff: d.cutoffDone.map((b) => ({ lot_ref: b.lot_ref_from, kg: b.kg, rp_downgrade: b.rp_downgrade })),
+      };
+    }
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };

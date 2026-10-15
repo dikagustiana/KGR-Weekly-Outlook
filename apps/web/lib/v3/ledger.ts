@@ -36,7 +36,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     .is("deleted_at", null).is("superseded_at", null).range(a, b));
   const first = weeks.find((w) => opening.some((o) => o.week_id === w.id));
   if (!first) return null;
-  const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs] = await Promise.all([
+  const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, week_id, date, status, item_code, key_manual, kg, hpp_actual, document_ref")
@@ -47,6 +47,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     sb.from("parameter").select("blast_cost_per_kg, fresh_window_hours_default, frozen_age_limit_days_default").eq("week_id", latest.id).maybeSingle(),
     fetchAll<Row>((a, b) => sb.from("stock_card_snapshot").select("date, item_code, kg, value").is("deleted_at", null).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("allocation_run").select("id, batch:batch_id(batch_ref), allocation_line(key, kg, allocated_cost)").eq("status", "posted").range(a, b)),
+    // M3 allocations (F3b): which lot a PO line / DO takes. Missing table (M3 not migrated) = none.
+    fetchAll<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]),
   ]);
   // M1 specific cost per batch × key (posted allocations), used as the lot's SI cost; MA stays on the GRN cost
   const si = new Map<string, { kg: ReturnType<typeof D>; cost: ReturnType<typeof D> }>();
@@ -96,6 +98,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
       defaultFreshWindowHours: Number(p.fresh_window_hours_default ?? 48), defaultFrozenAgeLimitDays: Number(p.frozen_age_limit_days_default ?? 30),
     },
   };
+  inputs.allocations = await ledgerAllocations(sb, m3alloc, inputs.sales);
   const cards = new Map<string, StockCardRow[]>();
   for (const c of cardsUp) {
     const d = String(c.date);
@@ -107,6 +110,26 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     if (rows.length && !cards.has(d)) cards.set(d, rows.map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: s(o.kg) ?? "0", value: s(o.value) })));
   }
   return { inputs, weeks, latest, cards };
+}
+
+/**
+ * M3 allocations as ledger input. An allocation names the sales line it was made for; when that line was later replaced
+ * (an Accurate posting supersedes the Ops / delivered row), it follows to the active line with the same document and key.
+ */
+async function ledgerAllocations(sb: Supa, rows: Row[], sales: LedgerInputs["sales"]): Promise<NonNullable<LedgerInputs["allocations"]>> {
+  if (!rows.length) return [];
+  const active = new Set(sales.map((x) => x.ref));
+  const lost = [...new Set(rows.map((r) => String(r.sales_line_id)).filter((id) => !active.has(id)))];
+  const moved = new Map<string, string>();
+  for (let i = 0; i < lost.length; i += 200) {
+    const { data } = await sb.from("sales_line").select("id, document_ref, item_code, key_manual").in("id", lost.slice(i, i + 200));
+    for (const o of (data ?? []) as Row[]) {
+      const to = sales.find((x) => x.status === "Aktual" && x.document_ref === s(o.document_ref) && (x.item_code ?? "").toUpperCase() === (s(o.item_code) ?? "").toUpperCase());
+      if (to) moved.set(String(o.id), to.ref);
+    }
+  }
+  return rows.map((r) => ({ sales_ref: moved.get(String(r.sales_line_id)) ?? String(r.sales_line_id), lot_ref: String(r.lot_ref), kg: String(r.kg) }))
+    .filter((a) => active.has(a.sales_ref));
 }
 
 let run: { src: LedgerSources; led: LedgerResult } | null = null;

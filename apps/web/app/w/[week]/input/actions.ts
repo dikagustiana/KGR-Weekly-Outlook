@@ -6,6 +6,7 @@ import { requireViewer } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
 import { TABLES, canWriteRow, type TableDef } from "@/lib/tables";
 import { applyChanges } from "@/lib/write";
+import { moduleSettings } from "@/lib/modules";
 import { weekIdOf } from "@/lib/rollover";
 
 type Row = Record<string, unknown>;
@@ -84,7 +85,10 @@ export async function markDelivered(form: FormData) {
   const sb = await supabaseServer();
   const { data: old } = await sb.from("sales_line").select("*").eq("id", id).maybeSingle();
   if (!old || !canWriteRow(v.role, TABLES.sales_line, { ...(old as Row), status: "Aktual" })) back(week, "input/penjualan", "Tidak berwenang", "err");
-  try { await applyChanges(sb, "sales_line", [], [{ id, status: "Aktual", confirmed_by: v.email }]); } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
+  // M3 on: the PO line is fulfilled in full, so its lot allocations become the out_sale (PLAN Fase 3b)
+  const m3 = (await moduleSettings()).m3_planning?.enabled === true;
+  const upd = m3 ? { id, status: "Aktual", confirmed_by: v.email, fulfilled_kg: (old as Row).kg } : { id, status: "Aktual", confirmed_by: v.email };
+  try { await applyChanges(sb, "sales_line", [], [upd]); } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
   revalidatePath(`/w/${week}`, "layout");
   back(week, "input/penjualan", "Order ditandai terkirim (Aktual)");
 }

@@ -425,6 +425,7 @@ def extract_demand():
             {"no": num(wbv["B_Alokasi_Stok"].cell(r, 1).value), "sku": wbv["B_Alokasi_Stok"].cell(r, 2).value, "customer": wbv["B_Alokasi_Stok"].cell(r, 4).value,
              "kg": num(wbv["B_Alokasi_Stok"].cell(r, 5).value), "price": num(wbv["B_Alokasi_Stok"].cell(r, 6).value), "note": wbv["B_Alokasi_Stok"].cell(r, 8).value}
             for r in range(19, 49) if wbv["B_Alokasi_Stok"].cell(r, 2).value],
+        "customers": [wbv["B_Alokasi_Stok"].cell(r, 4).value for r in range(66, 86) if wbv["B_Alokasi_Stok"].cell(r, 4).value],
     }
     golden = {}
     for sh in ["O_Demand_Rate", "O_Scenario_Multipliers", "O_Demand_Forecast", "O_Optimizer", "B_Purchase_Plan", "B_Alokasi_Stok"]:

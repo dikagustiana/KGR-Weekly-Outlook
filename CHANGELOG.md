@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F3b] M3 Alokasi FEFO + cut-off (docs/PLAN-v3.md Fase 3, PR 3b)
+
+### Added
+- Migration `20261016000800_m3_allocation.sql` (allocation write for ppic / commercial_lead, `needs_rebuild` on `allocation`, indexes).
+- Engine `allocation.ts` (`allocateFEFO`, `cutoffBlasts`, `lotsForAllocation`, `sellableOn`, `stockAllocationRecon` = B_Alokasi_Stok); C29 sums allocations per line; ledger explicit allocations never take more than the line sells.
+- Web: `/hari/[date]/alokasi` ("Alokasikan hari ini", "Cut-off", "Terkirim"), M3 allocations as ledger input (follow a superseded line to its Accurate posting), v1 Terkirim also sets `fulfilled_kg` when `m3_planning` is on, PO columns on Input → Penjualan, C29/C31 and snapshot key `allocation`.
+
+### Verified
+- B_Alokasi_Stok: 2.000 kg allocated of 100.000 kg on hand, per SKU and per customer; example-week end-to-end (allocation → Terkirim → cut-off → ledger); snapshot unchanged.
+
 ## [v3-F3a] M3 Demand → rencana mingguan / harian (docs/PLAN-v3.md Fase 3, PR 3a)
 
 ### Added

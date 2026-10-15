@@ -147,13 +147,19 @@ export function planningControls(x: {
   today: string;
   /** Confirmed PO lines (status Order). */
   orders: { ref: string; key: string; delivery_date: string | null; demand_status: string | null; kg: Num; fulfilled_kg: Num | null }[];
-  /** Σ allocation kg per sales line (M3b). */
+  /** Allocation kg per sales line × lot (M3b); summed per line. */
   allocated?: { sales_ref: string; kg: Num; line_kg: Num }[];
   planDays?: { date: string; head_count: number; capacity: number | null }[];
   blasts?: { ref: string; lot_ref_to: string | null }[];
 }): ControlV3[] {
   const late = x.orders.filter((o) => o.demand_status !== "Tentative" && o.demand_status !== "Forecast" && o.delivery_date !== null && o.delivery_date < x.today && D(o.fulfilled_kg ?? 0).lt(D(o.kg)));
-  const over = (x.allocated ?? []).filter((a) => D(a.kg).gt(D(a.line_kg).plus("0.005")));
+  // Σ per sales line (one row per line × lot comes in)
+  const perLine = new Map<string, { sales_ref: string; kg: Decimal; line_kg: Num }>();
+  for (const a of x.allocated ?? []) {
+    const p = perLine.get(a.sales_ref);
+    perLine.set(a.sales_ref, { sales_ref: a.sales_ref, kg: (p?.kg ?? ZERO).plus(D(a.kg)), line_kg: a.line_kg });
+  }
+  const over = [...perLine.values()].filter((a) => a.kg.gt(D(a.line_kg).plus("0.005")));
   const cap = (x.planDays ?? []).filter((p) => p.capacity !== null && p.head_count > p.capacity);
   const noLot = (x.blasts ?? []).filter((b) => !b.lot_ref_to);
   return [

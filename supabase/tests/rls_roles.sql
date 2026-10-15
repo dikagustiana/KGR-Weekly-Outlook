@@ -303,3 +303,44 @@ begin
 
   raise exception 'RLS-RESULTS v3 F3a (rolled back): %', out;
 end $$;
+
+-- v3 F3b (M3 allocation): PPIC / commercial_lead may allocate; management may not; an allocation queues a ledger rebuild.
+do $$
+declare out text := ''; n int; wid uuid; sid uuid;
+begin
+  insert into public.app_user(email, role) values ('t7-ppic@x.test','ppic'),('t7-cl@x.test','commercial_lead'),('t7-mgmt@x.test','management'),('t7-fin@x.test','finance');
+  select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
+  insert into public.sales_line(week_id, date, status, kg, delivery_date, demand_status) values (wid, '2030-02-04', 'Order', 10, '2030-02-04', 'Confirmed') returning id into sid;
+  delete from public.rebuild_queue where date = '2030-02-04';
+
+  perform set_config('request.jwt.claims', '{"email":"t7-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation(date, sales_line_id, lot_ref, kg) values ('2030-02-04', sid, 'receipt:x', 4); out := out || 'ppic allocate: OK; ';
+  exception when others then out := out || 'ppic allocate: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.allocation(date, sales_line_id, lot_ref, kg) values ('2030-02-04', sid, 'receipt:y', 0); out := out || 'zero kg allocation: ALLOWED(!); ';
+  exception when others then out := out || 'zero kg allocation: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t7-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  update public.allocation set kg = 5 where sales_line_id = sid; get diagnostics n = row_count;
+  out := out || 'cl update allocation rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t7-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation(date, sales_line_id, lot_ref, kg) values ('2030-02-04', sid, 'receipt:z', 1); out := out || 'mgmt allocate: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt allocate: denied; '; end;
+  select count(*) into n from public.allocation where sales_line_id = sid; out := out || 'mgmt read allocation=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t7-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation(date, sales_line_id, lot_ref, kg) values ('2030-02-04', sid, 'receipt:f', 1); out := out || 'finance allocate: ALLOWED(!); ';
+  exception when others then out := out || 'finance allocate: denied; '; end;
+  execute 'reset role';
+  select count(*) into n from public.rebuild_queue where date = '2030-02-04' and status = 'queued';
+  out := out || 'allocation queued rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v3 F3b (rolled back): %', out;
+end $$;

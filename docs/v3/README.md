@@ -183,3 +183,34 @@ Golden M3          → O_Demand_Rate C:E, O_Demand_Forecast D7:K30 per sel, O_Op
                      B34:B40 (Base 70.817.907); app flow weekDemand → proposeWeekPlan = 7.051 ekor, surplus = F24:F31
 ```
 
+## F3b — M3 Alokasi FEFO + cut-off
+
+Branch `v3/f3b-alokasi` (di atas `v3/f3a-demand`) · desain [`F3b-design.md`](F3b-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016000800_m3_allocation.sql` | kebijakan tulis `allocation` untuk ppic / commercial_lead; trigger `needs_rebuild` di `allocation`; index |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016000800`), setelah F3a.
+2. Dengan `m2_ledger` dan `m3_planning` on: buka **Alokasi hari ini** (`/hari/[tanggal]/alokasi`) → "Alokasikan hari ini" → "Terkirim" per PO → setelah jam cut-off (Parameter, default 14:00) PPIC menekan "Cut-off" → Admin → Modul → Proses antrian (ledger memakai alokasi dan blast).
+3. Coba alur [1]–[4] di preview untuk satu hari: upload PO lines → `/w/[minggu]/demand` → `/rencana` (simpan, setujui bila perlu) → alokasi hari itu.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 148 passed + 1 todo (baru: allocation.test.ts 10) · parsers 18 · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /hari/[date]/alokasi)
+pnpm test:rls      → OK; F3b: ppic allocate OK; zero kg allocation denied; cl update allocation rows=1; mgmt allocate denied;
+                     mgmt read allocation=1; finance allocate denied; allocation queued rebuild=1
+Golden M3          → B_Alokasi_Stok D61 100.000, E49/E61 2.000, F61 98.000, D:H 53:60, E66:F86
+End-to-end engine  → minggu contoh 27 Agu: 161 lot (167.057,25 kg); 28 baris PO (13.775,62 kg) → 36 alokasi FEFO (12.964,33 kg),
+                     1 baris tanpa stok (811,29 kg); Terkirim → out_sale per lot teralokasi (tidak assumed);
+                     cut-off 40 lot fresh 28.127,39 kg → lot frozen blast:*; C29/C31 LULUS
+```
+
