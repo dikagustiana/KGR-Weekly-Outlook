@@ -17,3 +17,4 @@ export * from "./demand";
 export * from "./plan";
 export * from "./allocation";
 export * from "./drivers";
+export * from "./monthly";

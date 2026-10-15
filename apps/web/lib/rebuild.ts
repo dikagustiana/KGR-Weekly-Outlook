@@ -12,6 +12,7 @@ import { BUILDERS } from "./rebuild-registry";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
 import "./v3/planning";
+import "./v3/monthly";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

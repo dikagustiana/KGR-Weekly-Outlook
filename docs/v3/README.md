@@ -244,3 +244,35 @@ Golden M5          → PREPAID RENT!D11 1.133.790.000 ÷ 12 = 94.482.500 (94,48 
 Migrasi lokal      → dijalankan dua kali tanpa error; seed 7 baris jadwal; driver: fixed 24, variable 15, runrate 45, none 23 (Revenue/Other Income)
 ```
 
+## F4b — M4 Outlook bulanan
+
+Branch `v3/f4b-monthly` (di atas `v3/f4a-drivers`) · desain [`F4b-design.md`](F4b-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001000_m4_monthly.sql` | `month_outlook`, `month_outlook_version` (immutable), `outlook_assumption`, `closing_adjustment` (+ seed DI-01…DI-05 Sep 2026), `pl_daily` (mart), `outlook_accuracy`, `week.month_outlook_id`, parameter `v1_lock_day` / `forecast_tolerance_pct`, `needs_rebuild` di `gl_line` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001000`), setelah F4a.
+2. Urutan flag: `m5_drivers` (admin, finance) → `m4_monthly` (admin dulu) → `/m/[bulan]` "Bangun ulang" → periksa vs P&L mingguan → `m4_monthly` untuk semua peran.
+3. Finance: isi budget bulanan (Q16) di `/m/[bulan]`; kunci V1 pada hari kerja ke-20, V2 menjelang akhir bulan, FINAL setelah tutup buku di `/m/[bulan]/tutup-buku`; konfirmasi tanda DI-02 / DI-03 (V32) dan posting penyesuaian September.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 161 passed + 3 todo (baru: monthly.test.ts 8 + 2 todo) · parsers 18 · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /m/[month], ƒ /m/[month]/tutup-buku)
+pnpm test:rls      → OK; F4b: finance lock V1 OK; edit locked version denied; finance adjustment OK; finance accuracy OK;
+                     finance direct pl_daily denied; finance mart_replace pl_daily written=1; sales read versions=1;
+                     sales adjustment denied; mgmt read pl_daily=1; mgmt set budget rows=0
+Golden M4          → aktual 1–26 Agu = O_PnL!G9 6.385.876.039 / G15 347.403.254,84; PO 27/28/29 Agu 457,74 / 232,08 / 378,00 jt
+                     (target ± 0,1 jt, pembulatan per segmen); 30 Agu = 0; 25 Agu anomali (D6)
+Tidak tereproduksi → run-rate 31 Agu: app 319,29 vs 258,7 jt; forecast 1.387,12 / −35,17 vs 1.326,5 / −54,0;
+                     outlook 7.773,00 / 312,24 vs 7.712,4 / 293,4; ber-PO 77,0% vs 80,5% (§E.4, test todo)
+```
+

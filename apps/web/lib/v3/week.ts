@@ -12,6 +12,8 @@ import { ledgerForWeek } from "./ledger";
 import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 import { dayControls, loadDayAllocation } from "./allocation";
 import { loadMonthDrivers } from "./drivers";
+import { monthView, plDaily } from "./monthly";
+import { firstOfMonth, monthSummary } from "@kgr/engine";
 
 export interface WeekV3 {
   controls: ControlV3[];
@@ -80,6 +82,17 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
     const m = await loadMonthDrivers(sb, week.update_date.slice(0, 7), week.update_date);
     controls.push(...m.controls);
     snapshot.drivers = { month: m.month, through: m.through, fixed: m.fixed.map((l) => ({ pl_line: l.pl_line, scheduled: l.scheduled, actual_mtd: l.actual_mtd, outlook: l.outlook, missing: l.missing })) };
+  }
+  if (settings.m4_monthly?.enabled) {
+    // monthly outlook of the update date's month, from the data mart (C32 + snapshot key monthly)
+    const first = firstOfMonth(week.update_date);
+    const [rows, mv] = await Promise.all([plDaily(sb, first), monthView(sb, first)]);
+    controls.push(...mv.controls);
+    const sm = monthSummary(rows, first, null, "0.10");
+    snapshot.monthly = {
+      month: first, last_actual: sm.lastActual, actual: sm.actual, forecast: sm.forecast, outlook: sm.outlook, share_po: sm.sharePo,
+      versions: mv.versions.map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt, sha256: v.snapshot_sha256 })),
+    };
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };

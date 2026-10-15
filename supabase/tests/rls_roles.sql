@@ -386,3 +386,44 @@ begin
 
   raise exception 'RLS-RESULTS v3 F4a (rolled back): %', out;
 end $$;
+
+-- v3 F4b (M4 monthly): Finance keeps outlook, versions (immutable) and closing adjustments; every role reads the
+-- outlook; the data mart pl_daily is written only through mart_replace.
+do $$
+declare out text := ''; n int; mid uuid; vid uuid;
+begin
+  insert into public.app_user(email, role) values ('t9-fin@x.test','finance'),('t9-sales@x.test','sales'),('t9-mgmt@x.test','management');
+  insert into public.month_outlook (month) values ('2030-03-01') returning id into mid;
+
+  perform set_config('request.jwt.claims', '{"email":"t9-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.month_outlook_version (month_outlook_id, version, snapshot, snapshot_sha256, revenue) values (mid, 'V1', '{}'::jsonb, 'x', 100) returning id into vid; out := out || 'finance lock V1: OK; ';
+  exception when others then out := out || 'finance lock V1: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.month_outlook_version set revenue = 1 where id = vid; out := out || 'edit locked version: ALLOWED(!); ';
+  exception when others then out := out || 'edit locked version: denied; '; end;
+  begin insert into public.closing_adjustment (month_outlook_id, code, description, pl_line, amount) values (mid, 'DI-T', 'rls', 'COGS - Live Bird', -1); out := out || 'finance adjustment: OK; ';
+  exception when others then out := out || 'finance adjustment: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.outlook_accuracy (month_outlook_id, version, metric, scope, value) values (mid, 'V1', 'MAPE', 'revenue', 0.1); out := out || 'finance accuracy: OK; ';
+  exception when others then out := out || 'finance accuracy: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.pl_daily (date, pl_line, basis, actual) values ('2030-03-01', 'Revenue - Trading', 'journal', 1); out := out || 'finance direct pl_daily: ALLOWED(!); ';
+  exception when others then out := out || 'finance direct pl_daily: denied; '; end;
+  select (public.mart_replace('pl_daily', '2030-03-02', '[{"date":"2030-03-02","pl_line":"Revenue - Trading","basis":"journal","actual":5}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'finance mart_replace pl_daily written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t9-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.month_outlook_version where month_outlook_id = mid; out := out || 'sales read versions=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.closing_adjustment (month_outlook_id, code, description, pl_line, amount) values (mid, 'X', 'x', 'x', 1); out := out || 'sales adjustment: ALLOWED(!); ';
+  exception when others then out := out || 'sales adjustment: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t9-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.pl_daily where date = '2030-03-02'; out := out || 'mgmt read pl_daily=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin update public.month_outlook set budget_revenue = 1 where id = mid; get diagnostics n = row_count; out := out || 'mgmt set budget rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'mgmt set budget: denied; '; end;
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F4b (rolled back): %', out;
+end $$;

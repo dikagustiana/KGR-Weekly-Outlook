@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F4b] M4 Outlook bulanan (docs/PLAN-v3.md Fase 4, PR 4b)
+
+### Added
+- Migration `20261016001000_m4_monthly.sql`: `month_outlook`, `month_outlook_version` (immutable, SHA-256), `outlook_assumption`, `closing_adjustment` (seed DI-01…DI-05 Sep 2026), data mart `pl_daily`, `outlook_accuracy`, `week.month_outlook_id`, parameters `v1_lock_day` / `forecast_tolerance_pct`, `needs_rebuild` on `gl_line`.
+- Engine `monthly.ts` (actual per day incl. unbilled DO, run-rate without anomalies, forecast per day, opex from drivers, outlook + range + budget, V1 lock day, bridge, accuracy, calibration, C32); fixture `fixtures/month-2026-08` (extractor `month`).
+- Web: `lib/v3/monthly.ts` (pl_daily builder, versions, FINAL + accuracy + calibration), `/m/[month]`, `/m/[month]/tutup-buku`, SVG daily chart, C32 and snapshot key `monthly`.
+
+### Verified
+- Actual 1–26 Aug = O_PnL MTD (6.385,9 / 347,4 jt); PO days 27–29 Aug; run-rate 31 Aug (258,7) not reproduced — todo, docs/open-questions.md §E.4.
+
 ## [v3-F4a] M5 Biaya dengan driver (docs/PLAN-v3.md Fase 4, PR 4a)
 
 ### Added
