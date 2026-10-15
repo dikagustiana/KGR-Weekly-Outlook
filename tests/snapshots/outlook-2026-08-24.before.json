@@ -1,0 +1,2972 @@
+{
+ "engineVersion": "1.0.0",
+ "week": {
+  "weekStart": "2026-08-24",
+  "weekEnd": "2026-08-30",
+  "today": "2026-08-27",
+  "tbOpeningDate": "2026-07-31"
+ },
+ "block1": [
+  {
+   "segment": "RPA",
+   "kgActual": "7942.690000",
+   "revenueActual": "224006578.170000",
+   "gpActual": "-10279044.830000",
+   "kgOrder": "23783.760000",
+   "revenueOrder": "631613193.010000",
+   "gpOrder": "-52292800.855249",
+   "kgProjection": "31726.450000",
+   "revenueProjection": "855619771.180000",
+   "gpProjection": "-62571845.685249",
+   "gpPerKg": "-1972.229660",
+   "gpPct": "-0.073130",
+   "gpPerKgLastWeek": "-154.724643",
+   "deltaGpPerKg": "-1817.505017"
+  },
+  {
+   "segment": "Trading",
+   "kgActual": "15645.280000",
+   "revenueActual": "347125125.160000",
+   "gpActual": "15239014.160000",
+   "kgOrder": "16653.640000",
+   "revenueOrder": "436212267.390000",
+   "gpOrder": "-244556.716397",
+   "kgProjection": "32298.920000",
+   "revenueProjection": "783337392.550000",
+   "gpProjection": "14994457.443603",
+   "gpPerKg": "464.240211",
+   "gpPct": "0.019142",
+   "gpPerKgLastWeek": "1972.689093",
+   "deltaGpPerKg": "-1508.448882"
+  },
+  {
+   "segment": "TOTAL KGR",
+   "kgActual": "23587.970000",
+   "revenueActual": "571131703.330000",
+   "gpActual": "4959969.330000",
+   "kgOrder": "40437.400000",
+   "revenueOrder": "1067825460.400000",
+   "gpOrder": "-52537357.571646",
+   "kgProjection": "64025.370000",
+   "revenueProjection": "1638957163.730000",
+   "gpProjection": "-47577388.241646",
+   "gpPerKg": "-743.102121",
+   "gpPct": "-0.029029",
+   "gpPerKgLastWeek": "883.357366",
+   "deltaGpPerKg": "-1626.459487"
+  }
+ ],
+ "block2": {
+  "lbPriceToday": "24600.000000",
+  "freshOrdersInHorizon": "12307.150000",
+  "freshStockToday": "18768.210000",
+  "netFreshNeed": "0.000000",
+  "lbMaxWithoutFrozen": "0.000000",
+  "lbPlannedInHorizon": "27218.600000",
+  "karkasAtRiskOfFreezing": "19474.899274",
+  "freshShareOfPlan": "0.000000",
+  "valuePerKgLbAtPlanShare": "23277.657457",
+  "breakevenAtPlanShare": "20725.657457",
+  "breakevenAt100Fresh": "24336.784283",
+  "marginPerKgLb": "-3874.342543",
+  "expectedMarginOfPlan": "-105454179.944154",
+  "frozenPriceGap": "98289816.636862",
+  "recommendation": "TUNDA / NEGOSIASI",
+  "recommendationText": "TUNDA / NEGOSIASI: harga LB 24.600 di atas breakeven 100% fresh 24.337 — setiap kg LB rugi walau semua karkas laku fresh",
+  "horizonFrom": "2026-08-27",
+  "horizonTo": "2026-08-29",
+  "yieldsUsed": "aktual"
+ },
+ "block3": [
+  {
+   "key": "Trading|BLD|Frozen",
+   "label": "BLD|Frozen",
+   "stockToday": "4848.440000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "42083.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": "38169.000000",
+   "spread": "3914.000000",
+   "spreadPct": "0.093007",
+   "avgStockCost": "39097.080621",
+   "recommendation": "JUAL STOK",
+   "recommendationText": "JUAL STOK: 4.848 kg tanpa order"
+  },
+  {
+   "key": "Trading|BLD|n/a",
+   "label": "BLD|n/a",
+   "stockToday": "10.200000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "45000.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "43000.000000",
+   "recommendation": "JUAL STOK",
+   "recommendationText": "JUAL STOK: 10 kg tanpa order"
+  },
+  {
+   "key": "Trading|BLP|Frozen",
+   "label": "BLP|Frozen",
+   "stockToday": "10141.000000",
+   "ordersRestOfWeek": "3229.200000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "43086.000000",
+   "sellPriceFromOrders": true,
+   "buyPrice": "49577.000000",
+   "spread": "-6491.000000",
+   "spreadPct": "-0.150652",
+   "avgStockCost": "47198.571170",
+   "recommendation": "CEK HARGA",
+   "recommendationText": "CEK HARGA: order 43.086/kg di bawah biaya stok 47.199/kg"
+  },
+  {
+   "key": "Trading|BLPK|Frozen",
+   "label": "BLPK|Frozen",
+   "stockToday": "8.530000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "34000.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "32000.000000",
+   "recommendation": "JUAL STOK",
+   "recommendationText": "JUAL STOK: 9 kg tanpa order"
+  },
+  {
+   "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a",
+   "label": "HJA (Hati/Jantung/Ampela)|n/a",
+   "stockToday": "4300.370000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "15500.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "4860.461774",
+   "recommendation": "JUAL STOK",
+   "recommendationText": "JUAL STOK: 4.300 kg tanpa order"
+  },
+  {
+   "key": "Trading|KRK (Kerangka)|n/a",
+   "label": "KRK (Kerangka)|n/a",
+   "stockToday": "25815.440000",
+   "ordersRestOfWeek": "6011.300000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "10903.000000",
+   "sellPriceFromOrders": true,
+   "buyPrice": "11169.000000",
+   "spread": "-266.000000",
+   "spreadPct": "-0.024397",
+   "avgStockCost": "10310.872027",
+   "recommendation": "Cukup",
+   "recommendationText": "Cukup — sisa 19.804 kg setelah order"
+  },
+  {
+   "key": "Trading|Karkas|n/a",
+   "label": "Karkas|n/a",
+   "stockToday": "46572.500000",
+   "ordersRestOfWeek": "7007.770000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "31277.000000",
+   "sellPriceFromOrders": true,
+   "buyPrice": "30050.000000",
+   "spread": "1227.000000",
+   "spreadPct": "0.039230",
+   "avgStockCost": "30065.464168",
+   "recommendation": "Cukup",
+   "recommendationText": "Cukup — sisa 39.565 kg setelah order"
+  },
+  {
+   "key": "Trading|Kulit|Frozen",
+   "label": "Kulit|Frozen",
+   "stockToday": "4067.310000",
+   "ordersRestOfWeek": "105.370000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "29000.000000",
+   "sellPriceFromOrders": true,
+   "buyPrice": "29577.000000",
+   "spread": "-577.000000",
+   "spreadPct": "-0.019897",
+   "avgStockCost": "26380.955088",
+   "recommendation": "Cukup",
+   "recommendationText": "Cukup — sisa 3.962 kg setelah order"
+  },
+  {
+   "key": "Trading|Kulit|n/a",
+   "label": "Kulit|n/a",
+   "stockToday": "1395.690000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "26261.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "21000.000000",
+   "recommendation": "JUAL STOK",
+   "recommendationText": "JUAL STOK: 1.396 kg tanpa order"
+  },
+  {
+   "key": "Trading|Sayap|n/a",
+   "label": "Sayap|n/a",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "300.000000",
+   "plannedReceipts": "6985.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "31000.000000",
+   "sellPriceFromOrders": true,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "28632.780000",
+   "recommendation": "-",
+   "recommendationText": "-"
+  },
+  {
+   "key": "Trading|Usus|Fresh",
+   "label": "Usus|Fresh",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "plannedReceipts": "0.000000",
+   "netNeed": "0.000000",
+   "sellPrice": "14000.000000",
+   "sellPriceFromOrders": false,
+   "buyPrice": null,
+   "spread": null,
+   "spreadPct": null,
+   "avgStockCost": "0.000000",
+   "recommendation": "-",
+   "recommendationText": "-"
+  }
+ ],
+ "block4": [
+  {
+   "status": "KURANG",
+   "label": "KURANG (stok minus di minggu ini)",
+   "keys": 0,
+   "kgToday": "0.000000",
+   "value": "0.000000"
+  },
+  {
+   "status": "JUAL",
+   "label": "JUAL (tanpa order minggu ini)",
+   "keys": 23,
+   "kgToday": "17834.260000",
+   "value": "333319515.772827"
+  },
+  {
+   "status": "PERHATIAN",
+   "label": "PERHATIAN (di atas batas umur)",
+   "keys": 7,
+   "kgToday": "116289.840000",
+   "value": "2782158915.978218"
+  }
+ ],
+ "block5": {
+  "rows": [
+   {
+    "date": "2026-08-24",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-25",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-26",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-27",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-28",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-29",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-30",
+    "liveBird": "0.000000",
+    "trading": "0.000000",
+    "total": "0.000000",
+    "basis": "rencana"
+   }
+  ],
+  "total": {
+   "date": "",
+   "liveBird": "0.000000",
+   "trading": "0.000000",
+   "total": "0.000000",
+   "basis": "rencana"
+  }
+ },
+ "block6": {
+  "rows": [
+   {
+    "status": "Aktual",
+    "batches": 2,
+    "lbKg": "24301.200000",
+    "avgLbPrice": "23902.799463",
+    "shrink": "0.063087",
+    "karkasYield": "0.737629",
+    "freshPct": "0.666353",
+    "margin": "-57435278.100000",
+    "marginPerKgLb": "-2363.474977",
+    "costPerKgOutput": "31859.709738",
+    "valuePerKgOutput": "29088.418980",
+    "breakevenLb": "21539.324486"
+   },
+   {
+    "status": "Rencana",
+    "batches": 2,
+    "lbKg": "27218.600000",
+    "avgLbPrice": "25063.536989",
+    "shrink": "0.059419",
+    "karkasYield": "0.744271",
+    "freshPct": "0.530216",
+    "margin": "-81242184.988000",
+    "marginPerKgLb": "-2984.803957",
+    "costPerKgOutput": "31875.829891",
+    "valuePerKgOutput": "28434.676729",
+    "breakevenLb": "22078.733032"
+   }
+  ],
+  "target": {
+   "shrink": "0.030000",
+   "karkasYield": "0.736700",
+   "breakevenLb100Fresh": "24336.784283"
+  }
+ },
+ "block7": [
+  {
+   "code": "HARGA_KOSONG",
+   "text": "Harga acuan kosong untuk SKU yang masih ada stok — isi di I_Master"
+  },
+  {
+   "code": "SHRINK",
+   "text": "Shrink aktual minggu ini 6,3% di atas target 3,0%"
+  },
+  {
+   "code": "LB_DI_ATAS_BREAKEVEN",
+   "text": "Harga LB hari ini di atas breakeven 100% fresh"
+  }
+ ],
+ "block8": [
+  {
+   "label": "Revenue",
+   "lastWeek": "1572306370.000000",
+   "projection": "1656798330.400000",
+   "delta": "84491960.400000",
+   "source": "O_PnL TOTAL REVENUE"
+  },
+  {
+   "label": "Gross profit",
+   "lastWeek": "-4182480.390000",
+   "projection": "-67528109.292614",
+   "delta": "-63345628.902614",
+   "source": "O_PnL GROSS PROFIT"
+  },
+  {
+   "label": "Total operating expenses (excl. D&A)",
+   "lastWeek": "-106792694.000000",
+   "projection": "-38907586.645161",
+   "delta": "67885107.354839",
+   "source": "O_PnL TOTAL OPEX"
+  },
+  {
+   "label": "NIBT (before D&A)",
+   "lastWeek": "-110967765.880000",
+   "projection": "-106235037.180033",
+   "delta": "4732728.699967",
+   "source": "O_PnL NIBT"
+  },
+  {
+   "label": "Net income",
+   "lastWeek": "-110967765.880000",
+   "projection": "-107576128.921969",
+   "delta": "3391636.958031",
+   "source": "O_PnL NET INCOME"
+  },
+  {
+   "label": "Saldo kas akhir minggu",
+   "lastWeek": "379091165.680000",
+   "projection": "818198229.680000",
+   "delta": "439107064.000000",
+   "source": "O_CF saldo kas akhir"
+  },
+  {
+   "label": "Piutang usaha (pihak ketiga)",
+   "lastWeek": "637472980.000000",
+   "projection": "625183962.400000",
+   "delta": "-12289017.600000",
+   "source": "O_BS Trade Receivables - Third Parties"
+  },
+  {
+   "label": "Persediaan (produk + trading)",
+   "lastWeek": "3780606405.140000",
+   "projection": "3992408037.296354",
+   "delta": "211801632.156354",
+   "source": "O_BS Inventory - Product + Trading"
+  },
+  {
+   "label": "Utang usaha + biaya masih harus dibayar",
+   "lastWeek": "-665529954.600000",
+   "projection": "143472825.136387",
+   "delta": "809002779.736387",
+   "source": "O_BS Trade Payables - Third Parties + Accrued Expenses"
+  },
+  {
+   "label": "Utang afiliasi (pinjaman + utang dagang afiliasi)",
+   "lastWeek": "4400000000.000000",
+   "projection": "5238800000.000000",
+   "delta": "838800000.000000",
+   "source": "O_BS Other Payable - Related Parties + Trade Payables - Affiliates"
+  },
+  {
+   "label": "Saldo kas terendah minggu ini (harian)",
+   "lastWeek": null,
+   "projection": "289672109.680000",
+   "delta": null,
+   "source": "O_CF saldo harian terendah (2026-08-28)"
+  }
+ ],
+ "stock": [
+  {
+   "key": "RPA|BLDK|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "38000.000000",
+   "marginAtRef": "38000.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "RPA|BLD|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "41000.000000",
+   "marginAtRef": "41000.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "RPA|BLD|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "2.450000",
+   "openingValue": "70573.000000",
+   "avgAgeDays": "96.000000",
+   "kgOverAgeLimit": "2.450000",
+   "closing": [
+    "2.450000",
+    "2.450000",
+    "2.450000",
+    "2.450000",
+    "2.450000",
+    "2.450000",
+    "2.450000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "28805.306122",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "2.450000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "2.450000",
+   "lowest": "2.450000",
+   "refPrice": "41000.000000",
+   "marginAtRef": "12194.693878",
+   "valueToday": "70573.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 2 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|BLPK|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "64.100000",
+   "openingValue": "2916133.000000",
+   "avgAgeDays": "139.000000",
+   "kgOverAgeLimit": "64.100000",
+   "closing": [
+    "64.100000",
+    "64.100000",
+    "64.100000",
+    "64.100000",
+    "64.100000",
+    "64.100000",
+    "64.100000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "45493.494540",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "64.100000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "64.100000",
+   "lowest": "64.100000",
+   "refPrice": "45004.000000",
+   "marginAtRef": "-489.494540",
+   "valueToday": "2916133.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 64 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|BLPK|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "39520.000000",
+   "marginAtRef": "39520.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "RPA|BLP|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "40000.000000",
+   "marginAtRef": "40000.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "RPA|BLP|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "8.680000",
+   "openingValue": "250032.000000",
+   "avgAgeDays": "111.000000",
+   "kgOverAgeLimit": "8.680000",
+   "closing": [
+    "8.680000",
+    "8.680000",
+    "8.680000",
+    "8.680000",
+    "8.680000",
+    "8.680000",
+    "8.680000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "28805.529954",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "8.680000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "8.680000",
+   "lowest": "8.680000",
+   "refPrice": "40000.000000",
+   "marginAtRef": "11194.470046",
+   "valueToday": "250032.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 9 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|KRK (Kerangka)|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "345.470000",
+   "openingValue": "1498591.000000",
+   "avgAgeDays": "104.456595",
+   "kgOverAgeLimit": "345.470000",
+   "closing": [
+    "345.470000",
+    "345.470000",
+    "345.470000",
+    "345.470000",
+    "345.470000",
+    "345.470000",
+    "345.470000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "4337.832518",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "345.470000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "345.470000",
+   "lowest": "345.470000",
+   "refPrice": "8961.000000",
+   "marginAtRef": "4623.167482",
+   "valueToday": "1498591.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 345 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|KRK (Kerangka)|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "119.490000",
+   "openingValue": "2529632.000000",
+   "avgAgeDays": "53.900000",
+   "kgOverAgeLimit": "119.490000",
+   "closing": [
+    "119.490000",
+    "119.490000",
+    "119.490000",
+    "119.490000",
+    "119.490000",
+    "119.490000",
+    "119.490000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "21170.240187",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "119.490000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "119.490000",
+   "lowest": "119.490000",
+   "refPrice": "5000.000000",
+   "marginAtRef": "-16170.240187",
+   "valueToday": "2529632.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 119 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Kulit|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "276.030000",
+   "openingValue": "1056932.000000",
+   "avgAgeDays": "87.000000",
+   "kgOverAgeLimit": "276.030000",
+   "closing": [
+    "276.030000",
+    "276.030000",
+    "276.030000",
+    "276.030000",
+    "276.030000",
+    "276.030000",
+    "276.030000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "3829.047567",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "276.030000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "276.030000",
+   "lowest": "276.030000",
+   "refPrice": "22478.000000",
+   "marginAtRef": "18648.952433",
+   "valueToday": "1056932.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 276 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Kulit|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "1033.780000",
+   "openingValue": "25074700.000000",
+   "avgAgeDays": "53.800000",
+   "kgOverAgeLimit": "1033.780000",
+   "closing": [
+    "1033.780000",
+    "1033.780000",
+    "1033.780000",
+    "1033.780000",
+    "1033.780000",
+    "1033.780000",
+    "1033.780000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "24255.354137",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "1033.780000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "1033.780000",
+   "lowest": "1033.780000",
+   "refPrice": "23007.000000",
+   "marginAtRef": "-1248.354137",
+   "valueToday": "25074700.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 1034 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Paha (parting)|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "19.770000",
+   "openingValue": "899406.000000",
+   "avgAgeDays": "126.000000",
+   "kgOverAgeLimit": "19.770000",
+   "closing": [
+    "19.770000",
+    "19.770000",
+    "19.770000",
+    "19.770000",
+    "19.770000",
+    "19.770000",
+    "19.770000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "45493.474962",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "19.770000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "19.770000",
+   "lowest": "19.770000",
+   "refPrice": "35238.000000",
+   "marginAtRef": "-10255.474962",
+   "valueToday": "899406.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 20 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Paha (parting)|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "51.180000",
+   "openingValue": "1598248.000000",
+   "avgAgeDays": "65.144002",
+   "kgOverAgeLimit": "51.180000",
+   "closing": [
+    "51.180000",
+    "51.180000",
+    "51.180000",
+    "51.180000",
+    "51.180000",
+    "51.180000",
+    "51.180000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "31227.979680",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "51.180000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "51.180000",
+   "lowest": "51.180000",
+   "refPrice": "35000.000000",
+   "marginAtRef": "3772.020320",
+   "valueToday": "1598248.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 51 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Sayap|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "383.050000",
+   "openingValue": "4548787.000000",
+   "avgAgeDays": "72.741653",
+   "kgOverAgeLimit": "383.050000",
+   "closing": [
+    "383.050000",
+    "383.050000",
+    "383.050000",
+    "383.050000",
+    "383.050000",
+    "383.050000",
+    "383.050000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "11875.178175",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "383.050000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "383.050000",
+   "lowest": "383.050000",
+   "refPrice": "27560.000000",
+   "marginAtRef": "15684.821825",
+   "valueToday": "4548787.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 383 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Sayap|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "611.370000",
+   "openingValue": "16078415.000000",
+   "avgAgeDays": "55.131205",
+   "kgOverAgeLimit": "611.370000",
+   "closing": [
+    "611.370000",
+    "611.370000",
+    "611.370000",
+    "611.370000",
+    "611.370000",
+    "611.370000",
+    "611.370000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "26298.992427",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "611.370000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "611.370000",
+   "lowest": "611.370000",
+   "refPrice": "25736.000000",
+   "marginAtRef": "-562.992427",
+   "valueToday": "16078415.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 611 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|TLP|Fresh",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "2500.000000",
+   "marginAtRef": "2500.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "RPA|TLP|Frozen",
+   "group": "Boneless & parting",
+   "segment": "RPA",
+   "openingKg": "436.090000",
+   "openingValue": "840656.000000",
+   "avgAgeDays": "41.700000",
+   "kgOverAgeLimit": "256.900000",
+   "closing": [
+    "436.090000",
+    "436.090000",
+    "436.090000",
+    "436.090000",
+    "436.090000",
+    "436.090000",
+    "436.090000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "1927.712170",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "436.090000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "436.090000",
+   "lowest": "436.090000",
+   "refPrice": "3067.000000",
+   "marginAtRef": "1139.287830",
+   "valueToday": "840656.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 436 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Ceker|Fresh",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "1632.640000",
+   "openingValue": "23217648.000000",
+   "avgAgeDays": "7.500000",
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "1632.640000",
+    "1940.440000",
+    "1958.240000",
+    "2274.340000",
+    "2703.640000",
+    "1632.640000",
+    "1632.640000"
+   ],
+   "receiptsKg": "1378.800000",
+   "receiptsValue": "24953170.786000",
+   "avgCost": "15995.941738",
+   "salesAndOrdersKg": "1378.800000",
+   "stockToday": "1958.240000",
+   "ordersRestOfWeek": "1071.000000",
+   "stockMinusOrders": "887.240000",
+   "lowest": "1632.640000",
+   "refPrice": "3101.000000",
+   "marginAtRef": "-12894.941738",
+   "valueToday": "31323892.948057",
+   "status": "CEK HARGA",
+   "statusText": "Order di bawah biaya rata-rata — cek harga"
+  },
+  {
+   "key": "RPA|Ceker|Frozen",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "1293.990000",
+   "openingValue": "10699758.000000",
+   "avgAgeDays": "54.685331",
+   "kgOverAgeLimit": "1293.990000",
+   "closing": [
+    "1293.990000",
+    "1293.990000",
+    "1293.990000",
+    "1293.990000",
+    "1293.990000",
+    "1293.990000",
+    "1293.990000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "8268.810424",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "1293.990000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "1293.990000",
+   "lowest": "1293.990000",
+   "refPrice": "5000.000000",
+   "marginAtRef": "-3268.810424",
+   "valueToday": "10699758.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 1294 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "6079.430000",
+   "openingValue": "18306436.000000",
+   "avgAgeDays": "26.410517",
+   "kgOverAgeLimit": "2084.330000",
+   "closing": [
+    "6079.430000",
+    "6656.430000",
+    "6701.730000",
+    "7307.930000",
+    "8112.830000",
+    "6093.430000",
+    "6093.430000"
+   ],
+   "receiptsKg": "2610.400000",
+   "receiptsValue": "14763560.524000",
+   "avgCost": "3805.597638",
+   "salesAndOrdersKg": "2596.400000",
+   "stockToday": "6701.730000",
+   "ordersRestOfWeek": "2019.400000",
+   "stockMinusOrders": "4682.330000",
+   "lowest": "6079.430000",
+   "refPrice": "4515.000000",
+   "marginAtRef": "709.402362",
+   "valueToday": "25504087.859577",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 2084 kg di atas batas umur"
+  },
+  {
+   "key": "RPA|HJA (Hati/Jantung/Ampela)|Frozen",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "202.200000",
+   "openingValue": "72331.000000",
+   "avgAgeDays": "83.827893",
+   "kgOverAgeLimit": "202.200000",
+   "closing": [
+    "202.200000",
+    "202.200000",
+    "202.200000",
+    "202.200000",
+    "202.200000",
+    "202.200000",
+    "202.200000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "357.720079",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "202.200000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "202.200000",
+   "lowest": "202.200000",
+   "refPrice": "5000.000000",
+   "marginAtRef": "4642.279921",
+   "valueToday": "72331.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 202 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Kepala|Fresh",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "1289.500000",
+   "openingValue": "16794274.000000",
+   "avgAgeDays": "4.200000",
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "1289.500000",
+    "1781.000000",
+    "1807.900000",
+    "2297.800000",
+    "2963.600000",
+    "1289.500000",
+    "1289.500000"
+   ],
+   "receiptsKg": "2165.600000",
+   "receiptsValue": "29393750.766000",
+   "avgCost": "13368.071768",
+   "salesAndOrdersKg": "2165.600000",
+   "stockToday": "1807.900000",
+   "ordersRestOfWeek": "1674.100000",
+   "stockMinusOrders": "133.800000",
+   "lowest": "1289.500000",
+   "refPrice": "4029.000000",
+   "marginAtRef": "-9339.071768",
+   "valueToday": "24168136.949568",
+   "status": "CEK HARGA",
+   "statusText": "Order di bawah biaya rata-rata — cek harga"
+  },
+  {
+   "key": "RPA|Kepala|Frozen",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "1811.200000",
+   "openingValue": "14122474.000000",
+   "avgAgeDays": "53.900000",
+   "kgOverAgeLimit": "1811.200000",
+   "closing": [
+    "1811.200000",
+    "1811.200000",
+    "1811.200000",
+    "1811.200000",
+    "1811.200000",
+    "1811.200000",
+    "1811.200000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "7797.302341",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "1811.200000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "1811.200000",
+   "lowest": "1811.200000",
+   "refPrice": "5000.000000",
+   "marginAtRef": "-2797.302341",
+   "valueToday": "14122474.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 1811 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Lemak|Fresh",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "225.900000",
+   "openingValue": "2343684.000000",
+   "avgAgeDays": "42.700000",
+   "kgOverAgeLimit": "161.500000",
+   "closing": [
+    "225.900000",
+    "225.900000",
+    "225.900000",
+    "225.900000",
+    "225.900000",
+    "225.900000",
+    "225.900000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "10374.873838",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "225.900000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "225.900000",
+   "lowest": "225.900000",
+   "refPrice": null,
+   "marginAtRef": null,
+   "valueToday": "2343684.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 226 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Lemak|Frozen",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "251.180000",
+   "openingValue": "6138943.000000",
+   "avgAgeDays": "22.100000",
+   "kgOverAgeLimit": "83.280000",
+   "closing": [
+    "251.180000",
+    "294.480000",
+    "323.280000",
+    "341.180000",
+    "407.780000",
+    "407.780000",
+    "407.780000"
+   ],
+   "receiptsKg": "156.600000",
+   "receiptsValue": "4250415.756000",
+   "avgCost": "25477.852656",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "323.280000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "323.280000",
+   "lowest": "251.180000",
+   "refPrice": "24000.000000",
+   "marginAtRef": "-1477.852656",
+   "valueToday": "8236480.206581",
+   "status": "JUAL",
+   "statusText": "JUAL: 323 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Usus|Fresh",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "4915.180000",
+   "openingValue": "12347050.000000",
+   "avgAgeDays": "27.200000",
+   "kgOverAgeLimit": "2024.180000",
+   "closing": [
+    "4915.180000",
+    "5416.280000",
+    "5430.080000",
+    "5947.480000",
+    "6588.080000",
+    "4915.180000",
+    "4915.180000"
+   ],
+   "receiptsKg": "2174.000000",
+   "receiptsValue": "12292844.028000",
+   "avgCost": "3475.704387",
+   "salesAndOrdersKg": "2174.000000",
+   "stockToday": "5430.080000",
+   "ordersRestOfWeek": "1672.900000",
+   "stockMinusOrders": "3757.180000",
+   "lowest": "4915.180000",
+   "refPrice": "1500.000000",
+   "marginAtRef": "-1975.704387",
+   "valueToday": "18873352.879115",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 2024 kg di atas batas umur"
+  },
+  {
+   "key": "RPA|Usus|Frozen",
+   "group": "By-product",
+   "segment": "RPA",
+   "openingKg": "63.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": "53.000000",
+   "kgOverAgeLimit": "63.000000",
+   "closing": [
+    "63.000000",
+    "63.000000",
+    "63.000000",
+    "63.000000",
+    "63.000000",
+    "63.000000",
+    "63.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "63.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "63.000000",
+   "lowest": "63.000000",
+   "refPrice": null,
+   "marginAtRef": null,
+   "valueToday": "0.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 63 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "RPA|Karkas|Fresh",
+   "group": "Karkas fresh",
+   "segment": "RPA",
+   "openingKg": "12669.360000",
+   "openingValue": "476459247.000000",
+   "avgAgeDays": "6.914425",
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "12669.360000",
+    "18855.660000",
+    "18768.210000",
+    "19738.810000",
+    "21018.020000",
+    "16563.960000",
+    "16563.960000"
+   ],
+   "receiptsKg": "21293.900000",
+   "receiptsValue": "793760046.954000",
+   "avgCost": "37399.804788",
+   "salesAndOrdersKg": "17399.300000",
+   "stockToday": "18768.210000",
+   "ordersRestOfWeek": "12307.150000",
+   "stockMinusOrders": "6461.060000",
+   "lowest": "12669.360000",
+   "refPrice": "36705.000000",
+   "marginAtRef": "-694.804788",
+   "valueToday": "701927390.214614",
+   "status": "CEK HARGA",
+   "statusText": "Order di bawah biaya rata-rata — cek harga"
+  },
+  {
+   "key": "RPA|Karkas|Frozen",
+   "group": "Karkas frozen",
+   "segment": "RPA",
+   "openingKg": "21859.720000",
+   "openingValue": "746657333.000000",
+   "avgAgeDays": "18.734262",
+   "kgOverAgeLimit": "5567.150000",
+   "closing": [
+    "20895.880000",
+    "23284.780000",
+    "26489.980000",
+    "26552.030000",
+    "32866.330000",
+    "31213.460000",
+    "31213.460000"
+   ],
+   "receiptsKg": "14554.800000",
+   "receiptsValue": "533438274.058000",
+   "avgCost": "35153.438987",
+   "salesAndOrdersKg": "5201.060000",
+   "stockToday": "26489.980000",
+   "ordersRestOfWeek": "4227.920000",
+   "stockMinusOrders": "22262.060000",
+   "lowest": "20895.880000",
+   "refPrice": "31658.000000",
+   "marginAtRef": "-3495.438987",
+   "valueToday": "931213895.694747",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 5567 kg di atas batas umur"
+  },
+  {
+   "key": "RPA|Karkas|n/a",
+   "group": "Karkas mix",
+   "segment": "RPA",
+   "openingKg": "1212.800000",
+   "openingValue": "32864529.000000",
+   "avgAgeDays": "54.000000",
+   "kgOverAgeLimit": "1212.800000",
+   "closing": [
+    "1212.800000",
+    "1212.800000",
+    "1212.800000",
+    "401.510000",
+    "401.510000",
+    "401.510000",
+    "401.510000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "27098.061511",
+   "salesAndOrdersKg": "811.290000",
+   "stockToday": "1212.800000",
+   "ordersRestOfWeek": "811.290000",
+   "stockMinusOrders": "401.510000",
+   "lowest": "401.510000",
+   "refPrice": "30000.000000",
+   "marginAtRef": "2901.938489",
+   "valueToday": "32864529.000000",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 1213 kg di atas batas umur"
+  },
+  {
+   "key": "Trading|BLD|Frozen",
+   "group": "BLD",
+   "segment": "Trading",
+   "openingKg": "5856.040000",
+   "openingValue": "228954068.000000",
+   "avgAgeDays": "8.600000",
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "5856.040000",
+    "5856.040000",
+    "4848.440000",
+    "4848.440000",
+    "4848.440000",
+    "4848.440000",
+    "4848.440000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "39097.080621",
+   "salesAndOrdersKg": "1007.600000",
+   "stockToday": "4848.440000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "4848.440000",
+   "lowest": "4848.440000",
+   "refPrice": "42083.000000",
+   "marginAtRef": "2985.919379",
+   "valueToday": "189559849.566246",
+   "status": "JUAL",
+   "statusText": "JUAL: 4848 kg tanpa order minggu ini"
+  },
+  {
+   "key": "Trading|BLD|n/a",
+   "group": "BLD",
+   "segment": "Trading",
+   "openingKg": "10.200000",
+   "openingValue": "438600.000000",
+   "avgAgeDays": "124.000000",
+   "kgOverAgeLimit": "10.200000",
+   "closing": [
+    "10.200000",
+    "10.200000",
+    "10.200000",
+    "10.200000",
+    "10.200000",
+    "10.200000",
+    "10.200000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "43000.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "10.200000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "10.200000",
+   "lowest": "10.200000",
+   "refPrice": "45000.000000",
+   "marginAtRef": "2000.000000",
+   "valueToday": "438600.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 10 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "Trading|BLP|Frozen",
+   "group": "BLP",
+   "segment": "Trading",
+   "openingKg": "6139.300000",
+   "openingValue": "280247629.000000",
+   "avgAgeDays": "4.000000",
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "10141.000000",
+    "10141.000000",
+    "10141.000000",
+    "9937.600000",
+    "9937.600000",
+    "6911.800000",
+    "6911.800000"
+   ],
+   "receiptsKg": "4001.700000",
+   "receiptsValue": "198393081.240000",
+   "avgCost": "47198.571170",
+   "salesAndOrdersKg": "3229.200000",
+   "stockToday": "10141.000000",
+   "ordersRestOfWeek": "3229.200000",
+   "stockMinusOrders": "6911.800000",
+   "lowest": "6911.800000",
+   "refPrice": "43086.000000",
+   "marginAtRef": "-4112.571170",
+   "valueToday": "478640710.240000",
+   "status": "CEK HARGA",
+   "statusText": "Order di bawah biaya rata-rata — cek harga"
+  },
+  {
+   "key": "Trading|BLPK|Frozen",
+   "group": "BLPK",
+   "segment": "Trading",
+   "openingKg": "8.530000",
+   "openingValue": "272960.000000",
+   "avgAgeDays": "87.000000",
+   "kgOverAgeLimit": "8.530000",
+   "closing": [
+    "8.530000",
+    "8.530000",
+    "8.530000",
+    "8.530000",
+    "8.530000",
+    "8.530000",
+    "8.530000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "32000.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "8.530000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "8.530000",
+   "lowest": "8.530000",
+   "refPrice": "34000.000000",
+   "marginAtRef": "2000.000000",
+   "valueToday": "272960.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 9 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "Trading|HJA (Hati/Jantung/Ampela)|n/a",
+   "group": "HJA (Hati/Jantung/Ampela)",
+   "segment": "Trading",
+   "openingKg": "4300.370000",
+   "openingValue": "20901784.000000",
+   "avgAgeDays": "65.417001",
+   "kgOverAgeLimit": "4300.370000",
+   "closing": [
+    "4300.370000",
+    "4300.370000",
+    "4300.370000",
+    "4300.370000",
+    "4300.370000",
+    "4300.370000",
+    "4300.370000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "4860.461774",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "4300.370000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "4300.370000",
+   "lowest": "4300.370000",
+   "refPrice": "15500.000000",
+   "marginAtRef": "10639.538226",
+   "valueToday": "20901784.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 4300 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "Trading|KRK (Kerangka)|n/a",
+   "group": "KRK (Kerangka)",
+   "segment": "Trading",
+   "openingKg": "33329.940000",
+   "openingValue": "343660746.000000",
+   "avgAgeDays": "10.000000",
+   "kgOverAgeLimit": "2826.340000",
+   "closing": [
+    "33329.940000",
+    "33329.940000",
+    "25815.440000",
+    "25815.440000",
+    "19804.140000",
+    "19804.140000",
+    "19804.140000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "10310.872027",
+   "salesAndOrdersKg": "13525.800000",
+   "stockToday": "25815.440000",
+   "ordersRestOfWeek": "6011.300000",
+   "stockMinusOrders": "19804.140000",
+   "lowest": "19804.140000",
+   "refPrice": "10903.000000",
+   "marginAtRef": "592.127973",
+   "valueToday": "266179698.154819",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 2826 kg di atas batas umur"
+  },
+  {
+   "key": "Trading|Karkas|n/a",
+   "group": "Karkas",
+   "segment": "Trading",
+   "openingKg": "53695.680000",
+   "openingValue": "1614385543.000000",
+   "avgAgeDays": "13.425463",
+   "kgOverAgeLimit": "829.150000",
+   "closing": [
+    "47581.100000",
+    "47581.100000",
+    "46572.500000",
+    "40907.120000",
+    "39888.490000",
+    "39564.730000",
+    "39564.730000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "30065.464168",
+   "salesAndOrdersKg": "14130.950000",
+   "stockToday": "46572.500000",
+   "ordersRestOfWeek": "7007.770000",
+   "stockMinusOrders": "39564.730000",
+   "lowest": "39564.730000",
+   "refPrice": "31277.000000",
+   "marginAtRef": "1211.535832",
+   "valueToday": "1400223829.949961",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 829 kg di atas batas umur"
+  },
+  {
+   "key": "Trading|Kulit|Frozen",
+   "group": "Kulit",
+   "segment": "Trading",
+   "openingKg": "1094.610000",
+   "openingValue": "19375380.000000",
+   "avgAgeDays": "51.100000",
+   "kgOverAgeLimit": "1094.610000",
+   "closing": [
+    "4067.310000",
+    "4067.310000",
+    "4067.310000",
+    "4067.310000",
+    "3961.940000",
+    "3961.940000",
+    "3961.940000"
+   ],
+   "receiptsKg": "2972.700000",
+   "receiptsValue": "87924142.440000",
+   "avgCost": "26380.955088",
+   "salesAndOrdersKg": "105.370000",
+   "stockToday": "4067.310000",
+   "ordersRestOfWeek": "105.370000",
+   "stockMinusOrders": "3961.940000",
+   "lowest": "3961.940000",
+   "refPrice": "29000.000000",
+   "marginAtRef": "2619.044912",
+   "valueToday": "107299522.440000",
+   "status": "PERHATIAN",
+   "statusText": "PERHATIAN: 1095 kg di atas batas umur"
+  },
+  {
+   "key": "Trading|Kulit|n/a",
+   "group": "Kulit",
+   "segment": "Trading",
+   "openingKg": "1395.690000",
+   "openingValue": "29309490.000000",
+   "avgAgeDays": "115.000000",
+   "kgOverAgeLimit": "1395.690000",
+   "closing": [
+    "1395.690000",
+    "1395.690000",
+    "1395.690000",
+    "1395.690000",
+    "1395.690000",
+    "1395.690000",
+    "1395.690000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "21000.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "1395.690000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "1395.690000",
+   "lowest": "1395.690000",
+   "refPrice": "26261.000000",
+   "marginAtRef": "5261.000000",
+   "valueToday": "29309490.000000",
+   "status": "JUAL",
+   "statusText": "JUAL: 1396 kg tanpa order, sebagian > batas umur"
+  },
+  {
+   "key": "Trading|Sayap|n/a",
+   "group": "Sayap",
+   "segment": "Trading",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "6985.000000",
+    "6685.000000",
+    "6685.000000",
+    "6685.000000"
+   ],
+   "receiptsKg": "6985.000000",
+   "receiptsValue": "199999968.300000",
+   "avgCost": "28632.780000",
+   "salesAndOrdersKg": "300.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "300.000000",
+   "stockMinusOrders": "-300.000000",
+   "lowest": "0.000000",
+   "refPrice": "31000.000000",
+   "marginAtRef": "2367.220000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  },
+  {
+   "key": "Trading|Usus|Fresh",
+   "group": "Usus",
+   "segment": "Trading",
+   "openingKg": "0.000000",
+   "openingValue": "0.000000",
+   "avgAgeDays": null,
+   "kgOverAgeLimit": "0.000000",
+   "closing": [
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000",
+    "0.000000"
+   ],
+   "receiptsKg": "0.000000",
+   "receiptsValue": "0.000000",
+   "avgCost": "0.000000",
+   "salesAndOrdersKg": "0.000000",
+   "stockToday": "0.000000",
+   "ordersRestOfWeek": "0.000000",
+   "stockMinusOrders": "0.000000",
+   "lowest": "0.000000",
+   "refPrice": "14000.000000",
+   "marginAtRef": "14000.000000",
+   "valueToday": "0.000000",
+   "status": "-",
+   "statusText": "-"
+  }
+ ],
+ "pnl": {
+  "ranges": {
+   "lastWeek": [
+    "2026-08-17",
+    "2026-08-23"
+   ],
+   "actual": [
+    "2026-08-24",
+    "2026-08-26"
+   ],
+   "mtd": [
+    "2026-08-01",
+    "2026-08-26"
+   ],
+   "remainingDays": 4,
+   "daysInMonth": 31
+  },
+  "lines": [
+   {
+    "line": "Revenue - LB Main Product",
+    "kind": "line",
+    "basis": "order RPA (non by-product) × harga",
+    "values": {
+     "lastWeek": "687779970.000000",
+     "actual": "342934170.000000",
+     "outlook": "609920132.110000",
+     "projection": "952854302.110000",
+     "delta": "265074332.110000",
+     "mtd": "1808448555.000000",
+     "mtdPlusOutlook": "2418368687.110000"
+    }
+   },
+   {
+    "line": "Revenue - LB By Product",
+    "kind": "line",
+    "basis": "order by-product × harga",
+    "values": {
+     "lastWeek": "22934700.000000",
+     "actual": "6237550.000000",
+     "outlook": "21693060.900000",
+     "projection": "27930610.900000",
+     "delta": "4995910.900000",
+     "mtd": "44484650.000000",
+     "mtdPlusOutlook": "66177710.900000"
+    }
+   },
+   {
+    "line": "Revenue - Trading",
+    "kind": "line",
+    "basis": "order Trading × harga",
+    "values": {
+     "lastWeek": "861591700.000000",
+     "actual": "239801150.000000",
+     "outlook": "436212267.390000",
+     "projection": "676013417.390000",
+     "delta": "-185578282.610000",
+     "mtd": "4532942834.000000",
+     "mtdPlusOutlook": "4969155101.390000"
+    }
+   },
+   {
+    "line": "TOTAL REVENUE",
+    "kind": "total",
+    "values": {
+     "lastWeek": "1572306370.000000",
+     "actual": "588972870.000000",
+     "outlook": "1067825460.400000",
+     "projection": "1656798330.400000",
+     "delta": "84491960.400000",
+     "mtd": "6385876039.000000",
+     "mtdPlusOutlook": "7453701499.400000"
+    }
+   },
+   {
+    "line": "COGS - Live Bird",
+    "kind": "line",
+    "basis": "order × biaya rata-rata stok RPA",
+    "values": {
+     "lastWeek": "-710684738.720000",
+     "actual": "-354214950.930000",
+     "outlook": "-683905993.865249",
+     "projection": "-1038120944.795249",
+     "delta": "-327436206.075249",
+     "mtd": "-1855198086.520000",
+     "mtdPlusOutlook": "-2539104080.385249"
+    }
+   },
+   {
+    "line": "COGS - Trading",
+    "kind": "line",
+    "basis": "order × biaya rata-rata stok Trading",
+    "values": {
+     "lastWeek": "-825946106.670000",
+     "actual": "-212789914.920000",
+     "outlook": "-436456824.106397",
+     "projection": "-649246739.026397",
+     "delta": "176699367.643603",
+     "mtd": "-4083271967.640000",
+     "mtdPlusOutlook": "-4519728791.746397"
+    }
+   },
+   {
+    "line": "Other COGS - Expedition",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-29000000.000000",
+     "actual": "-17000000.000000",
+     "outlook": "-3592975.225806",
+     "projection": "-20592975.225806",
+     "delta": "8407024.774194",
+     "mtd": "-76800000.000000",
+     "mtdPlusOutlook": "-80392975.225806"
+    }
+   },
+   {
+    "line": "COGS - Blasting",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-10858005.000000",
+     "actual": "-4525920.000000",
+     "outlook": "-11839860.645161",
+     "projection": "-16365780.645161",
+     "delta": "-5507775.645161",
+     "mtd": "-23202730.000000",
+     "mtdPlusOutlook": "-35042590.645161"
+    }
+   },
+   {
+    "line": "TOTAL COST OF SALES",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-1576488850.390000",
+     "actual": "-588530785.850000",
+     "outlook": "-1135795653.842614",
+     "projection": "-1724326439.692614",
+     "delta": "-147837589.302614",
+     "mtd": "-6038472784.160000",
+     "mtdPlusOutlook": "-7174268438.002614"
+    }
+   },
+   {
+    "line": "GROSS PROFIT",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-4182480.390000",
+     "actual": "442084.150000",
+     "outlook": "-67970193.442614",
+     "projection": "-67528109.292614",
+     "delta": "-63345628.902614",
+     "mtd": "347403254.840000",
+     "mtdPlusOutlook": "279433061.397386"
+    }
+   },
+   {
+    "line": "GP margin",
+    "kind": "ratio",
+    "values": {
+     "lastWeek": "-0.002660",
+     "actual": "0.000751",
+     "outlook": "-0.063653",
+     "projection": "-0.040758",
+     "delta": "-0.749724",
+     "mtd": "0.054402",
+     "mtdPlusOutlook": "0.037489"
+    }
+   },
+   {
+    "line": "Delivery Expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-10976006.000000",
+     "actual": "-1400000.000000",
+     "outlook": "-1987096.774194",
+     "projection": "-3387096.774194",
+     "delta": "7588909.225806",
+     "mtd": "-38821994.000000",
+     "mtdPlusOutlook": "-40809090.774194"
+    }
+   },
+   {
+    "line": "Commission Expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "-467040.774194",
+     "projection": "-467040.774194",
+     "delta": "-467040.774194",
+     "mtd": "-962000.000000",
+     "mtdPlusOutlook": "-1429040.774194"
+    }
+   },
+   {
+    "line": "Packaging",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-742255.000000",
+     "actual": "0.000000",
+     "outlook": "-5021905.290323",
+     "projection": "-5021905.290323",
+     "delta": "-4279650.290323",
+     "mtd": "-11226650.000000",
+     "mtdPlusOutlook": "-16248555.290323"
+    }
+   },
+   {
+    "line": "Salaries and allowance",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "-6733725.032258",
+     "projection": "-6733725.032258",
+     "delta": "-6733725.032258",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "-6733725.032258"
+    }
+   },
+   {
+    "line": "Storage Expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-81094312.000000",
+     "actual": "0.000000",
+     "outlook": "-10620867.870968",
+     "projection": "-10620867.870968",
+     "delta": "70473444.129032",
+     "mtd": "-89014384.000000",
+     "mtdPlusOutlook": "-99635251.870968"
+    }
+   },
+   {
+    "line": "Office Transportation expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-7012864.000000",
+     "actual": "0.000000",
+     "outlook": "-2433326.967742",
+     "projection": "-2433326.967742",
+     "delta": "4579537.032258",
+     "mtd": "-23102127.000000",
+     "mtdPlusOutlook": "-25535453.967742"
+    }
+   },
+   {
+    "line": "Rent Expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "-424196.903226",
+     "projection": "-424196.903226",
+     "delta": "-424196.903226",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "-424196.903226"
+    }
+   },
+   {
+    "line": "Professional Fee",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-2564102.000000",
+     "actual": "-7692308.000000",
+     "outlook": "0.000000",
+     "projection": "-7692308.000000",
+     "delta": "-5128206.000000",
+     "mtd": "-10256410.000000",
+     "mtdPlusOutlook": "-10256410.000000"
+    }
+   },
+   {
+    "line": "Office Supplies & Utilities",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-3034793.000000",
+     "actual": "0.000000",
+     "outlook": "-805045.161290",
+     "projection": "-805045.161290",
+     "delta": "2229747.838710",
+     "mtd": "-5508133.000000",
+     "mtdPlusOutlook": "-6313178.161290"
+    }
+   },
+   {
+    "line": "Maintenance Expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "0.000000"
+    }
+   },
+   {
+    "line": "Tax expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-1368362.000000",
+     "actual": "-1392166.000000",
+     "outlook": "70092.129032",
+     "projection": "-1322073.870968",
+     "delta": "46288.129032",
+     "mtd": "-4998457.670000",
+     "mtdPlusOutlook": "-4928365.540968"
+    }
+   },
+   {
+    "line": "Other operating expenses",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "0.000000"
+    }
+   },
+   {
+    "line": "TOTAL OPERATING EXPENSES (excl. D&A)",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-106792694.000000",
+     "actual": "-10484474.000000",
+     "outlook": "-28423112.645161",
+     "projection": "-38907586.645161",
+     "delta": "67885107.354839",
+     "mtd": "-183890155.670000",
+     "mtdPlusOutlook": "-212313268.315161"
+    }
+   },
+   {
+    "line": "OPERATING INCOME",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-110975174.390000",
+     "actual": "-10042389.850000",
+     "outlook": "-96393306.087775",
+     "projection": "-106435695.937775",
+     "delta": "4539478.452225",
+     "mtd": "163513099.170000",
+     "mtdPlusOutlook": "67119793.082225"
+    }
+   },
+   {
+    "line": "Interest Expense",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "-3153763.354839",
+     "projection": "-3153763.354839",
+     "delta": "-3153763.354839",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "-3153763.354839"
+    }
+   },
+   {
+    "line": "Other Income",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "19058.510000",
+     "actual": "-0.210000",
+     "outlook": "3401693.032258",
+     "projection": "3401692.822258",
+     "delta": "3382634.312258",
+     "mtd": "1753081.530000",
+     "mtdPlusOutlook": "5154774.562258"
+    }
+   },
+   {
+    "line": "Other Expense",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "-11650.000000",
+     "actual": "0.000000",
+     "outlook": "-47270.709677",
+     "projection": "-47270.709677",
+     "delta": "-35620.709677",
+     "mtd": "-16400.000000",
+     "mtdPlusOutlook": "-63670.709677"
+    }
+   },
+   {
+    "line": "TOTAL OTHER INCOME (EXPENSE)",
+    "kind": "total",
+    "values": {
+     "lastWeek": "7408.510000",
+     "actual": "-0.210000",
+     "outlook": "200658.967742",
+     "projection": "200658.757742",
+     "delta": "193250.247742",
+     "mtd": "1736681.530000",
+     "mtdPlusOutlook": "1937340.497742"
+    }
+   },
+   {
+    "line": "NIBT (before D&A)",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-110967765.880000",
+     "actual": "-10042390.060000",
+     "outlook": "-96192647.120033",
+     "projection": "-106235037.180033",
+     "delta": "4732728.699967",
+     "mtd": "165249780.700000",
+     "mtdPlusOutlook": "69057133.579967"
+    }
+   },
+   {
+    "line": "Depreciation & amortisation",
+    "kind": "line",
+    "basis": "run-rate (I_RunRate)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "-1341091.741935",
+     "projection": "-1341091.741935",
+     "delta": "-1341091.741935",
+     "mtd": "0.000000",
+     "mtdPlusOutlook": "-1341091.741935"
+    }
+   },
+   {
+    "line": "NET INCOME",
+    "kind": "total",
+    "values": {
+     "lastWeek": "-110967765.880000",
+     "actual": "-10042390.060000",
+     "outlook": "-97533738.861969",
+     "projection": "-107576128.921969",
+     "delta": "3391636.958031",
+     "mtd": "165249780.700000",
+     "mtdPlusOutlook": "67716041.838031"
+    }
+   }
+  ]
+ },
+ "bs": {
+  "dates": {
+   "tb": "2026-07-31",
+   "lastWeekEnd": "2026-08-23",
+   "yesterday": "2026-08-26",
+   "projection": "2026-08-30"
+  },
+  "lines": [
+   {
+    "line": "Cash and cash equivalents",
+    "side": "asset",
+    "values": {
+     "tb": "599841423.680000",
+     "lastWeekEnd": "379091165.680000",
+     "yesterday": "1289251345.680000",
+     "projection": "818198229.680000",
+     "delta": "439107064.000000",
+     "plannedFlow": "-471053116.000000"
+    }
+   },
+   {
+    "line": "Trade Receivables - Third Parties",
+    "side": "asset",
+    "values": {
+     "tb": "310674730.000000",
+     "lastWeekEnd": "637472980.000000",
+     "yesterday": "991265050.000000",
+     "projection": "625183962.400000",
+     "delta": "-12289017.600000",
+     "plannedFlow": "-366081087.600000"
+    }
+   },
+   {
+    "line": "Trade Receivables - Related Parties",
+    "side": "asset",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Other Receivable - Third Party",
+    "side": "asset",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Other Receivable - Affiliated Party",
+    "side": "asset",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Advance Payment",
+    "side": "asset",
+    "values": {
+     "tb": "1472044497.550000",
+     "lastWeekEnd": "622221912.150000",
+     "yesterday": "642309472.150000",
+     "projection": "622474112.150000",
+     "delta": "252200.000000",
+     "plannedFlow": "-19835360.000000"
+    }
+   },
+   {
+    "line": "Inventory - Product",
+    "side": "asset",
+    "values": {
+     "tb": "771194644.210000",
+     "lastWeekEnd": "1262024159.660000",
+     "yesterday": "1568104888.560000",
+     "projection": "1636755362.582751",
+     "delta": "374731202.922751",
+     "plannedFlow": "68650474.022751"
+    }
+   },
+   {
+    "line": "Inventory - Trading",
+    "side": "asset",
+    "values": {
+     "tb": "2124560080.040000",
+     "lastWeekEnd": "2518582245.480000",
+     "yesterday": "2592109530.520000",
+     "projection": "2355652674.713603",
+     "delta": "-162929570.766397",
+     "plannedFlow": "-236456855.806397"
+    }
+   },
+   {
+    "line": "Prepaid Tax",
+    "side": "asset",
+    "values": {
+     "tb": "123668554.670000",
+     "lastWeekEnd": "150840897.690000",
+     "yesterday": "157809934.690000",
+     "projection": "157809934.690000",
+     "delta": "6969037.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Prepaid Expenses",
+    "side": "asset",
+    "values": {
+     "tb": "79400000.000000",
+     "lastWeekEnd": "79400000.000000",
+     "yesterday": "1213190000.000000",
+     "projection": "1213190000.000000",
+     "delta": "1133790000.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Other assets",
+    "side": "asset",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Fixed assets - cost",
+    "side": "asset",
+    "values": {
+     "tb": "1531451153.610000",
+     "lastWeekEnd": "1531451153.610000",
+     "yesterday": "1531451153.610000",
+     "projection": "1531451153.610000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Accumulated depreciation",
+    "side": "asset",
+    "values": {
+     "tb": "-428085948.350000",
+     "lastWeekEnd": "-428085948.350000",
+     "yesterday": "-428085948.350000",
+     "projection": "-429427040.091935",
+     "delta": "-1341091.741935",
+     "plannedFlow": "-1341091.741935"
+    }
+   },
+   {
+    "line": "TOTAL ASSETS",
+    "side": "total",
+    "values": {
+     "tb": "6584749135.410000",
+     "lastWeekEnd": "6752998565.920000",
+     "yesterday": "9557405426.860000",
+     "projection": "8531288389.734418",
+     "delta": "1778289823.814418",
+     "plannedFlow": "-1026117037.125582"
+    }
+   },
+   {
+    "line": "Trade Payables - Third Parties",
+    "side": "liability",
+    "values": {
+     "tb": "4172730.000000",
+     "lastWeekEnd": "-707804509.600000",
+     "yesterday": "-420329749.600000",
+     "projection": "67042606.588000",
+     "delta": "774847116.188000",
+     "plannedFlow": "-487372356.188000"
+    }
+   },
+   {
+    "line": "Trade Payables - Affiliates",
+    "side": "liability",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "-361200000.000000",
+     "delta": "-361200000.000000",
+     "plannedFlow": "361200000.000000"
+    }
+   },
+   {
+    "line": "Other Payable - Third Parties",
+    "side": "liability",
+    "values": {
+     "tb": "316670549.130000",
+     "lastWeekEnd": "462686203.270000",
+     "yesterday": "1662308022.670000",
+     "projection": "492796704.670000",
+     "delta": "30110501.400000",
+     "plannedFlow": "1169511318.000000"
+    }
+   },
+   {
+    "line": "Other Payable - Related Parties",
+    "side": "liability",
+    "values": {
+     "tb": "4429890485.970000",
+     "lastWeekEnd": "4400000000.000000",
+     "yesterday": "5600000000.000000",
+     "projection": "5600000000.000000",
+     "delta": "1200000000.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Accrued Expenses - Third Parties",
+    "side": "liability",
+    "values": {
+     "tb": "184202599.000000",
+     "lastWeekEnd": "42274555.000000",
+     "yesterday": "42274555.000000",
+     "projection": "76430218.548387",
+     "delta": "34155663.548387",
+     "plannedFlow": "-34155663.548387"
+    }
+   },
+   {
+    "line": "Unearned Revenue",
+    "side": "liability",
+    "values": {
+     "tb": "628415.000000",
+     "lastWeekEnd": "727613568.000000",
+     "yesterday": "850804668.000000",
+     "projection": "931404668.000000",
+     "delta": "203791100.000000",
+     "plannedFlow": "-80600000.000000"
+    }
+   },
+   {
+    "line": "Taxes Payable",
+    "side": "liability",
+    "values": {
+     "tb": "10054483.850000",
+     "lastWeekEnd": "13806706.010000",
+     "yesterday": "17968277.610000",
+     "projection": "17968277.610000",
+     "delta": "4161571.600000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Temporary account (to reclassify)",
+    "side": "liability",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "TOTAL LIABILITIES",
+    "side": "total",
+    "values": {
+     "tb": "4945619262.950000",
+     "lastWeekEnd": "4938576522.680000",
+     "yesterday": "7753025773.680000",
+     "projection": "6824442475.416387",
+     "delta": "1885865952.736387",
+     "plannedFlow": "928583298.263613"
+    }
+   },
+   {
+    "line": "Shareholder Equity",
+    "side": "equity",
+    "values": {
+     "tb": "5000000000.000000",
+     "lastWeekEnd": "5000000000.000000",
+     "yesterday": "5000000000.000000",
+     "projection": "5000000000.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Retained earnings",
+    "side": "equity",
+    "values": {
+     "tb": "-2698434668.620000",
+     "lastWeekEnd": "-2698434668.620000",
+     "yesterday": "-2698434668.620000",
+     "projection": "-2698434668.620000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   },
+   {
+    "line": "Current year profit",
+    "side": "equity",
+    "values": {
+     "tb": "-662435458.950000",
+     "lastWeekEnd": "-487143288.190000",
+     "yesterday": "-497185678.250000",
+     "projection": "-594719417.111969",
+     "delta": "-107576128.921969",
+     "plannedFlow": "97533738.861969"
+    }
+   },
+   {
+    "line": "TOTAL EQUITY",
+    "side": "total",
+    "values": {
+     "tb": "1639129872.430000",
+     "lastWeekEnd": "1814422043.190000",
+     "yesterday": "1804379653.130000",
+     "projection": "1706845914.268031",
+     "delta": "-107576128.921969",
+     "plannedFlow": "97533738.861969"
+    }
+   },
+   {
+    "line": "TOTAL LIABILITIES AND EQUITY",
+    "side": "total",
+    "values": {
+     "tb": "6584749135.380000",
+     "lastWeekEnd": "6752998565.870000",
+     "yesterday": "9557405426.810000",
+     "projection": "8531288389.684418",
+     "delta": "1778289823.814418",
+     "plannedFlow": "1026117037.125582"
+    }
+   },
+   {
+    "line": "Kontrol: aset − (liabilitas + ekuitas) (harus 0)",
+    "side": "control",
+    "values": {
+     "tb": "0.000000",
+     "lastWeekEnd": "0.000000",
+     "yesterday": "0.000000",
+     "projection": "0.000000",
+     "delta": "0.000000",
+     "plannedFlow": "0.000000"
+    }
+   }
+  ],
+  "planned": {
+   "batchTotalCost": "752556467.888000",
+   "lbValue": "682194387.888000",
+   "freightMaklon": "70362080.000000",
+   "tradingReceipts": "199999968.300000",
+   "lbDue": "0.000000",
+   "tradingDue": "0.000000",
+   "freightMaklonDue": "0.000000",
+   "revenueOutlook": "1067825460.400000",
+   "cogsLbOutlook": "683905993.865249",
+   "cogsTradingOutlook": "436456824.106397",
+   "runRateCostsNet": "43655289.548387",
+   "daOutlook": "1341091.741935",
+   "netIncomeOutlook": "-97533738.861969",
+   "netCashFlowOutlook": "-471053116.000000"
+  }
+ },
+ "cf": {
+  "lines": [
+   {
+    "category": "Penerimaan dari pelanggan",
+    "values": {
+     "lastWeek": "1602851638.000000",
+     "actual": "358371900.000000",
+     "outlook": "1514506548.000000",
+     "projection": "1872878448.000000"
+    }
+   },
+   {
+    "category": "Penerimaan lain",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   },
+   {
+    "category": "Bayar pemasok barang (live bird & trading)",
+    "values": {
+     "lastWeek": "-2131309780.000000",
+     "actual": "-588766720.000000",
+     "outlook": "-736186640.000000",
+     "projection": "-1324953360.000000"
+    }
+   },
+   {
+    "category": "Bayar jasa (maklon, angkut, cold storage, sewa)",
+    "values": {
+     "lastWeek": "-230971062.000000",
+     "actual": "-59445000.000000",
+     "outlook": "-1169511318.000000",
+     "projection": "-1228956318.000000"
+    }
+   },
+   {
+    "category": "Bayar karyawan",
+    "values": {
+     "lastWeek": "-5823844.000000",
+     "actual": "0.000000",
+     "outlook": "-79741706.000000",
+     "projection": "-79741706.000000"
+    }
+   },
+   {
+    "category": "Bayar biaya operasional lain",
+    "values": {
+     "lastWeek": "-20053416.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   },
+   {
+    "category": "Bayar pajak",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   },
+   {
+    "category": "Bunga & biaya bank",
+    "values": {
+     "lastWeek": "-10000.000000",
+     "actual": "0.000000",
+     "outlook": "-120000.000000",
+     "projection": "-120000.000000"
+    }
+   },
+   {
+    "category": "Belanja aset tetap",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   },
+   {
+    "category": "Pinjaman afiliasi (net)",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "1200000000.000000",
+     "outlook": "0.000000",
+     "projection": "1200000000.000000"
+    }
+   },
+   {
+    "category": "Setoran modal",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   },
+   {
+    "category": "Transfer antar rekening",
+    "values": {
+     "lastWeek": "0.000000",
+     "actual": "0.000000",
+     "outlook": "0.000000",
+     "projection": "0.000000"
+    }
+   }
+  ],
+  "net": {
+   "lastWeek": "-785316464.000000",
+   "actual": "910160180.000000",
+   "outlook": "-471053116.000000",
+   "projection": "439107064.000000"
+  },
+  "opening": {
+   "lastWeek": "1164407629.680000",
+   "actual": "379091165.680000",
+   "outlook": "1289251345.680000",
+   "projection": "379091165.680000"
+  },
+  "closing": {
+   "lastWeek": "379091165.680000",
+   "actual": "1289251345.680000",
+   "outlook": "818198229.680000",
+   "projection": "818198229.680000"
+  },
+  "tieOut": {
+   "lastWeek": "0.000000",
+   "actual": "0.000000",
+   "projection": "0.000000"
+  },
+  "daily": [
+   {
+    "date": "2026-08-24",
+    "netFlow": "175957400.000000",
+    "closing": "555048565.680000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-25",
+    "netFlow": "96934100.000000",
+    "closing": "651982665.680000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-26",
+    "netFlow": "637268680.000000",
+    "closing": "1289251345.680000",
+    "basis": "aktual"
+   },
+   {
+    "date": "2026-08-27",
+    "netFlow": "59620700.000000",
+    "closing": "1348872045.680000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-28",
+    "netFlow": "-1059199936.000000",
+    "closing": "289672109.680000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-29",
+    "netFlow": "528526120.000000",
+    "closing": "818198229.680000",
+    "basis": "rencana"
+   },
+   {
+    "date": "2026-08-30",
+    "netFlow": "0.000000",
+    "closing": "818198229.680000",
+    "basis": "rencana"
+   }
+  ],
+  "lowest": {
+   "date": "2026-08-28",
+   "balance": "289672109.680000"
+  }
+ },
+ "controls": {
+  "controls": [
+   {
+    "no": 1,
+    "name": "Semua baris penjualan punya key yang terdaftar",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Tambah kode di I_Item / key di I_Master",
+    "scope": "operasional"
+   },
+   {
+    "no": 2,
+    "name": "Semua baris penerimaan punya key yang terdaftar",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Tambah kode di I_Item / key di I_Master",
+    "scope": "operasional"
+   },
+   {
+    "no": 3,
+    "name": "Semua baris stok awal punya key yang terdaftar",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Tambah kode di I_Item",
+    "scope": "operasional"
+   },
+   {
+    "no": 4,
+    "name": "Status penjualan terisi (Aktual/Order)",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Isi kolom Status",
+    "scope": "operasional"
+   },
+   {
+    "no": 5,
+    "name": "Status penerimaan terisi (Aktual/Rencana)",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Isi kolom Status",
+    "scope": "operasional"
+   },
+   {
+    "no": 6,
+    "name": "Baris di luar minggu berjalan (tidak dihitung)",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Hapus atau pindahkan ke file minggu yang benar",
+    "scope": "operasional"
+   },
+   {
+    "no": 7,
+    "name": "Order lewat tanggal belum terkirim",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Ubah jadi Aktual atau geser tanggal kirim",
+    "scope": "operasional"
+   },
+   {
+    "no": 8,
+    "name": "kg penjualan aktual minggu ini = laporan Accurate",
+    "value": "23587.970000",
+    "comparator": null,
+    "difference": null,
+    "status": "BELUM DIISI",
+    "action": "Cek baris yang belum ditempel",
+    "scope": "operasional"
+   },
+   {
+    "no": 9,
+    "name": "Nilai stok awal = Inventory Valuation Accurate",
+    "value": "3954932012.000000",
+    "comparator": null,
+    "difference": null,
+    "status": "BELUM DIISI",
+    "action": "Cek stok awal per item",
+    "scope": "operasional"
+   },
+   {
+    "no": 10,
+    "name": "Output batch aktual = penerimaan produksi aktual (kg)",
+    "value": "20725.100000",
+    "comparator": "20725.100000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Beda tanggal GRN vs tanggal potong wajar 1 hari; selisih besar = GRN belum diinput",
+    "scope": "operasional"
+   },
+   {
+    "no": 11,
+    "name": "SKU dengan stok proyeksi minus",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Peringatan — keputusan beli/potong/geser order",
+    "scope": "operasional"
+   },
+   {
+    "no": 12,
+    "name": "Neraca saldo awal seimbang (I_TB total)",
+    "value": "0.030000",
+    "comparator": "0.000000",
+    "difference": "0.030000",
+    "status": "LULUS",
+    "action": "Cek tempelan TB",
+    "scope": "laporan"
+   },
+   {
+    "no": 13,
+    "name": "Jurnal seimbang (total debit − kredit)",
+    "value": "0.020000",
+    "comparator": "0.000000",
+    "difference": "0.020000",
+    "status": "LULUS",
+    "action": "Ada voucher yang terpotong saat ditempel",
+    "scope": "laporan"
+   },
+   {
+    "no": 14,
+    "name": "Akun di jurnal / TB tanpa mapping",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Tambah akun di I_COA",
+    "scope": "laporan"
+   },
+   {
+    "no": 15,
+    "name": "Neraca seimbang — akhir minggu lalu, kemarin, proyeksi",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Cek mapping I_COA dan pos lawan T_Kas_Rencana",
+    "scope": "laporan"
+   },
+   {
+    "no": 16,
+    "name": "Saldo kas akhir arus kas = neraca",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Cek kategori arus kas / akun kas",
+    "scope": "laporan"
+   },
+   {
+    "no": 17,
+    "name": "Baris kas tanpa kategori arus kas",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Isi kategori di I_COA atau override di T_GL",
+    "scope": "laporan"
+   },
+   {
+    "no": 18,
+    "name": "Pos lawan T_Kas_Rencana kosong",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Isi pos neraca lawan",
+    "scope": "laporan"
+   },
+   {
+    "no": 19,
+    "name": "Akun sementara terpakai (910004 / 1102008)",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Minta accounting reklas ke akun yang benar",
+    "scope": "laporan"
+   },
+   {
+    "no": 20,
+    "name": "Data Ops vs Accurate (dokumen sama: kg ≤ 0,5%, nilai ≤ 1%)",
+    "value": "0.000000",
+    "comparator": "0.000000",
+    "difference": "0.000000",
+    "status": "LULUS",
+    "action": "Baris Accurate dipakai; cek selisih dengan dokumen ops",
+    "scope": "operasional"
+   }
+  ],
+  "overall": "PERIKSA",
+  "counts": {
+   "LULUS": 18,
+   "GAGAL": 0,
+   "PERIKSA": 0,
+   "BELUM DIISI": 2
+  },
+  "releasable": true
+ }
+}
