@@ -5,6 +5,10 @@
  * [start, end]; a prepaid amortised over its term without a monthly amount = prepaid total / months of the term.
  * The month outlook of a fixed line = actual MTD (journal) + max(0, scheduled month − actual MTD): never twice.
  * Variable costs = Rp/kg × kg (M3 forecast); run-rate lines = monthly amount / working days of the month per working day.
+ *
+ * PRD v4 K6 (template 8.3): a fixed row also carries day_basis (calendar | working), posting_day, basis_doc, owner and
+ * version; a fixed line without an input for the running month carries last month's nominal forward and is labelled
+ * "belum diperbarui" (C43); one-off costs are cost events, never averaged into a run-rate.
  */
 import { D, Decimal, ZERO, max, sum, type Num } from "./decimal";
 import { addDays, daysInMonth, diffDays, firstOfMonth, type ISODate } from "./dates";
@@ -22,6 +26,15 @@ export interface FixedCostRow {
   prepaid_total: Num | null;
   intercompany?: boolean;
   active: boolean;
+  /** K6: calendar days (default) or working days; the day count that divides the monthly nominal. */
+  day_basis?: "calendar" | "working";
+  /** K6: day of the month the cost is usually booked (salary 25, rent 1, interest month end). */
+  posting_day?: number | null;
+  basis_doc?: string | null;
+  owner?: string | null;
+  version?: number;
+  /** Chart of accounts account of the row (the template has one row per COA per period). */
+  account?: string | null;
 }
 
 const lastOfMonth = (d: ISODate): ISODate => addDays(firstOfMonth(d), daysInMonth(d) - 1);
@@ -44,14 +57,87 @@ export function monthlyAmount(r: FixedCostRow): Decimal | null {
 
 const inTerm = (r: FixedCostRow, d: ISODate) => r.active && d >= r.start_date && (r.end_date === null || d <= r.end_date);
 
-/** Fixed cost of one day per row (amount / calendar days of the month, inside the term). */
-export function dailyFixed(schedule: FixedCostRow[], date: ISODate): { id: string; pl_line: string; amount: Decimal }[] {
-  const days = daysInMonth(date);
-  return schedule.filter((r) => inTerm(r, date)).map((r) => ({ id: r.id, pl_line: r.pl_line, amount: (monthlyAmount(r) ?? ZERO).div(days) }));
+/** Working days of a month (default Monday–Saturday, the RPA week) — declared here for dailyFixed; see also workingDays. */
+function workingDaysOf(month: ISODate, isWorkingDay?: (d: ISODate) => boolean): number {
+  const first = firstOfMonth(month);
+  let n = 0;
+  for (let i = 0; i < daysInMonth(month); i++) {
+    const d = addDays(first, i);
+    if (isWorkingDay ? isWorkingDay(d) : new Date(`${d}T00:00:00Z`).getUTCDay() !== 0) n++;
+  }
+  return n;
+}
+
+/**
+ * Normal fixed cost of one day per row (K6): nominal / days of the month on the row's day basis, inside the term. A
+ * 'working' row costs nothing on a Sunday or a holiday and nominal / working days on the others.
+ */
+export function dailyFixed(schedule: FixedCostRow[], date: ISODate, isWorkingDay?: (d: ISODate) => boolean): { id: string; pl_line: string; amount: Decimal }[] {
+  const out: { id: string; pl_line: string; amount: Decimal }[] = [];
+  for (const r of schedule.filter((x) => inTerm(x, date))) {
+    const m = monthlyAmount(r) ?? ZERO;
+    if (r.day_basis === "working") {
+      const works = isWorkingDay ? isWorkingDay(date) : new Date(`${date}T00:00:00Z`).getUTCDay() !== 0;
+      out.push({ id: r.id, pl_line: r.pl_line, amount: works ? m.div(workingDaysOf(date, isWorkingDay)) : ZERO });
+    } else out.push({ id: r.id, pl_line: r.pl_line, amount: m.div(daysInMonth(date)) });
+  }
+  return out;
+}
+
+export interface CarriedRow { row: FixedCostRow; carriedFrom: ISODate }
+
+/**
+ * C43 input (K6): a fixed row whose term ended before the month, with no row of the same account / code / line active
+ * in the month, is carried forward with last month's nominal and labelled "belum diperbarui". Returns the synthetic
+ * rows (term extended over the month) and what was carried.
+ */
+export function carryForwardFixed(schedule: FixedCostRow[], month: ISODate): { schedule: FixedCostRow[]; carried: CarriedRow[] } {
+  const first = firstOfMonth(month), last = lastOfMonth(month);
+  const key = (r: FixedCostRow) => r.code ?? `${r.pl_line}|${r.account ?? ""}`;
+  const activeKeys = new Set(schedule.filter((r) => r.active && r.start_date <= last && (r.end_date === null || r.end_date >= first)).map(key));
+  const latest = new Map<string, FixedCostRow>();
+  for (const r of schedule) {
+    if (!r.active || r.end_date === null || r.end_date >= first || activeKeys.has(key(r)) || monthlyAmount(r) === null) continue;
+    const o = latest.get(key(r));
+    if (!o || (o.end_date as string) < r.end_date) latest.set(key(r), r);
+  }
+  const carried: CarriedRow[] = [];
+  const extra: FixedCostRow[] = [];
+  for (const r of latest.values()) {
+    // only a row that ended in the previous month is "last month's nominal"; older ones ended for a reason
+    if (addDays(r.end_date as string, 1) !== first && (r.end_date as string) < addDays(first, -1)) continue;
+    carried.push({ row: r, carriedFrom: r.end_date as string });
+    extra.push({ ...r, id: `${r.id}:carry`, start_date: first, end_date: null, amortize: false, prepaid_total: null, amount_per_month: monthlyAmount(r)!.toString() });
+  }
+  return { schedule: [...schedule, ...extra], carried };
+}
+
+/** C43: fixed lines of the running month that use last month's nominal ("belum diperbarui", PERIKSA in the register). */
+export function fixedFreshnessControl(carried: CarriedRow[]): ControlV3 {
+  return {
+    code: "C43", module: "M5", name: "Biaya tetap bulan berjalan sudah diperbarui (bukan nominal bulan lalu)",
+    value: D(carried.length), comparator: ZERO, difference: D(carried.length), status: carried.length ? "PERIKSA" : "LULUS",
+    action: carried.length ? "Perbarui nominal bulan ini di Biaya tetap & driver" : "",
+    detail: carried.map((c) => `${c.row.pl_line}${c.row.account ? ` ${c.row.account}` : ""}: nominal bulan lalu dipakai (sampai ${c.carriedFrom})`),
+  };
+}
+
+export interface CostEventRow { date: ISODate; pl_line: string; amount: Num }
+
+/**
+ * Actual cost per line without the one-off costs booked as cost events (K6: events are never averaged into a run-rate).
+ * actualByLine is positive = cost; the event amounts are negative = cost like the P&L rows.
+ */
+export function withoutEvents(actualByLine: Record<string, Decimal>, events: CostEventRow[], from: ISODate, to: ISODate): Record<string, Decimal> {
+  const out = { ...actualByLine };
+  for (const e of events) if (e.date >= from && e.date <= to && out[e.pl_line] !== undefined) out[e.pl_line] = out[e.pl_line].plus(D(e.amount));
+  return out;
 }
 
 export interface FixedOutlookLine {
   pl_line: string;
+  /** K6: 'working' only when every row of the line is on the working day basis. */
+  day_basis: "calendar" | "working";
   /** Σ of the rows' daily amounts over the days of the month inside their term. */
   scheduled: Decimal;
   actual_mtd: Decimal;
@@ -71,7 +157,8 @@ export function monthFixedOutlook(schedule: FixedCostRow[], actualMtd: Record<st
     const to = r.end_date !== null && r.end_date < last ? r.end_date : last;
     const n = diffDays(to, from) + 1;
     const m = monthlyAmount(r);
-    const l = lines.get(r.pl_line) ?? { pl_line: r.pl_line, scheduled: ZERO, actual_mtd: D(actualMtd[r.pl_line] ?? 0), outlook: ZERO, missing: [], over: false };
+    const l = lines.get(r.pl_line) ?? { pl_line: r.pl_line, day_basis: "working" as const, scheduled: ZERO, actual_mtd: D(actualMtd[r.pl_line] ?? 0), outlook: ZERO, missing: [], over: false };
+    if (r.day_basis !== "working") l.day_basis = "calendar";
     if (m === null) l.missing.push(r.description);
     else l.scheduled = l.scheduled.plus(m.times(n).div(days));
     lines.set(r.pl_line, l);

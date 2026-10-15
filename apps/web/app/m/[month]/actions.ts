@@ -4,8 +4,8 @@ import { D, isISODate, jakartaToday } from "@kgr/engine";
 import { parseNumber } from "@kgr/parsers";
 import { moduleSettings, requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { moduleSettingsGlobal } from "@/lib/rebuild";
-import { computeMonth, lockVersion, setBudget, writeMonthMart } from "@/lib/v3/monthly";
+import { moduleSettingsGlobal, processRebuildQueue, queueRebuild } from "@/lib/rebuild";
+import { lockVersion, setBudget } from "@/lib/v3/monthly";
 import { monthStart } from "@/lib/v3/drivers";
 
 export type ActionState = { ok?: string; error?: string };
@@ -22,11 +22,13 @@ export async function rebuildMonthAction(_: ActionState, form: FormData): Promis
   try {
     await requireModuleAction("m4_monthly", ["admin", "finance"]);
     const first = monthOf(form);
+    // the mart is written by the queue with the service role (PRD v4 S1), not by the signed-in user
     const sb = await supabaseServer();
-    const st = await computeMonth(sb, first, jakartaToday(), moduleSettingsGlobal(await moduleSettings()));
-    const w = await writeMonthMart(sb, st);
+    await queueRebuild(sb, [first], "tombol Bangun ulang (bulan)");
+    const r = await processRebuildQueue(moduleSettingsGlobal(await moduleSettings()));
     done(first);
-    return { ok: `Bulan dibangun ulang: cut-off ${st.cutOff}, ${w.written} baris ditulis, ${w.deleted} dihapus` };
+    if (r.failed) return { error: r.notes.filter((n) => n.includes("GAGAL")).join("; ") || "Bangun ulang gagal" };
+    return { ok: r.notes.join("; ") || "Antrean kosong" };
   } catch (e) { return { error: (e as Error).message }; }
 }
 

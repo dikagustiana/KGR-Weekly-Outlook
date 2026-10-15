@@ -1,0 +1,12 @@
+{
+ "source": "docs/PRD-v4.md P13: V1 7.712,4 vs FINAL 8.361,8 (+649,4 jt, +8,4%), porsi forecast +49%; GP 293,4 vs 306,7",
+ "revenue": {
+  "abs_error_jt": "649.4",
+  "pct_of_version": "0.084",
+  "share_of_forecast_part": "0.49",
+  "mape": "0.0777"
+ },
+ "gp": {
+  "abs_error_jt": "13.3"
+ }
+}

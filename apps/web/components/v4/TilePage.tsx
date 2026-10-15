@@ -1,7 +1,7 @@
 import { Tile, TileGrid } from "./Tile";
 import { CardBody } from "./Card";
 import { ModeToggle, ReleaseLine, Slicer } from "./Controls";
-import { ComboChart, Legend, PairedBars, StackedBars, Waterfall } from "./Chart";
+import { ComboChart, Legend, LineChart, PairedBars, StackedBars, Waterfall } from "./Chart";
 import { V4Table } from "./Table";
 import { CaraHitung } from "./CaraHitung";
 import type { TileModel } from "@/lib/v4/minggu-ini";
@@ -26,14 +26,18 @@ function legendOf(t: TileModel): ReactNode {
 function body(t: TileModel): ReactNode {
   const c = t.content;
   switch (c.type) {
-    case "slicer": return <Slicer label={c.label} options={c.options} current={c.current} />;
+    case "slicer": return <><Slicer label={c.label} options={c.options} current={c.current} />{c.extra ? <span className="note" data-tile-value="">{c.extra}</span> : null}</>;
     case "mode": return <ModeToggle label={c.label} options={c.options} current={c.current} />;
     case "release": return <ReleaseLine text={c.text} action={c.pdfHref ? <a className="v4b" href={c.pdfHref}>Unduh PDF</a> : null} />;
     case "headline": return <p className="headline" data-headline="" data-tile-value="">{c.text}</p>;
     case "card": return <CardBody value={c.value} unit={c.unit} compare={c.compare} href={c.href} missing={c.missing} negative={c.negative} />;
     case "combo": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
-      return <ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} />;
+      return <ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} labelMax={c.labelMax} />;
+    }
+    case "line": {
+      const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
+      return <LineChart width={b.width} height={b.height} plot={c.plot} label={t.title ?? t.id} />;
     }
     case "waterfall": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
@@ -54,7 +58,13 @@ function body(t: TileModel): ReactNode {
     }
     case "table": return (
       <>
-        <V4Table cols={c.cols} rows={c.rows} label={t.title} />
+        {c.form ? (
+          <form className="tile-form" method={c.form.method} action={c.form.action}>
+            {c.form.fields.map((f) => <label key={f.name}>{f.label} <input name={f.name} defaultValue={f.value} size={f.size ?? 4} /></label>)}
+            <button className="v4b">{c.form.submit}</button>
+          </form>
+        ) : null}
+        <V4Table cols={c.cols} rows={c.rows} label={t.title} limit={c.limit} />
         {(c.sections ?? []).map((s) => <div key={s.title}><h3 className="tile-t">{s.title}</h3><V4Table cols={s.cols} rows={s.rows} label={s.title} /></div>)}
       </>
     );

@@ -1,7 +1,7 @@
 /**
- * M4 golden (PRD v3 §8 M4, PLAN Fase 4b): August 2026 at cut-off 26 Aug from the example week — actual 6.385,9 / GP 347,4
- * (O_PnL MTD); PO days 27–29 Aug; Sunday 30 Aug = 0. The run-rate day (31 Aug, mockup 258,7) and the totals that depend on
- * it are not reproduced (docs/open-questions.md §E.4) and stay todo.
+ * M4 golden (PRD v3 §8 M4, PLAN Fase 4b), run-rate rule of PRD v4 K3: August 2026 at cut-off 26 Aug from the example
+ * week — actual 6.385,9 / GP 347,4 (O_PnL MTD); PO days 27–29 Aug; Sunday 30 Aug = 0; the run-rate day 31 Aug = 310,4 jt
+ * (5 working days of 20–26 Aug without 25 Aug). The v3 targets 258,7 / 319,3 and the outlook 7.712,4 are revoked (K4).
  */
 import { describe, expect, it } from "vitest";
 import { D, Decimal } from "../src/decimal";
@@ -9,7 +9,7 @@ import { loadFixtureWeek, loadV3Fixture } from "../src/fixtures";
 import { computeWeek } from "../src/week";
 import { workingDays } from "../src/drivers";
 import {
-  accuracy, actualDaily, bridge, forecastPlRows, ordersFromWeek, sharePoRows, calibrate, dailyTotals, forecastDays, gpPctWindow, monthOutlook, monthlyControls, nthWorkingDay, runrateRevenue, sumRows,
+  accuracy, actualDaily, bridge, forecastPlRows, ordersFromWeek, sharePoRows, calibrate, dailyTotals, forecastDays, gpPctMtd, monthOutlook, monthlyControls, nthWorkingDay, runrateRevenue, sumRows, v1LockDate,
 } from "../src/monthly";
 
 type G = Record<string, unknown> & { targets: { cut_off: string; actual: Record<string, string>; forecast: Record<string, string>; outlook: Record<string, string>; daily_revenue: Record<string, string>; share_with_po: string }; fs_final_2026_08: { lines: Record<string, string> } };
@@ -25,9 +25,9 @@ const rows = actualDaily({ gl: w.gl_lines, coa: w.coa_map, from: inp.month, to: 
 const daily = dailyTotals(rows);
 const revByDay = new Map([...daily.entries()].map(([d, t]) => [d, t.revenue]));
 const orders = ordersFromWeek(wk.sales, "2026-08-27", "2026-08-31", () => 1);
-const rr = runrateRevenue({ revenueByDay: revByDay, from: inp.month, cutOff: inp.cut_off, isWorkingDay: isWorking, holidays });
-const gp4w = gpPctWindow(daily, inp.cut_off);
-const fc = forecastDays({ cutOff: inp.cut_off, orders, runrate: rr.revenue, gpPct: gp4w, isWorkingDay: isWorking, holidays });
+const rr = runrateRevenue({ revenueByDay: revByDay, cutOff: inp.cut_off, isWorkingDay: isWorking, holidays });
+const gpMtd = gpPctMtd(daily, inp.month, inp.cut_off);
+const fc = forecastDays({ cutOff: inp.cut_off, orders, runrate: rr.revenue, gpPct: gpMtd, isWorkingDay: isWorking, holidays, offDayFactor: rr.offDayFactor });
 const out = monthOutlook({ actualRows: rows, forecast: fc, tolerance: inp.forecast_tolerance_pct });
 
 describe("monthly golden — cut-off 26 Aug", () => {
@@ -46,10 +46,26 @@ describe("monthly golden — cut-off 26 Aug", () => {
     expect(fc.find((x) => x.date === "2026-08-30")!.basis).toBe("none");
     expect(fc.filter((x) => x.basis === "po").length).toBe(3);
   });
-  it("25 Aug (0 on a working day) is an anomaly and stays out of the run-rate (D6)", () => {
-    expect(rr.anomalies.map((a) => [a.date, a.reason])).toContainEqual(["2026-08-25", "nol"]);
-    expect(rr.days).not.toContain("2026-08-25");
-    expect(rr.days.length).toBe(20);
+  it("25 Aug (0 on a working day) is an anomaly and stays out of the run-rate (D6, K12)", () => {
+    expect(rr.anomalies.map((a) => [a.date, a.reason])).toEqual([["2026-08-25", "nol"]]);
+    expect(rr.days).toEqual(["2026-08-20", "2026-08-21", "2026-08-22", "2026-08-24", "2026-08-26"]);
+  });
+  it("K3: run-rate 31 Aug = 310,4 jt (5 working days of the last 7 calendar days, window 20–26 Aug); Sunday factor 0 (23 Aug has no revenue)", () => {
+    expect(rr.windowFrom).toBe("2026-08-20");
+    expect(rr.windowDays).toBe(7);
+    expect(jt(rr.revenue)).toBe("310.4");
+    expect(rr.offDayFactor.toFixed(6)).toBe("0.000000");
+    expect(fc.find((x) => x.date === "2026-08-31")!.basis).toBe("runrate");
+    expect(jt(fc.find((x) => x.date === "2026-08-31")!.revenue)).toBe("310.4");
+    expect(jt(sumRows(forecastPlRows({ days: fc, orders, opex: [] })).forecast.revenue)).toBe("1378.2");
+  });
+  it("K5: the reference margin of run-rate days is the GP% of the month to date (347,4 / 6.385,9 = 5,4%)", () => {
+    expect(gpMtd.times(100).toFixed(1)).toBe("5.4");
+  });
+  it("outlook revenue = actual 6.385,9 + forecast 1.378,2 = 7.764,1 jt, not the revoked 7.712,4 (K4)", () => {
+    expect(jt(out.outlook.revenue)).toBe("7764.1");
+    expect(jt(out.range.revenueLow)).toBe("7626.3");
+    expect(out.sharePo.times(100).toFixed(0)).toBe("77");
   });
   it("mart rows of the forecast days add up to the forecast; share of PO revenue from the rows", () => {
     const fr = forecastPlRows({ days: fc, orders, opex: [] });
@@ -57,8 +73,6 @@ describe("monthly golden — cut-off 26 Aug", () => {
     expect(sumRows(fr).forecast.gp.toFixed(2)).toBe(out.forecast.gp.toFixed(2));
     expect(sharePoRows(fr).toFixed(6)).toBe(out.sharePo.toFixed(6));
   });
-  it.todo("31 Aug run-rate = 258,7 jt (mockup Bulanan) — app gives 319,3 (mean of the 20 working days 1–26 Aug without 25 Aug); see §E.4");
-  it.todo("forecast 1.326,5 / GP −54,0, outlook 7.712,4 / GP 293,4, 80,5% ber-PO — depend on the 31 Aug run-rate; see §E.4");
 });
 
 describe("monthly rules", () => {
@@ -68,7 +82,10 @@ describe("monthly rules", () => {
     expect(o.budget.needPerDay!.toFixed(2)).toBe(D("8000000000").minus(o.actual.revenue).div(5).toFixed(2));
     expect(o.budget.remainingDays).toBe(5);
   });
-  it("V1 lock = 20th working day (Mon–Sat, without holidays); calibration proposals", () => {
+  it("K9: V1 lock = the Thursday of week 3 (third Thursday): 20 Aug 2026, 17 Sep 2026; calibration proposals", () => {
+    expect(v1LockDate("2026-08-01", 3)).toBe("2026-08-20");
+    expect(v1LockDate("2026-09-01", 3)).toBe("2026-09-17");
+    expect(v1LockDate("2026-08-01", 1)).toBe("2026-08-06");
     expect(nthWorkingDay("2026-08-01", 20, isWorking, holidays)).toBe("2026-08-25");
     expect(workingDays("2026-08-01").length).toBe(26);
     const c = calibrate({ revenueByDay: revByDay, daily, month: "2026-08-01", isWorkingDay: isWorking, holidays });

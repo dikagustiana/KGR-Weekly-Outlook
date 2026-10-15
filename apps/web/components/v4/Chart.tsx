@@ -23,6 +23,8 @@ export interface ChartPoint {
   href?: string;
   title?: string;
   selected?: boolean;
+  /** Dashed marker at the right edge of this point, with this text above it (e.g. "cut-off"). */
+  marker?: string;
 }
 
 function scale(values: number[], top: number, bottom: number) {
@@ -39,8 +41,8 @@ function Wrap({ href, title, children }: { href?: string; title?: string; childr
 }
 
 /** Columns with an optional line (combo); empty state as text. */
-export function ComboChart({ width, height, points, label, empty = "tidak ada data untuk periode ini" }: {
-  width: number; height: number; points: ChartPoint[]; label: string; empty?: string;
+export function ComboChart({ width, height, points, label, empty = "tidak ada data untuk periode ini", labelMax = LABEL_MAX }: {
+  width: number; height: number; points: ChartPoint[]; label: string; empty?: string; labelMax?: number;
 }) {
   if (!points.length || points.every((p) => p.bar === null && (p.line ?? null) === null)) return <p className="note">{empty}</p>;
   const top = PAD.t, bottom = height - PAD.b;
@@ -48,12 +50,15 @@ export function ComboChart({ width, height, points, label, empty = "tidak ada da
   const slot = (width - PAD.l - PAD.r) / points.length;
   const bw = Math.min(56, slot * 0.58);
   const cx = (i: number) => PAD.l + slot * i + slot / 2;
-  const showLabels = points.length <= LABEL_MAX;
+  const showLabels = points.length <= labelMax;
   const line = points.map((p, i) => (p.line === null || p.line === undefined ? null : [cx(i), y(p.line)] as const)).filter((p): p is readonly [number, number] => p !== null);
   return (
     <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
       {points.map((p, i) => p.selected ? <rect key={`sel${p.key}`} className="sel" x={PAD.l + slot * i + 2} y={top - 14} width={slot - 4} height={bottom - top + 14} rx={6} /> : null)}
       <line className="axis" x1={PAD.l} x2={width - PAD.r} y1={y(0)} y2={y(0)} />
+      {points.map((p, i) => p.marker ? (
+        <g key={`m${p.key}`}><line className="cut" x1={PAD.l + slot * (i + 1)} x2={PAD.l + slot * (i + 1)} y1={top - 4} y2={bottom} /><text x={PAD.l + slot * (i + 1) + 4} y={top + 4}>{p.marker}</text></g>
+      ) : null)}
       {points.map((p, i) => {
         const v = p.bar ?? 0;
         const y0 = y(0), y1 = y(v);
@@ -189,4 +194,54 @@ export function StackedBars({ width, height, rows, label, tones = ["s1", "s2", "
 
 export function Legend({ items }: { items: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }) {
   return <div className="legend">{items.map((i) => <span key={i.label}><i className={i.tone} />{i.label}</span>)}</div>;
+}
+
+export interface LineSeries { key: string; tone: "a" | "o" | "b"; dash?: boolean; points: (number | null)[] }
+export interface LinePlot {
+  xLabels: string[];
+  series: LineSeries[];
+  /** Band between two cumulative lines (null before the cut-off). */
+  band?: { low: (number | null)[]; high: (number | null)[]; title?: string };
+  /** Labels on a point of a series: [series key, index, text, "above" | "below"]. */
+  marks: { series: string; i: number; text: string; place?: "above" | "below" | "right" }[];
+  /** Index of the last actual point (vertical cut-off marker after it). */
+  cutIndex: number | null;
+}
+
+/** Cumulative lines (§6.2 ch-kumulatif): actual solid, outlook dashed, a band on the forecast part, optional budget. */
+export function LineChart({ width, height, plot, label }: { width: number; height: number; plot: LinePlot; label: string }) {
+  const n = plot.xLabels.length;
+  if (!n || plot.series.every((s) => s.points.every((p) => p === null))) return <p className="note">tidak ada data untuk periode ini</p>;
+  const top = PAD.t, bottom = height - PAD.b;
+  const all = [...plot.series.flatMap((s) => s.points), ...(plot.band ? [...plot.band.low, ...plot.band.high] : [])].filter((v): v is number => v !== null);
+  const y = scale(all, top, bottom);
+  const slot = (width - PAD.l - PAD.r - 56) / n;
+  const x = (i: number) => PAD.l + slot * i + slot / 2;
+  const path = (pts: (number | null)[]) => pts.map((v, i) => (v === null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(" ");
+  const band = plot.band
+    ? plot.band.high.map((v, i) => (v === null ? null : [x(i), y(v)] as const)).filter((p): p is readonly [number, number] => p !== null)
+        .concat(plot.band.low.map((v, i) => (v === null ? null : [x(i), y(v)] as const)).filter((p): p is readonly [number, number] => p !== null).reverse())
+    : [];
+  const step = Math.max(1, Math.ceil(n / 16));
+  return (
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
+      <line className="axis" x1={PAD.l} x2={width - PAD.r} y1={y(0)} y2={y(0)} />
+      {plot.cutIndex !== null ? <g><line className="cut" x1={x(plot.cutIndex) + slot / 2} x2={x(plot.cutIndex) + slot / 2} y1={top - 4} y2={bottom} /><text x={x(plot.cutIndex) + slot / 2 + 4} y={top + 4}>cut-off</text></g> : null}
+      {band.length ? <polygon className="band" points={band.map(([a, b]) => `${a},${b}`).join(" ")}>{plot.band?.title ? <title>{plot.band.title}</title> : null}</polygon> : null}
+      {plot.series.map((s) => <polyline key={s.key} className={`lc lc-${s.tone}${s.dash ? " dash" : ""}`} points={path(s.points)} />)}
+      {plot.marks.map((m) => {
+        const s = plot.series.find((q) => q.key === m.series);
+        const v = s?.points[m.i];
+        if (v === null || v === undefined) return null;
+        const place = m.place ?? "above";
+        return (
+          <g key={`${m.series}${m.i}${m.text}`}>
+            <circle className={`dot lc-${s!.tone}`} cx={x(m.i)} cy={y(v)} r={3.5} />
+            <text className="v" x={place === "right" ? x(m.i) + 8 : x(m.i)} y={place === "below" ? y(v) + 15 : place === "right" ? y(v) + 4 : y(v) - 7} textAnchor={place === "right" ? "start" : "end"}>{m.text}</text>
+          </g>
+        );
+      })}
+      {plot.xLabels.map((l, i) => (i % step === 0 || i === n - 1 ? <text key={`x${i}`} x={x(i)} y={height - 8} textAnchor="middle">{l}</text> : null))}
+    </svg>
+  );
 }

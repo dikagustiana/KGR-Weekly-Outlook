@@ -14,17 +14,21 @@ import { monthStart } from "@/lib/v3/drivers";
 import { monthView, plDaily } from "@/lib/v3/monthly";
 import { tgl } from "@/lib/fmt";
 import { budgetAction, lockAction, rebuildMonthAction } from "./actions";
+import { moduleSettings } from "@/lib/modules";
+import { v4On } from "@/lib/v4/nav";
+import { OutlookBulanV4 } from "./v4";
 
 export const dynamic = "force-dynamic";
 
 type R = Record<string, unknown>;
 
 /** PRD v3 §6 /m/[month]: daily chart, cumulative + band, versions, bridge V1 → V2, accuracy. Numbers from pl_daily. */
-export default async function MonthPage({ params }: { params: Promise<{ month: string }> }) {
+export default async function MonthPage({ params, searchParams }: { params: Promise<{ month: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { month } = await params;
   const first = monthStart(month);
   if (!first) notFound();
   const v = await requireModulePage("m4_monthly");
+  if (v4On(await moduleSettings(), v.role)) return <OutlookBulanV4 first={first} viewer={v} versi={(await searchParams).versi ?? null} />;
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";
   const sb = await supabaseServer();
@@ -45,7 +49,7 @@ export default async function MonthPage({ params }: { params: Promise<{ month: s
       <div className="row noprint"><Link className="b small sec" href={`/m/${prev}`}>← {prev}</Link><Link className="b small sec" href={`/m/${next}`}>{next} →</Link>
         <a className="b small sec" href={`/api/m/${first.slice(0, 7)}/pdf`} target="_blank" rel="noreferrer">Unduh PDF</a>
         {canWrite && !mgmt ? <><Link className="b small sec" href={`/m/${first.slice(0, 7)}/tutup-buku`}>Tutup buku</Link><Link className="b small sec" href={`/m/${first.slice(0, 7)}/biaya`}>Biaya</Link></> : null}</div>
-      <p className="muted">Aktual = jurnal s.d. {tgl(sm.lastActual)} (+ DO belum difaktur). Sisa bulan: hari dengan PO = PO berbobot; hari kerja tanpa PO = rata-rata revenue 20 hari kerja terakhir tanpa hari anomali, pada GP% 4 minggu terakhir; biaya mengikuti driver. Rentang = ± <N v={tolerance} percent /> dari bagian forecast.</p>
+      <p className="muted">Aktual = jurnal s.d. {tgl(sm.lastActual)} (+ DO belum difaktur). Sisa bulan: hari dengan PO = PO berbobot; hari kerja tanpa PO = rata-rata revenue hari kerja dalam 7 hari kalender terakhir tanpa hari anomali, pada GP% bulan berjalan; biaya mengikuti driver. Rentang = ± <N v={tolerance} percent /> dari bagian forecast.</p>
       {rows.length === 0 ? <Card><p>Bulan ini belum dibangun.{canWrite ? " Tekan Bangun ulang." : ""}</p></Card> : null}
       <div className="kpis">
         <div className="kpi"><div className="l">Revenue outlook</div><div className="v"><N v={sm.outlook.revenue.div(1e6)} dp={1} /> jt</div><div className="l">aktual <N v={sm.actual.revenue.div(1e6)} dp={1} /> + forecast <N v={sm.forecast.revenue.div(1e6)} dp={1} /> · rentang <N v={sm.range.revenueLow.div(1e6)} dp={1} />–<N v={sm.range.revenueHigh.div(1e6)} dp={1} /></div></div>

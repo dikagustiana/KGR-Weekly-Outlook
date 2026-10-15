@@ -280,6 +280,7 @@ V3_SOURCES = {
     "demand": ("demand-2026-09", ["KGR_Demand_Forecast.xlsx"]),
     "fs": ("fs-2026-09", ["09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"]),
     "month": ("month-2026-08", ["KGR_Weekly_Outlook.xlsx", "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"]),
+    "accuracy": ("accuracy-2026-08", ["09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"]),
 }
 V3_EXTRACTORS = {}
 
@@ -531,8 +532,11 @@ def extract_month():
         if isinstance(label, str) and label.strip() and isinstance(v, (int, float)):
             final[label.strip()] = num(v)
     golden["fs_final_2026_08"] = {"source": f"reference/{FS_FILE} PL - Management Report!K12:K78", "lines": final}
-    golden["targets"] = {
-        "source": "docs/PLAN-v3.md Fase 4 (mockup Bulanan), docs/PRD-v3-kgr-platform.md §1 — in jt Rp, 1 decimal",
+    # PRD v4 K4: the v3 targets are revoked (computed with the zero day 25 Aug inside the run-rate, 649,4 jt below the
+    # final actual). They stay in the file as a record; the engine-computed golden of K3/K5/K11 is golden-v4.json
+    # (packages/engine/scripts/month-golden.ts), reviewed by the product owner before it is locked.
+    golden["revoked_v3_targets"] = {
+        "source": "docs/PLAN-v3.md Fase 4 (mockup Bulanan), docs/PRD-v3-kgr-platform.md §1 — DICABUT oleh docs/PRD-v4.md K4; jt Rp, 1 desimal",
         "cut_off": "2026-08-26",
         "actual": {"revenue": "6385.9", "gp": "347.4"},
         "forecast": {"revenue": "1326.5", "gp": "-54.0"},
@@ -545,6 +549,34 @@ def extract_month():
 
 
 V3_EXTRACTORS["month"] = extract_month
+
+
+def extract_accuracy():
+    """Accuracy fixture (PRD v4 §9.2, P13): the V1 of August 2026 (artifact "KGR Management View v2", Bulanan, as quoted in
+    PRD v4 P13 and Lampiran A) against the FINAL actual of the FS (PL - Management Report column K: revenue K12, GP K15,
+    NIBT K51). V1 has no NIBT in the artifact: its accuracy is N/A for NIBT."""
+    fs = openpyxl.load_workbook(os.path.join(REF, FS_FILE), data_only=True)["PL - Management Report"]
+    final = {"revenue": num(fs["K12"].value), "gp": num(fs["K15"].value), "nibt": num(fs["K51"].value)}
+    inputs = {
+        "month": "2026-08-01",
+        "final_source": f"reference/{FS_FILE} PL - Management Report K12 / K15 / K51",
+        "final": final,
+        # V1 outlook of August 2026 as quoted by PRD v4 (P13, K4); jt Rp. actual to the 26 Aug cut-off: 6.385,9 / GP 347,4
+        "v1_source": "docs/PRD-v4.md P13, Lampiran A (artifact Claude Design \"KGR Management View v2\", Bulanan)",
+        "v1": {"revenue_jt": "7712.4", "gp_jt": "293.4", "nibt_jt": None, "actual_mtd_revenue_jt": "6385.9", "actual_mtd_gp_jt": "347.4"},
+        # closing adjustments of August not yet in the journal at the cut-off are not given for revenue / GP in the FS; the
+        # DI-xx notes of September are recorded in fs-2026-09 and belong to September (docs/v3 F4b), so none here
+        "adjustments": {"revenue": "0", "gp": "0", "nibt": "0"},
+    }
+    golden = {
+        "source": "docs/PRD-v4.md P13: V1 7.712,4 vs FINAL 8.361,8 (+649,4 jt, +8,4%), porsi forecast +49%; GP 293,4 vs 306,7",
+        "revenue": {"abs_error_jt": "649.4", "pct_of_version": "0.084", "share_of_forecast_part": "0.49", "mape": "0.0777"},
+        "gp": {"abs_error_jt": "13.3"},
+    }
+    return {"inputs.json": inputs, "golden.json": golden}
+
+
+V3_EXTRACTORS["accuracy"] = extract_accuracy
 
 
 def sha256(path):

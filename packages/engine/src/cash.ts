@@ -194,3 +194,91 @@ export function cashControls(x: {
 
 /** Days between two dates, exposed for pages that label the horizon. */
 export const horizonDays = (a: ISODate, b: ISODate) => diffDays(b, a) + 1;
+
+// ------------------------------------------------------------------------------------------------ PRD v4 §3.7: operations vs affiliate funding
+
+export const AFFILIATE_CATEGORY = "Pinjaman afiliasi (net)";
+export const isAffiliatePlan = (p: CashPlan) => (p.cf_category ?? "").trim() === AFFILIATE_CATEGORY;
+
+export interface CashSplitWeek {
+  week_start: ISODate;
+  closing: Decimal;
+  /** Closing without any affiliate funding (the scenario "tanpa fasilitas afiliasi"). */
+  closingWithout: Decimal;
+  operatingIn: Decimal;
+  operatingOut: Decimal;
+  affiliateNet: Decimal;
+}
+
+export interface CashSplit {
+  days: { date: ISODate; closing: Decimal; closingWithout: Decimal }[];
+  weeks: CashSplitWeek[];
+  lowest: { date: ISODate; balance: Decimal };
+  lowestWithout: { date: ISODate; balance: Decimal };
+  /** The biggest outflows of the day of the lowest balance without the facility: what pushes the deficit (journey H). */
+  drivers: { description: string; amount: Decimal }[];
+  /** Always true: the scenario rests on the affiliate amount the caller says was already received (status assumption). */
+  assumption: string;
+}
+
+/**
+ * Operations and affiliate funding apart (G6): the closing per day with the planned affiliate flows, and the same series
+ * without them minus `affiliateReceived` — the affiliate funding already inside the start balance (the user-given
+ * assumption; 0 when unknown). Lowest balance of each series, and the outflows of the lowest day without the facility.
+ */
+export function cashProjectionSplit(x: { start: ISODate; balances: CashBalance[]; plans: CashPlan[]; weeks?: number; affiliateReceived?: Num }): CashSplit {
+  const base = cashProjection({ start: x.start, balances: x.balances, plans: x.plans, weeks: x.weeks });
+  const live = x.plans.filter((p) => (p.status ?? "plan") === "plan");
+  const recv = D(x.affiliateReceived ?? 0);
+  let aff = ZERO;
+  const days = base.days.map((d) => {
+    if (d.date !== x.start) aff = aff.plus(sum(live.filter((p) => p.date === d.date && isAffiliatePlan(p)).map((p) => D(p.amount))));
+    return { date: d.date, closing: d.projected_closing, closingWithout: d.projected_closing.minus(aff).minus(recv) };
+  });
+  const dow = new Date(`${x.start}T00:00:00Z`).getUTCDay();
+  const monday = addDays(x.start, -((dow + 6) % 7));
+  const weeks: CashSplitWeek[] = base.weeks.map((w) => {
+    const ws = w.week_start, we = addDays(ws, 6);
+    const ps = live.filter((p) => p.date > x.start && p.date >= ws && p.date <= we);
+    const ds = days.filter((d) => d.date >= ws && d.date <= we);
+    const aff2 = sum(ps.filter(isAffiliatePlan).map((p) => D(p.amount)));
+    return {
+      week_start: ws, closing: w.closing, closingWithout: ds.length ? ds[ds.length - 1].closingWithout : w.closing.minus(recv),
+      operatingIn: sum(ps.filter((p) => !isAffiliatePlan(p) && D(p.amount).gt(0)).map((p) => D(p.amount))),
+      operatingOut: sum(ps.filter((p) => !isAffiliatePlan(p) && D(p.amount).lt(0)).map((p) => D(p.amount))),
+      affiliateNet: aff2,
+    };
+  });
+  void monday;
+  const lo = (f: (d: (typeof days)[number]) => Decimal) => days.reduce((a, b) => (f(b).lt(f(a)) ? b : a), days[0]);
+  const l1 = lo((d) => d.closing), l2 = lo((d) => d.closingWithout);
+  const drivers = live.filter((p) => p.date === l2.date && !isAffiliatePlan(p) && D(p.amount).lt(0))
+    .map((p) => ({ description: p.description ?? p.cf_category ?? "pembayaran", amount: D(p.amount) })).sort((a, b) => a.amount.cmp(b.amount)).slice(0, 5);
+  return {
+    days, weeks, lowest: { date: l1.date, balance: l1.closing }, lowestWithout: { date: l2.date, balance: l2.closingWithout }, drivers,
+    assumption: recv.isZero() ? "tanpa fasilitas afiliasi: hanya arus afiliasi yang direncanakan dikeluarkan" : `tanpa fasilitas afiliasi: arus afiliasi terencana dan ${recv.div(1e6).toFixed(1)} jt yang sudah diterima dikeluarkan`,
+  };
+}
+
+/** 12 months: "tidak tersedia" (null) without a monthly outlook as its basis, never zeros (§3.7). */
+export function cashProjection12mOrNull(x: { month: ISODate; startClosing: Num | null; nibtOutlook: Num | null; depreciation: Num | null; months?: number }): ReturnType<typeof cashProjection12m> | null {
+  if (x.startClosing === null || x.nibtOutlook === null) return null;
+  return cashProjection12m({ month: x.month, startClosing: x.startClosing, nibtOutlook: x.nibtOutlook, depreciation: x.depreciation ?? 0, months: x.months });
+}
+
+/** Weeks (Monday–Sunday) from the days of the cash mart: closing of the last day, operating in / out and affiliate net summed. */
+export function cashWeeksFromDays(days: { date: ISODate; closing: Num | null; closing_without: Num | null; operating_in: Num | null; operating_out: Num | null; affiliate_net: Num | null }[]): CashSplitWeek[] {
+  const by = new Map<ISODate, typeof days>();
+  for (const d of days.slice().sort((a, b) => a.date.localeCompare(b.date))) {
+    const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
+    const ws = addDays(d.date, -((dow + 6) % 7));
+    by.set(ws, [...(by.get(ws) ?? []), d]);
+  }
+  return [...by.entries()].map(([week_start, ds]) => {
+    const last = ds[ds.length - 1];
+    return {
+      week_start, closing: D(last.closing ?? 0), closingWithout: D(last.closing_without ?? last.closing ?? 0),
+      operatingIn: sum(ds.map((d) => D(d.operating_in ?? 0))), operatingOut: sum(ds.map((d) => D(d.operating_out ?? 0))), affiliateNet: sum(ds.map((d) => D(d.affiliate_net ?? 0))),
+    };
+  });
+}

@@ -106,8 +106,8 @@
    "TOTAL COMPREHENSIVE INCOME FOR THE YEAR": "-26517860.509997386"
   }
  },
- "targets": {
-  "source": "docs/PLAN-v3.md Fase 4 (mockup Bulanan), docs/PRD-v3-kgr-platform.md §1 — in jt Rp, 1 decimal",
+ "revoked_v3_targets": {
+  "source": "docs/PLAN-v3.md Fase 4 (mockup Bulanan), docs/PRD-v3-kgr-platform.md §1 — DICABUT oleh docs/PRD-v4.md K4; jt Rp, 1 desimal",
   "cut_off": "2026-08-26",
   "actual": {
    "revenue": "6385.9",
