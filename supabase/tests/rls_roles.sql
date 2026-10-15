@@ -386,3 +386,178 @@ begin
 
   raise exception 'RLS-RESULTS v3 F4a (rolled back): %', out;
 end $$;
+
+-- v3 F4b (M4 monthly): Finance keeps outlook, versions (immutable) and closing adjustments; every role reads the
+-- outlook; the data mart pl_daily is written only through mart_replace.
+do $$
+declare out text := ''; n int; mid uuid; vid uuid;
+begin
+  insert into public.app_user(email, role) values ('t9-fin@x.test','finance'),('t9-sales@x.test','sales'),('t9-mgmt@x.test','management');
+  insert into public.month_outlook (month) values ('2030-03-01') returning id into mid;
+
+  perform set_config('request.jwt.claims', '{"email":"t9-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.month_outlook_version (month_outlook_id, version, snapshot, snapshot_sha256, revenue) values (mid, 'V1', '{}'::jsonb, 'x', 100) returning id into vid; out := out || 'finance lock V1: OK; ';
+  exception when others then out := out || 'finance lock V1: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.month_outlook_version set revenue = 1 where id = vid; out := out || 'edit locked version: ALLOWED(!); ';
+  exception when others then out := out || 'edit locked version: denied; '; end;
+  begin insert into public.closing_adjustment (month_outlook_id, code, description, pl_line, amount) values (mid, 'DI-T', 'rls', 'COGS - Live Bird', -1); out := out || 'finance adjustment: OK; ';
+  exception when others then out := out || 'finance adjustment: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.outlook_accuracy (month_outlook_id, version, metric, scope, value) values (mid, 'V1', 'MAPE', 'revenue', 0.1); out := out || 'finance accuracy: OK; ';
+  exception when others then out := out || 'finance accuracy: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.pl_daily (date, pl_line, basis, actual) values ('2030-03-01', 'Revenue - Trading', 'journal', 1); out := out || 'finance direct pl_daily: ALLOWED(!); ';
+  exception when others then out := out || 'finance direct pl_daily: denied; '; end;
+  select (public.mart_replace('pl_daily', '2030-03-02', '[{"date":"2030-03-02","pl_line":"Revenue - Trading","basis":"journal","actual":5}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'finance mart_replace pl_daily written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t9-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.month_outlook_version where month_outlook_id = mid; out := out || 'sales read versions=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.closing_adjustment (month_outlook_id, code, description, pl_line, amount) values (mid, 'X', 'x', 'x', 1); out := out || 'sales adjustment: ALLOWED(!); ';
+  exception when others then out := out || 'sales adjustment: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t9-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.pl_daily where date = '2030-03-02'; out := out || 'mgmt read pl_daily=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin update public.month_outlook set budget_revenue = 1 where id = mid; get diagnostics n = row_count; out := out || 'mgmt set budget rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'mgmt set budget: denied; '; end;
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F4b (rolled back): %', out;
+end $$;
+
+-- v3 F5 (M6 cash): Finance uploads balances and plans; management reads; sales / ppic see no cash; marts via mart_replace.
+do $$
+declare out text := ''; n int;
+begin
+  insert into public.app_user(email, role) values ('t10-fin@x.test','finance'),('t10-mgmt@x.test','management'),('t10-sales@x.test','sales'),('t10-ppic@x.test','ppic');
+
+  perform set_config('request.jwt.claims', '{"email":"t10-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.bank_account (account_no, bank) values ('T10-BCA', 'BCA'); insert into public.cash_daily (date, account_no, closing) values ('2030-04-01', 'T10-BCA', 100); out := out || 'finance cash_daily: OK; ';
+  exception when others then out := out || 'finance cash_daily: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cash_daily (date, account_no, closing) values ('2030-04-01', 'T10-BCA', 5); out := out || 'duplicate date × account: ALLOWED(!); ';
+  exception when others then out := out || 'duplicate date × account: denied; '; end;
+  begin insert into public.cash_daily_plan (date, account_no, amount, line_key) values ('2030-04-02', 'T10-BCA', -50, 't10'); out := out || 'finance plan: OK; ';
+  exception when others then out := out || 'finance plan: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cash_position_daily (date, total_closing) values ('2030-04-01', 1); out := out || 'finance direct mart: ALLOWED(!); ';
+  exception when others then out := out || 'finance direct mart: denied; '; end;
+  select (public.mart_replace('cash_position_daily', '2030-04-01', '[{"date":"2030-04-01","total_closing":100}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'finance mart_replace cash_position written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cash_daily where account_no = 'T10-BCA'; out := out || 'mgmt read cash=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.cash_daily (date, account_no, closing) values ('2030-04-03', 'T10-BCA', 1); out := out || 'mgmt write cash: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt write cash: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.cash_daily; out := out || 'sales read cash=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.cash_position_daily; out := out || 'sales read cash position=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t10-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.solvency_monthly; out := out || 'ppic read solvency=' || n || '; ';
+  execute 'reset role';
+  select count(*) into n from public.rebuild_queue where date = '2030-04-01' and status = 'queued';
+  out := out || 'cash upload queued rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v3 F5 (rolled back): %', out;
+end $$;
+
+-- v3 F6a (M7 commercial): sales read the commercial view without the SI cost; commercial_lead keeps assignments /
+-- targets / rules; the mart is written only through mart_replace.
+do $$
+declare out text := ''; n int;
+begin
+  insert into public.app_user(email, role) values ('t11-sales@x.test','sales'),('t11-cl@x.test','commercial_lead'),('t11-mgmt@x.test','management');
+  insert into public.commercial_daily (date, key, cost_per_kg_ma, cost_per_kg_si, rank) values ('2030-05-01', 'RPA|Karkas|Fresh', 30000, 29000, 1);
+
+  perform set_config('request.jwt.claims', '{"email":"t11-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily; out := out || 'sales read commercial_daily=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.commercial_daily_sales where date = '2030-05-01'; out := out || 'sales read view=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin perform cost_per_kg_si from public.commercial_daily_sales limit 1; out := out || 'sales SI column in view: PRESENT(!); ';
+  exception when others then out := out || 'sales SI column in view: absent; '; end;
+  begin insert into public.sales_assignment (sales_rep, email) values ('t11', 't11-sales@x.test'); out := out || 'sales insert assignment: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert assignment: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t11-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_assignment (sales_rep, email, key) values ('t11', 't11-sales@x.test', 'RPA|Karkas|Fresh'); out := out || 'cl insert assignment: OK; ';
+  exception when others then out := out || 'cl insert assignment: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_target (week_start, sales_rep, target_kg) values ('2030-04-29', 't11', 1000); out := out || 'cl insert target: OK; ';
+  exception when others then out := out || 'cl insert target: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.price_floor_rule (group_code, markup_rp_per_kg) values ('KARKAS', 500); out := out || 'cl insert floor rule: OK; ';
+  exception when others then out := out || 'cl insert floor rule: DENIED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.commercial_daily where date = '2030-05-01'; out := out || 'cl read commercial_daily=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.commercial_daily (date, key) values ('2030-05-02', 'x'); out := out || 'cl direct mart: ALLOWED(!); ';
+  exception when others then out := out || 'cl direct mart: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t11-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.urgency_rule (form, age_from, status) values ('fresh', 9, 'aman'); out := out || 'mgmt insert urgency rule: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt insert urgency rule: denied; '; end;
+  select count(*) into n from public.urgency_rule; out := out || 'mgmt read urgency rules=' || n || case when n = 5 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F6a (rolled back): %', out;
+end $$;
+
+-- v3 F6b (M7 approval): sales file pending requests; commercial_lead decides up to the limit (Rp 500/kg), finance above;
+-- a decision is final; scorecard mart via mart_replace.
+do $$
+declare out text := ''; n int; small uuid; big uuid;
+begin
+  insert into public.app_user(email, role) values ('t12-sales@x.test','sales'),('t12-cl@x.test','commercial_lead'),('t12-fin@x.test','finance');
+
+  perform set_config('request.jwt.claims', '{"email":"t12-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below) values ('K', 30000, 30300, 300, 100, 30000) returning id into small;
+    insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below) values ('K', 29000, 30300, 1300, 100, 130000) returning id into big;
+    out := out || 'sales file requests: OK; ';
+  exception when others then out := out || 'sales file requests: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.discount_approval (key, requested_price, floor_price, rp_per_kg_below, kg, total_below, status) values ('K', 1, 2, 1, 1, 1, 'approved'); out := out || 'sales insert approved: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert approved: denied; '; end;
+  begin update public.discount_approval set status = 'approved' where id = small; out := out || 'sales approve: ALLOWED(!); ';
+  exception when others then out := out || 'sales approve: denied; '; end;
+  select count(*) into n from public.discount_approval where id in (small, big) and requested_by = 't12-sales@x.test'; out := out || 'requested_by stamped=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-cl@x.test', decided_at = now() where id = small; out := out || 'cl approve 300/kg: OK; ';
+  exception when others then out := out || 'cl approve 300/kg: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-cl@x.test', decided_at = now() where id = big; out := out || 'cl approve 1300/kg: ALLOWED(!); ';
+  exception when others then out := out || 'cl approve 1300/kg: denied; '; end;
+  begin update public.discount_approval set status = 'rejected' where id = small; out := out || 'change final decision: ALLOWED(!); ';
+  exception when others then out := out || 'change final decision: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't12-fin@x.test', decided_at = now() where id = big; out := out || 'finance approve 1300/kg: OK; ';
+  exception when others then out := out || 'finance approve 1300/kg: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.discount_approval set requested_price = 1 where id = big; out := out || 'edit request after decision: ALLOWED(!); ';
+  exception when others then out := out || 'edit request after decision: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t12-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_scorecard_weekly (week_start, sales_rep) values ('2030-05-06', 'x'); out := out || 'cl direct scorecard: ALLOWED(!); ';
+  exception when others then out := out || 'cl direct scorecard: denied; '; end;
+  select (public.mart_replace('sales_scorecard_weekly', '2030-05-06', '[{"week_start":"2030-05-06","sales_rep":"Budi","actual_kg":10}]'::jsonb) ->> 'written')::int into n;
+  out := out || 'cl mart_replace scorecard written=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F6b (rolled back): %', out;
+end $$;

@@ -2,6 +2,60 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F7] Rilis bulanan, PDF, mobile, management view v3 (docs/PLAN-v3.md Fase 7)
+
+### Added
+- Engine `management.ts` (`inputSummary`, `cogsBySegment`, `rollForward`, `urgentStock`, `demandTotals`).
+- Web: monthly PDF `/api/m/[month]/pdf` and snapshot `/api/m/[month]/snapshot.json` (per locked version); weekly management view in PRD v3 §6 order with Input and COGS always present and the module sections / headline tiles when on (`lib/v3/management.ts`, `components/v3/ManagementV3.tsx`, `OutlookBody` split into parts); mobile read-only write forms on `/sku/[key]`, `/m/[month]`; `apps/web/vitest.config.ts` (alias + JSX) and `components/OutlookBody.test.tsx`.
+- Docs: `docs/handover.md` §4a (v3 daily rhythm, new roles), `docs/v3/SUMMARY.md`.
+
+### Fixed
+- `processRebuildQueue` does nothing when no module is on (`anyModuleOn`): a v1 upload no longer reads `rebuild_queue`, so the merged code runs on a database that does not have the v3 migrations yet (production before `db push`).
+
+### Verified
+- Preparer / management / print HTML without v3 slots identical to before the refactor; weekly snapshot unchanged.
+
+## [v3-F6b] M7 Approval diskon + scorecard (docs/PLAN-v3.md Fase 6, PR 6b)
+
+### Added
+- Migration `20261016001300_m7_approval.sql`: `discount_limit()`, decision guard on `discount_approval` (pending only on insert; commercial_lead ≤ limit, finance above; decisions final), `needs_rebuild` on `sales_target`.
+- Engine: `guardOrders` (order guard under the price floor) in `commercial.ts`.
+- Web: `lib/v3/discount.ts` (floor guard on Input → Penjualan save / paste and `po_lines`, approvals, C38, scorecard builder), `/komersial/approval`, `/komersial/scorecard`, C38 on Kontrol.
+
+### Verified
+- Order under the floor refused without approval; lead / finance limits enforced in the database; snapshot unchanged.
+
+## [v3-F6a] M7 Commercial view (docs/PLAN-v3.md Fase 6, PR 6a)
+
+### Added
+- Migration `20261016001200_m7_commercial.sql`: `sales_assignment`, `sales_target`, `urgency_rule` (seed Q18), `price_floor_rule`, `discount_approval`, data marts `commercial_daily`, `sales_scorecard_weekly`, view `commercial_daily_sales` (no SI cost), parameters `sales_sees_cost`, `discount_limit_rp_per_kg`.
+- Engine `commercial.ts` (urgency, price floor, commercial rows + ranking, realised price, below-floor approver, C38–C40, scorecard).
+- Web: `lib/v3/commercial.ts` (builder), `lib/v3/commercial-view.ts` (role view model, tested), `/komersial`, `/komersial/[key]`, C39/C40 and snapshot key `commercial`.
+
+### Verified
+- Sales view without SI / cost pool / batch reference; ranking changes with age; snapshot unchanged.
+
+## [v3-F5] M6 Kas, CCC, solvabilitas (docs/PLAN-v3.md Fase 5)
+
+### Added
+- Migration `20261016001100_m6_cash.sql`: `bank_account`, `cash_daily`, `cash_daily_plan`, data marts `cash_position_daily`, `ccc_daily`, `solvency_monthly`.
+- Engine `cash.ts` (position, scheduled payments, 13 weeks, 12 months, solvency, C35–C37) and `ccc.ts` (DIO/DSO/DPO/CCC, working capital, simulation).
+- Parsers `cash_balance` / `cash_plan_daily`; template `reference/templates/Template_Kas_Harian.xlsx` (`scripts/make_cash_template.py`).
+- Web: `lib/v3/cash.ts` (upload kind `cash_daily`, builder), `/kas`, `/kas/ccc`, C35–C37 and snapshot keys `cash`, `ccc`, `solvency`.
+
+### Verified
+- FS Sep 2026: equity 702,6 jt, paid-in 5.000 jt, affiliates 9.845,9 jt; DI-01…DI-04 amounts; snapshot unchanged.
+
+## [v3-F4b] M4 Outlook bulanan (docs/PLAN-v3.md Fase 4, PR 4b)
+
+### Added
+- Migration `20261016001000_m4_monthly.sql`: `month_outlook`, `month_outlook_version` (immutable, SHA-256), `outlook_assumption`, `closing_adjustment` (seed DI-01…DI-05 Sep 2026), data mart `pl_daily`, `outlook_accuracy`, `week.month_outlook_id`, parameters `v1_lock_day` / `forecast_tolerance_pct`, `needs_rebuild` on `gl_line`.
+- Engine `monthly.ts` (actual per day incl. unbilled DO, run-rate without anomalies, forecast per day, opex from drivers, outlook + range + budget, V1 lock day, bridge, accuracy, calibration, C32); fixture `fixtures/month-2026-08` (extractor `month`).
+- Web: `lib/v3/monthly.ts` (pl_daily builder, versions, FINAL + accuracy + calibration), `/m/[month]`, `/m/[month]/tutup-buku`, SVG daily chart, C32 and snapshot key `monthly`.
+
+### Verified
+- Actual 1–26 Aug = O_PnL MTD (6.385,9 / 347,4 jt); PO days 27–29 Aug; run-rate 31 Aug (258,7) not reproduced — todo, docs/open-questions.md §E.4.
+
 ## [v3-F4a] M5 Biaya dengan driver (docs/PLAN-v3.md Fase 4, PR 4a)
 
 ### Added

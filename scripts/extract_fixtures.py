@@ -507,6 +507,46 @@ def extract_fs():
 V3_EXTRACTORS["fs"] = extract_fs
 
 
+def extract_month():
+    """Month outlook August 2026 at cut-off 26 Aug (PLAN-v3 Fase 4b).
+
+    The inputs are the example week (fixtures/week-2026-08-24: GL 1–26 Aug, PO lines 27–29 Aug, run-rate); golden.json
+    holds the cached MTD column of O_PnL (KGR_Weekly_Outlook.xlsx, actual 1–26 Aug), the FINAL August P&L of the FS
+    (PL - Management Report column K) and the targets of the mockup "Bulanan" as written in docs/PLAN-v3.md /
+    docs/PRD-v3-kgr-platform.md §1 (the mockup itself is not in reference/).
+    """
+    wbv = openpyxl.load_workbook(os.path.join(REF, "KGR_Weekly_Outlook.xlsx"), data_only=True)
+    pnl = wbv["O_PnL"]
+    golden = {}
+    for r in range(1, pnl.max_row + 1):
+        for col in ("A", "G"):
+            v = pnl[f"{col}{r}"].value
+            if v is not None:
+                golden[f"O_PnL!{col}{r}"] = num(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else (iso(v) if isinstance(v, (dt.date, dt.datetime)) else v)
+    fs = openpyxl.load_workbook(os.path.join(REF, FS_FILE), data_only=True)["PL - Management Report"]
+    final = {}
+    for r in range(12, 79):
+        label = fs.cell(r, 2).value
+        v = fs.cell(r, 11).value  # K = 2026-08-31
+        if isinstance(label, str) and label.strip() and isinstance(v, (int, float)):
+            final[label.strip()] = num(v)
+    golden["fs_final_2026_08"] = {"source": f"reference/{FS_FILE} PL - Management Report!K12:K78", "lines": final}
+    golden["targets"] = {
+        "source": "docs/PLAN-v3.md Fase 4 (mockup Bulanan), docs/PRD-v3-kgr-platform.md §1 — in jt Rp, 1 decimal",
+        "cut_off": "2026-08-26",
+        "actual": {"revenue": "6385.9", "gp": "347.4"},
+        "forecast": {"revenue": "1326.5", "gp": "-54.0"},
+        "outlook": {"revenue": "7712.4", "gp": "293.4"},
+        "daily_revenue": {"2026-08-27": "457.8", "2026-08-28": "232.1", "2026-08-29": "378.0", "2026-08-30": "0", "2026-08-31": "258.7"},
+        "share_with_po": "0.805",
+    }
+    inputs = {"month": "2026-08-01", "cut_off": "2026-08-26", "week_fixture": "week-2026-08-24", "budget": None, "forecast_tolerance_pct": "0.10"}
+    return {"inputs.json": inputs, "golden.json": golden}
+
+
+V3_EXTRACTORS["month"] = extract_month
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:

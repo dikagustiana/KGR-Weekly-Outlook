@@ -244,3 +244,149 @@ Golden M5          → PREPAID RENT!D11 1.133.790.000 ÷ 12 = 94.482.500 (94,48 
 Migrasi lokal      → dijalankan dua kali tanpa error; seed 7 baris jadwal; driver: fixed 24, variable 15, runrate 45, none 23 (Revenue/Other Income)
 ```
 
+## F4b — M4 Outlook bulanan
+
+Branch `v3/f4b-monthly` (di atas `v3/f4a-drivers`) · desain [`F4b-design.md`](F4b-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001000_m4_monthly.sql` | `month_outlook`, `month_outlook_version` (immutable), `outlook_assumption`, `closing_adjustment` (+ seed DI-01…DI-05 Sep 2026), `pl_daily` (mart), `outlook_accuracy`, `week.month_outlook_id`, parameter `v1_lock_day` / `forecast_tolerance_pct`, `needs_rebuild` di `gl_line` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001000`), setelah F4a.
+2. Urutan flag: `m5_drivers` (admin, finance) → `m4_monthly` (admin dulu) → `/m/[bulan]` "Bangun ulang" → periksa vs P&L mingguan → `m4_monthly` untuk semua peran.
+3. Finance: isi budget bulanan (Q16) di `/m/[bulan]`; kunci V1 pada hari kerja ke-20, V2 menjelang akhir bulan, FINAL setelah tutup buku di `/m/[bulan]/tutup-buku`; konfirmasi tanda DI-02 / DI-03 (V32) dan posting penyesuaian September.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 161 passed + 3 todo (baru: monthly.test.ts 8 + 2 todo) · parsers 18 · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /m/[month], ƒ /m/[month]/tutup-buku)
+pnpm test:rls      → OK; F4b: finance lock V1 OK; edit locked version denied; finance adjustment OK; finance accuracy OK;
+                     finance direct pl_daily denied; finance mart_replace pl_daily written=1; sales read versions=1;
+                     sales adjustment denied; mgmt read pl_daily=1; mgmt set budget rows=0
+Golden M4          → aktual 1–26 Agu = O_PnL!G9 6.385.876.039 / G15 347.403.254,84; PO 27/28/29 Agu 457,74 / 232,08 / 378,00 jt
+                     (target ± 0,1 jt, pembulatan per segmen); 30 Agu = 0; 25 Agu anomali (D6)
+Tidak tereproduksi → run-rate 31 Agu: app 319,29 vs 258,7 jt; forecast 1.387,12 / −35,17 vs 1.326,5 / −54,0;
+                     outlook 7.773,00 / 312,24 vs 7.712,4 / 293,4; ber-PO 77,0% vs 80,5% (§E.4, test todo)
+```
+
+## F5 — M6 Kas, CCC, solvabilitas
+
+Branch `v3/f5-cash` (di atas `v3/f4b-monthly`) · desain [`F5-design.md`](F5-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001100_m6_cash.sql` | `bank_account`, `cash_daily`, `cash_daily_plan`, mart `cash_position_daily`, `ccc_daily`, `solvency_monthly`; RLS admin/finance/management |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001100`), setelah F4b.
+2. Finance: unduh `reference/templates/Template_Kas_Harian.xlsx`, isi saldo semua rekening per hari kerja + rencana kas (isi `id_jadwal_tetap` untuk pembayaran jadwal biaya tetap), upload jenis "Finance — template kas harian"; isi `cash_day_of_month` di jadwal biaya tetap (`/m/[bulan]/biaya`) untuk pembayaran otomatis di proyeksi.
+3. Flag `m6_cash` on (admin, finance, management). C35 harus LULUS (Σ rekening = kas neraca) sebelum headline manajemen memakai "kas terendah 13 minggu" (F7).
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 169 passed + 3 todo (baru: cash.test.ts 8) · parsers 20 (baru: template kas 2) · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /kas, ƒ /kas/ccc)
+pnpm test:rls      → OK; F5: finance cash_daily OK; duplicate date × account denied; finance plan OK; finance direct mart denied;
+                     finance mart_replace cash_position written=1; mgmt read cash=1; mgmt write cash denied; sales read cash=0;
+                     sales read cash position=0; ppic read solvency=0; cash upload queued rebuild=1
+Golden M6 (FS Sep) → ekuitas 702.553.474,90 (702,6 jt), modal 5.000 jt, afiliasi 9.845.918.888,89 (9.845,9 jt); 0,8 bulan sampai
+                     ekuitas negatif pada NIBT Sep; DI-01 48,35 · DI-02 48,08 · DI-03 12 · DI-04 62,45 + 69,66 = seed M4;
+                     CCC Sep: DIO 37,5 · DSO 4,5 · DPO 0,8 hari
+Template           → scripts/make_cash_template.py → 12 kategori arus kas (seed coa_map); kedua sheet terbaca parser
+```
+
+## F6a — M7 Commercial view
+
+Branch `v3/f6a-commercial` (di atas `v3/f5-cash`) · desain [`F6a-design.md`](F6a-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001200_m7_commercial.sql` | seluruh model M7: `sales_assignment`, `sales_target`, `urgency_rule` (seed Q18), `price_floor_rule`, `discount_approval`, mart `commercial_daily`, `sales_scorecard_weekly`, view `commercial_daily_sales`, parameter `sales_sees_cost`, `discount_limit_rp_per_kg` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001200`), setelah F5.
+2. Commercial lead: isi `sales_assignment` (sales_rep, **email login**, key/customer) dan `sales_target`; periksa aturan harga lantai (`price_floor_rule`, default = MA + simpan × 7 + blast) dan `sku_key.storage_cost_per_kg_day`.
+3. Flag `m7_commercial` on (butuh `m2_ledger` on): admin + commercial_lead dulu, lalu sales dan management. `m7_approval` tetap off sampai F6b diterima (PRD §10 risiko sales).
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 176 passed + 3 todo (baru: commercial.test.ts 7) · parsers 20 · web 12 (baru: commercial-view.test.ts 3)
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /komersial, ƒ /komersial/[key])
+pnpm test:rls      → OK; F6a: sales read commercial_daily=0; sales read view=1; sales SI column in view absent; sales insert assignment denied;
+                     cl insert assignment / target / floor rule OK; cl read commercial_daily=1; cl direct mart denied;
+                     mgmt insert urgency rule denied; mgmt read urgency rules=5
+M7                 → DOM sales tanpa SI / cost pool / batch_ref (view model); ranking berubah saat umur berubah; minggu contoh 26 Agu:
+                     ranking lengkap per key, status di atas batas umur / jual hari ini lebih dulu
+```
+
+## F6b — M7 Approval diskon + scorecard
+
+Branch `v3/f6b-approval` (di atas `v3/f6a-commercial`) · desain [`F6b-design.md`](F6b-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001300_m7_approval.sql` | `discount_limit()`, trigger `discount_guard`, `needs_rebuild` di `sales_target` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001300`), setelah F6a.
+2. `m7_approval` on **setelah** `m7_commercial` berjalan dan harga lantai diperiksa commercial lead (order di bawah lantai langsung ditolak). Mulai dari admin + commercial_lead + finance, lalu sales.
+3. Finance konfirmasi batas `discount_limit_rp_per_kg` (Q19, Rp 500/kg) di Parameter.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 178 passed + 3 todo (baru: order guard 2) · parsers 20 · web 12
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /komersial/approval, ƒ /komersial/scorecard)
+pnpm test:rls      → OK; F6b: sales file requests OK; sales insert approved denied; sales approve denied; requested_by stamped=2;
+                     cl approve 300/kg OK; cl approve 1300/kg denied; change final decision denied; finance approve 1300/kg OK;
+                     edit request after decision denied; cl direct scorecard denied; cl mart_replace scorecard written=1
+```
+
+## F7 — Rilis bulanan, PDF, mobile, management view v3
+
+Branch `v3/f7-release` (di atas `v3/f6b-approval`) · desain [`F7-design.md`](F7-design.md) · ringkasan seluruh v3: [`SUMMARY.md`](SUMMARY.md)
+
+### Migrasi
+
+Tidak ada.
+
+### Perintah untuk manusia
+
+1. Tidak ada `db push` baru. Setelah semua PR F0–F7 di-merge berurutan: periksa tampilan manajemen mingguan (Input + HPP tampil walau semua modul off), PDF bulanan dari `/m/[bulan]`.
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 182 passed + 3 todo (baru: management.test.ts 4) · parsers 20 · web 14 (baru: OutlookBody.test.tsx 2)
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /api/m/[month]/pdf, ƒ /api/m/[month]/snapshot.json)
+Refactor OutlookBody → renderToStaticMarkup penyusun / manajemen × cetak / layar tanpa slot v3 = HTML versi sebelumnya (identik, 4 kasus)
+Golden             → COGS/kg RPA 32.721 dan revenue/kg 30.914 (PRD v3 §1) dari P&L proyeksi minggu ÷ kg proyeksi RPA;
+                     roll-forward ledger 24–26 Agu = saldo ledger 26 Agu; LB dibeli = batch Aktual blok 6
+```
+

@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { TABLES, canWriteRow, type TableDef } from "@/lib/tables";
 import { applyChanges } from "@/lib/write";
 import { moduleSettings } from "@/lib/modules";
+import { consumeApprovals, floorGuard } from "@/lib/v3/discount";
 import { weekIdOf } from "@/lib/rollover";
 
 type Row = Record<string, unknown>;
@@ -46,17 +47,29 @@ export async function saveRow(form: FormData) {
   const { row, errors } = readRow(def, form);
   if (errors.length) back(week, path, errors.join("; "), "err");
   const sb = await supabaseServer();
+  // M7 (flag m7_approval): an order under the price floor needs an approved discount (PRD v3 §4.8)
+  let covered: string[] = [];
+  if (def.table === "sales_line" && row.status === "Order") {
+    try {
+      covered = (await floorGuard(sb, v, await moduleSettings(), [{ item_code: row.item_code as string | null, key_manual: row.key_manual as string | null, customer: row.customer as string | null, price: row.price as string | null, kg: row.kg as string | null, date: row.date as string | null }])).covered;
+    } catch (e) { back(week, path, (e as Error).message, "err"); }
+  }
   if (id) {
     const { data: old } = await sb.from(def.table).select("*").eq("id", id).maybeSingle();
     if (!old) back(week, path, "Baris tidak ditemukan", "err");
     if (!canWriteRow(v.role, def, old as Row) || !canWriteRow(v.role, def, { ...(old as Row), ...row })) back(week, path, "Peran Anda tidak boleh mengubah baris ini", "err");
-    try { await applyChanges(sb, def.table, [], [{ id, ...row }]); } catch (e) { back(week, path, (e as Error).message, "err"); }
+    try { await applyChanges(sb, def.table, [], [{ id, ...row }]); await consumeApprovals(sb, covered, id); } catch (e) { back(week, path, (e as Error).message, "err"); }
   } else {
     if (!canWriteRow(v.role, def, { ...row, source: "Manual" })) back(week, path, "Peran Anda tidak boleh menambah baris ini", "err");
     const weekId = await weekIdOf(sb, week);
     const { data: last } = await sb.from(def.table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle();
+    const seq = Number((last as Row | null)?.seq ?? 0) + 1;
     try {
-      await applyChanges(sb, def.table, [{ ...row, week_id: weekId, seq: Number((last as Row | null)?.seq ?? 0) + 1, source: "Manual" }]);
+      await applyChanges(sb, def.table, [{ ...row, week_id: weekId, seq, source: "Manual" }]);
+      if (covered.length) {
+        const { data: ins } = await sb.from(def.table).select("id").eq("week_id", weekId).eq("seq", seq).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        await consumeApprovals(sb, covered, ins ? String((ins as Row).id) : null);
+      }
     } catch (e) { back(week, path, (e as Error).message, "err"); }
   }
   revalidatePath(`/w/${week}`, "layout");
@@ -118,7 +131,13 @@ export async function pasteRows(form: FormData) {
   });
   const bad = rows.filter((r) => !canWriteRow(v.role, def, r));
   if (bad.length) back(week, path, `Peran Anda tidak boleh menambah ${bad.length} baris dari tempelan`, "err");
-  try { await applyChanges(sb, table, rows); } catch (e) { back(week, path, (e as Error).message, "err"); }
+  let covered: string[] = [];
+  if (table === "sales_line") {
+    const orders = rows.filter((r) => r.status === "Order" || !r.status);
+    try { covered = (await floorGuard(sb, v, await moduleSettings(), orders.map((r) => ({ item_code: r.item_code as string | null, key_manual: r.key_manual as string | null, customer: r.customer as string | null, price: r.price as string | null, kg: r.kg as string | null, date: r.date as string | null })))).covered; }
+    catch (e) { back(week, path, (e as Error).message, "err"); }
+  }
+  try { await applyChanges(sb, table, rows); await consumeApprovals(sb, covered, null); } catch (e) { back(week, path, (e as Error).message, "err"); }
   revalidatePath(`/w/${week}`, "layout");
   back(week, path, `${rows.length} baris ditambahkan dari tempelan${parsed.issues.length ? ` (${parsed.issues.join("; ")})` : ""}`);
 }
