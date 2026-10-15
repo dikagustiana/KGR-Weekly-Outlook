@@ -5,7 +5,7 @@
 import type { Sheet } from "./workbook";
 import { F, detect, extract, type Detected, type FieldDef, type Mapping, type ParsedRow } from "./tables";
 
-export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply";
+export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply" | "cash_balance" | "cash_plan_daily";
 
 export interface V3TableDef {
   kind: V3TableKind;
@@ -89,6 +89,29 @@ export const V3_TABLES: V3TableDef[] = [
       F("kg", "kg", "number", ["kg", "berat", "kg lb"]),
       F("price_per_kg", "Harga Rp/kg", "number", ["price_per_kg", "harga", "harga rpkg", "price"]),
       F("status", "Status", "text", ["status"]),
+    ],
+  },
+  {
+    // Template kas harian, sheet "Saldo": tanggal, no_rekening, saldo_awal, saldo_akhir, catatan (PRD v3 §4.7)
+    kind: "cash_balance",
+    fields: [
+      F("date", "Tanggal", "date", ["tanggal", "tgl", "date"], true),
+      F("account_no", "No. rekening", "text", ["no_rekening", "no rekening", "rekening", "account", "account no", "akun bank"], true),
+      F("opening", "Saldo awal", "number", ["saldo_awal", "saldo awal", "opening", "awal"]),
+      F("closing", "Saldo akhir", "number", ["saldo_akhir", "saldo akhir", "closing", "akhir"], true),
+      F("note", "Catatan", "text", ["catatan", "keterangan", "note"]),
+    ],
+  },
+  {
+    // sheet "Rencana": tanggal, no_rekening, kategori_cf, deskripsi, jumlah (+ masuk / − keluar), id_jadwal_tetap
+    kind: "cash_plan_daily",
+    fields: [
+      F("date", "Tanggal", "date", ["tanggal", "tgl", "date"], true),
+      F("account_no", "No. rekening", "text", ["no_rekening", "no rekening", "rekening", "account"]),
+      F("cf_category", "Kategori arus kas", "text", ["kategori_cf", "kategori cf", "kategori arus kas", "kategori", "category"]),
+      F("description", "Deskripsi", "text", ["deskripsi", "keterangan", "uraian", "description"]),
+      F("amount", "Jumlah", "number", ["jumlah", "amount", "nilai", "nominal"], true),
+      F("fixed_cost_schedule_id", "ID jadwal tetap", "text", ["id_jadwal_tetap", "id jadwal tetap", "jadwal", "schedule"]),
     ],
   },
 ];
