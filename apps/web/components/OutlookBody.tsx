@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { WeekResult } from "@kgr/engine";
 import { Badge, Card, N, Td, statusClass } from "@/components/ui";
 import { num, tgl, tglShort } from "@/lib/fmt";
+import type { ViewMode } from "@/lib/view";
 
 const T = {
   b1kgA: "T_Penjualan: Σ kg baris Aktual yang dihitung (tanggal di minggu ini)",
@@ -16,9 +17,10 @@ const T = {
 };
 
 /** O_Outlook blocks 1–8; shared by the Outlook page and the print view. */
-export function OutlookBody({ r, week, print = false }: { r: WeekResult; week: string; print?: boolean }) {
+export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: WeekResult; week: string; print?: boolean; view?: ViewMode }) {
   const b2 = r.block2;
   const p = r.prepared.params;
+  const mgmt = view === "management";
   return (
     <>
       <Card title="1. Ringkasan minggu — GP produk (HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk)">
@@ -68,7 +70,9 @@ export function OutlookBody({ r, week, print = false }: { r: WeekResult; week: s
               <Row l="Potensi selisih harga karkas yang jadi frozen" v={b2.frozenPriceGap} u="Rp" h="kg frozen × (harga fresh − frozen)" />
             </tbody>
           </table>
-          <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>
+          {mgmt
+            ? <div className="reco" data-reco>{b2.action.text}</div>
+            : <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>}
           <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
             Yield dipakai: {b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas {num(r.prepared.yields.karkas.times(100), 2)}%; shrink target {num(p.shrink.times(100), 1)}%; angkut Rp {num(p.freight)}/kg LB; maklon Rp {num(p.maklon)}/kg diproses.
           </p>
@@ -78,8 +82,8 @@ export function OutlookBody({ r, week, print = false }: { r: WeekResult; week: s
           <table className="t compact">
             <thead><tr><th>Status</th><th className="n">Jumlah SKU</th><th className="n">kg hari ini</th><th className="n">Nilai Rp</th></tr></thead>
             <tbody>
-              {r.block4.map((s) => (
-                <tr key={s.status}>
+              {r.block4.filter((s) => !(mgmt && s.keys === 0)).map((s) => (
+                <tr key={s.status} className={s.keys === 0 ? "dim" : undefined}>
                   <td><Link href={`/w/${week}/stok?status=${s.status}`}><Badge s={s.status}>{s.label}</Badge></Link></td>
                   <Td v={s.keys} tip="O_Stok: jumlah SKU dengan status ini" /><Td v={s.kgToday} tip="Σ stok hari ini" /><Td v={s.value} tip="Σ stok hari ini × biaya rata-rata" />
                 </tr>

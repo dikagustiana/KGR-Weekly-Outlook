@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Decimal } from "../src/decimal";
 import { addDays, assertISODate, isISODate, mondayOf, daysInMonth } from "../src/dates";
 import { computeWeek } from "../src/week";
+import { rpaAction } from "../src/outlook";
 import { loadFixtureWeek } from "../src/fixtures";
 import { fixed, pct } from "../src/format";
 import type { WeekInputs } from "../src/types";
@@ -133,6 +134,11 @@ describe("§5.3 RPA recommendation branches", () => {
   it("TUNDA when LB price > breakeven at 100% fresh", () => {
     const b = withPlan(30000, 1000, 0);
     expect(b.recommendation).toBe("TUNDA / NEGOSIASI");
+    // R4: one action — NEGOSIASI with the breakeven of today's plan as the target
+    expect(b.action.kind).toBe("NEGOSIASI");
+    expect(b.action.targetPrice!.equals(b.breakevenAtPlanShare)).toBe(true);
+    expect(b.action.kg).toBeNull();
+    expect(b.action.text).toMatch(/^NEGOSIASI ≤ Rp [\d.]+: harga live bird hari ini Rp 30\.000 di atas breakeven rencana potong$/);
   });
   it("KURANGI when planned > LB max + 0,5", () => {
     const b = withPlan(18000, 10000, 1000);
@@ -140,6 +146,9 @@ describe("§5.3 RPA recommendation branches", () => {
     // LB max = net need ÷ ((1 − s) × y_k) with default yields (no Aktual batches)
     expect(b.lbMaxWithoutFrozen.toFixed(6)).toBe(new Decimal(1000).div(new Decimal("0.97").times("0.7367")).toFixed(6));
     expect(b.recommendationText).toContain("KURANGI potong ke maksimum 1.399 kg LB (rencana 10.000 kg)");
+    expect(b.action.kind).toBe("POTONG");
+    expect(b.action.kg!.equals(b.lbMaxWithoutFrozen)).toBe(true);
+    expect(b.action.text).toBe("POTONG 1.399 kg LB: rencana 10.000 kg melebihi kebutuhan karkas fresh");
   });
   it("POTONG HANYA SESUAI ORDER when price ≤ breakeven(1) but margin at plan share < 0", () => {
     // net need 1 kg → LB max 1,399 kg; plan 1,8 kg (≤ max + 0,5) → fresh share 0,777 < 1
@@ -149,11 +158,27 @@ describe("§5.3 RPA recommendation branches", () => {
     const b = withPlan(lb, 1.8, 1);
     expect(b.marginPerKgLb.lessThan(0)).toBe(true);
     expect(b.recommendation).toBe("POTONG HANYA SESUAI ORDER");
+    expect(b.action.kind).toBe("POTONG");
+    expect(b.action.kg!.equals(b.lbMaxWithoutFrozen)).toBe(true);
+    expect(b.action.text).toBe("POTONG 1 kg LB: margin per kg live bird negatif, potong hanya untuk order");
   });
   it("LANJUT when price below breakeven and the plan fits the fresh need", () => {
     const b = withPlan(15000, 1000, 100_000);
     expect(b.freshShareOfPlan.toNumber()).toBe(1);
     expect(b.recommendation).toBe("LANJUT");
+    expect(b.action.kind).toBe("POTONG");
+    expect(b.action.kg!.toNumber()).toBe(1000);
+    expect(b.action.text).toBe("POTONG 1.000 kg LB: harga di bawah breakeven dan kebutuhan fresh tertutup");
+  });
+  it("R4: TUNDA only when the plan has no positive breakeven to negotiate to", () => {
+    const a = rpaAction("TUNDA / NEGOSIASI", new Decimal(24600), new Decimal(0), new Decimal(0), new Decimal(1000));
+    expect(a.kind).toBe("TUNDA");
+    expect(a.targetPrice).toBeNull();
+    expect(a.text).toBe("TUNDA: harga live bird di atas breakeven dan tidak ada harga target");
+  });
+  it("R4: the example week reads NEGOSIASI ≤ Rp 20.726", () => {
+    const b = computeWeek(base()).block2;
+    expect(b.action.text).toBe("NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong");
   });
   it("V(f) and breakeven formula", () => {
     const b = withPlan(20000, 0, 0);

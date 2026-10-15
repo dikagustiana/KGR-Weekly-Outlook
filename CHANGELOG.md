@@ -72,3 +72,7 @@ Evidence per stage (checklist PRD §5, screenshots 1366×768): `docs/management-
 ### Stage 1 — R1 role split
 - `viewMode` (`management` | `preparer`) from the existing role: `management` always gets the management view; every other role is a preparer and can preview the management view from the topbar (cookie `kgr_view`). Presentation only; access rules are unchanged.
 - Root `pnpm test` also runs the web unit tests.
+
+### Stage 2 — R2, R4, R9 (zero rows)
+- Engine: `block2.action` — the RPA recommendation as one action from {TUNDA, NEGOSIASI ≤ Rp X, BELI, POTONG N kg} with the text `[AKSI]: [alasan]`. Mapped from the existing Excel code and figures (NEGOSIASI target = breakeven of today's plan, B21); no formula changed. Example week: "NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong".
+- Management view: headline block under the title (GP projection and Δ vs last week, today's RPA action, stock above the age limit with a link to the SKU detail), read from the same fields as the tables; section 2 shows the action; stock rows with 0 SKU are hidden (grey in the preparer view).
