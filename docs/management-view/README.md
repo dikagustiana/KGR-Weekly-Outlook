@@ -2,6 +2,8 @@
 
 Spesifikasi: [`docs/PRD-management-view-v2.md`](../PRD-management-view-v2.md). Baseline angka: [`tests/snapshots/outlook-2026-08-24.before.json`](../../tests/snapshots/outlook-2026-08-24.before.json) (SHA-256 `947ce203…a83`), dicek oleh `pnpm snapshot:diff` dan tes `packages/engine/test/snapshot-baseline.test.ts` di CI.
 
+**Status akhir (Tahap 4):** ketujuh kriteria PRD §5 PASS dengan bukti di bawah; view preparer tidak berubah selain tombol pratinjau dan baris stok 0 SKU yang abu-abu.
+
 ## Keputusan atas ambiguitas PRD (disetujui owner: "beresin sampai selesai" dengan usulan default)
 
 | Tahap | Pertanyaan | Keputusan |
@@ -78,4 +80,25 @@ Tes: engine 66, parser 10, web 5 lulus; `pnpm typecheck` dan `pnpm build` lulus.
 | Preparer (1366×768) | Manajemen (1366×768) |
 | --- | --- |
 | ![preparer](img/stage3-preparer-1366x768.png) | ![manajemen](img/stage3-management-1366x768.png) |
+
+### Tahap 4 — R6, R7, R8, R9 (status teks), R11, R14, R15, R16
+
+Tes: engine 66, parser 10, web 5 lulus; `pnpm typecheck` dan `pnpm build` lulus; sapuan 29 halaman + PDF/CSV/JSON: semua 200.
+
+| # | Kriteria (PRD §5) | Status | Bukti |
+|---|---|---|---|
+| 1 | Snapshot JSON engine minggu 24–30 Agu 2026 identik byte-per-byte (kecuali `warning.audience`, `recommendation.action`) | PASS | `pnpm snapshot:diff`: new fields present: block2.action={"kind":"NEGOSIASI","targetPrice":"20725.657457","kg":null,"text":"NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong"}; block7[].audience=preparer,management,management / diff vs baseline (without block2.action, block7[].audience): EMPTY — byte-identical |
+| 2 | Login manajemen: tidak ada I_, O_, T_, @kgr-weekly-outlook, "bersumber Ops" di DOM | PASS | grep page.content() (125608 char): I_/O_/T_: 0; @kgr-weekly-outlook: 0; bersumber Ops: 0 |
+| 3 | Blok headline (R2) tampil di 1366×768 tanpa scroll | PASS | [data-headline] y=151 tinggi=83 → bawah 234 px ≤ 768 (scrollY=0, viewport 1366×768) |
+| 4 | Rekomendasi mengandung tepat satu aksi dari enum | PASS | [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726; [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726 |
+| 5 | Tidak ada background merah/kuning kecuali teks nilai negatif | PASS | computed background-color semua elemen body: tidak ada hue merah/kuning (s>0,3) |
+| 6 | Preparer bisa toggle ke view manajemen dan kembali | PASS | HTTP 200; main[data-view]: preparer → klik "Pratinjau tampilan manajemen" → management (/w/2026-08-24/outlook) → klik "Kembali ke tampilan penyusun" → preparer |
+| 7 | Tab keyboard menjangkau tooltip R5 dan link "detail per SKU" | PASS | tooltip R5 [data-r5-tip]: Tab ke-58 («Harga live bird hari ini (penawaran)»); link [data-detail-sku]: Tab ke-15 («detail per SKU →») |
+| + | Role manajemen selalu view manajemen (R1) | PASS | HTTP 200; main[data-view]=management; tombol toggle tidak ada |
+
+| Preparer (1366×768) | Manajemen (1366×768) |
+| --- | --- |
+| ![preparer](img/stage4-preparer-1366x768.png) | ![manajemen](img/stage4-management-1366x768.png) |
+
+Halaman penuh view manajemen: ![manajemen penuh](img/stage4-management-full.png)
 

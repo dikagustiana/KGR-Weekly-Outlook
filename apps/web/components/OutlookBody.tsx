@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { WeekResult } from "@kgr/engine";
 import { Badge, Card, N, Td, statusClass } from "@/components/ui";
 import { num, tgl, tglShort } from "@/lib/fmt";
@@ -27,17 +28,25 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
   const h = (t: string | undefined) => (mgmt ? humanize(t) : t);
   // R10: management sees only its own warnings, and not the ones already in the headline / recommendation (R2, R4)
   const alerts = mgmt ? r.block7.filter((a) => a.audience === "management" && a.code !== "LB_DI_ATAS_BREAKEVEN") : r.block7;
+  // R6/R14: statement headings without numbers in the management view; the preparer keeps the Excel block numbers
+  const title = (preparer: string, management: ReactNode) => (mgmt ? management : preparer);
+  // R7: decisive columns weigh 600, supporting columns are secondary (management view)
+  const key = mgmt ? "key" : undefined;
+  const sup = mgmt ? "support" : undefined;
+  // R11: one date convention in the management view
+  const day = (d: string) => (mgmt ? tgl(d) : tgl(d, true));
   return (
     <>
-      <Card title="1. Ringkasan minggu — GP produk (HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk)">
+      <Card id="ringkasan" title={title("1. Ringkasan minggu — GP produk (HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk)",
+        <>Ringkasan GP minggu ini<Ref n={1} /><Ref n={2} /></>)}>
         <div className="scroll">
           <table className="t">
             <thead>
               <tr>
                 <th>Segmen</th><th className="n">kg aktual{"\n"}s.d. kemarin</th><th className="n">Revenue aktual{"\n"}Rp</th><th className="n">GP aktual{"\n"}Rp</th>
-                <th className="n">kg order{"\n"}sisa minggu</th><th className="n">Revenue order{"\n"}Rp</th><th className="n">GP order{"\n"}Rp</th>
-                <th className="n">kg proyeksi{"\n"}minggu</th><th className="n">Revenue proyeksi{"\n"}Rp</th><th className="n">GP proyeksi{"\n"}Rp</th>
-                <th className="n">GP/kg{"\n"}proyeksi</th><th className="n">GP %{"\n"}proyeksi</th><th className="n">GP/kg{"\n"}minggu lalu</th><th className="n">Δ GP/kg</th>
+                <th className={`n ${sup ?? ""}`}>kg order{"\n"}sisa minggu</th><th className={`n ${sup ?? ""}`}>Revenue order{"\n"}Rp</th><th className={`n ${sup ?? ""}`}>GP order{"\n"}Rp</th>
+                <th className="n">kg proyeksi{"\n"}minggu</th><th className="n">Revenue proyeksi{"\n"}Rp</th><th className={`n ${key ?? ""}`}>GP proyeksi{"\n"}Rp</th>
+                <th className="n">GP/kg{"\n"}proyeksi</th><th className={`n ${key ?? ""}`}>GP %{"\n"}proyeksi</th><th className="n">GP/kg{"\n"}minggu lalu</th><th className={`n ${key ?? ""}`}>Δ GP/kg</th>
               </tr>
             </thead>
             <tbody>
@@ -45,9 +54,9 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
                 <tr key={s.segment} className={s.segment === "TOTAL KGR" ? "total" : ""}>
                   <td className="lbl">{s.segment}</td>
                   <Td v={s.kgActual} dp={0} tip={h(T.b1kgA)} /><Td v={s.revenueActual} tip={h(T.b1revA)} /><Td v={s.gpActual} tip={h(T.b1gpA)} />
-                  <Td v={s.kgOrder} tip={h(T.b1kgO)} /><Td v={s.revenueOrder} tip={h("Σ kg × harga order sisa minggu")} /><Td v={s.gpOrder} tip={h(T.b1gpO)} />
-                  <Td v={s.kgProjection} tip={h(T.b1proj)} /><Td v={s.revenueProjection} tip={h(T.b1proj)} /><Td v={s.gpProjection} tip={h(T.b1proj)} />
-                  <Td v={s.gpPerKg} tip={h(T.b1gpkg)} /><Td v={s.gpPct} percent tip={h(T.b1gppct)} /><Td v={s.gpPerKgLastWeek} tip={h(T.b1lw)} /><Td v={s.deltaGpPerKg} tip={h("GP/kg proyeksi − GP/kg minggu lalu")} />
+                  <Td v={s.kgOrder} tip={h(T.b1kgO)} className={sup} /><Td v={s.revenueOrder} tip={h("Σ kg × harga order sisa minggu")} className={sup} /><Td v={s.gpOrder} tip={h(T.b1gpO)} className={sup} />
+                  <Td v={s.kgProjection} tip={h(T.b1proj)} /><Td v={s.revenueProjection} tip={h(T.b1proj)} /><Td v={s.gpProjection} tip={h(T.b1proj)} className={key} />
+                  <Td v={s.gpPerKg} tip={h(T.b1gpkg)} /><Td v={s.gpPct} percent tip={h(T.b1gppct)} className={key} /><Td v={s.gpPerKgLastWeek} tip={h(T.b1lw)} /><Td v={s.deltaGpPerKg} tip={h("GP/kg proyeksi − GP/kg minggu lalu")} className={key} />
                 </tr>
               ))}
             </tbody>
@@ -56,7 +65,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
       </Card>
 
       <div className="grid2">
-        <Card title="2. Keputusan RPA — potong berapa, beli live bird di harga berapa">
+        <Card id="keputusan-rpa" title={title("2. Keputusan RPA — potong berapa, beli live bird di harga berapa", <>Keputusan RPA hari ini<Ref n={3} /></>)}>
           {mgmt ? <RpaDecisionManagement r={r} /> : (
             <>
             <table className="t compact">
@@ -86,34 +95,39 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
           )}
         </Card>
 
-        <Card title="4. Stok — yang harus dijual / dibeli" extra={<Link href={`/w/${week}/stok`}>detail per SKU →</Link>}>
+        <Card id="stok" title={title("4. Stok — yang harus dijual / dibeli", "Stok yang harus dijual atau dibeli")} extra={<Link href={`/w/${week}/stok`}>detail per SKU →</Link>}>
           <table className="t compact">
-            <thead><tr><th>Status</th><th className="n">Jumlah SKU</th><th className="n">kg hari ini</th><th className="n">Nilai Rp</th></tr></thead>
+            <thead><tr><th>Status{mgmt ? <Ref n={4} /> : null}</th><th className="n">Jumlah SKU</th><th className="n">kg hari ini</th><th className="n">Nilai Rp</th></tr></thead>
             <tbody>
               {r.block4.filter((s) => !(mgmt && s.keys === 0)).map((s) => (
                 <tr key={s.status} className={s.keys === 0 ? "dim" : undefined}>
-                  <td><Link href={`/w/${week}/stok?status=${s.status}`}><Badge s={s.status}>{s.label}</Badge></Link></td>
+                  <td>{mgmt
+                    ? <Link href={`/w/${week}/stok?status=${s.status}`}>{STATUS_TEXT[s.status]}</Link>
+                    : <Link href={`/w/${week}/stok?status=${s.status}`}><Badge s={s.status}>{s.label}</Badge></Link>}</td>
                   <Td v={s.keys} tip={h("O_Stok: jumlah SKU dengan status ini")} /><Td v={s.kgToday} tip={h("Σ stok hari ini")} /><Td v={s.value} tip={h("Σ stok hari ini × biaya rata-rata")} />
                 </tr>
               ))}
             </tbody>
           </table>
-          <h2>7. Peringatan</h2>
-          {alerts.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : (
-            <ul className="alerts">{alerts.map((a) => <li key={a.code}>{h(a.text)}</li>)}</ul>
+          <h2 id="peringatan">{mgmt ? "Peringatan" : "7. Peringatan"}</h2>
+          {alerts.length === 0 ? <p className="muted">Tidak ada peringatan.</p> : mgmt ? (
+            // R8: a text prefix, not a colour
+            <ul className="alerts plain">{alerts.map((a) => <li key={a.code}><b>Peringatan:</b> {h(a.text)}</li>)}</ul>
+          ) : (
+            <ul className="alerts">{alerts.map((a) => <li key={a.code}>{a.text}</li>)}</ul>
           )}
         </Card>
       </div>
 
       {print ? <div className="pagebreak" /> : null}
-      <Card title="3. Keputusan Trading — beli apa, berapa, di spread berapa">
+      <Card id="keputusan-trading" title={title("3. Keputusan Trading — beli apa, berapa, di spread berapa", <>Keputusan trading hari ini<Ref n={5} /></>)}>
         <div className="scroll">
           <table className="t compact">
             <thead>
               <tr>
                 <th>SKU (key)</th><th className="n">Stok hari ini{"\n"}kg</th><th className="n">Order sisa{"\n"}minggu kg</th><th className="n">Rencana terima{"\n"}sisa minggu kg</th>
                 <th className="n">Kebutuhan{"\n"}bersih kg</th><th className="n">Harga jual{"\n"}order Rp/kg</th><th className="n">Harga beli{"\n"}pengganti Rp/kg</th><th className="n">Spread{"\n"}Rp/kg</th>
-                <th className="n">Spread %</th><th className="n">Biaya stok{"\n"}rata-rata Rp/kg</th><th>REKOMENDASI</th>
+                <th className="n">Spread %</th><th className="n">Biaya stok{"\n"}rata-rata Rp/kg</th><th>{mgmt ? "Rekomendasi" : "REKOMENDASI"}</th>
               </tr>
             </thead>
             <tbody>
@@ -126,23 +140,23 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
                   <td className="n">{t.buyPrice === null ? <span className="muted">kosong</span> : <N v={t.buyPrice} tip={h("I_Master: harga beli pengganti")} />}</td>
                   <Td v={t.spread} tip={h("harga jual − harga beli pengganti")} /><Td v={t.spreadPct} percent tip={h("spread ÷ harga jual")} />
                   <Td v={t.avgStockCost} tip={h("(nilai stok awal + nilai terima) ÷ (kg stok awal + kg terima)")} />
-                  <td><Badge s={t.recommendation.split(" ")[0]}>{t.recommendationText}</Badge></td>
+                  <td>{mgmt ? t.recommendationText : <Badge s={t.recommendation.split(" ")[0]}>{t.recommendationText}</Badge>}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="muted" style={{ fontSize: 11 }}>Spread minimum: Rp {num(p.minSpread)}/kg (placeholder, lihat parameter).</p>
+        {mgmt ? null : <p className="muted" style={{ fontSize: 11 }}>Spread minimum: Rp {num(p.minSpread)}/kg (placeholder, lihat parameter).</p>}
       </Card>
 
       <div className="grid2">
-        <Card title="5. Kas keluar — live bird dan pembelian trading (sesuai termin)">
+        <Card id="kas-keluar" title={title("5. Kas keluar — live bird dan pembelian trading (sesuai termin)", <>Kas keluar untuk live bird dan pembelian trading<Ref n={6} /></>)}>
           <table className="t compact">
             <thead><tr><th>Tanggal</th><th className="n">Bayar live bird Rp</th><th className="n">Bayar pembelian trading Rp</th><th className="n">Total Rp</th><th>Basis</th></tr></thead>
             <tbody>
               {r.block5.rows.map((c) => (
                 <tr key={c.date}>
-                  <td className="lbl">{tgl(c.date, true)}</td>
+                  <td className="lbl">{day(c.date)}</td>
                   <Td v={c.liveBird} tip={h(`Nilai LB batch bertanggal tanggal − ${p.termsLb} hari`)} />
                   <Td v={c.trading} tip={h(`Penerimaan Beli Trading bertanggal tanggal − ${p.termsTrading} hari`)} />
                   <Td v={c.total} /><td>{c.basis}</td>
@@ -151,10 +165,10 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
               <tr className="total"><td>Total minggu</td><Td v={r.block5.total.liveBird} /><Td v={r.block5.total.trading} /><Td v={r.block5.total.total} /><td /></tr>
             </tbody>
           </table>
-          <p className="muted" style={{ fontSize: 11 }}>Penerimaan kas dari pelanggan ada di Arus Kas.{mgmt ? null : " Catatan: lihat docs/open-questions A2 (pembayaran jatuh tempo dari minggu sebelumnya)."}</p>
+          {mgmt ? null : <p className="muted" style={{ fontSize: 11 }}>Penerimaan kas dari pelanggan ada di Arus Kas. Catatan: lihat docs/open-questions A2 (pembayaran jatuh tempo dari minggu sebelumnya).</p>}
         </Card>
 
-        <Card title="6. Batch RPA minggu ini — aktual vs rencana" extra={<Link href={`/w/${week}/batch`}>detail batch →</Link>}>
+        <Card id="batch-rpa" title={title("6. Batch RPA minggu ini — aktual vs rencana", "Batch RPA minggu ini: aktual dan rencana")} extra={<Link href={`/w/${week}/batch`}>detail batch →</Link>}>
           <div className="scroll">
             <table className="t compact">
               <thead>
@@ -165,7 +179,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
                 {r.block6.rows.map((b) => (
                   <tr key={b.status}>
                     <td>{b.status}</td><Td v={b.batches} /><Td v={b.lbKg} /><Td v={b.avgLbPrice} tip={h("Σ nilai LB ÷ Σ kg LB")} />
-                    <Td v={b.shrink} percent tip={h("1 − kg diproses ÷ kg dibeli")} warnNeg={false} className={b.shrink && b.shrink.greaterThan(p.shrink) ? "warn" : ""} />
+                    <Td v={b.shrink} percent tip={h("1 − kg diproses ÷ kg dibeli")} warnNeg={false} className={!mgmt && b.shrink && b.shrink.greaterThan(p.shrink) ? "warn" : ""} />
                     <Td v={b.karkasYield} percent tip={h("(fresh + frozen) ÷ kg diproses")} /><Td v={b.freshPct} percent tip={h("fresh ÷ (fresh + frozen)")} />
                     <Td v={b.margin} tip={h("nilai output di harga acuan − total biaya")} /><Td v={b.marginPerKgLb} /><Td v={b.costPerKgOutput} tip={h("total biaya ÷ kg output")} />
                     <Td v={b.valuePerKgOutput} tip={h("nilai output ÷ kg output")} /><Td v={b.breakevenLb} tip={h("(nilai output − angkut − maklon) ÷ kg LB")} />
@@ -173,7 +187,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
                 ))}
                 <tr className="dim">
                   <td>Target / benchmark</td><td /><td /><td /><Td v={r.block6.target.shrink} percent /><Td v={r.block6.target.karkasYield} percent /><td /><td /><td /><td /><td />
-                  <Td v={r.block6.target.breakevenLb100Fresh} tip={h("Breakeven 100% fresh (blok 2)")} />
+                  <Td v={r.block6.target.breakevenLb100Fresh} tip={mgmt ? "Breakeven 100% fresh, lihat Keputusan RPA hari ini" : "Breakeven 100% fresh (blok 2)"} />
                 </tr>
               </tbody>
             </table>
@@ -182,7 +196,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
       </div>
 
       {print ? <div className="pagebreak" /> : null}
-      <Card title="8. Laporan keuangan minggu ini — ringkasan" extra={<span className="row"><Link href={`/w/${week}/laba-rugi`}>Laba Rugi</Link><Link href={`/w/${week}/neraca`}>Neraca</Link><Link href={`/w/${week}/arus-kas`}>Arus Kas</Link></span>}>
+      <Card id="laporan-keuangan" title={title("8. Laporan keuangan minggu ini — ringkasan", "Laporan keuangan minggu ini")} extra={<span className="row"><Link href={`/w/${week}/laba-rugi`}>Laba Rugi</Link><Link href={`/w/${week}/neraca`}>Neraca</Link><Link href={`/w/${week}/arus-kas`}>Arus Kas</Link></span>}>
         <table className="t compact">
           <thead><tr><th>Indikator</th><th className="n">Minggu lalu</th><th className="n">Proyeksi minggu ini</th><th className="n">Δ</th></tr></thead>
           <tbody>
@@ -192,7 +206,36 @@ export function OutlookBody({ r, week, print = false, view = "preparer" }: { r: 
           </tbody>
         </table>
       </Card>
+      {mgmt ? <Notes r={r} /> : null}
     </>
+  );
+}
+
+/** R9: status as plain words in the management view (definitions in note 4). */
+const STATUS_TEXT: Record<"KURANG" | "JUAL" | "PERHATIAN", string> = { KURANG: "Kurang", JUAL: "Jual", PERHATIAN: "Di atas batas umur" };
+
+/** R6/R14: numbered note marker, an anchor link to the note. */
+function Ref({ n }: { n: number }) {
+  return <sup className="ref"><a href={`#catatan-${n}`} aria-label={`Catatan ${n}`}>{n}</a></sup>;
+}
+
+/** R6: the methodology parentheticals, the yield note and the status definitions as numbered notes (management view). */
+function Notes({ r }: { r: WeekResult }) {
+  const b2 = r.block2;
+  const p = r.prepared.params;
+  const notes = [
+    "GP produk: HPP dari Accurate; order dinilai di biaya rata-rata stok minggu ini; cost of sales others tidak termasuk.",
+    "Aktual = transaksi sampai kemarin; sisa minggu = order dan rencana mulai hari ini.",
+    `Yield dipakai: ${b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas ${num(r.prepared.yields.karkas.times(100), 2)}%; shrink target ${num(p.shrink.times(100), 1)}%; angkut Rp ${num(p.freight)}/kg LB; maklon Rp ${num(p.maklon)}/kg diproses.`,
+    `Status stok — Kurang: stok diproyeksikan minus dalam minggu ini. Jual: ada stok tanpa order minggu ini. Di atas batas umur: stok lebih tua dari ${num(p.ageLimit)} hari.`,
+    `Spread minimum trading Rp ${num(p.minSpread)}/kg.`,
+    `Kas keluar mengikuti termin pembayaran: live bird ${p.termsLb} hari, pembelian trading ${p.termsTrading} hari. Penerimaan dari pelanggan ada di Arus Kas.`,
+  ];
+  return (
+    <section className="card notes" id="catatan" aria-label="Catatan">
+      <h2>Catatan</h2>
+      <ol>{notes.map((t, i) => <li key={i} id={`catatan-${i + 1}`}>{t}</li>)}</ol>
+    </section>
   );
 }
 

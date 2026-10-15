@@ -1,6 +1,6 @@
 import type { Decimal, WeekResult } from "@kgr/engine";
 import { N } from "@/components/ui";
-import { num, tglShort } from "@/lib/fmt";
+import { num, tgl } from "@/lib/fmt";
 
 type Line = { l: string; v: Decimal; u: string; how: string; dp?: number; pct?: boolean };
 
@@ -11,7 +11,6 @@ type Line = { l: string; v: Decimal; u: string; how: string; dp?: number; pct?: 
  */
 export function RpaDecisionManagement({ r }: { r: WeekResult }) {
   const b2 = r.block2;
-  const p = r.prepared.params;
   // R3: with no net fresh need, "kebutuhan bersih", "LB maksimum" and "porsi fresh" are 0 by construction
   const covered = b2.netFreshNeed.isZero();
   const key: Line[] = [
@@ -21,7 +20,7 @@ export function RpaDecisionManagement({ r }: { r: WeekResult }) {
     { l: "Perkiraan margin potong rencana", v: b2.expectedMarginOfPlan, u: "Rp", how: "Margin per kg × kg live bird yang direncanakan potong" },
   ];
   const rest: Line[] = [
-    { l: `Order karkas fresh — ${tglShort(b2.horizonFrom)} s.d. ${tglShort(b2.horizonTo)}`, v: b2.freshOrdersInHorizon, u: "kg", how: "Penjualan: order karkas fresh RPA dalam horizon" },
+    { l: `Order karkas fresh — ${tgl(b2.horizonFrom)} s.d. ${tgl(b2.horizonTo)}`, v: b2.freshOrdersInHorizon, u: "kg", how: "Penjualan: order karkas fresh RPA dalam horizon" },
     { l: "Stok karkas fresh hari ini", v: b2.freshStockToday, u: "kg", how: "Stok hari ini" },
     ...(covered ? [] : [
       { l: "Kebutuhan bersih karkas fresh", v: b2.netFreshNeed, u: "kg", how: "Order − stok (minimal 0)" },
@@ -36,7 +35,7 @@ export function RpaDecisionManagement({ r }: { r: WeekResult }) {
   ];
   return (
     <>
-      <div className="reco" data-reco>{b2.action.text}</div>
+      <div className="reco neutral" data-reco>{b2.action.text}</div>
       <Lines lines={key} />
       {covered ? (
         <p className="cond">
@@ -46,9 +45,6 @@ export function RpaDecisionManagement({ r }: { r: WeekResult }) {
       <details className="calc">
         <summary>Lihat perhitungan</summary>
         <Lines lines={rest} />
-        <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-          Yield dipakai: {b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas {num(r.prepared.yields.karkas.times(100), 2)}%; shrink target {num(p.shrink.times(100), 1)}%; angkut Rp {num(p.freight)}/kg LB; maklon Rp {num(p.maklon)}/kg diproses.
-        </p>
       </details>
     </>
   );

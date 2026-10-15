@@ -12,18 +12,29 @@ export default async function OutlookPage({ params }: PageProps) {
   const r = ctx.computed.result;
   return (
     <WeekShell ctx={ctx} active="outlook">
-      <div className="row noprint" style={{ justifyContent: "space-between" }}>
-        <div>
+      {ctx.view === "management" ? (
+        // R11: the period is in the header dropdown, not repeated here; R15: one PDF button, print view as a text link
+        <div className="row noprint" style={{ justifyContent: "space-between" }}>
           <h1>KGR — Weekly Outlook dan Keputusan Harian</h1>
-          <p className="muted">
-            Minggu {tgl(r.week.weekStart)} – {tgl(r.week.weekEnd)} · Update {tgl(r.week.today, true)} · Aktual = transaksi s.d. kemarin; sisa minggu = order + rencana mulai hari ini.
-          </p>
+          <div className="row">
+            <a className="b sec" href={`/api/w/${week}/pdf`} target="_blank" rel="noreferrer">Unduh PDF</a>
+            <a href={`/w/${week}/print`} target="_blank" rel="noreferrer">Tampilan cetak</a>
+          </div>
         </div>
-        <div className="row">
-          <a className="b sec" href={`/api/w/${week}/pdf`} target="_blank" rel="noreferrer">Cetak outlook (PDF)</a>
-          <a className="b sec" href={`/w/${week}/print`} target="_blank" rel="noreferrer">Tampilan cetak</a>
+      ) : (
+        <div className="row noprint" style={{ justifyContent: "space-between" }}>
+          <div>
+            <h1>KGR — Weekly Outlook dan Keputusan Harian</h1>
+            <p className="muted">
+              Minggu {tgl(r.week.weekStart)} – {tgl(r.week.weekEnd)} · Update {tgl(r.week.today, true)} · Aktual = transaksi s.d. kemarin; sisa minggu = order + rencana mulai hari ini.
+            </p>
+          </div>
+          <div className="row">
+            <a className="b sec" href={`/api/w/${week}/pdf`} target="_blank" rel="noreferrer">Cetak outlook (PDF)</a>
+            <a className="b sec" href={`/w/${week}/print`} target="_blank" rel="noreferrer">Tampilan cetak</a>
+          </div>
         </div>
-      </div>
+      )}
       {ctx.view === "management" ? <Headline r={r} week={week} /> : null}
       <OutlookBody r={r} week={week} view={ctx.view} />
       {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p> : null}
