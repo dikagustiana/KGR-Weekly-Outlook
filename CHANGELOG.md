@@ -2,6 +2,22 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-1] Design system dan Minggu ini (docs/PRD-v4.md irisan 1)
+
+### Added
+- Migration `20261017000300_v4_design_flag.sql`: flag `v4_design` (default off); a change of `runrate`, `parameter`, `sku_price`, or `opening_stock` queues the Monday of its week.
+- Engine `week-outlook.ts`: `weekPlDaily`, `weekOutlook`, `gpBridge` (GP produk → GP P&L), `weekHeadline`, `weekCash`, `stockOverAge`, `stockAgeBuckets`, K16 formatters. `computeWeek` unchanged.
+- Web: `app/v4.css` (tokens §5.2, scoped to `.v4`), `components/v4/*` (§5.3), v4 shell and navigation per role (`lib/v4/nav.ts`), page `/minggu-ini/[week]` (§6.1), `/admin`, rebuild builder `lib/v4/week-pl.ts` for `pl_daily_v4`.
+- `reference/design/`: four mockups, `grammar.css`, generator.
+- Tools: `apps/web/scripts/v4-screens.mjs` (§9.4 comparison), `v4-fixture.tsx` (fixture harness), `v4-drawer.test.mjs` (keyboard).
+
+### Changed
+- With `v4_design` on, the management view of `/w/[week]/outlook` redirects to Minggu ini (blocks 2 and 5 are not rendered, K15, K18); preparer view, print view, and PDF keep every v1 block.
+- Tokens `--chart-2` and `--muted` replaced after measuring contrast (QUESTIONS Q21).
+
+### Verified
+- Weekly snapshot byte-identical; parity 17.161/17.161; RLS 14 blocks without (!); above-the-fold, DOM grep, contrast, drawer keyboard in `docs/v4/bukti/`.
+
 ## [v4-0] Foundation (docs/PRD-v4.md irisan 0)
 
 ### Added

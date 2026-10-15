@@ -1,0 +1,8 @@
+LULUS  tombol dapat dijangkau dengan Tab
+LULUS  Enter membuka drawer
+LULUS  fokus pindah ke drawer
+LULUS  drawer memuat aturan, fungsi, sumber
+LULUS  Esc menutup drawer
+LULUS  fokus kembali ke tombol
+LULUS  Spasi membuka drawer
+LULUS  tombol Tutup menutup drawer

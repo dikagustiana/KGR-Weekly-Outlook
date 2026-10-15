@@ -28,8 +28,12 @@ ${body.join("\n")}
 `;
 }
 
+// Inner size of a tile at 1366 px: what the chart gets after padding/border 26, header 26 and the note (one line 24, two 40).
+const box = (w, h, note = "") => ({ W: Math.round(w * ((1366 - 48 - 132) / 12) + (w - 1) * 12 - 32), H: Math.max(60, h * 76 + (h - 1) * 12 - 52 - (note ? (note.length > 78 ? 42 : 26) : 0)) });
+
 function tile(id, [x, y, w, h], o, inner) {
-  const head = o.title || o.cara ? `<div class="tile-h">${o.title ? `<h2 class="tile-t" data-tile-title="">${esc(o.title)}</h2>` : "<span></span>"}${o.cara ? '<button type="button" class="v4b link">cara hitung</button>' : ""}</div>` : "";
+  const x2 = o.legend || o.cara ? `<span class="tile-x">${o.legend ? legend(o.legend) : ""}${o.cara ? '<button type="button" class="v4b link">cara hitung</button>' : ""}</span>` : "";
+  const head = o.title || x2 ? `<div class="tile-h">${o.title ? `<h2 class="tile-t" data-tile-title="">${esc(o.title)}</h2>` : "<span></span>"}${x2}</div>` : "";
   return `<section class="tile${o.kind ? ` ${o.kind}` : ""}" data-tile="${id}" data-x="${x}" data-y="${y}" data-w="${w}" data-h="${h}" style="grid-column:${x + 1} / span ${w};grid-row:${y + 1} / span ${h}"${o.src ? ` data-src="${o.src}"` : ""}>${head}<div class="tile-b">${inner}</div>${o.note ? `<p class="note" data-tile-note="">${esc(o.note)}</p>` : ""}</section>`;
 }
 
@@ -83,6 +87,32 @@ function waterfall(W, H, steps) {
   return s + "</svg>";
 }
 
+/** Horizontal stacked bars (stock per age bucket), 12 px rows, total at the end of each bar. */
+function stacked(W, rows) {
+  const lw = Math.min(150, W * 0.32), rw = 70, max = Math.max(...rows.map((r) => r.p.reduce((a, b) => a + b, 0)));
+  const x = (v) => (v / max) * (W - lw - rw - 8), rh = 12, H = rows.length * rh + 6, tones = ["s1", "s2", "s3"];
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">`;
+  rows.forEach((r, i) => {
+    const yy = 4 + i * rh; let acc = 0;
+    s += `<text x="${lw - 6}" y="${yy + rh / 2 + 4}" text-anchor="end">${esc(r.l)}</text>`;
+    r.p.forEach((v, j) => { s += `<rect class="${tones[j]}" x="${lw + x(acc)}" y="${yy + 2}" width="${Math.max(0, x(v))}" height="${Math.max(6, rh - 5)}"/>`; acc += v; });
+    s += `<text class="v" x="${lw + x(acc) + 6}" y="${yy + rh / 2 + 4}">${esc(r.t)}</text>`;
+  });
+  return s + "</svg>";
+}
+function paired(W, H, groups) {
+  const vals = groups.flatMap((g) => [g.a, g.b]), hi = Math.max(0, ...vals) * 1.12, lo = 0, top = 20, bot = H - 26, y = (v) => top + ((hi - v) / (hi - lo)) * (bot - top);
+  const slot = (W - 16) / groups.length, bw = Math.min(44, slot * 0.3), cx = (i) => 8 + slot * i + slot / 2;
+  const fmt = (v) => v.toLocaleString("id-ID");
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img"><line class="axis" x1="8" x2="${W - 8}" y1="${y(0)}" y2="${y(0)}"/>`;
+  groups.forEach((g, i) => {
+    s += `<rect class="s1" x="${cx(i) - bw / 2 - 3 - bw / 2}" y="${y(g.a)}" width="${bw}" height="${y(0) - y(g.a)}" rx="3"/><text class="v" x="${cx(i) - bw - 3}" y="${y(g.a) - 5}" text-anchor="middle">${fmt(g.a)}</text>`;
+    s += `<rect class="s3" x="${cx(i) + 3}" y="${y(g.b)}" width="${bw}" height="${y(0) - y(g.b)}" rx="3"/><text class="v" x="${cx(i) + 3 + bw / 2}" y="${y(g.b) - 5}" text-anchor="middle">${fmt(g.b)}</text>`;
+    s += `<text x="${cx(i)}" y="${H - 8}" text-anchor="middle">${esc(g.l)}</text>`;
+  });
+  return s + "</svg>";
+}
+
 const MGMT_NAV = [["minggu-ini", "Minggu ini"], ["outlook-bulan", "Outlook bulan"], ["kas", "Kas & solvabilitas"], ["stok", "Stok"], ["komersial", "Komersial"], ["rilis", "Rilis"]];
 const PPIC_NAV = [["rencana", "Rencana"], ["alokasi", "Alokasi hari ini"], ["stok", "Stok"], ["batch", "Batch"], ["upload", "Upload"]];
 
@@ -94,20 +124,19 @@ const mi = [
   // §6.1 headline example (stock and cash numbers as written in the PRD)
   tile("headline", [0, 1, 12, 1], { kind: "bare", src: "prd §6.1" }, `<p class="headline" data-headline="" data-tile-value="">GP P&amp;L minggu ini diproyeksikan Rp ${M}67,5 jt (${M}4,1%); RPA menyumbang Rp ${M}62,6 jt. Stok di atas batas umur Rp 2.782,2 jt, kas Jumat turun ke Rp 289,7 jt.</p>`),
   // §3.4: revenue proyeksi 1.639,0 jt, GP P&L −67,5 jt; Δ vs last week from the weekly P&L (fixture)
-  tile("c-outlook", [0, 2, 3, 2], { kind: "card", title: "Outlook minggu", cara: true, src: "prd §3.4" }, card("Rp 1.639,0 jt", [["GP P&L", `Rp ${M}67,5 jt (${M}4,1%)`, "neg"], ["Sisa minggu ber-PO", "100%"], ["Δ GP vs minggu lalu", `${M}63,3 jt`, "worse"]])),
+  tile("c-outlook", [0, 2, 3, 2], { kind: "card", title: "Outlook minggu", cara: true, src: "prd §3.4" }, card("Rp 1.639,0 jt", [["GP P&L", `${M}67,5 jt (${M}4,1%)`, "neg"], ["Sisa minggu ber-PO", "100%"], ["Δ GP vs minggu lalu", `${M}63,3 jt`, "worse"]])),
   tile("c-stok", [3, 2, 2, 2], { kind: "card", title: "Stok di atas batas umur", cara: true, src: "prd §6.1 + fixture blok 4" }, card("Rp 2.782,2 jt", [["kg", "116.289,8"], ["SKU", "7"]])),
-  tile("c-kas", [5, 2, 2, 2], { kind: "card", title: "Kas terendah minggu ini", cara: true, src: "prd §3.7" }, card("Rp 289,7 jt", [["hari", "Jumat 28 Agu"], ["tanpa pinjaman afiliasi", `Rp ${M}910,3 jt`, "neg"]])),
+  tile("c-kas", [5, 2, 2, 2], { kind: "card", title: "Kas terendah minggu ini", cara: true, src: "prd §3.7" }, card("Rp 289,7 jt", [["hari", "Jumat 28 Agu"], ["tanpa afiliasi", `${M}910,3 jt`, "neg"]])),
   // Lampiran B.2 (K3): outlook 7.764,1 jt, GP 296,2 jt (3,8%); budget empty
-  tile("c-bulan", [7, 2, 2, 2], { kind: "card", title: "Outlook Agustus", src: "prd B.2" }, card("Rp 7.764,1 jt", [["GP P&L", "Rp 296,2 jt (3,8%)"], ["vs budget", "belum diisi"]])),
+  tile("c-bulan", [7, 2, 2, 2], { kind: "card", title: "Outlook Agustus", src: "prd B.2" }, card("Rp 7.764,1 jt", [["GP P&L", "296,2 jt (3,8%)"], ["vs budget", "belum diisi"]])),
   // FS Aug 2026 (BS K77, K68, K51; PL K51): fixture fs-2026-09
-  tile("c-solvabilitas", [9, 2, 3, 2], { kind: "card", title: "Solvabilitas", src: "fixture fs-2026-09 Agu" }, card("Rp 1.612,6 jt", [["ekuitas / modal disetor", "32%"], ["utang pihak berelasi", "Rp 5.627,1 jt"], ["bulan sampai ekuitas negatif", "60,8"]])),
+  tile("c-solvabilitas", [9, 2, 3, 2], { kind: "card", title: "Solvabilitas", src: "fixture fs-2026-09 Agu" }, card("Rp 1.612,6 jt", [["ekuitas / modal disetor", "32%"], ["utang pihak berelasi", "5.627,1 jt"], ["bulan sampai ekuitas negatif", "60,8"]])),
   // B.1 journal 24–26 Aug, P2 PO 27–29 Aug; GP per day: fixture
-  tile("ch-harian", [0, 4, 7, 4], { kind: "tall", title: "Revenue dan GP P&L per hari Sen–Min", note: "Selasa 25 Agu tanpa jurnal penjualan; dibaca sebagai data hilang, bukan nol, sampai Sales dan Finance memastikan.", src: "prd B.1, P2" },
-    columns(731, 252, [{ x: "Sen 24", v: 226.7, l: 7.7 }, { x: "Sel 25", v: 0, l: -30.4 }, { x: "Rab 26", v: 362.3, l: 23.1 }, { x: "Kam 27", v: 457.8, tone: "s2", l: -7.6 }, { x: "Jum 28", v: 232.1, tone: "s2", l: -0.4 }, { x: "Sab 29", v: 378.0, tone: "s2", l: -56.1 }, { x: "Min 30", v: 0, tone: "s2", l: -3.9 }], true)
-    + legend([["s1", "aktual (jurnal)"], ["s2", "PO / run-rate"], ["ln", "GP P&L"]])),
+  tile("ch-harian", [0, 4, 7, 4], { kind: "tall", title: "Revenue dan GP P&L per hari Sen–Min", note: "Selasa 25 Agu tanpa jurnal penjualan; dibaca sebagai data hilang, bukan nol, sampai Sales dan Finance memastikan.", src: "prd B.1, P2", legend: [["s1", "aktual (jurnal)"], ["s2", "PO / run-rate"], ["ln", "GP P&L"]] },
+    columns(box(7, 4, "x".repeat(100)).W, box(7, 4, "x".repeat(100)).H, [{ x: "Sen 24", v: 226.7, l: 7.7 }, { x: "Sel 25", v: 0, l: -30.4 }, { x: "Rab 26", v: 362.3, l: 23.1 }, { x: "Kam 27", v: 457.8, tone: "s2", l: -7.6 }, { x: "Jum 28", v: 232.1, tone: "s2", l: -0.4 }, { x: "Sab 29", v: 378.0, tone: "s2", l: -56.1 }, { x: "Min 30", v: 0, tone: "s2", l: -3.9 }], true)),
   // §3.4 bridge: −47,6 (blok 1) + 17,8 (B.1) … = −67,5; expedition / blasting / COGS vs HPP: fixture
   tile("ch-bridge", [7, 4, 5, 4], { kind: "tall", title: "Dari GP produk ke GP P&L", cara: true, note: "Selisih 17,8 jt dari timing faktur; ekspedisi dan blasting tidak ada di HPP per key.", src: "prd §3.4, B.1" },
-    waterfall(510, 270, [["GP produk", -47.6, true], ["Timing faktur", 17.8], ["COGS vs HPP", -0.8], ["Ekspedisi", -20.6], ["Blasting", -16.4], ["GP P&L", -67.5, true]])),
+    waterfall(box(5, 4, "x".repeat(80)).W, box(5, 4, "x".repeat(80)).H, [["GP produk", -47.6, true], ["Timing faktur", 17.8], ["COGS vs HPP", -0.8], ["Ekspedisi", -20.6], ["Blasting", -16.4], ["GP P&L", -67.5, true]])),
   // block 1 + block 6 (fixture); trigger line as written in §6.1
   tile("t-segmen", [0, 8, 7, 4], { kind: "tall", title: "GP produk per segmen, proyeksi minggu (Rp jt)", note: `RPA menanggung GP produk Rp ${M}62,6 jt; GP order ${M}52,3 jt dari sisa minggu.`, src: "prd §6.1, fixture blok 1" },
     table([{ l: "Segmen", k: 1 }, { l: "kg", n: 1 }, { l: "Revenue", n: 1 }, { l: "GP aktual", n: 1, s: 1 }, { l: "GP order", n: 1, s: 1 }, { l: "GP produk", n: 1, k: 1 }, { l: "GP %", n: 1 }, { l: "GP/kg lalu", n: 1, s: 1 }, { l: "Δ GP/kg", n: 1 }], [
@@ -117,8 +146,8 @@ const mi = [
       { cells: ["Total", "64.025", "1.639,0", "5,0", `${M}52,5`, `${M}47,6`, `${M}2,9%`, "883", `${M}1.626`], total: true },
     ])),
   // PRD v3 §1: COGS/kg 32.721 vs revenue/kg 30.914 (RPA); Trading: fixture
-  tile("ch-cogs", [7, 8, 5, 4], { kind: "tall", title: "COGS/kg vs revenue/kg per segmen (Rp/kg)", note: "RPA: COGS/kg 32.721 di atas revenue/kg 30.914.", src: "prd v3 §1" },
-    `<svg class="chart" viewBox="0 0 510 252" role="img"><line class="axis" x1="8" x2="502" y1="226" y2="226"/><rect class="s1" x="96" y="60" width="44" height="166" rx="3"/><text class="v" x="118" y="55" text-anchor="middle">30.914</text><rect class="s3" x="146" y="50" width="44" height="176" rx="3"/><text class="v" x="168" y="45" text-anchor="middle">32.721</text><text x="143" y="244" text-anchor="middle">RPA</text><rect class="s1" x="343" y="113" width="44" height="113" rx="3"/><text class="v" x="365" y="108" text-anchor="middle">20.930</text><rect class="s3" x="393" y="117" width="44" height="109" rx="3"/><text class="v" x="415" y="112" text-anchor="middle">20.101</text><text x="390" y="244" text-anchor="middle">Trading</text></svg>` + legend([["s1", "revenue/kg"], ["s3", "COGS/kg"]])),
+  tile("ch-cogs", [7, 8, 5, 4], { kind: "tall", title: "COGS/kg vs revenue/kg per segmen (Rp/kg)", note: "RPA: COGS/kg 32.721 di atas revenue/kg 30.914.", src: "prd v3 §1, fixture", legend: [["s1", "revenue/kg"], ["s3", "COGS/kg"]] },
+    paired(box(5, 4, "x".repeat(40)).W, box(5, 4, "x".repeat(40)).H, [{ l: "RPA", a: 30914, b: 32721 }, { l: "Trading", a: 20930, b: 20101 }])),
   tile("t-input", [0, 12, 6, 4], { kind: "tall", title: "Input minggu ini", src: "fixture" },
     table([{ l: "Input", k: 1 }, { l: "kg", n: 1 }, { l: "Rp/kg", n: 1 }, { l: "Rp jt", n: 1 }, { l: "Catatan", s: 1 }], [
       { cells: ["Live bird aktual", "24.301", "23.903", "580,9", "di atas breakeven"] }, { cells: ["Live bird rencana", "27.219", "25.064", "682,2", ""] },
@@ -134,15 +163,19 @@ const mi = [
       { cells: ["Blasting", `${M}10,9`, `${M}4,5`, `${M}11,8`, `${M}16,4`, `${M}5,5`, "run-rate"] },
       { cells: ["Total COGS", `${M}1.576,5`, `${M}588,5`, `${M}1.135,8`, `${M}1.724,3`, `${M}147,8`, ""], total: true },
     ])),
-  tile("ch-stok-umur", [0, 16, 6, 4], { kind: "tall", title: "Stok per umur, 7 SKU dengan nilai terbesar", src: "fixture ledger" },
-    `<svg class="chart" viewBox="0 0 590 134" role="img"><text x="144" y="16" text-anchor="end">Karkas n/a</text><rect class="s2" x="150" y="7" width="330" height="10"/><text class="v" x="486" y="16">46.830 kg</text><text x="144" y="34" text-anchor="end">Karkas Frozen</text><rect class="s1" x="150" y="25" width="60" height="10"/><rect class="s2" x="210" y="25" width="100" height="10"/><rect class="s3" x="310" y="25" width="27" height="10"/><text class="v" x="343" y="34">26.490 kg</text></svg>`
-    + legend([["s1", "0–7 hari"], ["s2", "8–30 hari"], ["s3", "> 30 hari"]])
+  tile("ch-stok-umur", [0, 16, 6, 4], { kind: "tall", title: "Stok per umur, 7 SKU dengan nilai terbesar", src: "fixture ledger", legend: [["s1", "0–7 hari"], ["s2", "8–30 hari"], ["s3", "> 30 hari"]] },
+    stacked(box(6, 1).W, [
+      { l: "Karkas n/a", p: [0, 46777, 53], t: "46.830 kg" }, { l: "Karkas Frozen", p: [8348, 14121, 4020], t: "26.490 kg" }, { l: "Karkas Fresh", p: [13810, 4959, 0], t: "18.768 kg" },
+      { l: "BLP Frozen", p: [10141, 0, 0], t: "10.141 kg" }, { l: "KRK (Kerangka) n/a", p: [0, 25815, 0], t: "25.815 kg" }, { l: "BLD Frozen", p: [0, 4848, 0], t: "4.848 kg" }, { l: "Kulit Frozen", p: [2973, 0, 1095], t: "4.067 kg" },
+    ])
     + table([{ l: "SKU", k: 1 }, { l: "kg", n: 1 }, { l: "Rp jt", n: 1 }, { l: "Umur", n: 1 }, { l: "Order sisa kg", n: 1 }, { l: "Biaya/kg", n: 1, s: 1 }, { l: "Harga acuan", n: 1, s: 1 }], [
       { cells: ["Karkas n/a", "46.830", "1.407,4", "56", "7.008", "30.053", "31.277"] }, { cells: ["Karkas Frozen", "26.490", "921,3", "57", "4.228", "34.781", "31.658"] },
+      { cells: ["Karkas Fresh", "18.768", "702,1", "19", "12.307", "37.411", "36.705"] }, { cells: ["BLP Frozen", "10.141", "478,6", "6", "3.229", "47.199", "43.086"] },
+      { cells: ["KRK (Kerangka) n/a", "25.815", "266,2", "12", "6.011", "10.311", "10.903"] }, { cells: ["BLD Frozen", "4.848", "189,6", "11", "0", "39.097", "42.083"] },
+      { cells: ["Kulit Frozen", "4.067", "107,3", "53", "105", "26.381", "29.000"] },
     ])),
-  tile("kas", [6, 16, 6, 4], { kind: "tall", title: "Kas harian aktual vs rencana (Rp jt)", note: "Saldo awal minggu Rp 379,1 jt.", src: "fixture arus kas" },
-    `<div style="height:120px">${columns(590, 120, [{ x: "Sen 24", v: 555.0 }, { x: "Sel 25", v: 652.0 }, { x: "Rab 26", v: 1289.3 }, { x: "Kam 27", v: 1348.9, tone: "s2" }, { x: "Jum 28", v: 289.7, tone: "s2" }, { x: "Sab 29", v: 818.2, tone: "s2" }, { x: "Min 30", v: 818.2, tone: "s2" }])}</div>`
-    + legend([["s1", "aktual"], ["s2", "rencana"]])
+  tile("kas", [6, 16, 6, 4], { kind: "tall", title: "Kas harian aktual vs rencana (Rp jt)", note: "Saldo awal minggu Rp 379,1 jt.", src: "fixture arus kas", legend: [["s1", "aktual"], ["s2", "rencana"]] },
+    columns(box(6, 1).W, 84, [{ x: "Sen 24", v: 555.0 }, { x: "Sel 25", v: 652.0 }, { x: "Rab 26", v: 1289.3 }, { x: "Kam 27", v: 1348.9, tone: "s2" }, { x: "Jum 28", v: 289.7, tone: "s2" }, { x: "Sab 29", v: 818.2, tone: "s2" }, { x: "Min 30", v: 818.2, tone: "s2" }])
     + table([{ l: "Arus kas", k: 1 }, { l: "Minggu lalu", n: 1, s: 1 }, { l: "Proyeksi", n: 1 }], [
       { cells: ["Penerimaan pelanggan", "1.602,9", "1.872,9"] }, { cells: ["Bayar pemasok", `${M}2.131,3`, `${M}1.325,0`] }, { cells: ["Bayar jasa", `${M}231,0`, `${M}1.229,0`] },
       { cells: ["Karyawan dan lain-lain", `${M}25,9`, `${M}79,9`] }, { cells: ["Pinjaman afiliasi net", "0,0", "1.200,0"] }, { cells: ["Arus kas bersih", `${M}785,3`, "439,1"], total: true },
@@ -170,14 +203,13 @@ const ob = [
   tile("slicer-bulan", [0, 0, 6, 1], { kind: "bare" }, seg("Bulan", ["Agustus 2026", "September 2026"], "Agustus 2026") + `<span class="note" data-tile-value="">belum ada versi terkunci · cut-off 26 Agu</span>`),
   tile("rilis", [9, 0, 3, 1], { kind: "bare" }, `<div class="release"><span data-tile-value="">versi aktif: draft</span><a class="v4b" href="#">Unduh PDF</a></div>`),
   tile("headline", [0, 1, 12, 1], { kind: "bare", src: "prd §6.2, B.2" }, `<p class="headline" data-tile-value="">Revenue Agustus diproyeksikan Rp 7.764,1 jt, GP P&amp;L Rp 296,2 jt (3,8%); sisa bulan 77% ber-PO.</p>`),
-  tile("c-actual", [0, 2, 2, 2], { kind: "card", title: "Actual s.d. 26 Agu", cara: true }, card("Rp 6.385,9 jt", [["GP P&L", "Rp 347,4 jt"]])),
-  tile("c-forecast", [2, 2, 2, 2], { kind: "card", title: "Forecast sisa bulan", cara: true }, card("Rp 1.378,2 jt", [["GP P&L", `Rp ${M}51,2 jt`, "neg"], ["porsi run-rate", "23%"]])),
-  tile("c-outlook", [4, 2, 3, 2], { kind: "card", title: "Outlook Agustus", cara: true }, card("Rp 7.764,1 jt", [["rentang", "7.626,3–7.902,0"], ["GP P&L", "Rp 296,2 jt (3,8%)"], ["NIBT", "belum diisi"]])),
+  tile("c-actual", [0, 2, 2, 2], { kind: "card", title: "Actual s.d. 26 Agu", cara: true }, card("Rp 6.385,9 jt", [["GP P&L", "347,4 jt"]])),
+  tile("c-forecast", [2, 2, 2, 2], { kind: "card", title: "Forecast sisa bulan", cara: true }, card("Rp 1.378,2 jt", [["GP P&L", `${M}51,2 jt`, "neg"], ["porsi run-rate", "23%"]])),
+  tile("c-outlook", [4, 2, 3, 2], { kind: "card", title: "Outlook Agustus", cara: true }, card("Rp 7.764,1 jt", [["rentang", "7.626,3–7.902,0"], ["GP P&L", "296,2 jt (3,8%)"], ["NIBT", "belum diisi"]])),
   tile("c-po", [7, 2, 2, 2], { kind: "card", title: "Sisa bulan ber-PO" }, card("77%", [["kg", "40.437"]])),
   tile("c-budget", [9, 2, 3, 2], { kind: "card", title: "vs Budget" }, missingCard("budget belum diisi")),
-  tile("ch-harian", [0, 4, 7, 4], { kind: "tall", title: "Revenue per hari Agustus: aktual, PO, run-rate", note: "25 Agu tanpa jurnal dan tanpa baris penjualan; dikeluarkan dari run-rate sebagai hari anomali.", src: "prd B.2 (20–31 Agu)" },
-    columns(731, 252, [{ x: "20", v: 301.4 }, { x: "21", v: 579.3 }, { x: "22", v: 82.3 }, { x: "23", v: 0 }, { x: "24", v: 226.7 }, { x: "25", v: 0 }, { x: "26", v: 362.3 }, { x: "27", v: 457.8, tone: "s2" }, { x: "28", v: 232.1, tone: "s2" }, { x: "29", v: 378.0, tone: "s2" }, { x: "30", v: 0, tone: "s2" }, { x: "31", v: 310.4, tone: "s3" }])
-    + legend([["s1", "aktual (jurnal)"], ["s2", "PO"], ["s3", "run-rate"]])),
+  tile("ch-harian", [0, 4, 7, 4], { kind: "tall", title: "Revenue per hari Agustus: aktual, PO, run-rate", note: "25 Agu tanpa jurnal dan tanpa baris penjualan; dikeluarkan dari run-rate sebagai hari anomali.", src: "prd B.2 (20–31 Agu)", legend: [["s1", "aktual (jurnal)"], ["s2", "PO"], ["s3", "run-rate"]] },
+    columns(box(7, 4, "x".repeat(90)).W, box(7, 4, "x".repeat(90)).H, [{ x: "20", v: 301.4 }, { x: "21", v: 579.3 }, { x: "22", v: 82.3 }, { x: "23", v: 0 }, { x: "24", v: 226.7 }, { x: "25", v: 0 }, { x: "26", v: 362.3 }, { x: "27", v: 457.8, tone: "s2" }, { x: "28", v: 232.1, tone: "s2" }, { x: "29", v: 378.0, tone: "s2" }, { x: "30", v: 0, tone: "s2" }, { x: "31", v: 310.4, tone: "s3" }])),
   tile("t-sisa", [7, 4, 5, 4], { kind: "tall", title: "Hari sisa bulan (Rp jt)" },
     table([{ l: "Tanggal", k: 1 }, { l: "Dasar", s: 1 }, { l: "Revenue", n: 1 }], [
       { cells: ["Kam 27 Agu", "PO", "457,8"] }, { cells: ["Jum 28 Agu", "PO", "232,1"] }, { cells: ["Sab 29 Agu", "PO", "378,0"] },
@@ -211,7 +243,7 @@ const ks = [
   tile("headline", [0, 0, 12, 1], { kind: "bare", src: "prd §1.1, §3.7" }, `<p class="headline" data-tile-value="">Kas Rp 103,0 jt per 30 Sep 2026; ekuitas Rp 702,6 jt habis dalam 0,8 bulan bila rugi September berulang.</p>`),
   tile("c-saldo", [0, 1, 2, 2], { kind: "card", title: "Saldo kas 30 Sep" }, card("Rp 103,0 jt")),
   tile("c-terendah", [2, 1, 3, 2], { kind: "card", title: "Terendah 13 minggu" }, missingCard("tidak tersedia")),
-  tile("c-afiliasi", [5, 1, 3, 2], { kind: "card", title: "Utang pihak berelasi" }, card("Rp 9.845,9 jt", [["naik dari Agustus", "4.218,8 jt", "worse"], ["bunga September", "Rp 54,0 jt"]])),
+  tile("c-afiliasi", [5, 1, 3, 2], { kind: "card", title: "Utang pihak berelasi" }, card("Rp 9.845,9 jt", [["naik dari Agustus", "4.218,8 jt", "worse"], ["bunga September", "54,0 jt"]])),
   tile("c-ekuitas", [8, 1, 2, 2], { kind: "card", title: "Ekuitas" }, card("Rp 702,6 jt", [["modal disetor", "14%"]])),
   tile("c-bulan-negatif", [10, 1, 2, 2], { kind: "card", title: "Bulan sampai ekuitas negatif" }, card("0,8")),
   tile("ch-13minggu", [0, 3, 7, 4], { kind: "tall", title: "Saldo akhir per minggu, 13 minggu" }, `<p class="note" data-tile-value="">tidak ada data untuk periode ini</p>`),

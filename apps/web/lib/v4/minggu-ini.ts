@@ -151,7 +151,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       content: {
         type: "card", value: jtV4(wo.projection.revenue), unit: "Rp jt",
         compare: [
-          { label: "GP P&L", value: `Rp ${jtV4(wo.projection.gp)} jt (${pctV4(wo.gpPct)})`, tone: tone(wo.projection.gp) },
+          { label: "GP P&L", value: `${jtV4(wo.projection.gp)} jt (${pctV4(wo.gpPct)})`, tone: tone(wo.projection.gp) },
           { label: "Sisa minggu ber-PO", value: wo.poShare === null ? "tidak ada forecast" : pctV4(wo.poShare, 0) },
           { label: "Δ GP vs minggu lalu", value: wo.deltaGp === null ? "minggu lalu belum ada" : `${jtV4(wo.deltaGp)} jt`, tone: deltaTone(wo.deltaGp) },
         ],
@@ -185,7 +185,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       type: "card", value: cashLowest ? jtV4(cashLowest.balance) : null, unit: "Rp jt", negative: cashLowest ? cashLowest.balance.lt(0) : false,
       compare: cashLowest ? [
         { label: "hari", value: `${dayName(cashLowest.date)} ${tglShort(cashLowest.date)}` },
-        ...(x.on.m6 && x.cashMart ? [] : [{ label: "tanpa pinjaman afiliasi", value: `Rp ${jtV4(cash.lowestWithoutAffiliate)} jt`, tone: tone(cash.lowestWithoutAffiliate) } as CardCompare]),
+        ...(x.on.m6 && x.cashMart ? [] : [{ label: "tanpa afiliasi", value: `${jtV4(cash.lowestWithoutAffiliate)} jt`, tone: tone(cash.lowestWithoutAffiliate) } as CardCompare]),
       ] : [],
       href: x.on.m6 ? "/kas" : `/w/${x.week.start}/arus-kas`,
     },
@@ -197,7 +197,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       content: {
         type: "card", value: jtV4(x.month.revenue), unit: "Rp jt",
         compare: [
-          { label: "GP P&L", value: `Rp ${jtV4(x.month.gp)} jt${x.month.gpPct ? ` (${pctV4(x.month.gpPct)})` : ""}`, tone: tone(x.month.gp) },
+          { label: "GP P&L", value: `${jtV4(x.month.gp)} jt${x.month.gpPct ? ` (${pctV4(x.month.gpPct)})` : ""}`, tone: tone(x.month.gp) },
           { label: "vs budget", value: x.month.budgetRevenue === null ? "belum diisi" : `${jtV4(D(x.month.revenue).minus(D(x.month.budgetRevenue)))} jt`, tone: x.month.budgetRevenue === null ? undefined : deltaTone(D(x.month.revenue).minus(D(x.month.budgetRevenue))) },
         ],
         href: `/m/${x.week.update.slice(0, 7)}`,
@@ -213,7 +213,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         type: "card", value: jtV4(s.equity), unit: "Rp jt", negative: D(s.equity).lt(0),
         compare: [
           { label: "ekuitas / modal disetor", value: pctV4(D(s.equity).div(D(s.paidIn)), 0) },
-          { label: "utang pihak berelasi", value: `Rp ${jtV4(s.affiliate)} jt` },
+          { label: "utang pihak berelasi", value: `${jtV4(s.affiliate)} jt` },
           { label: "bulan sampai ekuitas negatif", value: s.months === null ? "tidak berlaku (laba)" : num(s.months, 1) },
         ],
         href: "/kas",

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Tile, TileGrid } from "./Tile";
 import { CardBody } from "./Card";
 import { ModeToggle, ReleaseLine, Slicer } from "./Controls";
@@ -6,11 +5,22 @@ import { ComboChart, Legend, PairedBars, StackedBars, Waterfall } from "./Chart"
 import { V4Table } from "./Table";
 import { CaraHitung } from "./CaraHitung";
 import type { TileModel } from "@/lib/v4/minggu-ini";
+import type { ReactNode } from "react";
 
-/** Approximate inner size of a tile at 1366 px (12 columns, gap 12, tile padding 16): the SVG viewBox of a chart. */
-export function tileBox(w: number, h: number, chrome = 70): { width: number; height: number } {
+/**
+ * Inner size of a tile at 1366 px (12 columns, gap 12, rows of 76): the SVG viewBox of a chart. `chrome` is what the
+ * tile spends besides the chart: padding and border 26, header 26, and the note under the tile (one line 24, two 40).
+ */
+export function tileBox(w: number, h: number, chrome = 52): { width: number; height: number } {
   const col = (1366 - 48 - 11 * 12) / 12;
-  return { width: Math.round(w * col + (w - 1) * 12 - 32), height: Math.max(80, Math.round(h * 76 + (h - 1) * 12 - chrome)) };
+  return { width: Math.round(w * col + (w - 1) * 12 - 32), height: Math.max(60, Math.round(h * 76 + (h - 1) * 12 - chrome)) };
+}
+
+const noteH = (t: TileModel) => (t.note ? (t.note.length > 78 ? 42 : 26) : 0);
+
+function legendOf(t: TileModel): ReactNode {
+  const c = t.content;
+  return "legend" in c && c.legend ? <Legend items={c.legend} /> : null;
 }
 
 function body(t: TileModel): ReactNode {
@@ -22,25 +32,25 @@ function body(t: TileModel): ReactNode {
     case "headline": return <p className="headline" data-headline="" data-tile-value="">{c.text}</p>;
     case "card": return <CardBody value={c.value} unit={c.unit} compare={c.compare} href={c.href} missing={c.missing} negative={c.negative} />;
     case "combo": {
-      const b = tileBox(t.pos.w, t.pos.h, t.note ? 92 : 74);
-      return <><ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} /><Legend items={c.legend} /></>;
+      const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
+      return <ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} />;
     }
     case "waterfall": {
-      const b = tileBox(t.pos.w, t.pos.h, t.note ? 74 : 56);
+      const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
       return <Waterfall width={b.width} height={b.height} steps={c.steps} label={t.title ?? t.id} />;
     }
     case "paired": {
-      const b = tileBox(t.pos.w, t.pos.h, t.note ? 92 : 74);
-      return <><PairedBars width={b.width} height={b.height} groups={c.groups} label={t.title ?? t.id} /><Legend items={c.legend} /></>;
+      const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
+      return <PairedBars width={b.width} height={b.height} groups={c.groups} label={t.title ?? t.id} />;
     }
     case "stacked": {
       const b = tileBox(t.pos.w, 1);
-      const height = c.rows.length * 18 + 8;
-      return <><div style={{ height }}><StackedBars width={b.width} height={height} rows={c.rows} label={t.title ?? t.id} /></div><Legend items={c.legend} /><V4Table cols={c.table.cols} rows={c.table.rows} /></>;
+      const height = c.rows.length * 12 + 6;
+      return <><StackedBars width={b.width} height={height} rows={c.rows} label={t.title ?? t.id} rowHeight={12} /><V4Table cols={c.table.cols} rows={c.table.rows} /></>;
     }
     case "chart+table": {
       const b = tileBox(t.pos.w, 1);
-      return <><div style={{ height: 120 }}><ComboChart width={b.width} height={120} points={c.points} label={t.title ?? t.id} /></div><Legend items={c.legend} /><V4Table cols={c.cols} rows={c.rows} /></>;
+      return <><ComboChart width={b.width} height={84} points={c.points} label={t.title ?? t.id} /><V4Table cols={c.cols} rows={c.rows} /></>;
     }
     case "table": return (
       <>
@@ -61,7 +71,8 @@ export function TilePage({ tiles, label }: { tiles: TileModel[]; label: string }
   return (
     <TileGrid label={label}>
       {tiles.map((t) => (
-        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note} extra={t.cara ? <CaraHitung content={t.cara} /> : undefined}>
+        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note}
+          extra={legendOf(t) || t.cara ? <span className="tile-x">{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {body(t)}
         </Tile>
       ))}

@@ -158,11 +158,11 @@ export function PairedBars({ width, height, groups, label }: { width: number; he
 export interface StackRow { key: string; label: string; parts: number[]; totalText: string; href?: string; selected?: boolean; title?: string }
 
 /** Horizontal stacked bars (e.g. stock per age bucket per SKU), total label at the end of each bar. */
-export function StackedBars({ width, height, rows, label, tones = ["s1", "s2", "s3"] }: { width: number; height: number; rows: StackRow[]; label: string; tones?: string[] }) {
+export function StackedBars({ width, height, rows, label, tones = ["s1", "s2", "s3"], rowHeight }: { width: number; height: number; rows: StackRow[]; label: string; tones?: string[]; rowHeight?: number }) {
   if (!rows.length) return <p className="note">tidak ada data untuk periode ini</p>;
   const lw = Math.min(150, width * 0.32), rw = 70;
   const max = Math.max(1, ...rows.map((r) => r.parts.reduce((a, b) => a + Math.max(0, b), 0)));
-  const rh = Math.min(26, (height - 8) / rows.length);
+  const rh = rowHeight ?? Math.min(26, (height - 8) / rows.length);
   const x = (v: number) => (v / max) * (width - lw - rw - 8);
   return (
     <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
@@ -175,7 +175,7 @@ export function StackedBars({ width, height, rows, label, tones = ["s1", "s2", "
             <text x={lw - 6} y={yy + rh / 2 + 4} textAnchor="end">{r.label}</text>
             {r.parts.map((p, j) => {
               const w = x(Math.max(0, p));
-              const el = <rect key={j} className={tones[j] ?? "s3"} x={lw + x(acc)} y={yy + 3} width={Math.max(0, w)} height={rh - 8} />;
+              const el = <rect key={j} className={tones[j] ?? "s3"} x={lw + x(acc)} y={yy + 2} width={Math.max(0, w)} height={Math.max(6, rh - 5)} />;
               acc += Math.max(0, p);
               return el;
             })}

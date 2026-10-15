@@ -3,11 +3,11 @@
    shadow hanya untuk drawer/dialog. Kontras teks >= 4,5:1, elemen grafis >= 3:1. */
 :root {
   --bg: #f4f5f7;  --surface: #ffffff;  --surface-2: #f6f7f9;
-  --text: #1d2330;  --muted: #6b7280;   /* 4,83:1 di atas putih */
+  --text: #1d2330;  --muted: #69707d;   /* 5,00:1 di atas putih, 4,58:1 di atas --bg */
   --line: #e3e6eb;
   --accent: #0f6cbd;  --accent-soft: #e6f0fa;
   --good: #1a7f4b;  --bad: #c4314b;
-  --chart-1: #0f6cbd;  --chart-2: #9fb8d8;  --chart-3: #6b7280;  /* seri 2 harus >= 3:1 vs putih */
+  --chart-1: #0f6cbd;  --chart-2: #5798d1;  --chart-3: #6b7280;  /* seri 2 >= 3:1 vs putih: #9fb8d8 diukur 2,03:1, diganti (PRD 5.2) */
   --radius: 10px;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
   --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
