@@ -344,3 +344,45 @@ begin
 
   raise exception 'RLS-RESULTS v3 F3b (rolled back): %', out;
 end $$;
+
+-- v3 F4a (M5 drivers): Finance keeps the fixed-cost schedule and the drivers of accounts (driver columns only);
+-- sales does not read the schedule; management reads it.
+do $$
+declare out text := ''; n int; acc text;
+begin
+  insert into public.app_user(email, role) values ('t8-fin@x.test','finance'),('t8-sales@x.test','sales'),('t8-mgmt@x.test','management'),('t8-ppic@x.test','ppic');
+  select account into acc from public.coa_map where type = 'LabaRugi' order by account limit 1;
+  insert into public.fixed_cost_schedule (code, pl_line, description, start_date) values ('T8', 'Rent Expenses', 'rls', '2026-09-01');
+
+  perform set_config('request.jwt.claims', '{"email":"t8-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.fixed_cost_schedule (pl_line, description, amount_per_month, start_date) values ('Salaries and allowance', 'Gaji', 85000000, '2026-10-01'); out := out || 'finance insert schedule: OK; ';
+  exception when others then out := out || 'finance insert schedule: DENIED(!) ' || sqlerrm || '; '; end;
+  update public.coa_map set driver_type = 'fixed', rp_per_kg = 10 where account = acc; get diagnostics n = row_count;
+  out := out || 'finance set driver rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin update public.coa_map set name = 'x' where account = acc; out := out || 'finance rename account: ALLOWED(!); ';
+  exception when others then out := out || 'finance rename account: denied; '; end;
+  begin update public.coa_map set driver_type = 'bogus' where account = acc; out := out || 'bad driver_type: ALLOWED(!); ';
+  exception when others then out := out || 'bad driver_type: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t8-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.fixed_cost_schedule; out := out || 'sales read schedule=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  update public.coa_map set driver_type = 'none' where account = acc; get diagnostics n = row_count;
+  out := out || 'sales set driver rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t8-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.fixed_cost_schedule where code = 'T8'; out := out || 'mgmt read schedule=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t8-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.fixed_cost_schedule (pl_line, description, start_date) values ('Rent Expenses', 'x', '2026-10-01'); out := out || 'ppic insert schedule: ALLOWED(!); ';
+  exception when others then out := out || 'ppic insert schedule: denied; '; end;
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F4a (rolled back): %', out;
+end $$;

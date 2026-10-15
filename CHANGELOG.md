@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F4a] M5 Biaya dengan driver (docs/PLAN-v3.md Fase 4, PR 4a)
+
+### Added
+- Migration `20261016000900_m5_drivers.sql`: `coa_map` driver columns (+ Finance guard), `cash_plan` link columns, `fixed_cost_schedule` (seed from FS September 2026), default drivers.
+- Engine `drivers.ts` (`monthlyAmount`, `dailyFixed`, `monthFixedOutlook`, `variableCost`, `workingDays`, `runrateDaily`, `costActualByLine`, `driverControls` C33–C34); fixture `fixtures/fs-2026-09` (extractor `fs`).
+- Web: `/m/[month]/biaya` (schedule, drivers per account, fixed outlook), C33/C34 and snapshot key `drivers` when `m5_drivers` is on.
+
+### Verified
+- Sewa RPA 94,48 jt/month from 2026-11-01 (prepaid 1.133,79 jt / 12); fixed outlook never counts a line twice; snapshot unchanged.
+
 ## [v3-F3b] M3 Alokasi FEFO + cut-off (docs/PLAN-v3.md Fase 3, PR 3b)
 
 ### Added

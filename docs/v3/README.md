@@ -214,3 +214,33 @@ End-to-end engine  → minggu contoh 27 Agu: 161 lot (167.057,25 kg); 28 baris P
                      cut-off 40 lot fresh 28.127,39 kg → lot frozen blast:*; C29/C31 LULUS
 ```
 
+## F4a — M5 Biaya dengan driver
+
+Branch `v3/f4a-drivers` (di atas `v3/f3b-alokasi`) · desain [`F4a-design.md`](F4a-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016000900_m5_drivers.sql` | kolom driver `coa_map` (+ guard Finance), kolom `cash_plan`, `fixed_cost_schedule` + seed FS Sep 2026, driver default |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016000900`), setelah F3b.
+2. Finance di `/m/[bulan]/biaya` (flag `m5_drivers` on untuk admin + finance): isi nominal **gaji**, **sewa ABF NMG**, **bunga** (seed kosong, angka FS di catatan), konfirmasi depresiasi September (FS 0) dan driver default per akun; isi Rp/kg untuk pos variabel.
+3. Flag: `m5_drivers` on (admin, finance) sebelum `m4_monthly` (F4b memakai jadwal ini).
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 153 passed + 1 todo (baru: drivers.test.ts 5) · parsers 18 · web 9
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /m/[month]/biaya)
+pnpm test:rls      → OK; F4a: finance insert schedule OK; finance set driver rows=1; finance rename account denied;
+                     bad driver_type denied; sales read schedule=0; sales set driver rows=0; mgmt read schedule=1; ppic insert schedule denied
+Golden M5          → PREPAID RENT!D11 1.133.790.000 ÷ 12 = 94.482.500 (94,48 jt) mulai 2026-11-01; depresiasi Agu jurnal = jadwal,
+                     Sep jurnal 0 → outlook = jadwal; gaji tanpa nominal → outlook = jurnal (Agu 85.565.549 / Sep 82.677.332)
+Migrasi lokal      → dijalankan dua kali tanpa error; seed 7 baris jadwal; driver: fixed 24, variable 15, runrate 45, none 23 (Revenue/Other Income)
+```
+

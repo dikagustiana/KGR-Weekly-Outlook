@@ -11,6 +11,7 @@ import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
 import { ledgerForWeek } from "./ledger";
 import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 import { dayControls, loadDayAllocation } from "./allocation";
+import { loadMonthDrivers } from "./drivers";
 
 export interface WeekV3 {
   controls: ControlV3[];
@@ -73,6 +74,12 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
         unallocated: d.proposal.unallocated.map((u) => ({ sales_ref: u.sales_ref, key: u.key, kg: u.kg })), cutoff: d.cutoffDone.map((b) => ({ lot_ref: b.lot_ref_from, kg: b.kg, rp_downgrade: b.rp_downgrade })),
       };
     }
+  }
+  if (settings.m5_drivers?.enabled) {
+    // fixed-cost drivers of the update date's month, journal through the day before (C33 / C34)
+    const m = await loadMonthDrivers(sb, week.update_date.slice(0, 7), week.update_date);
+    controls.push(...m.controls);
+    snapshot.drivers = { month: m.month, through: m.through, fixed: m.fixed.map((l) => ({ pl_line: l.pl_line, scheduled: l.scheduled, actual_mtd: l.actual_mtd, outlook: l.outlook, missing: l.missing })) };
   }
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };

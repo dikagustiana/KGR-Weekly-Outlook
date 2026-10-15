@@ -440,6 +440,73 @@ def extract_demand():
 V3_EXTRACTORS["demand"] = extract_demand
 
 
+FS_FILE = "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx"
+
+
+def extract_fs():
+    """09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx (FS September 2026, management report).
+
+    inputs.json: P&L lines per month (PL - Management Report D:L = Jan..Sep), balance-sheet lines per month end
+    (BS - Management Report D:L), prepaid rent / prepaid other schedules, and the closing notes DI-01..DI-05 (DI - Note).
+    golden.json: cached value of every non-empty cell of those sheets (sheet!cell).
+    """
+    path = os.path.join(REF, FS_FILE)
+    wbv = openpyxl.load_workbook(path, data_only=True)
+    out = {}
+
+    def lines(sheet, first, last, label_col, cols, key):
+        ws = wbv[sheet]
+        hdr = {c: ws.cell(key, c).value for c in cols}
+        res = []
+        for r in range(first, last + 1):
+            label = ws.cell(r, label_col).value
+            if not isinstance(label, str) or not label.strip():
+                continue
+            vals = {iso(hdr[c])[:10] if isinstance(hdr[c], (dt.date, dt.datetime)) else str(hdr[c]): num(ws.cell(r, c).value)
+                    for c in cols if isinstance(ws.cell(r, c).value, (int, float)) and not isinstance(ws.cell(r, c).value, bool)}
+            res.append({"row": r, "line": label.strip(), "values": vals})
+        return res
+
+    out["pl"] = lines("PL - Management Report", 12, 78, 2, range(4, 13), 10)
+    out["bs"] = lines("BS - Management Report", 12, 79, 2, range(4, 13), 10)
+
+    def schedule(sheet, first, last):
+        ws = wbv[sheet]
+        res = []
+        for r in range(first, last + 1):
+            vendor, desc, nominal = ws.cell(r, 1).value, ws.cell(r, 3).value, ws.cell(r, 4).value
+            if not vendor or nominal is None:
+                continue
+            d = ws.cell(r, 2).value
+            res.append({"row": r, "vendor": vendor, "date": iso(d) if isinstance(d, (dt.date, dt.datetime)) else d, "description": desc, "nominal": num(nominal)})
+        return res
+
+    out["prepaid_rent"] = schedule("PREPAID RENT", 6, 11)
+    out["prepaid_other"] = schedule("PREPAID OTHER", 6, 8)
+    di = wbv["DI - Note"]
+    out["closing_notes"] = [
+        {"code": "DI-01", "kind": "unbilled_revaluation", "pl_line": "Cost of Sales", "description": "Revaluasi COGS unbilled (perubahan MA inventory, invoice Agu → Sep)",
+         "amount": num(di["E21"].value), "cell": "DI - Note!E21"},
+        {"code": "DI-02", "kind": "parked_cost", "pl_line": "Cost of Sales", "description": "Biaya RPA September terparkir (perbaikan mesin, boots)", "amount": num(di["E33"].value), "cell": "DI - Note!E33"},
+        {"code": "DI-03", "kind": "parked_cost", "pl_line": "Cost of Sales", "description": "Jasa transport LB 3 batch potong AGRO masih di P&L", "amount": num(di["E41"].value), "cell": "DI - Note!E41"},
+        {"code": "DI-04", "kind": "accrual", "pl_line": "Storage Expenses", "description": "Sewa ABF NMG (cost baru September)", "amount": num(di["D46"].value), "cell": "DI - Note!D46"},
+        {"code": "DI-04", "kind": "inventory_adj", "pl_line": "Cost of Sales", "description": "Inventory adjustment September", "amount": num(di["D47"].value), "cell": "DI - Note!D47"},
+        {"code": "DI-05", "kind": "unbilled_revaluation", "pl_line": "Revenue", "description": "Inv 311 masuk Agustus (sales live bird)", "amount": num(di["D55"].value if di["D55"].value else di["E55"].value), "cell": "DI - Note!E55"},
+    ]
+    golden = {}
+    for sh in ["PL - Management Report", "BS - Management Report", "PREPAID RENT", "PREPAID OTHER", "DI - Note"]:
+        for row in wbv[sh].iter_rows():
+            for c in row:
+                val = c.value
+                if val is None:
+                    continue
+                golden[f"{sh}!{c.coordinate}"] = num(val) if isinstance(val, (int, float)) and not isinstance(val, bool) else (iso(val) if isinstance(val, (dt.date, dt.datetime)) else val)
+    return {"inputs.json": out, "golden.json": golden}
+
+
+V3_EXTRACTORS["fs"] = extract_fs
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
