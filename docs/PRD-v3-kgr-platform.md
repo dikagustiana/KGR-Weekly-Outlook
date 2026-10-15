@@ -1,3 +1,5 @@
+Digantikan oleh docs/PRD-v4.md sejak 16 Okt 2026; lihat §0.2 untuk pasal yang dicabut.
+
 # PRD v3 — KGR Weekly Outlook → KGR Operations & Finance Platform
 
 Status: Draft untuk eksekusi · Owner: Dika (Group Project Finance, SAMB) · Tanggal: 15 Okt 2026

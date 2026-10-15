@@ -1,3 +1,5 @@
+Digantikan oleh docs/PRD-v4.md sejak 16 Okt 2026; lihat §0.2 untuk pasal yang dicabut.
+
 # PRD — KGR Weekly Outlook: Management View v2
 
 Status: Draft · Owner: Dika (Group Project Finance) · Tanggal: 14 Okt 2026

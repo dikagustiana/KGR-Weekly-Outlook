@@ -1,3 +1,5 @@
+Digantikan oleh docs/PRD-v4.md sejak 16 Okt 2026; lihat §0.2 untuk pasal yang dicabut.
+
 # PRD — KGR Weekly Outlook (web app)
 
 Oct 14, 2026 · @Dika
