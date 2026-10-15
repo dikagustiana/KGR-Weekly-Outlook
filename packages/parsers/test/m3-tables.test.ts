@@ -36,3 +36,30 @@ describe("M3 uploads (PRD v3 §5)", () => {
     expect(normDemandStatus("xyz")).toBeNull();
   });
 });
+
+describe("M6 template kas harian (2 sheets)", () => {
+  it("Saldo and Rencana sheets are read by their own kinds", () => {
+    const sheets: Sheet[] = [
+      { name: "Saldo", rows: [["tanggal", "no_rekening", "saldo_awal", "saldo_akhir", "catatan"], ["2026-10-13", "BCA-1", "100.000.000", "90.000.000", ""]] },
+      { name: "Rencana", rows: [["tanggal", "no_rekening", "kategori_cf", "deskripsi", "jumlah", "id_jadwal_tetap"], ["2026-10-14", "BCA-1", "Bayar karyawan", "Gaji", "-80.000.000", ""]] },
+    ];
+    const b = parseV3Table("cash_balance", sheets);
+    expect(b.detected?.sheet).toBe("Saldo");
+    expect(b.rows[0].values).toMatchObject({ date: "2026-10-13", account_no: "BCA-1", opening: "100000000", closing: "90000000" });
+    const p = parseV3Table("cash_plan_daily", sheets);
+    expect(p.detected?.sheet).toBe("Rencana");
+    expect(p.rows[0].values).toMatchObject({ date: "2026-10-14", cf_category: "Bayar karyawan", amount: "-80000000" });
+  });
+});
+
+describe("reference/templates/Template_Kas_Harian.xlsx (scripts/make_cash_template.py)", () => {
+  it("the generated template is read by cash_balance and cash_plan_daily", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { repoRoot } = await import("@kgr/engine/fixtures");
+    const { readWorkbook } = await import("../src");
+    const wb = readWorkbook(readFileSync(join(repoRoot(), "reference", "templates", "Template_Kas_Harian.xlsx")), "Template_Kas_Harian.xlsx");
+    expect(parseV3Table("cash_balance", wb).detected?.sheet).toBe("Saldo");
+    expect(parseV3Table("cash_plan_daily", wb).detected?.sheet).toBe("Rencana");
+  });
+});

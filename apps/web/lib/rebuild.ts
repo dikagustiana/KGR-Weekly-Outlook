@@ -7,12 +7,15 @@ import "server-only";
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
-import type { ModuleSettings } from "./modules-core";
+import { anyModuleOn, type ModuleSettings } from "./modules-core";
 import { BUILDERS } from "./rebuild-registry";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
 import "./v3/planning";
 import "./v3/monthly";
+import "./v3/cash";
+import "./v3/commercial";
+import "./v3/discount";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 
@@ -44,8 +47,12 @@ export async function queueRebuild(sb: Supa, dates: string[], reason: string): P
   }
 }
 
-/** Process queued dates oldest first (each date once), marking every row done or failed. */
+/**
+ * Process queued dates oldest first (each date once), marking every row done or failed. With every module off the
+ * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
+ */
 export async function processRebuildQueue(sb: Supa, settings: ModuleSettings, limit = 62): Promise<{ done: number; failed: number; notes: string[] }> {
+  if (!anyModuleOn(settings)) return { done: 0, failed: 0, notes: [] };
   const { data, error } = await sb.from("rebuild_queue").select("id, date").eq("status", "queued").order("date").limit(500);
   if (error) throw new WriteError(error.message);
   const rows = (data ?? []) as { id: string; date: string }[];

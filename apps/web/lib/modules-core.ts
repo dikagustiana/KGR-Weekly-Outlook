@@ -44,6 +44,11 @@ export function isModuleOn(setting: ModuleSetting | undefined, role: Role | null
   return !setting.roles || setting.roles.length === 0 || setting.roles.includes(role);
 }
 
+/** Any module enabled (for any role). None = nothing v3 to rebuild, so v1 flows never touch the v3 tables. */
+export function anyModuleOn(settings: ModuleSettings): boolean {
+  return Object.values(settings).some((s) => s?.enabled === true);
+}
+
 export interface NavCtx {
   week?: string | null;
   month?: string | null;

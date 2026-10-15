@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isModuleOn, navModules, parseSetting, type ModuleSettings } from "./modules-core";
+import { anyModuleOn, isModuleOn, navModules, parseSetting, type ModuleSettings } from "./modules-core";
 
 describe("module flags (PRD v3 rule 5)", () => {
   it("missing or malformed flag is off", () => {
@@ -22,6 +22,11 @@ describe("module flags (PRD v3 rule 5)", () => {
     // cost per batch is finance detail (PRD v3 Q17): sales gets no costing page
     expect(navModules(st, "sales", { week: "2026-08-24" })).toEqual([]);
     expect(navModules({}, "admin", { week: "2026-08-24" })).toEqual([]);
+  });
+  it("no module on (or no app_setting table) = no rebuild work, so v1 uploads skip the v3 queue", () => {
+    expect(anyModuleOn({})).toBe(false);
+    expect(anyModuleOn({ m1_costing: { enabled: false }, m7_approval: { enabled: false } })).toBe(false);
+    expect(anyModuleOn({ m6_cash: { enabled: true, roles: ["finance"] } })).toBe(true);
   });
   it("management view lists read pages only", () => {
     const st: ModuleSettings = { m1_costing: { enabled: true } };

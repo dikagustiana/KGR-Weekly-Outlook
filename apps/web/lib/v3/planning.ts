@@ -14,6 +14,16 @@ import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
+import { consumeApprovals, floorGuard } from "./discount";
+import { parseSetting, MODULE_KEYS, type ModuleSettings } from "../modules-core";
+
+/** Module flags read with the caller's client (uploads run outside the page cache). */
+async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
+  const { data } = await sb.from("app_setting").select("key, value").in("key", MODULE_KEYS);
+  const out: ModuleSettings = {};
+  for (const r of (data ?? []) as { key: string; value: unknown }[]) out[r.key as keyof ModuleSettings] = parseSetting(r.value);
+  return out;
+}
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f = (x: Decimal | null | undefined, dp: number) => (x === null || x === undefined ? null : toFixedString(x, dp));
@@ -360,7 +370,10 @@ registerV3Kind({
     const unmapped = [...new Set(ok.filter((r) => r.data.key === "KODE BARU" || r.data.key === "").map((r) => String(r.data.item_code ?? "")))].map((code) => ({ code, name: null, suggested: null }));
     return { rows: ok, plan: [p], issues, note: `${ok.length} baris PO`, dateFrom: dates[0] ?? null, dateTo: dates[dates.length - 1] ?? null, sample: ok.slice(0, 25).map((r) => r.data), unmappedItems: unmapped };
   },
-  async commit({ sb, uploadId, rows }) {
+  async commit({ sb, viewer, uploadId, rows }) {
+    // M7 (flag m7_approval): PO lines under the price floor need an approved discount
+    const settings = await moduleSettingsOf(sb);
+    const { covered } = await floorGuard(sb, viewer, settings, rows.map((r) => ({ key: s(r.data.key), customer: s(r.data.customer), price: s(r.data.price), kg: s(r.data.kg), date: s(r.data.delivery_date) })));
     const pos = [...new Set(rows.map((r) => String(r.data.po_ref)))];
     const existing = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
@@ -384,6 +397,7 @@ registerV3Kind({
       const e = await sb.from("sales_line").update({ deleted_at: new Date().toISOString() }).in("id", gone.map((g) => String(g.id)));
       if (e.error) throw new WriteError(`sales_line: ${e.error.message}`);
     }
+    await consumeApprovals(sb, covered, null);
     return { inserted, updated, deleted: gone.length, dates: [...dates], message: "PO lines disimpan (Order)" };
   },
 });

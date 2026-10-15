@@ -13,6 +13,9 @@ import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 import { dayControls, loadDayAllocation } from "./allocation";
 import { loadMonthDrivers } from "./drivers";
 import { monthView, plDaily } from "./monthly";
+import { loadCash } from "./cash";
+import { computeCommercial } from "./commercial";
+import { weekFloorControls } from "./discount";
 import { firstOfMonth, monthSummary } from "@kgr/engine";
 
 export interface WeekV3 {
@@ -94,6 +97,21 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       versions: mv.versions.map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt, sha256: v.snapshot_sha256 })),
     };
   }
+  if (settings.m6_cash?.enabled) {
+    // cash position on the update date, 13-week low, CCC, solvency (C35–C37)
+    const c = await loadCash(sb, week.update_date, { m4: settings.m4_monthly?.enabled === true });
+    controls.push(...c.controls);
+    snapshot.cash = { date: c.date, closing: c.projection.startClosing, lowest_13w: c.projection.lowest, lowest_date: c.projection.lowestDate, weeks: c.projection.weeks.map((w) => ({ week_start: w.week_start, closing: w.closing, lowest: w.lowest })) };
+    snapshot.ccc = c.ccc ? { dio: c.ccc.dio, dso: c.ccc.dso, dpo: c.ccc.dpo, ccc: c.ccc.ccc, working_capital: c.ccc.workingCapital, window_days: c.cccWindowDays } : null;
+    snapshot.solvency = c.solvency;
+  }
+  if (settings.m7_commercial?.enabled && settings.m2_ledger?.enabled) {
+    // commercial view on the update date (C39 / C40); snapshot keeps the ranking without the specific lot cost
+    const c = await computeCommercial(sb, week.update_date);
+    controls.push(...c.controls);
+    snapshot.commercial = { date: c.date, stock_date: c.stockDate, rows: c.rows.map((r) => ({ rank: r.rank, key: r.key, urgency: r.urgency, free_kg: r.free_fresh_kg.plus(r.free_frozen_kg), price_floor: r.price_floor, priority_score: r.priority_score })) };
+  }
+  if (settings.m7_approval?.enabled && settings.m7_commercial?.enabled) controls.push(...await weekFloorControls(sb, week)); // C38
   if (controls.length) snapshot.controls_v3 = controls;
   return { controls, snapshot };
 }
