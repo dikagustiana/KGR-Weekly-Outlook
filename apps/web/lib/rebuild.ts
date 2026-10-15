@@ -14,6 +14,7 @@ import "./v3/ledger";
 import "./v3/planning";
 import "./v3/monthly";
 import "./v3/cash";
+import "./v3/commercial";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

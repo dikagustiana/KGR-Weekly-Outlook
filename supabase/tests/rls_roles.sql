@@ -470,3 +470,44 @@ begin
 
   raise exception 'RLS-RESULTS v3 F5 (rolled back): %', out;
 end $$;
+
+-- v3 F6a (M7 commercial): sales read the commercial view without the SI cost; commercial_lead keeps assignments /
+-- targets / rules; the mart is written only through mart_replace.
+do $$
+declare out text := ''; n int;
+begin
+  insert into public.app_user(email, role) values ('t11-sales@x.test','sales'),('t11-cl@x.test','commercial_lead'),('t11-mgmt@x.test','management');
+  insert into public.commercial_daily (date, key, cost_per_kg_ma, cost_per_kg_si, rank) values ('2030-05-01', 'RPA|Karkas|Fresh', 30000, 29000, 1);
+
+  perform set_config('request.jwt.claims', '{"email":"t11-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily; out := out || 'sales read commercial_daily=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.commercial_daily_sales where date = '2030-05-01'; out := out || 'sales read view=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin perform cost_per_kg_si from public.commercial_daily_sales limit 1; out := out || 'sales SI column in view: PRESENT(!); ';
+  exception when others then out := out || 'sales SI column in view: absent; '; end;
+  begin insert into public.sales_assignment (sales_rep, email) values ('t11', 't11-sales@x.test'); out := out || 'sales insert assignment: ALLOWED(!); ';
+  exception when others then out := out || 'sales insert assignment: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t11-cl@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_assignment (sales_rep, email, key) values ('t11', 't11-sales@x.test', 'RPA|Karkas|Fresh'); out := out || 'cl insert assignment: OK; ';
+  exception when others then out := out || 'cl insert assignment: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_target (week_start, sales_rep, target_kg) values ('2030-04-29', 't11', 1000); out := out || 'cl insert target: OK; ';
+  exception when others then out := out || 'cl insert target: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.price_floor_rule (group_code, markup_rp_per_kg) values ('KARKAS', 500); out := out || 'cl insert floor rule: OK; ';
+  exception when others then out := out || 'cl insert floor rule: DENIED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.commercial_daily where date = '2030-05-01'; out := out || 'cl read commercial_daily=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.commercial_daily (date, key) values ('2030-05-02', 'x'); out := out || 'cl direct mart: ALLOWED(!); ';
+  exception when others then out := out || 'cl direct mart: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t11-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.urgency_rule (form, age_from, status) values ('fresh', 9, 'aman'); out := out || 'mgmt insert urgency rule: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt insert urgency rule: denied; '; end;
+  select count(*) into n from public.urgency_rule; out := out || 'mgmt read urgency rules=' || n || case when n = 5 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  raise exception 'RLS-RESULTS v3 F6a (rolled back): %', out;
+end $$;

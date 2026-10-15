@@ -147,6 +147,10 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | V36 | Solvabilitas | Ekuitas = Shareholder Equity + Retained earnings + Current year profit neraca mingguan (kolom kemarin); afiliasi = Other Payable - Related Parties + Trade Payables - Affiliates (piutang: Trade Receivables - Related Parties + Other Receivable - Affiliated Party); bulan sampai ekuitas negatif memakai NIBT outlook bulan berjalan M4 | PRD §4.7 | `lib/v3/cash.ts` |
 | V37 | Jendela CCC | Jurnal 90 hari terakhir; bila jurnal lebih pendek, HPP/penjualan per hari = Σ ÷ hari yang tercakup | GL di app dimulai dari tanggal TB | `ccc.ts` `windowDays` |
 | V38 | Hari kerja C36 | Senin–Sabtu (V28), sejak awal minggu berjalan | — | `cashControls` |
+| V39 | Status urgensi keempat | `di_atas_umur` ditambahkan ke status urgensi (PRD §4.8 menulis tiga status) dan diurutkan paling atas | Q18 menyebut "> frozen_age_limit_days (30) = di atas batas umur" | `urgency_rule`, `commercial.ts` |
+| V40 | Penugasan sales ke login | `sales_assignment.email` (kolom tambahan) memetakan login ke sales_rep; sales tanpa penugasan melihat semua SKU dengan catatan (bukan kosong) dan C40 menandai BELUM DIISI | PRD tidak menyebut cara memetakan login | migrasi m7, `/komersial` |
+| V41 | Risiko downgrade | Semua stok bebas fresh dihitung (fresh − frozen harga daftar) × kg; prioritas membagi dengan max(1, jam ke cut-off / 24) — jam kosong = 24 | PRD "untuk fresh yang akan lewat cut-off" | `commercialRows` |
+| V42 | View sales | `commercial_daily_sales` = view daftar kolom (tanpa SI), dijalankan dengan hak pemilik view dan disaring `is_app_user()`; bukan perhitungan di SQL | Aturan "tidak ada perhitungan di SQL view untuk angka laporan" | migrasi m7 |
 
 ### E.4 Target numbers (PRD v3 §8) — reproduced / not reproduced
 
@@ -170,3 +174,5 @@ decision still needed; **DEFAULT** = default in use; **FIXED** = script/control 
 | M6 | FS Sep: ekuitas 702,6 jt, modal 5.000 jt, afiliasi 9.845,9 jt | **Reproduced**: `BS - Management Report!L77` 702.553.474,90; L68 5.000.000.000; L51 9.845.918.888,89 (+ L48, L54 = 0); bulan sampai ekuitas negatif pada NIBT Sep (−910.058.539,73) = 0,77 | `packages/engine/test/cash.test.ts` |
 | M6 | DI-01 48,35; DI-02 48,08; DI-03 12; DI-04 62,45 + 69,66 | **Reproduced**: `DI - Note!E21` 48.354.462, `E33` 48.084.680, `E41` 12.000.000, `D46` 62.450.000, `D47` 69.661.617 — sama dengan seed `closing_adjustment` (migrasi m4) | idem |
 | M6 | Upload template kas → posisi harian; Σ rekening = kas neraca (C35); 13 minggu / 12 bulan; CCC + simulasi; solvabilitas | **Engine reproduced (rule)**: template dibaca kedua sheet (`packages/parsers/test/m3-tables.test.ts`), C35–C37, proyeksi, simulasi CCC; UI belum dicoba di Supabase | idem |
+| M7 | View sales memuat cost/kg MA tetapi tidak cost pool / batch_ref / SI per lot di DOM | **Reproduced (view model + RLS)**: `commercialView` untuk sales tanpa SI / cost pool / batch_ref (`apps/web/lib/v3/commercial-view.test.ts`), RLS: sales tidak membaca `commercial_daily`, view tanpa kolom SI (`rls_roles.sql` F6a) | idem |
+| M7 | Ranking berubah saat umur berubah | **Reproduced**: frozen 10 → 35 hari pindah dari #2 ke #1 (di atas batas umur) | `packages/engine/test/commercial.test.ts` |

@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v3-F6a] M7 Commercial view (docs/PLAN-v3.md Fase 6, PR 6a)
+
+### Added
+- Migration `20261016001200_m7_commercial.sql`: `sales_assignment`, `sales_target`, `urgency_rule` (seed Q18), `price_floor_rule`, `discount_approval`, data marts `commercial_daily`, `sales_scorecard_weekly`, view `commercial_daily_sales` (no SI cost), parameters `sales_sees_cost`, `discount_limit_rp_per_kg`.
+- Engine `commercial.ts` (urgency, price floor, commercial rows + ranking, realised price, below-floor approver, C38–C40, scorecard).
+- Web: `lib/v3/commercial.ts` (builder), `lib/v3/commercial-view.ts` (role view model, tested), `/komersial`, `/komersial/[key]`, C39/C40 and snapshot key `commercial`.
+
+### Verified
+- Sales view without SI / cost pool / batch reference; ranking changes with age; snapshot unchanged.
+
 ## [v3-F5] M6 Kas, CCC, solvabilitas (docs/PLAN-v3.md Fase 5)
 
 ### Added

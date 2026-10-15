@@ -308,3 +308,33 @@ Golden M6 (FS Sep) → ekuitas 702.553.474,90 (702,6 jt), modal 5.000 jt, afilia
 Template           → scripts/make_cash_template.py → 12 kategori arus kas (seed coa_map); kedua sheet terbaca parser
 ```
 
+## F6a — M7 Commercial view
+
+Branch `v3/f6a-commercial` (di atas `v3/f5-cash`) · desain [`F6a-design.md`](F6a-design.md)
+
+### Migrasi
+
+| File | Isi |
+| --- | --- |
+| `20261016001200_m7_commercial.sql` | seluruh model M7: `sales_assignment`, `sales_target`, `urgency_rule` (seed Q18), `price_floor_rule`, `discount_approval`, mart `commercial_daily`, `sales_scorecard_weekly`, view `commercial_daily_sales`, parameter `sales_sees_cost`, `discount_limit_rp_per_kg` |
+
+### Perintah untuk manusia
+
+1. Backup → `supabase db push` (`20261016001200`), setelah F5.
+2. Commercial lead: isi `sales_assignment` (sales_rep, **email login**, key/customer) dan `sales_target`; periksa aturan harga lantai (`price_floor_rule`, default = MA + simpan × 7 + blast) dan `sku_key.storage_cost_per_kg_day`.
+3. Flag `m7_commercial` on (butuh `m2_ledger` on): admin + commercial_lead dulu, lalu sales dan management. `m7_approval` tetap off sampai F6b diterima (PRD §10 risiko sales).
+
+### Bukti
+
+```
+pnpm typecheck     → exit 0
+pnpm test          → engine 176 passed + 3 todo (baru: commercial.test.ts 7) · parsers 20 · web 12 (baru: commercial-view.test.ts 3)
+pnpm parity        → 17161/17161, diff bersih · pnpm snapshot:diff → EMPTY — byte-identical
+pnpm build         → ✓ Compiled successfully (ƒ /komersial, ƒ /komersial/[key])
+pnpm test:rls      → OK; F6a: sales read commercial_daily=0; sales read view=1; sales SI column in view absent; sales insert assignment denied;
+                     cl insert assignment / target / floor rule OK; cl read commercial_daily=1; cl direct mart denied;
+                     mgmt insert urgency rule denied; mgmt read urgency rules=5
+M7                 → DOM sales tanpa SI / cost pool / batch_ref (view model); ranking berubah saat umur berubah; minggu contoh 26 Agu:
+                     ranking lengkap per key, status di atas batas umur / jual hari ini lebih dulu
+```
+
