@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Decimal } from "../src/decimal";
 import { addDays, assertISODate, isISODate, mondayOf, daysInMonth } from "../src/dates";
 import { computeWeek } from "../src/week";
-import { rpaAction } from "../src/outlook";
+import { ALERT_AUDIENCE, rpaAction } from "../src/outlook";
 import { loadFixtureWeek } from "../src/fixtures";
 import { fixed, pct } from "../src/format";
 import type { WeekInputs } from "../src/types";
@@ -370,5 +370,20 @@ describe("bundled example week", () => {
     const { exampleWeekInputs } = await import("../src/example-week");
     const { snapshotJson } = await import("../src/snapshot");
     expect(snapshotJson(computeWeek(exampleWeekInputs()))).toBe(snapshotJson(computeWeek(base())));
+  });
+});
+
+describe("Management View v2 R10 — warning audience", () => {
+  it("every warning carries its audience; data hygiene goes to the preparer", () => {
+    const r = computeWeek(base());
+    expect(r.block7.map((a) => [a.code, a.audience])).toEqual([
+      ["HARGA_KOSONG", "preparer"],
+      ["SHRINK", "management"],
+      ["LB_DI_ATAS_BREAKEVEN", "management"],
+    ]);
+    expect(ALERT_AUDIENCE.ORDER_LEWAT).toBe("preparer");
+    expect(ALERT_AUDIENCE.KODE_BARU).toBe("preparer");
+    expect(ALERT_AUDIENCE.STOK_MINUS).toBe("management");
+    expect(ALERT_AUDIENCE.TAHAN).toBe("management");
   });
 });

@@ -76,3 +76,9 @@ Evidence per stage (checklist PRD §5, screenshots 1366×768): `docs/management-
 ### Stage 2 — R2, R4, R9 (zero rows)
 - Engine: `block2.action` — the RPA recommendation as one action from {TUNDA, NEGOSIASI ≤ Rp X, BELI, POTONG N kg} with the text `[AKSI]: [alasan]`. Mapped from the existing Excel code and figures (NEGOSIASI target = breakeven of today's plan, B21); no formula changed. Example week: "NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong".
 - Management view: headline block under the title (GP projection and Δ vs last week, today's RPA action, stock above the age limit with a link to the SKU detail), read from the same fields as the tables; section 2 shows the action; stock rows with 0 SKU are hidden (grey in the preparer view).
+
+### Stage 3 — R3, R5, R10, R12, R13
+- Engine: every warning (`block7[]`) carries `audience` (`management` | `preparer`); data-hygiene warnings (past orders, new item codes, empty reference prices) go to the preparer.
+- Management view, section 2: the action, the four deciding figures (LB price, breakeven 100% fresh, margin/kg, expected margin of the plan), the "stock already covers the orders" sentence instead of zero rows, the rest under "Lihat perhitungan".
+- "Cara hitung" becomes a tooltip on the label (keyboard focusable, one `?` hint in the header); sheet names are shown in plain words (`lib/sources.ts`), and no technical name reaches the management DOM.
+- Management view: only management warnings, without the ones already in the headline; the yellow control bar becomes one grey line "Rilis 27 Agu 2026 · 18/20 kontrol lulus · 2 belum diisi" linking to Kontrol, with no e-mail; nav shows the seven report pages only; the release page drops e-mail and audit columns.

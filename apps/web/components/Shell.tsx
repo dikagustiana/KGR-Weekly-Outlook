@@ -24,6 +24,8 @@ export async function Shell({
 }: { viewer: Viewer; weeks: WeekRow[]; week: WeekRow | null; active: string; children: ReactNode; banner?: ReactNode }) {
   const w = week?.week_start;
   const view = await currentView(viewer);
+  // R13: the management view renders the reports only (no INPUT / ADMIN groups, Kontrol via the release line)
+  const mgmt = view === "management";
   return (
     <>
       <header className="topbar">
@@ -38,10 +40,10 @@ export async function Shell({
       </header>
       {banner}
       <nav className="nav">
-        {w ? REPORTS.map(([p, l]) => (
+        {w ? REPORTS.filter(([p]) => !(mgmt && p === "kontrol")).map(([p, l]) => (
           <Link key={p} href={`/w/${w}/${p}`} className={active === p ? "on" : ""}>{l}</Link>
         )) : null}
-        {w && seesInputs(viewer.role) ? (
+        {w && !mgmt && seesInputs(viewer.role) ? (
           <>
             <span className="sep inputs" />
             <span className="grp">Input</span>
@@ -50,7 +52,7 @@ export async function Shell({
             ))}
           </>
         ) : null}
-        {viewer.role === "admin" || viewer.role === "inventory_accounting" || viewer.role === "finance" ? (
+        {!mgmt && (viewer.role === "admin" || viewer.role === "inventory_accounting" || viewer.role === "finance") ? (
           <>
             <span className="sep inputs" />
             <span className="grp">Admin</span>

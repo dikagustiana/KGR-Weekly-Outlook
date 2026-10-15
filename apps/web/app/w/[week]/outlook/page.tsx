@@ -26,7 +26,7 @@ export default async function OutlookPage({ params }: PageProps) {
       </div>
       {ctx.view === "management" ? <Headline r={r} week={week} /> : null}
       <OutlookBody r={r} week={week} view={ctx.view} />
-      <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p>
+      {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p> : null}
     </WeekShell>
   );
 }

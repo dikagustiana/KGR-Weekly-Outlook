@@ -383,9 +383,26 @@ export function batchKpi(p: Prepared, breakeven100: Decimal): BatchKpi {
 
 /* ------------------------------------------------------------------ Block 7 */
 
+export type AlertCode = "ORDER_LEWAT" | "KODE_BARU" | "STOK_MINUS" | "HARGA_KOSONG" | "SHRINK" | "LB_DI_ATAS_BREAKEVEN" | "TAHAN";
+
+/**
+ * Management View v2 R10: who a warning is for. Data-hygiene warnings (fix an input or a mapping) are for the
+ * preparer; operating risks are for management.
+ */
+export const ALERT_AUDIENCE: Record<AlertCode, "management" | "preparer"> = {
+  ORDER_LEWAT: "preparer",
+  KODE_BARU: "preparer",
+  STOK_MINUS: "management",
+  HARGA_KOSONG: "preparer",
+  SHRINK: "management",
+  LB_DI_ATAS_BREAKEVEN: "management",
+  TAHAN: "management",
+};
+
 export interface Alert {
-  code: string;
+  code: AlertCode;
   text: string;
+  audience: "management" | "preparer";
 }
 
 export function alerts(
@@ -395,7 +412,7 @@ export function alerts(
   trading: TradingRow[],
   kpi: BatchKpi,
 ): Alert[] {
-  const out: Alert[] = [];
+  const out: Omit<Alert, "audience">[] = [];
   const pastOrders = p.sales.filter((s) => s.status === "Order" && s.date !== null && s.date < p.today && s.kg.greaterThan(0)).length;
   if (pastOrders > 0) {
     out.push({ code: "ORDER_LEWAT", text: `${pastOrders} baris order sudah lewat tanggal tapi belum terkirim — ubah jadi Aktual atau geser tanggal` });
@@ -417,7 +434,7 @@ export function alerts(
   }
   const tahan = trading.filter((t) => t.recommendation === "TAHAN").length;
   if (tahan > 0) out.push({ code: "TAHAN", text: `${tahan} SKU trading butuh stok tapi spread di bawah minimum` });
-  return out;
+  return out.map((a) => ({ ...a, audience: ALERT_AUDIENCE[a.code] }));
 }
 
 export { D };

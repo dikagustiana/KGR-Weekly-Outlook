@@ -60,3 +60,22 @@ Tes: engine 65, parser 10, web 3 lulus; `pnpm typecheck` dan `pnpm build` lulus.
 | --- | --- |
 | ![preparer](img/stage2-preparer-1366x768.png) | ![manajemen](img/stage2-management-1366x768.png) |
 
+### Tahap 3 — R3, R5, R10, R12, R13
+
+Tes: engine 66, parser 10, web 5 lulus; `pnpm typecheck` dan `pnpm build` lulus. Halaman Rilis, Kontrol, Stok, Laba Rugi untuk role manajemen: 0 email, nav 7 menu, baris rilis abu.
+
+| # | Kriteria (PRD §5) | Status | Bukti |
+|---|---|---|---|
+| 1 | Snapshot JSON engine minggu 24–30 Agu 2026 identik byte-per-byte (kecuali `warning.audience`, `recommendation.action`) | PASS | `pnpm snapshot:diff`: new fields present: block2.action={"kind":"NEGOSIASI","targetPrice":"20725.657457","kg":null,"text":"NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong"}; block7[].audience=preparer,management,management / diff vs baseline (without block2.action, block7[].audience): EMPTY — byte-identical |
+| 2 | Login manajemen: tidak ada I_, O_, T_, @kgr-weekly-outlook, "bersumber Ops" di DOM | PASS | grep page.content() (125055 char): I_/O_/T_: 0; @kgr-weekly-outlook: 0; bersumber Ops: 0 |
+| 3 | Blok headline (R2) tampil di 1366×768 tanpa scroll | PASS | [data-headline] y=176 tinggi=83 → bawah 259 px ≤ 768 (scrollY=0, viewport 1366×768) |
+| 4 | Rekomendasi mengandung tepat satu aksi dari enum | PASS | [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726; [data-reco] «NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong» → aksi: NEGOSIASI ≤ Rp 20.726 |
+| 5 | Tidak ada background merah/kuning kecuali teks nilai negatif | FAIL — dikerjakan di Tahap 4 (R9: pill diganti teks) | 1 elemen, mis.: span.badge.PERHATIAN rgb(255, 243, 214) |
+| 6 | Preparer bisa toggle ke view manajemen dan kembali | PASS | HTTP 200; main[data-view]: preparer → klik "Pratinjau tampilan manajemen" → management (/w/2026-08-24/outlook) → klik "Kembali ke tampilan penyusun" → preparer |
+| 7 | Tab keyboard menjangkau tooltip R5 dan link "detail per SKU" | PASS | tooltip R5 [data-r5-tip]: Tab ke-55 («Harga live bird hari ini (penawaran)»); link [data-detail-sku]: Tab ke-15 («detail per SKU →») |
+| + | Role manajemen selalu view manajemen (R1) | PASS | HTTP 200; main[data-view]=management; tombol toggle tidak ada |
+
+| Preparer (1366×768) | Manajemen (1366×768) |
+| --- | --- |
+| ![preparer](img/stage3-preparer-1366x768.png) | ![manajemen](img/stage3-management-1366x768.png) |
+
