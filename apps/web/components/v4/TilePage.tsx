@@ -69,6 +69,7 @@ function body(t: TileModel): ReactNode {
       </>
     );
     case "stepper": return <Stepper steps={c.steps} current={c.current} />;
+    case "slot": return null;
     case "list": {
       if (!c.items.length) return <p className="note">{c.empty ?? "tidak ada"}</p>;
       const L = c.ordered ? "ol" : "ul";

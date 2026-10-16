@@ -37,6 +37,8 @@ const D: Record<string, Def> = {
   alokasi: { id: "alokasi", label: "Alokasi hari ini", href: (c) => `/hari/${c.today}/alokasi`, module: "m3_planning" },
   batch: { id: "batch", label: "Batch", href: w("input/batch") },
   upload: { id: "upload", label: "Upload", href: w("upload") },
+  // PRD v5 §6.4 (flag v5_input): one Input screen for every role; same id, so it replaces "Upload" in the row
+  input: { id: "upload", label: "Input", href: () => "/input", module: "v5_input" },
   pesanan: { id: "pesanan", label: "Pesanan", href: w("input/penjualan") },
   approval: { id: "approval", label: "Approval", href: () => "/komersial/approval", module: "m7_approval" },
   scorecard: { id: "scorecard", label: "Scorecard", href: () => "/komersial/scorecard", module: "m7_approval" },
@@ -52,16 +54,16 @@ const D: Record<string, Def> = {
 
 /** Workspace per role in nav order (§5.4). Admin: the management workspace, PPIC and sales entries, then Admin. */
 export const WORKSPACE: Record<Role, Def[]> = {
-  management: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis],
+  management: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis, D.input],
   // PRD v5 §5.3: reads like management (the LB price decision form comes with irisan 1 / 6)
-  operations_director: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis],
-  ppic: [D.rencana, D.alokasi, D.stok, D.batch, D.upload],
-  sales: [D.komersial, D.pesanan, D.upload],
-  commercial_lead: [D.komersial, D.pesanan, D.approval, D.scorecard, D.upload],
-  purchasing: [D.supplyLb, D.harga, D.upload],
-  inventory_accounting: [D.stokSku, D.rekon, D.upload, D.kontrol],
-  cost_accounting: [D.costing, D.kontrolCosting, D.upload],
-  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.upload],
+  operations_director: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis, D.input],
+  ppic: [D.rencana, D.alokasi, D.stok, D.batch, D.input, D.upload],
+  sales: [D.komersial, D.pesanan, D.input, D.upload],
+  commercial_lead: [D.komersial, D.pesanan, D.approval, D.scorecard, D.input, D.upload],
+  purchasing: [D.supplyLb, D.harga, D.input, D.upload],
+  inventory_accounting: [D.stokSku, D.rekon, D.input, D.upload, D.kontrol],
+  cost_accounting: [D.costing, D.kontrolCosting, D.input, D.upload],
+  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.input, D.upload],
   admin: [D.mingguIni, D.outlookBulan, D.rencana, D.komersial, D.stok, D.rilis, D.admin],
 };
 

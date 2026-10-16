@@ -31,6 +31,7 @@ function v4Active(active: string): string | null {
   if (active === "stok" || active.startsWith("/sku")) return "stok";
   if (active.startsWith("/komersial")) return active === "/komersial/approval" ? "approval" : active === "/komersial/scorecard" ? "scorecard" : "komersial";
   if (active === "rilis" || active === "kontrol" || active === "upload") return active;
+  if (active === "/input") return "upload";
   if (active === "input/penjualan") return "pesanan";
   if (active === "input/batch") return "batch";
   if (active === "input/harga") return "harga";

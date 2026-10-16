@@ -32,7 +32,9 @@ export type TileContent =
   | { type: "table"; cols: Col[]; rows: TRow[]; limit?: number; form?: TileForm; sections?: { title: string; cols: Col[]; rows: TRow[] }[] }
   | { type: "chart+table"; points: ChartPoint[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[]; cols: Col[]; rows: TRow[] }
   | { type: "list"; items: string[]; ordered?: boolean; empty?: string }
-  | { type: "stepper"; steps: StepDef[]; current: number };
+  | { type: "stepper"; steps: StepDef[]; current: number }
+  /** The body comes from the page (TilePage `extras`), e.g. a client component. */
+  | { type: "slot" };
 
 /** A plain GET form inside a tile (what-if inputs): no client code, the page reads the query string. */
 export interface TileForm { method: "get"; action: string; submit: string; fields: { name: string; label: string; value: string; size?: number }[] }

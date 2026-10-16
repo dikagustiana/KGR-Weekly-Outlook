@@ -2,6 +2,14 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-5] Input (docs/PRD-v5.md irisan 5)
+
+### Added
+- Engine `upload-validate.ts` (shared by browser and server, also `@kgr/engine/upload`): header/number/date parsing, TSV and CSV, templates, `validateUpload` for `po_lines`, `costing_wp`, `yield_matrix`, `lb_supply`, `fixed_cost`, `supplier_invoice`, fingerprint; `input-tasks.ts`: due rules, instances, status from the data, completeness cells, K35.
+- Migration `20261023000100_v5_input.sql`: `input_completeness_daily.due_at`, `input_reminder`, override code `K35` (Finance) and policy `C53`, task rule `po_lines`, `release_week` with K35 while `v5_input` is on.
+- Web (flag `v5_input`): `/input` for every role (tasks, upload and checks with the SheetJS mini build / paste / example / template, partial save re-validated on the server, parameters, history, Finance completeness grid with reminders and release with a reason); Input replaces Upload in the navigation; K35 pre-check in the weekly release; `xlsx@0.18.5` in `apps/web`.
+- Fixtures `upload-samples` (Lampiran B.5): three example files, context and expected results.
+
 ## [v5-4] Putaran Commercial ↔ PPIC (docs/PRD-v5.md irisan 4)
 
 ### Added

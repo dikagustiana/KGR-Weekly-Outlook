@@ -1,0 +1,48 @@
+== typecheck
+packages/engine typecheck: Done
+packages/parsers typecheck: Done
+apps/web typecheck: Done
+== test
+packages/engine test:  Test Files  25 passed (25)
+packages/engine test:       Tests  345 passed | 1 todo (346)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  23 passed (23)
+apps/web test:  Test Files  17 passed (17)
+apps/web test:       Tests  110 passed (110)
+== parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+docs/parity.md, docs/parity-cells.csv: tidak berubah
+== snapshot
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+== build
+ ✓ Compiled successfully in 19.8s
+├ ƒ /input                               24.6 kB         130 kB
+├ ƒ /w/[week]/input/batch                1.36 kB         107 kB
+├ ƒ /w/[week]/input/costing              1.54 kB         107 kB
+├ ƒ /w/[week]/input/harga                1.36 kB         107 kB
+├ ƒ /w/[week]/input/kas                  1.36 kB         107 kB
+
+== test:rls (DATABASE_URL lokal PostgreSQL 16, 22 blok)
+RLS-RESULTS v5/5 (rolled back): grid due_at column=1;
+  PO task rule=1;
+  K35 policy finance=1;
+  finance reminds: OK;
+  sender stamped=t35-fin@x.test;
+  finance writes grid: denied;
+  finance turns cell green rows=0;
+  owner reads reminder=1;
+  cost accounting reminds: denied;
+  edit reminder rows=0;
+  cost accounting K35 override: denied;
+  flag off red cell: released;
+  flag on red cell: rejected (K35 cells named);
+  finance K35 override: OK;
+  flag on with K35 override: released;
+  override unknown code: rejected;
+  
+test:rls OK
+
+== latihan migrasi (kgr_os_rehearsal → kgr_os_v5, 2026101[7-9]* + 2026102*, dua kali, ON_ERROR_STOP)
+pass 1 done
+pass 2 done
+input_task_rule=14; release_override_policy K35|{finance}, C53|{finance}; input_completeness_daily.due_at=1; v5_input {"enabled": false}

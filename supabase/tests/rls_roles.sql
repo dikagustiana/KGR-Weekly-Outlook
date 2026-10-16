@@ -1436,7 +1436,7 @@ begin
   -- seeds and defaults
   select count(*) into n from public.weight_class where code in ('K','S','B') and avg_kg is null and min_kg is null and note is not null;
   out := out || 'K/S/B seeded empty=' || n || case when n = 3 then '' else '(!)' end || '; ';
-  select count(*) into n from public.input_task_rule; out := out || 'task rules=' || n || case when n = 13 then '' else '(!)' end || '; ';
+  select count(*) into n from public.input_task_rule where kind <> 'po_lines'; out := out || 'task rules=' || n || case when n = 13 then '' else '(!)' end || '; ';  -- §3.1 seed (v5/5 adds po_lines)
   select count(*) into n from public.app_setting where key like 'v5\_%' and (value ->> 'enabled')::boolean = false; out := out || 'v5 flags off=' || n || case when n = 6 then '' else '(!)' end || '; ';
   select count(*) into n from public.parameter where commitment_lock_dow = 5 and commitment_lock_time = '17:00' and wp_due_time = '12:00' and revaluation_sold_mode = 'cogs_line' and cost_anomaly_ratio = 3;
   out := out || 'parameter defaults on existing weeks=' || case when n > 0 then 'yes' else 'no(!)' end || '; ';
@@ -1514,4 +1514,71 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
   raise exception 'RLS-RESULTS v5/1 (rolled back): %', out;
+end $$;
+-- v5/5 (PRD v5 §4.9, K34, K35): reminders are Finance's and read by every app user, never edited; the K35 override is
+-- Finance's only; with v5_input on a red cell of the completeness grid (late, or not due and past its deadline) rejects
+-- release_week until a K35 override exists for the week; with the flag off the release is as in v4; the grid is a mart.
+do $$
+declare out text := ''; n int; wk uuid; r text;
+  ok8 text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]}}';
+begin
+  insert into public.app_user(email, role) values ('t35-fin@x.test','finance'),('t35-ca@x.test','cost_accounting'),('t35-sales@x.test','sales'),('t35-adm@x.test','admin');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2031-07-07', '2031-07-10', '2031-07-06') returning id into wk;
+  delete from public.rebuild_queue where date between '2031-07-07' and '2031-07-13';
+  insert into public.input_completeness_daily (date, kind, owner_role, status, due_at) values
+    ('2031-07-08', 'costing_wp', 'cost_accounting', 'late', '2031-07-08T12:00:00+07'),
+    ('2031-07-09', 'gl_daily', 'inventory_accounting', 'passed', '2031-07-09T16:00:00+07');
+
+  select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'input_completeness_daily' and column_name = 'due_at';
+  out := out || 'grid due_at column=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select count(*) into n from public.input_task_rule where kind = 'po_lines' and owner_role = 'sales' and due_rule = 'cut_date - 1 day 12:00';
+  out := out || 'PO task rule=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select count(*) into n from public.release_override_policy where code = 'K35' and allowed_roles = array['finance'];
+  out := out || 'K35 policy finance=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  -- reminders: Finance sends (stamped as the sender), the cost accountant reads but does not send or edit
+  perform set_config('request.jwt.claims', '{"email":"t35-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.input_reminder (date, kind, owner_role, note, sent_by) values ('2031-07-08', 'costing_wp', 'cost_accounting', 'WP batch 8/7', 'orang@lain'); out := out || 'finance reminds: OK; ';
+  exception when others then out := out || 'finance reminds: DENIED(!) ' || sqlerrm || '; '; end;
+  select sent_by into r from public.input_reminder where date = '2031-07-08' limit 1;
+  out := out || 'sender stamped=' || coalesce(r, 'null') || case when r = 't35-fin@x.test' then '' else '(!)' end || '; ';
+  begin insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2031-07-10', 'gl_daily', 'inventory_accounting', 'passed'); out := out || 'finance writes grid: ALLOWED(!); ';
+  exception when others then out := out || 'finance writes grid: denied; '; end;
+  begin update public.input_completeness_daily set status = 'passed' where date = '2031-07-08'; get diagnostics n = row_count; out := out || 'finance turns cell green rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance turns cell green: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t35-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.input_reminder where owner_role = 'cost_accounting' and date = '2031-07-08'; out := out || 'owner reads reminder=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.input_reminder (date, kind, owner_role) values ('2031-07-08', 'costing_wp', 'cost_accounting'); out := out || 'cost accounting reminds: ALLOWED(!); ';
+  exception when others then out := out || 'cost accounting reminds: denied; '; end;
+  begin update public.input_reminder set note = 'sudah' where date = '2031-07-08'; get diagnostics n = row_count; out := out || 'edit reminder rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'edit reminder: rejected; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-07-07', 'K35', 'WP masuk sore, angka sudah dicek', 'WP-0708'); out := out || 'cost accounting K35 override: ALLOWED(!); ';
+  exception when others then out := out || 'cost accounting K35 override: denied; '; end;
+  execute 'reset role';
+
+  -- flag off: the red cell does not hold the release (v4 rule); flag on: rejected until Finance records K35
+  perform set_config('request.jwt.claims', '{"email":"t35-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'flag off red cell: released; ';
+  exception when others then out := out || 'flag off red cell: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  update public.app_setting set value = '{"enabled": true}' where key = 'v5_input';
+  -- a cell built "not due" whose deadline has passed is red as well
+  insert into public.input_completeness_daily (date, kind, owner_role, status, due_at) values ('2031-07-10', 'stock_daily', 'inventory_accounting', 'not_due', now() - interval '1 hour');
+  perform set_config('request.jwt.claims', '{"email":"t35-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'flag on red cell: RELEASED(!); ';
+  exception when others then out := out || 'flag on red cell: rejected (' || case when sqlerrm like '%K35%costing_wp 08/07%stock_daily 10/07%' then 'K35 cells named' else sqlerrm || '(!)' end || '); '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-07-07', 'K35', 'WP masuk sore, angka sudah dicek', 'WP-0708'); out := out || 'finance K35 override: OK; ';
+  exception when others then out := out || 'finance K35 override: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'flag on with K35 override: released; ';
+  exception when others then out := out || 'flag on with K35 override: REJECTED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-07-07', 'K36', 'kode yang tidak ada', 'x'); out := out || 'override unknown code: ALLOWED(!); ';
+  exception when others then out := out || 'override unknown code: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5/5 (rolled back): %', out;
 end $$;

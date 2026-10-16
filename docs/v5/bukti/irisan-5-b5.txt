@@ -1,0 +1,40 @@
+== po_lines: total 7 ok 4 fp v1:1228f59d23ef0f1d01b19519db11
+  [ok] Kolom wajib — lengkap → lolos
+  [fail] Kode item terpetakan — 6 dari 7 → 1 baris
+  [fail] Ukuran karkas RPA terisi — 4 dari 5 baris karkas → 1 baris
+  [fail] Tanggal kirim ≥ hari ini — 6 dari 7 → 1 baris
+  [fail] kg dan harga terisi — 6 dari 7 → 1 baris
+  [warn] Harga ≥ lantai (biaya) — 2 dari 7 → 5 baris → approval
+  [ok] Pelanggan sesuai assignment — semua pelanggan → lolos
+  fail KGR26.00341 | Ayam Karkas Mix · kirim 27/08 | 811,3 | ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)
+  warn KGR26.00349 | Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A · kirim 29/08 | 1.755,0 | harga 36.705 < lantai 37.400: approval Kepala Sales
+  warn KGR26.00350 | Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium · kirim 29/08 | 1.496,6 | harga 36.705 < lantai 37.400: approval Kepala Sales
+  warn KGR26.00353 | BLP Frozen · kirim 27/08 | 3.229,2 | harga 43.086 < lantai 47.199: approval Kepala Sales
+  warn KGR26.00357 | Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A · kirim 29/08 | 302,8 | harga 36.705 < lantai 37.400: approval Kepala Sales
+  fail KGR26.00360 | Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A · kirim 26/08 | 120,0 | tanggal kirim 26/08 sudah lewat; harga 36.705 < lantai 37.400: approval Kepala Sales
+  fail KGR26.00361 | X-999 (tidak dikenal) | 50,0 | kode tidak dikenal: petakan di master item; harga kosong
+  4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki. []
+== costing_wp: total 8 ok 6 fp v1:1608d6f7fec05514143f37752ffc
+  [ok] Kolom wajib — lengkap → lolos
+  [fail] Kode SKU terpetakan — 6 dari 8 baris → 2 baris
+  [info] Batch B260826 · rata-rata LB — 7.512,0 kg / 3.902 ekor = 1,93 kg/ekor → kelas STD
+  [fail] Σ SKU vs hasil potong — 6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%) → perlu penjelasan
+  [ok] Yield karkas — 73,4% (batas 68–76%) → lolos
+  ok   JLB0763 | Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A | 612,4 | 
+  ok   JLB0829 | Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A | 2.081,0 | 
+  ok   JLB0922 | Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium | 1.108,7 | 
+  ok   JLB0856 | Karkas Uk 1.3 Karkas Uk 1.3 Fresh Premium | 1.710,0 | 
+  fail X-HATI | (tidak dikenal) | 401,2 | kode tidak dikenal: petakan di master item
+  fail KPL-01 | (tidak dikenal) | 338,0 | kode tidak dikenal: petakan di master item
+  ok   JLB0078 | Boneless BL Fresh Ceker | 213,9 | 
+  ok   JLB0135 | Boneless BL Fresh Usus Kotor | 317,6 | 
+  6 dari 8 baris bisa disimpan. Batch dengan selisih di atas 2% tetap berstatus sementara sampai diberi alasan. [ 'B260826' ]
+== yield_matrix: total 18 ok 0 fp v1:1e7d9ff68c854f13b22160bf7609
+  [ok] Kolom wajib — lengkap → lolos
+  [fail] Kelas terdaftar — K, S, B belum ada di tabel kelas berat (baru STD) → daftarkan dulu
+  [ok] Σ yield per kelas ≤ 100% — K 89,2% · S 89,9% · B 90,4% → per kelas
+  [ok] Yield karkas di 68–76% — K 70,2% · S 71,5% · B 72,4% → per kelas
+  fail K | 6 kunci | 70,2% | daftarkan kelas K
+  fail S | 6 kunci | 71,5% | daftarkan kelas S
+  fail B | 6 kunci | 72,4% | daftarkan kelas B
+  0 dari 18 baris bisa disimpan. Yield menggantikan placeholder C42 setelah kelas terdaftar. []

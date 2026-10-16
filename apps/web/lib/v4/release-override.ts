@@ -13,7 +13,8 @@ export type OverrideScopeKind = "week" | "month";
 
 export async function addOverride(sb: Supa, viewer: Viewer, x: { scopeKind: OverrideScopeKind; scope: string; code: string; reason: string; evidence: string }): Promise<string> {
   const reason = x.reason.trim(), evidence = x.evidence.trim();
-  if (!/^C[0-9]{1,2}$/.test(x.code)) throw new WriteError("Kode kontrol tidak dikenal");
+  // a control C1–C99, or K35 (PRD v5: release with red cells of the completeness grid)
+  if (!/^(C[0-9]{1,2}|K35)$/.test(x.code)) throw new WriteError("Kode kontrol tidak dikenal");
   if (reason.length < 10) throw new WriteError("Alasan minimal 10 karakter");
   if (evidence.length < 3) throw new WriteError("Bukti wajib: nomor voucher, nama file, atau tautan");
   const { data: pol } = await sb.from("release_override_policy").select("allowed_roles").eq("code", x.code).maybeSingle();
