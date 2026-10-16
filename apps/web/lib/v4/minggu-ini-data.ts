@@ -15,6 +15,7 @@ import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type Bu
 import { fetchAll } from "../data";
 import { plDaily } from "../v3/monthly";
 import type { FixedSource } from "../v5/pl-tiles";
+import { loadManagementV5 } from "../v5/management-data";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -160,6 +161,9 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     code: `Kontrol ${k.no}`, module: "M1", name: plainName(k.name), value: k.value, comparator: k.comparator, difference: k.difference, status: k.status, action: k.action, detail: [],
   }));
 
+  // PRD v5 §6.1 (flag v5_management): LB simulation, decisions waiting, loop status, source labels (K36)
+  const v5Mgmt = isModuleOn(settings.v5_management, role) ? await loadManagementV5(sb, w, r, sp, cashMart) : null;
+
   const mode = sp.mode === "aktual" ? "aktual" : "proyeksi";
   const iso = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
   return {
@@ -168,7 +172,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     base: `/minggu-ini/${w.week_start}`,
     release: ctx.lastRelease ? { releasedAt: ctx.lastRelease.released_at, counts: ctx.lastRelease.controls?.counts ?? null } : null,
     mode, hari: iso(sp.hari), segmen: sp.segmen === "RPA" || sp.segmen === "Trading" ? sp.segmen : null, sku: sp.sku ?? null,
-    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl,
+    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt,
     pdfHref: `/api/w/${w.week_start}/pdf`,
   };
 }

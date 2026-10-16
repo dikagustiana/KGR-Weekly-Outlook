@@ -1,0 +1,20 @@
+== typecheck
+packages/engine typecheck: Done
+packages/parsers typecheck: Done
+apps/web typecheck: Done
+== test
+packages/engine test:  Test Files  25 passed (25)
+packages/engine test:       Tests  346 passed | 1 todo (347)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  23 passed (23)
+apps/web test:  Test Files  18 passed (18)
+apps/web test:       Tests  124 passed (124)
+== parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+docs/parity.md, docs/parity-cells.csv: tidak berubah
+== snapshot
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+== build
+ ✓ Compiled successfully in 9.0s
+├ ƒ /input                               24.6 kB         130 kB
+├ ƒ /minggu-ini/[week]                   2.03 kB         108 kB

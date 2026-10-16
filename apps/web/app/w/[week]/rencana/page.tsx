@@ -10,6 +10,8 @@ import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleEnabled, moduleSettings, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
+import { requireViewer } from "@/lib/session";
+import { PPIC_READERS_K37 } from "@/lib/v5/view-as";
 import { loadPlanning, proposePlan, weekPlanningControls } from "@/lib/v3/planning";
 import { stockMartControl } from "@/lib/v3/stale";
 import { tgl } from "@/lib/fmt";
@@ -23,7 +25,9 @@ type J = Record<string, string>;
 export default async function RencanaPage({ params, searchParams }: PageProps) {
   const { week } = await params;
   const q = await searchParams;
-  const v = await requireModulePage("m3_planning", ["admin", "ppic", "finance"]);
+  // PRD v5 K37 (flag v5_management): management and the operations director read the PPIC screen (no writes)
+  const viewer = await requireViewer();
+  const v = await requireModulePage("m3_planning", ["admin", "ppic", "finance", ...((await moduleEnabled("v5_management", viewer)) ? PPIC_READERS_K37 : [])]);
   const ctx = await weekContext(week);
   // PRD v5 §6.3 (flag v5_ppic_class): demand per size → class → kg LB replaces the heads-based plan
   if (await moduleEnabled("v5_ppic_class", v)) return <RencanaV5 ctx={ctx} versi={q.versi === "batch" ? "batch" : "need"} />;

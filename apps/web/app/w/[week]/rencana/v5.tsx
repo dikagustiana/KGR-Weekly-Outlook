@@ -1,4 +1,8 @@
 import { addDays } from "@kgr/engine";
+import { moduleEnabled } from "@/lib/modules";
+import { withSources } from "@/lib/v5/management";
+import { loadSources, sourcesFor } from "@/lib/v5/management-data";
+import { jakartaNow } from "@/lib/v3/allocation";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
@@ -12,6 +16,8 @@ import { num, tglShort } from "@/lib/fmt";
 import { copyClassPlanAction, saveClassPlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
 
+const nowWib = () => { const n = jakartaNow(); return `${n.date}T${n.time}:00+07:00`; };
+
 /** PRD v5 §6.3 PPIC · Rencana (flag v5_ppic_class): demand per size → class → kg LB, weekly and daily plan per class. */
 export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | "batch" }) {
   const week = ctx.week.week_start;
@@ -21,7 +27,9 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
   const role = ctx.viewer.role;
   const canPlan = role === "admin" || role === "ppic";
   const input = await loadPpicV5(sb, { src, result: ctx.computed.result, base: `/w/${week}/rencana`, versi, canPlan, c45 });
-  const model = ppicV5Model(input);
+  const model0 = ppicV5Model(input);
+  // PRD v5 K36 (flag v5_management): the source label under the main numbers
+  const model = (await moduleEnabled("v5_management", ctx.viewer)) ? { ...model0, tiles: withSources(model0.tiles, sourcesFor("ppic", await loadSources(sb, nowWib()))) } : model0;
   const latest = src.plans[0] ?? null;
   const bar = (children: ReactNode, reason: string | null) => <div className="actionbar">{children}{reason ? <span className="reason">{reason}</span> : null}</div>;
   const extras: Record<string, ReactNode> = {};

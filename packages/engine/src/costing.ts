@@ -429,6 +429,19 @@ export function needBasisOutputs(x: { kgLb: Num; demand: PlanOutput[]; byProduct
   return [...x.demand, ...x.byProducts.map((b) => ({ key: b.key, kg: D(x.kgLb).times(D(b.yield)), priceRef: b.priceRef }))];
 }
 
+/**
+ * K25 batch basis (§4.1, Lampiran B.1): the kg LB planned in the horizon (v1 block 2), the karkas at risk of freezing
+ * at the frozen reference price, and the rest of the plan's value per kg LB as other value.
+ */
+export function batchBasisInputs(x: { kgLb: Num; karkasAtRisk: Num; frozenPrice: Num; valuePerKgLb: Num }): { kgLb: Decimal; outputs: PlanOutput[]; extraValue: Decimal } {
+  const atRisk = D(x.karkasAtRisk);
+  return {
+    kgLb: D(x.kgLb),
+    outputs: [{ key: "RPA|Karkas|Frozen", kg: atRisk, priceRef: x.frozenPrice }],
+    extraValue: D(x.valuePerKgLb).times(D(x.kgLb)).minus(atRisk.times(D(x.frozenPrice))),
+  };
+}
+
 export interface LivebirdSimRow {
   price: Decimal;
   cogs: Decimal;

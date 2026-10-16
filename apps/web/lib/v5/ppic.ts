@@ -5,7 +5,7 @@
  * U+2212, status in words). No buy / delay recommendation for live birds (K25).
  */
 import {
-  D, dayName, type BatchKpi, type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult,
+  D, dayName, type BatchKpi, type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type PlanOutput,
 } from "@kgr/engine";
 import { jtV4, minus, num, pctV4, tglShort } from "../fmt";
 import type { Col, TRow } from "@/components/v4/Table";
@@ -23,6 +23,8 @@ export interface PpicV5Input {
   classes: PpicClassInfo[];
   /** v4 netting of the karkas keys (fresh with sizes, n/a without, frozen covered by stock). */
   karkas: { freshKg: Decimal; naKg: Decimal; frozenOrderKg: Decimal; frozenCovered: boolean; stockFreshKg: Decimal | null; stockFreshAgeDays: number | null };
+  /** K25 simulation inputs of both bases (the Manajemen tile reads them; the PPIC screen does not). */
+  sim?: { tariff: Decimal; need: { kgLb: Decimal; outputs: PlanOutput[] } | null; batch: { kgLb: Decimal; outputs: PlanOutput[]; extraValue: Decimal } | null };
   po: { from: string; to: string; kg: Decimal; rpaKg: Decimal; tradingKg: Decimal; tentativeKg: Decimal };
   byProducts: { unit: string; net_kg: Decimal; output_kg: Decimal; shortfall_kg: Decimal }[];
   /** Need version at the LB price decided last (§4.1 mode rencana); null without a price. */

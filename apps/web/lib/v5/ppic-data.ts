@@ -6,7 +6,7 @@ import "server-only";
  * (planCost mode rencana); C50, C51, C58. The demand builder writes demand_class_weekly; the PPIC page reads this.
  */
 import {
-  D, addDays, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
+  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
   type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type SizedLine, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -114,16 +114,12 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
   const tariff = tariffPerKgLb({ freightPerKgLb: src.v1.freight, maklonPerKgProcessed: src.v1.maklon, shrink: src.v1.shrink });
   const stdYield = (u: string) => cs.yieldOf(FALLBACK, u);
   let needCost: PlanCostResult | null = null;
-  if (lbPrice && d.total.kg_lb.gt(0)) {
-    needCost = planCost({
-      status: "rencana", kgLb: d.total.kg_lb.toFixed(4), lbPrice, tariffPerKgLb: tariff.toFixed(4),
-      outputs: needBasisOutputs({
-        kgLb: d.total.kg_lb.toFixed(4),
-        demand: [{ key: "RPA|Karkas|Fresh", kg: fresh.toFixed(2), priceRef: price("RPA|Karkas|Fresh") }, ...(na.gt(0) ? [{ key: "RPA|Karkas|n/a", kg: na.toFixed(2), priceRef: price("RPA|Karkas|n/a") ?? price("RPA|Karkas|Fresh") }] : [])],
-        byProducts: BY_PRODUCTS.filter((u) => stdYield(u) !== null).map((u) => ({ key: `RPA|${u}|Fresh`, yield: stdYield(u)!, priceRef: price(`RPA|${u}|Fresh`) })),
-      }),
-    });
-  }
+  const needOutputs = d.total.kg_lb.gt(0) ? needBasisOutputs({
+    kgLb: d.total.kg_lb.toFixed(4),
+    demand: [{ key: "RPA|Karkas|Fresh", kg: fresh.toFixed(2), priceRef: price("RPA|Karkas|Fresh") }, ...(na.gt(0) ? [{ key: "RPA|Karkas|n/a", kg: na.toFixed(2), priceRef: price("RPA|Karkas|n/a") ?? price("RPA|Karkas|Fresh") }] : [])],
+    byProducts: BY_PRODUCTS.filter((u) => stdYield(u) !== null).map((u) => ({ key: `RPA|${u}|Fresh`, yield: stdYield(u)!, priceRef: price(`RPA|${u}|Fresh`) })),
+  }) : null;
+  if (lbPrice && needOutputs) needCost = planCost({ status: "rencana", kgLb: d.total.kg_lb.toFixed(4), lbPrice, tariffPerKgLb: tariff.toFixed(4), outputs: needOutputs });
   const { demand: v4 } = computeDemand(src, FALLBACK);
   const bp = classByProducts({ byClass: d.byClass, yieldOf: (c, u) => cs.yieldOf(c, u) ?? stdYield(u), net: v4.unitNet.filter((u) => BY_PRODUCTS.includes(u.key)).map((u) => ({ unit: u.key, kg: u.kg })) });
   const b2 = result.block2;
@@ -147,6 +143,11 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     karkas: { freshKg: fresh, naKg: na, frozenOrderKg: v4.rows.filter((r) => r.key === "RPA|Karkas|Frozen").reduce((a, r) => a.plus(r.weighted_kg), D(0)), frozenCovered: v4.rows.filter((r) => r.key === "RPA|Karkas|Frozen").every((r) => r.net_kg.isZero()), stockFreshKg: null, stockFreshAgeDays: null },
     po: { from: cs.ship?.from ?? ws, to: cs.ship?.to ?? we, kg: sumKg(inH), rpaKg: sumKg(inH.filter((o) => seg(o.key) === "RPA")), tradingKg: sumKg(inH.filter((o) => seg(o.key) === "Trading")), tentativeKg: sumKg(inH.filter((o) => o.demand_status === "Tentative")) },
     byProducts: bp.map((b) => ({ unit: b.unit, net_kg: b.net_kg, output_kg: b.output_kg, shortfall_kg: b.shortfall_kg })), needCost,
+    // K25 (Manajemen): the two bases of the LB simulation — the need of the POs, and the batches planned in the horizon
+    sim: {
+      tariff, need: needOutputs ? { kgLb: d.total.kg_lb, outputs: needOutputs } : null,
+      batch: D(b2.lbPlannedInHorizon).gt(0) && price("RPA|Karkas|Frozen") ? batchBasisInputs({ kgLb: b2.lbPlannedInHorizon, karkasAtRisk: b2.karkasAtRiskOfFreezing, frozenPrice: price("RPA|Karkas|Frozen")!, valuePerKgLb: b2.valuePerKgLbAtPlanShare }) : null,
+    },
     lbPrice: { price: lbPrice ? D(lbPrice) : null, source: lbDecided ? "keputusan Direktur Operasional" : "harga hari ini (parameter)" },
     batch: D(b2.lbPlannedInHorizon).gt(0) && wp ? {
       kgLb: D(b2.lbPlannedInHorizon), batches: result.block6.rows.find((r) => r.status === "Rencana")?.batches ?? 0, margin: D(b2.expectedMarginOfPlan), surplusKg: wp.surplus_kg, downgrade: wp.downgrade,

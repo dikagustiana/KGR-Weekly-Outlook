@@ -12,6 +12,7 @@ import { moduleSettings, navModules } from "@/lib/modules";
 import { jakartaToday } from "@kgr/engine";
 import { V4Frame } from "./v4/Frame";
 import { v4Nav, v4On } from "@/lib/v4/nav";
+import { viewAsActive, viewAsItems } from "@/lib/v5/view-as";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -57,6 +58,7 @@ export async function Shell({
     return (
       <V4Frame
         nav={nav} active={v4Active(active)} view={view}
+        viewAs={{ items: viewAsItems(viewer.role, settings, { week: w ?? null }), active: viewAsActive(active) }}
         period={w ? <WeekSelect weeks={weeks.map((x) => ({ start: x.week_start, end: x.week_end, status: x.status }))} current={w} active={active} longDates={mgmt} /> : null}
         account={<>
           {canToggleView(viewer.role) ? <Suspense fallback={null}><ViewToggle view={view} /></Suspense> : null}

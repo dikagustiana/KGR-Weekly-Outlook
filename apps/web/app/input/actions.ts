@@ -5,8 +5,7 @@
  * refresh of today's tasks. Numbers are entered or come from the engine; nothing is computed here.
  */
 import { revalidatePath } from "next/cache";
-import { D, addDays, isISODate, mondayOf } from "@kgr/engine";
-import { parseNumber } from "@kgr/parsers";
+import { addDays, isISODate, mondayOf } from "@kgr/engine";
 import { requireModuleAction, moduleSettings } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { WriteError } from "@/lib/write";
@@ -15,6 +14,7 @@ import { addOverride } from "@/lib/v4/release-override";
 import { jakartaNow } from "@/lib/v3/allocation";
 import { UploadRejected, isUploadKind, parseGridPayload } from "@/lib/v5/input-check";
 import { saveUploadV5 } from "@/lib/v5/input-save";
+import { insertLbDecision } from "@/lib/v5/lb-decision";
 import { ROLE_KINDS } from "@/lib/v5/input";
 import type { Role } from "@/lib/roles";
 
@@ -73,20 +73,11 @@ export async function k35OverrideAction(_: ActionState, form: FormData): Promise
 export async function decideLbPriceAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
     await requireModuleAction("v5_input", ["admin", "operations_director"]);
-    const date = String(form.get("date") ?? "");
-    if (!isISODate(date)) throw new WriteError("Tanggal potong tidak valid");
-    const price = parseNumber(String(form.get("price") ?? "").trim());
-    if (price === null || D(price).lte(0)) throw new WriteError("Harga LB wajib diisi (Rp/kg LB)");
-    const volRaw = String(form.get("volume") ?? "").trim();
-    const volume = volRaw ? parseNumber(volRaw) : null;
-    const cls = String(form.get("weight_class") ?? "").trim() || null;
-    const sb = await supabaseServer();
-    const e = await sb.from("lb_price_decision").insert({ date, price, volume_kg_lb: volume, weight_class: cls, note: String(form.get("note") ?? "").trim() || null });
-    if (e.error) throw new WriteError(e.error.message);
+    const msg = await insertLbDecision(await supabaseServer(), form);
     // the decision queues its date itself (trigger needs_rebuild, v5/0): the director does not write the queue
     await processRebuildQueue(await moduleSettings());
     revalidatePath("/input");
-    return { ok: `Harga LB potong ${date} diputuskan Rp ${price}/kg${volume ? `, volume ${volume} kg` : ""}; batch hari itu memakainya (sementara).` };
+    return { ok: msg };
   } catch (e) { return fail(e); }
 }
 

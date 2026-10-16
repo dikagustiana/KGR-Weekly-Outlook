@@ -11,7 +11,7 @@ export function TileGrid({ children, label }: { children: ReactNode; label?: str
 export interface TilePos { x: number; y: number; w: number; h: number }
 
 export function Tile({
-  id, pos, title, children, extra, note, kind, titleLevel = 2,
+  id, pos, title, children, extra, note, source, kind, titleLevel = 2,
 }: {
   id: string;
   pos: TilePos;
@@ -21,6 +21,8 @@ export function Tile({
   extra?: ReactNode;
   /** Finding under the tile (1–3 sentences). */
   note?: ReactNode;
+  /** PRD v5 K36: "WP sementara · Cost Accounting · 26 Agu 09.12", red when that input is past its deadline. */
+  source?: { text: string; late: boolean };
   kind?: "card" | "tall" | "bare";
   titleLevel?: 2 | 3;
 }) {
@@ -39,7 +41,12 @@ export function Tile({
         </div>
       ) : null}
       <div className="tile-b">{children}</div>
-      {note ? <p className="note" data-tile-note="">{note}</p> : null}
+      {note || source ? (
+        <p className="note" data-tile-note="">
+          {note}{note && source ? " " : null}
+          {source ? <span className={source.late ? "src bad" : "src"} data-tile-source="">Sumber: {source.text}</span> : null}
+        </p>
+      ) : null}
     </section>
   );
 }

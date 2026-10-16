@@ -257,3 +257,16 @@ describe("Commercial on the costing cost (§4.6)", () => {
     expect(j.cost_check).toBe(false);
   });
 });
+
+describe("K25 batch basis (v5/6: one formula for the fixture script and the Manajemen tile)", () => {
+  it("batchBasisInputs on block 2 of the example week = the batch inputs of fixtures/costing-sim-2026-08-24", async () => {
+    const { batchBasisInputs } = await import("../src/costing");
+    const { loadFixtureWeek } = await import("../src/fixtures");
+    const { computeWeek } = await import("../src/week");
+    const week = loadFixtureWeek("2026-08-24", "2026-08-27");
+    const b2 = computeWeek(week).block2;
+    const frozen = week.sku_keys.find((k) => k.key === "RPA|Karkas|Frozen")!.ref_sell_price!;
+    const bb = batchBasisInputs({ kgLb: b2.lbPlannedInHorizon, karkasAtRisk: b2.karkasAtRiskOfFreezing, frozenPrice: frozen, valuePerKgLb: b2.valuePerKgLbAtPlanShare });
+    expect([bb.kgLb.toFixed(4), D(bb.outputs[0].kg).toFixed(4), bb.extraValue.toFixed(2)]).toEqual([inp.batch.kg_lb, inp.batch.outputs[0].kg, inp.batch.extra_value]);
+  });
+});
