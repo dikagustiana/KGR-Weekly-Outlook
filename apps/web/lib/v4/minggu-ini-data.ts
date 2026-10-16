@@ -14,6 +14,7 @@ import type { MingguIniInput, StockMart } from "./minggu-ini";
 import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type BudgetRow } from "@kgr/engine";
 import { fetchAll } from "../data";
 import { plDaily } from "../v3/monthly";
+import type { FixedSource } from "../v5/pl-tiles";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -87,6 +88,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   }
 
   let month: MingguIniInput["month"] = null;
+  let v5Pl: MingguIniInput["v5Pl"] = null;
   if (on.m4) {
     const first = firstOfMonth(w.update_date);
     const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -95,6 +97,18 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).range(a, b)),
       fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
     ]);
+    if (v4.length && isModuleOn(settings.v5_pl, role)) {
+      // PRD v5 §4.7: the same month rows with the fixed-cost estimate; cut-off and nominal sources from the month builder
+      const { data: lk } = await sb.from("data_status").select("note").eq("table_name", "month_lock").eq("scope", first).maybeSingle();
+      let note: { cutOff?: string; fixed?: FixedSource[] } = {};
+      try { note = (lk as Row | null)?.note ? JSON.parse(String((lk as Row).note)) : {}; } catch { note = {}; }
+      const pl = sp.pl === "rr" ? "rr" : "wk";
+      const href = (p: "rr" | "wk") => {
+        const qs = new URLSearchParams(Object.entries({ mode: sp.mode, hari: sp.hari, segmen: sp.segmen, sku: sp.sku, pl: p === "wk" ? undefined : p }).filter((e): e is [string, string] => !!e[1])).toString();
+        return `/minggu-ini/${w.week_start}${qs ? `?${qs}` : ""}`;
+      };
+      v5Pl = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href };
+    }
     if (v4.length) {
       const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
       const latest = bud.reduce((m, r) => Math.max(m, Number(r.version)), 0);
@@ -154,7 +168,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     base: `/minggu-ini/${w.week_start}`,
     release: ctx.lastRelease ? { releasedAt: ctx.lastRelease.released_at, counts: ctx.lastRelease.controls?.counts ?? null } : null,
     mode, hari: iso(sp.hari), segmen: sp.segmen === "RPA" || sp.segmen === "Trading" ? sp.segmen : null, sku: sp.sku ?? null,
-    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3,
+    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl,
     pdfHref: `/api/w/${w.week_start}/pdf`,
   };
 }

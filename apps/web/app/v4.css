@@ -105,6 +105,9 @@
 .v4t tr.total td { font-weight: 600; border-top: 1px solid var(--text); }
 .v4t tr.sub td { font-size: var(--fs-xs); color: var(--muted); border-bottom-style: dashed; }
 .v4t tr.on td { background: var(--accent-soft); }
+.v4t td.fc, .v4t th.fc { font-style: italic; }
+.v4t td.hi, .v4t th.hi { background: var(--accent-soft); }
+.v4t tr.strong td { font-weight: 600; }
 .v4t td a { color: inherit; }
 .v4t td a:hover { color: var(--accent); }
 .cut { font-size: var(--fs-xs); color: var(--muted); padding-top: var(--space-1); }

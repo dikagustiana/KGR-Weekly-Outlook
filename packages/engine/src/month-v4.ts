@@ -22,7 +22,8 @@ const COGS_LINE: Record<Exclude<PlSegment, "Umum">, string> = { "LB main": "COGS
 export interface PlTotalsV4 { revenue: Decimal; cogs: Decimal; gp: Decimal; opex: Decimal; nibt: Decimal }
 
 export function totalsV4(rows: PlRowV4[], v: "actual" | "forecast", basis?: (b: PlRowV4["basis"]) => boolean): PlTotalsV4 {
-  const f = (p: (l: string) => boolean) => sum(rows.filter((r) => p(r.pl_line) && (!basis || basis(r.basis))).map((r) => r[v] ?? ZERO));
+  // v5 fixed-cost estimate rows are not journal: never inside the v4 totals (plTotalsV5 adds them, K29)
+  const f = (p: (l: string) => boolean) => sum(rows.filter((r) => p(r.pl_line) && r.basis !== "fixed_estimate" && (!basis || basis(r.basis))).map((r) => r[v] ?? ZERO));
   const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt: revenue.plus(cogs).plus(opex) };
 }
@@ -422,6 +423,8 @@ export function lockBlockers(x: {
   const lock = v1LockDate(x.month, x.lockWeek);
   if (x.today < lock) out.push({ code: "K9", text: `V1 dikunci mulai Kamis minggu ke-${x.lockWeek} (${lock})` });
   for (const c of x.controls) if (["C33", "C34", "C49"].includes(c.code) && (c.status === "GAGAL" || c.status === "BELUM DIISI" || c.status === "STALE")) out.push({ code: c.code, text: `kontrol ${c.code} ${c.status}` });
+  // v5 C55 (present only with v5_pl): V1 waits for the Finance schedule of fixed costs of the month
+  for (const c of x.controls) if (c.code === "C55" && c.status === "PERIKSA") out.push({ code: "C55", text: "beban tetap memakai estimasi bulan lalu; isi jadwal beban tetap bulan ini" });
   if (x.plan.costMissingKeys > 0) out.push({ code: "P6", text: `cost rencana tidak tersedia untuk ${x.plan.costMissingKeys} baris PO` });
   for (const t of x.test) if (!t.reasoned) out.push({ code: "P8", text: `run-rate menyimpang ${t.deviation === null ? "" : `${t.deviation.times(100).toFixed(1)}%`} dari rata-rata actual; alasan wajib di register` });
   const open = registerOpen(x.register);

@@ -12,7 +12,7 @@ export interface CardCompare {
  * Card body (§5.3): value in --fs-value, up to 3 comparison rows. A missing value is written as text ("belum diisi"),
  * never as 0.
  */
-export function CardBody({ value, unit, compare = [], href, missing, negative }: {
+export function CardBody({ value, unit, compare = [], href, missing, negative, maxCompare = 3 }: {
   value: string | null;
   /** Unit beside the value ("Rp jt"): the value itself stays a bare number so it fits a 2-column card at 30 px. */
   unit?: string;
@@ -21,6 +21,8 @@ export function CardBody({ value, unit, compare = [], href, missing, negative }:
   /** Text when value is null. */
   missing?: string;
   negative?: boolean;
+  /** PRD v5 §6.2: the Outlook card carries four rows (range, GP, NIBT jurnal, NIBT after fixed costs). */
+  maxCompare?: number;
 }) {
   const v = value === null
     ? <div className="card-v missing" data-tile-value="">{missing ?? "belum diisi"}</div>
@@ -30,7 +32,7 @@ export function CardBody({ value, unit, compare = [], href, missing, negative }:
       {v}
       {compare.length ? (
         <dl className="card-c">
-          {compare.slice(0, 3).map((c) => (
+          {compare.slice(0, maxCompare).map((c) => (
             <div key={c.label} style={{ display: "contents" }}><dt>{c.label}</dt><dd className={c.tone ?? ""} data-tile-value="">{c.value}</dd></div>
           ))}
         </dl>

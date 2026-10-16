@@ -18,7 +18,8 @@ import { isCogsLine, isRevenueLine, salesLines, type PlBasis } from "./monthly";
 import { fixed } from "./format";
 import type { WeekResult } from "./week";
 
-export type PlBasisV4 = PlBasis | "event";
+/** v5 K29: "fixed_estimate" = fixed cost not journaled yet (never journal; skipped by every v4 total). */
+export type PlBasisV4 = PlBasis | "event" | "fixed_estimate";
 export type PlSegment = "LB main" | "LB by-product" | "Trading" | "Umum";
 export const PL_SEGMENTS: PlSegment[] = ["LB main", "LB by-product", "Trading", "Umum"];
 
@@ -159,9 +160,12 @@ export function weekOutlook(rows: PlRowV4[], week: { weekStart: ISODate; today: 
   };
 }
 
-/** Rows of the weekly outlook back from the data mart (strings / numbers → decimals). */
-export function plRowsFromMart(rows: { date: string; segment: string; pl_line: string; basis: string; actual: Num | null; forecast: Num | null; kg?: Num | null; anomaly?: boolean | null }[]): PlRowV4[] {
-  return rows.map((r) => ({
+/**
+ * Rows of the weekly outlook back from the data mart (strings / numbers → decimals). The v5 fixed-cost estimate rows
+ * (basis fixed_estimate) are left out unless asked for: every v4 reader stays on NIBT according to the journal.
+ */
+export function plRowsFromMart(rows: { date: string; segment: string; pl_line: string; basis: string; actual: Num | null; forecast: Num | null; kg?: Num | null; anomaly?: boolean | null }[], opts: { fixedEstimate?: boolean } = {}): PlRowV4[] {
+  return rows.filter((r) => opts.fixedEstimate || r.basis !== "fixed_estimate").map((r) => ({
     date: r.date, segment: r.segment as PlSegment, pl_line: r.pl_line, basis: r.basis as PlBasisV4,
     actual: r.actual === null || r.actual === undefined ? null : D(r.actual), forecast: r.forecast === null || r.forecast === undefined ? null : D(r.forecast),
     kg: r.kg === null || r.kg === undefined ? null : D(r.kg), anomaly: r.anomaly === true,

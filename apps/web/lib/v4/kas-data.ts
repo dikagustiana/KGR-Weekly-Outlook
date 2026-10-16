@@ -30,7 +30,7 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
   const [cur, prev] = ((svs ?? []) as Row[]);
   if (cur && cur.equity !== null && cur.paid_in_capital !== null) {
     const month = String(cur.month);
-    const { data: intr } = await sb.from("pl_daily_v4").select("actual, forecast").eq("pl_line", "Interest Expense").gte("date", firstOfMonth(month)).lte("date", monthEnd(month));
+    const { data: intr } = await sb.from("pl_daily_v4").select("actual, forecast").eq("pl_line", "Interest Expense").neq("basis", "fixed_estimate").gte("date", firstOfMonth(month)).lte("date", monthEnd(month));
     const ir = (intr ?? []) as Row[];
     solvency = {
       label: `${MONTH[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`, month, equity: String(cur.equity), paidIn: String(cur.paid_in_capital),

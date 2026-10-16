@@ -15,13 +15,13 @@ import { releaseContext } from "@/lib/release";
 import type { Viewer } from "@/lib/session";
 
 /** PRD v4 §6.2 Manajemen · Outlook bulan (flag v4_design): tiles for everyone, the Finance panel only for Finance and Admin. */
-export async function OutlookBulanV4({ first, viewer, versi }: { first: string; viewer: Viewer; versi: string | null }) {
+export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = null }: { first: string; viewer: Viewer; versi: string | null; pl?: string | null; cm?: string | null }) {
   const { weeks, week } = await plainContext();
   const settings = await moduleSettings();
   const sb = await supabaseServer();
   const today = jakartaToday();
   const view = await currentView(viewer);
-  const { input, extra } = await loadOutlookBulan(sb, { first, today, role: viewer.role, settings, selected: versi });
+  const { input, extra } = await loadOutlookBulan(sb, { first, today, role: viewer.role, settings, selected: versi, pl, cm });
   const model = outlookBulanModel(input);
   const canAct = (viewer.role === "admin" || viewer.role === "finance") && view !== "management";
   const rc = canAct ? await releaseContext(sb, "month", `${first}:V1`, first, monthEnd(first)) : null;

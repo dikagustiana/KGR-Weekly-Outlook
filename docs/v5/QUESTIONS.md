@@ -60,3 +60,21 @@ Q-v5-16. Kolom biaya v5 untuk Sales lewat view baru `commercial_daily_sales_v5` 
 Q-v5-17. K25 diterapkan saat `v5_costing` hidup: headline manajemen, blok 2 (manajemen, preparer, cetak, PDF) dan baris "Aksi" di Ekonomi rencana diganti angka simulasi + "Harga dan volume live bird diputuskan Direktur Operasional." Saat flag mati layar sama dengan `ebe4ad8` (aturan 6). `block2.action` tetap dihitung `computeWeek` (snapshot v1) tetapi tidak ditampilkan. "REKOMENDASI" blok 3 (beli trading) bukan live bird dan tidak diubah.
 
 Q-v5-18. Builder ledger, Commercial dan P&L v5 belum dijalankan terhadap API Supabase di sesi ini (tidak ada PostgREST lokal). Logika diuji di engine (fixture minggu contoh) dan hak akses di `rls_roles.sql`; jalankan rebuild setelah flag hidup di KGR-OS (lihat `docs/v5/irisan-1.md`).
+
+## Irisan 2
+
+Q-v5-19. Lampiran B.2 direproduksi dalam ±0,1 jt (`docs/v5/bukti/irisan-2-b2.txt`). Selisih pembulatan: COGS forecast −1.429,3 (PRD −1.429,2, golden v4 −1.429,3); NIBT actual 165,2 (PRD menulis 165,3 dan mencatat engine 165,2); nominal tetap 87,02 jt → 2,807 jt/hari dan 19,7 jt per minggu penuh (PRD membagi 87,0 yang sudah dibulatkan: 2,806 / 19,6); NIBT setelah beban tetap 24–30 Agu −125,6 (PRD −125,7). GP per hari 27–30 Agu dari engine −7,6 / −0,4 / −56,1 / −3,8 = −67,9, sama dengan angka mockup.
+
+Q-v5-20. Baris tetap = baris jadwal 8.3 (`fixed_cost_schedule`) yang berlaku di bulan itu. Baris tanpa nominal memakai jurnal FINAL terakhir baris itu ("estimasi bulan lalu"); tanpa baris jadwal sama sekali dipakai daftar K29 (gaji, penyusutan, bunga, sewa). Untuk Agustus seed menghasilkan depresiasi 10,4 (jadwal) + gaji 52,2 + bunga 24,4 (Juli FINAL) = 87,0, sama dengan B.2; sewa Juli 3,3 tidak ikut karena baris sewa baru berlaku Sep/Nov. Baris P&L yang punya baris jadwal berisi dan kosong sekaligus memakai yang berisi saja.
+
+Q-v5-21. "FINAL terakhir" = bulan terakhir sebelum bulan berjalan yang punya versi FINAL di `month_outlook_version`; nominal per baris dari jurnal bulan itu (`gl_line` lewat `coa_map`). Bila jurnal bulan itu tidak ada di KGR-OS, nominal "belum ada" dan C55 PERIKSA. Penyesuaian tutup buku yang belum dijurnal tidak ikut.
+
+Q-v5-22. Estimasi tidak pernah dobel: estimasi s.d. hari d = nominal × d ÷ hari kalender dikurangi jurnal + forecast baris itu s.d. d (min 0). Bila driver 8.3 atau run-rate sudah memproyeksikan baris itu setelah cut-off, estimasinya turun; akhir bulan baris = max(nominal, jurnal + forecast) seperti K6. Baris `fixed_estimate` ditulis builder bulanan (`m4_monthly`); builder minggu v4 tidak menulisnya.
+
+Q-v5-23. Kolom Budget di Actual vs run-rate: revenue, COGS (= GP − revenue), GP, beban operasi, dan budget NIBT dibandingkan dengan "NIBT setelah beban tetap" (budget memuat semua beban). Baris NIBT jurnal dan beban tetap kosong di kolom itu.
+
+Q-v5-24. C55 menahan kunci V1 di pre-flight app (`lockBlockers`); `release_month` di database tidak menolak status PERIKSA dan tidak diubah. Tidak ada kebijakan override untuk C55: Finance mengisi jadwal beban tetap bulan itu.
+
+Q-v5-25. COGS hari ber-PO memakai biaya per kg order dari engine mingguan (HPP per key) seperti `ebe4ad8`; biaya `planCost` v5/1 per SKU belum menggantikannya supaya B.2 tetap. Bila diinginkan, penggantian bisa dibuat di belakang `v5_costing` dengan golden baru.
+
+Q-v5-26. Tata letak: di Outlook bulan dan Minggu ini v4, tile laba rugi masuk baris 5–8 lebar 12 dan tile di bawahnya turun empat baris. Penyatuan "Versi dan bridge" dan urutan mockup Manajemen v5 lainnya dikerjakan di v5/6.

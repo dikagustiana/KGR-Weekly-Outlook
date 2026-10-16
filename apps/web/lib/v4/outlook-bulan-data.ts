@@ -4,7 +4,8 @@ import "server-only";
  * the selected locked version), the register, the budget, the versions, the accuracy of the last FINAL month and the
  * solvency. Nothing here sums a number; the model (outlook-bulan.ts) asks @kgr/engine.
  */
-import { D, accuracyV4, addDays, firstOfMonth, isCogsLine, isRevenueLine, monthEnd, plRowsFromMart, type BudgetRow, type LockBlocker, type RegisterRow, type VersionDayV4 } from "@kgr/engine";
+import { D, accuracyV4, addDays, firstOfMonth, isCogsLine, isRevenueLine, monthEnd, plRowsFromMart, type BudgetRow, type CumulativeMetric, type LockBlocker, type RegisterRow, type VersionDayV4 } from "@kgr/engine";
+import type { FixedSource } from "../v5/pl-tiles";
 import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
 import type { AccuracyInput, OutlookBulanInput, VersionRow } from "./outlook-bulan";
@@ -33,6 +34,8 @@ const MART_COLS = "date, segment, pl_line, basis, actual, forecast, kg, anomaly"
 
 export async function loadOutlookBulan(sb: Supa, x: {
   first: string; today: string; role: Role; settings: ModuleSettings; selected: string | null;
+  /** v5 views from the query string (?pl=rr|wk, ?cm=revenue|cogs|gp|nibt|nibt_after). */
+  pl?: string | null; cm?: string | null;
 }): Promise<{ input: OutlookBulanInput; extra: OutlookBulanExtra }> {
   const first = firstOfMonth(x.first), last = monthEnd(first);
   const { data: mo } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
@@ -68,10 +71,11 @@ export async function loadOutlookBulan(sb: Supa, x: {
 
   // rows: the live mart, or the rows frozen in the selected version (only when it carries v4 rows)
   let rowsRaw: Row[] = mart;
+  let fixedRaw: Row[] = mart.filter((r) => r.basis === "fixed_estimate");
   let effectiveSelected: string | null = null;
   if (selected) {
-    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[] } | null;
-    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; effectiveSelected = selected; }
+    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[]; fixed_estimate?: Row[] } | null;
+    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; fixedRaw = snap.fixed_estimate ?? []; effectiveSelected = selected; }
   }
   const rows = rowsRaw.length ? plRowsFromMart(rowsRaw as never) : null;
 
@@ -134,9 +138,28 @@ export async function loadOutlookBulan(sb: Supa, x: {
     }
   }
 
+  // PRD v5 §4.7 (flag v5_pl): the same rows with the fixed-cost estimate, its sources as the month builder recorded them
+  const v5On = isModuleOn(x.settings.v5_pl, x.role);
+  const base = `/m/${first.slice(0, 7)}`;
+  const pl: "rr" | "wk" = x.pl === "wk" ? "wk" : "rr";
+  const cm = (["revenue", "cogs", "gp", "nibt", "nibt_after"] as const).find((m) => m === x.cm) ?? "revenue";
+  const href = (q: { pl?: string; cm?: string }) => {
+    const p = new URLSearchParams();
+    if (effectiveSelected) p.set("versi", effectiveSelected);
+    const np = q.pl ?? pl, nc = q.cm ?? cm;
+    if (np !== "rr") p.set("pl", np);
+    if (nc !== "revenue") p.set("cm", nc);
+    const qs = p.toString();
+    return qs ? `${base}?${qs}` : base;
+  };
+  const v5 = v5On && rows ? {
+    rows: [...rows, ...plRowsFromMart(fixedRaw.filter((r) => r.basis === "fixed_estimate") as never, { fixedEstimate: true })],
+    fixed: ((lockNote as { fixed?: FixedSource[] }).fixed ?? []), pl, cm: cm as CumulativeMetric, href,
+  } : null;
+
   const input: OutlookBulanInput = {
     first, today: x.today, cutOff, tolerance, windowDays, rows, base: `/m/${first.slice(0, 7)}`, months, budget: budgetRows, register, versions,
-    selected: effectiveSelected, accuracy, solvency, on,
+    selected: effectiveSelected, accuracy, solvency, on, v5,
     pdfHref: `/api/m/${first.slice(0, 7)}/pdf${effectiveSelected ? `?version=${effectiveSelected}` : ""}`,
   };
   const extra: OutlookBulanExtra = {

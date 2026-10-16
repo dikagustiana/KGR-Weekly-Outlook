@@ -1,0 +1,28 @@
+nominal: Depreciation & amortisation 10.39 (jadwal); Salaries and allowance 52.19 (estimasi bulan lalu); Interest Expense 24.44 (estimasi bulan lalu)
+
+plTable('rr')
+ | 01–26 | 27–31 | 01–31 | share | budget
+Revenue | 6385.9 | 1378.2 | 7764.1 | 0.0 | —
+COGS | -6038.5 | -1429.3 | -7467.7 | -0.0 | —
+Gross profit | 347.4 | -51.0 | 296.4 | 0.0 | —
+GP % | 5.4% | -3.7% | 3.8% | — | —
+Beban operasi (jurnal) | -182.2 | -35.0 | -217.2 | -0.0 | —
+NIBT menurut jurnal | 165.2 | -86.1 | 79.2 | 0.0 | —
+Beban tetap belum dijurnal (estimasi) | -73.0 | -14.0 | -87.0 | -0.0 | —
+NIBT setelah beban tetap | 92.3 | -100.1 | -7.8 | -0.0 | —
+NIBT % | 1.4% | -7.3% | -0.1% | — | —
+
+plTable('wk')
+ | 01–02 | 03–09 | 10–16 | 17–23 | 24–30 | 31–31 | 01–31
+Revenue | 809.0 | 1278.9 | 2136.7 | 1572.3 | 1656.8 | 310.4 | 7764.1
+COGS | -649.1 | -1276.0 | -1948.3 | -1576.5 | -1724.3 | -293.5 | -7467.7
+Gross profit | 159.9 | 2.9 | 188.4 | -4.2 | -67.5 | 16.9 | 296.4
+GP % | 19.8% | 0.2% | 8.8% | -0.3% | -4.1% | 5.4% | 3.8%
+Beban operasi (jurnal) | -2.0 | -27.8 | -35.0 | -106.8 | -38.5 | -7.0 | -217.2
+NIBT menurut jurnal | 157.9 | -24.9 | 153.3 | -111.0 | -106.0 | 9.9 | 79.2
+Beban tetap belum dijurnal (estimasi) | -5.6 | -19.7 | -19.7 | -19.7 | -19.7 | -2.8 | -87.0
+NIBT setelah beban tetap | 152.3 | -44.6 | 133.7 | -130.6 | -125.6 | 7.1 | -7.8
+NIBT % | 18.8% | -3.5% | 6.3% | -8.3% | -7.6% | 2.3% | -0.1%
+
+GP per hari 27–31: -7.6 / -0.4 / -56.1 / -3.8 / 16.9 Σ27–30 -67.9
+C55 PERIKSA - Salaries and allowance: estimasi bulan lalu (FINAL 2026-07) Rp 52186369; Interest Expense: estimasi bulan lalu (FINAL 2026-07) Rp 24441666; total estimasi Rp 76628035
