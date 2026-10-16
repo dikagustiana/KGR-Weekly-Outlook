@@ -2,6 +2,13 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-3] PPIC per kelas (docs/PRD-v5.md irisan 3)
+
+### Added
+- Engine `ppic-class.ts`: `sizeKgOf`, `toClassLB` (K28), `classByProducts`, `dailyClassPlan`, `weekClassPlan`, `c50`, `c51`, `c58`, `needByCutDate`, `netShareOf`.
+- Fixture `plan-2026-08-24`: `v5` blocks in inputs and golden (Lampiran B.3/B.4, placeholder); the v4 values are unchanged.
+- Web (flag `v5_ppic_class`): PPIC · Rencana v5 (demand per size → class → kg LB, weekly plan with need / saved versions, daily plan per class, today, batch actual vs plan); saving writes `plan_week_class`; copy to batch needs C58; builder `demand_class_weekly`; C51 on the LB supply upload.
+
 ## [v5-2] Laba rugi (docs/PRD-v5.md irisan 2)
 
 ### Added

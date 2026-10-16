@@ -28,3 +28,4 @@ export * from "./month-v4";
 export * from "./ppic-v4";
 export * from "./close-v4";
 export * from "./pl-v5";
+export * from "./ppic-class";

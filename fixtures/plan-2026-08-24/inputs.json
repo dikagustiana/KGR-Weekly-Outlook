@@ -24,5 +24,51 @@
   { "pattern": "boneless", "key": "Kulit", "yield_pct": "0.060000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
   { "pattern": "boneless", "key": "HJA (Hati/Jantung/Ampela)", "yield_pct": "0.050000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
   { "pattern": "boneless", "key": "KRK (Kerangka)", "yield_pct": "0.280000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" }
- ]
+ ],
+ "v5": {
+  "placeholder": true,
+  "source": "docs/PRD-v5.md Lampiran B.3/B.4: peta ukuran → kelas K/S/B ilustrasi (input tes berlabel, bukan seed, bukan default), yield karkas 71,46% semua kelas (placeholder v4), STD 2,0 kg untuk PO tanpa ukuran",
+  "size_class_map": [
+   {
+    "size_kg": "0.90",
+    "weight_class": "K"
+   },
+   {
+    "size_kg": "1.00",
+    "weight_class": "K"
+   },
+   {
+    "size_kg": "1.20",
+    "weight_class": "S"
+   },
+   {
+    "size_kg": "1.30",
+    "weight_class": "S"
+   },
+   {
+    "size_kg": "1.40",
+    "weight_class": "B"
+   },
+   {
+    "size_kg": "1.50",
+    "weight_class": "B"
+   }
+  ],
+  "yield_karkas": {
+   "K": "0.714599",
+   "S": "0.714599",
+   "B": "0.714599",
+   "STD": "0.714599"
+  },
+  "avg_kg": {
+   "STD": "2.000"
+  },
+  "mid_offset": "0.05",
+  "fallback_class": "STD",
+  "lead_time_days": 1,
+  "karkas_keys": [
+   "RPA|Karkas|Fresh",
+   "RPA|Karkas|n/a"
+  ]
+ }
 }
