@@ -10,9 +10,10 @@ import { currentView } from "@/lib/view-server";
 import { commercialMart, computeCommercial } from "@/lib/v3/commercial";
 import { URGENCY_LABEL, assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
 import { tgl } from "@/lib/fmt";
-import { moduleSettings } from "@/lib/modules";
+import { moduleEnabled, moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
 import { KomersialV4 } from "./v4";
+import { KomersialV5 } from "./v5";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,11 @@ export const dynamic = "force-dynamic";
 export default async function KomersialPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
   const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "operations_director", "finance"]);
+  // PRD v5 §6.2 (flag v5_commercial): the Commercial loop screen
+  if (await moduleEnabled("v5_commercial", v)) {
+    const f = (await searchParams).filter;
+    return <KomersialV5 viewer={v} filter={f === "hari" || f === "batas" || f === "below" ? f : "all"} />;
+  }
   if (v4On(await moduleSettings(), v.role)) return <KomersialV4 viewer={v} />;
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";

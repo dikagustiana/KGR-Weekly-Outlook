@@ -3,7 +3,7 @@ import "server-only";
  * M3 demand → rencana (PRD v3 §4.4 steps 1–5). Loads rows, runs @kgr/engine (weekDemand, proposeWeekPlan,
  * demandByDay, splitHeadsByDay, dailyPlan, planBatchRow, planningControls) and writes the results; no arithmetic here.
  */
-import {
+import { commitmentDemand,
   D, addDays, dailyPlan, daysAheadOf, demandByDay, firstDelivery, keyResolver, mondayOf, outstandingKg, planBatchRow, planVarianceDaily, planningControls, ppicBlockers, ppicControls,
   proposeWeekPlan, shortfallRows, splitHeadsByDay, statForecastWeek, toFixedString, weekDemand,
   type ControlV3, type DailyPlanRow, type Decimal, type ForecastLine, type OrderLine, type PatternYield, type Substitution, type WeekDemandResult, type WeekPlanProposal,
@@ -98,13 +98,24 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   // the latest yield row per (class, pattern, key) effective on the week start
   const ym = new Map<string, Row>();
   for (const y of yields) if (!y.effective_to || String(y.effective_to) >= ws) ym.set(`${y.weight_class}|${y.cut_pattern}|${y.key}`, y);
+  const poLines: PoLine[] = orders.map((o) => ({
+    id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
+    demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
+    po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
+  }));
+  // PRD v5 K26 (flag v5_commercial): the locked commitments of the week are Confirmed demand for the kg the POs do not cover
+  const { data: v5c } = await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle();
+  if (((v5c as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true) {
+    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]);
+    const extra = commitmentDemand({
+      weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
+      commitments: commits.map((c) => ({ key: String(c.key), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
+    });
+    poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null })));
+  }
   return {
     week,
-    orders: orders.map((o) => ({
-      id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
-      demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
-      po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
-    })),
+    orders: poLines,
     forecasts: forecasts.map((x) => ({ id: String(x.id), week_start: String(x.week_start), key: String(x.key), kg: String(x.kg), price_expected: s(x.price_expected), sales_rep: s(x.sales_rep), customer: s(x.customer), source: x.forecast_source === "stat" ? "stat" as const : "sales" as const })),
     weights: { tentative: s(p.tentative_weight) ?? "0.7", forecast: s(p.forecast_weight) ?? "0.5" },
     threshold: s(p.downgrade_approval_threshold) ?? "25000000",

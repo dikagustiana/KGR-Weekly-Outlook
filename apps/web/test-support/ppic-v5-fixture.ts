@@ -45,7 +45,7 @@ export function ppicV5Fixture(versi: "need" | "batch" = "need"): PpicV5Input {
     classes: [{ code: "K", min_kg: null, max_kg: null, avg_kg: null }, { code: "S", min_kg: null, max_kg: null, avg_kg: null }, { code: "B", min_kg: null, max_kg: null, avg_kg: null }, { code: "STD", min_kg: null, max_kg: null, avg_kg: "2.000" }],
     karkas: { freshKg: fresh, naKg: na, frozenOrderKg: D("4228"), frozenCovered: true, stockFreshKg: null, stockFreshAgeDays: null },
     po: { from: "2026-08-27", to: "2026-08-29", kg: sumKg(orders), rpaKg: sumKg(orders.filter((o) => seg(o.key) === "RPA")), tradingKg: sumKg(orders.filter((o) => seg(o.key) === "Trading")), tentativeKg: D(0) },
-    byProducts: bp.map((b) => ({ unit: b.unit, shortfall_kg: b.shortfall_kg })), needCost, lbPrice: { price: D(24600), source: "harga hari ini (parameter)" },
+    byProducts: bp.map((b) => ({ unit: b.unit, net_kg: b.net_kg, output_kg: b.output_kg, shortfall_kg: b.shortfall_kg })), needCost, lbPrice: { price: D(24600), source: "harga hari ini (parameter)" },
     batch: { kgLb: D(b2.lbPlannedInHorizon), batches: 2, margin: D(b2.expectedMarginOfPlan), surplusKg: wp.surplus_kg, downgrade: wp.downgrade, threshold: D("25000000"), priceFresh: D(price("RPA|Karkas|Fresh")!), priceFrozen: D(price("RPA|Karkas|Frozen")!) },
     fromCommercial: { commitment: "belum dikunci", deadline: "Jum 28 Agu 17.00", priceList: "belum", surplus: "menunggu", spotFreshKg: null },
     capacity: new Map(), supply: [], controls: [{ code: "C42", module: "M3", name: "yield", value: D(0), comparator: null, difference: null, status: "PERIKSA", action: "", detail: [] }],
