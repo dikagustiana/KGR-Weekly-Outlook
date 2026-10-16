@@ -18,7 +18,7 @@ PR #27–#30 bertumpuk dan sudah di-merge berurutan #27 → #28 → #29 → #30.
 
 ## Migrasi untuk KGR-OS (urutan)
 
-Cek 16/10/2026 di KGR-OS: v3 lengkap, ke-10 migrasi v4 + v5 belum ada. Dua cara, hasilnya sama:
+Status KGR-OS: diterapkan 16/10/2026 oleh pemilik dengan file sekaligus di SQL Editor; tabel cek akhir 11 baris `true` (sebelumnya: v3 lengkap, ke-10 migrasi v4 + v5 belum ada). Untuk database lain, dua cara dengan hasil yang sama:
 
 - **Sekaligus**: `docs/v5/kgr-os-migrasi-v4-v5-sekaligus.sql` di SQL Editor, satu kali Run. Isinya 10 file `20261017000100` sampai `20261023000100` disambung urut nama tanpa diubah (sha256 tiap file di kepala), ditambah cek prasyarat v3 di awal dan tabel cek 11 baris di akhir (semua `true`). Satu Run = satu transaksi: error di mana pun membatalkan semuanya. Diuji di salinan latihan KGR-OS sebagai satu query: skema identik dengan penerapan per file (`pg_dump -s`), isi seed sama (tanpa id/cap waktu), Run kedua tetap lolos, error yang disisipkan di file ke-8 membatalkan semuanya, database tanpa v3 ditolak sebelum apa pun berubah.
 - **Satu per satu**: migrasi v4 (`20261017*` sampai `20261020*`) urut nama, lalu file v5 di bawah, di SQL Editor atau psql (`PGCLIENTENCODING=UTF8`):
