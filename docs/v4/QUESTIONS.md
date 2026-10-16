@@ -157,3 +157,17 @@ Q70. G8 meminta backup/restore terverifikasi. Lingkungan ini tidak punya akses k
 Q71. PDF bulanan A4 dua halaman dari snapshot v4 (§3.9) belum dibuat. Rilis bulanan v4 menyimpan snapshot dan SHA; PDF bulanan masih jalur v3 (lanjutan Q38).
 
 Q72. STALE pada rilis dibaca dari `rebuild_queue` (antrean berstatus queued atau running untuk tanggal periode itu). `data_status.stale_from` belum dipakai karena belum diisi semua builder.
+
+## Irisan 5
+
+Q73. Journey B lawan §6.7. Journey B menulis "PO pending; tidak bisa dialokasi sampai approval sah", yang terbaca seperti order tersimpan dengan status menunggu. §6.7 menulis order di bawah lantai ditolak di server tanpa approval. Sementara ini: baris order ditolak, dan permintaan diskon yang menunggu membawa syarat PO-nya (SKU, pelanggan, harga, kg). Setelah disetujui, sales yang mengajukan membuat order dari approval itu (tombol "Buat order"), dan database mengaitkan approval ke baris tersebut. Baris order di bawah lantai yang sudah ada tanpa approval (misalnya dibuat saat `m7_approval` mati) tidak bisa dialokasikan. Perlu dipilih apakah dibutuhkan status "order menunggu" yang tersimpan.
+
+Q74. Baris Aktual tidak dicek C38. Surat jalan yang sudah ditandatangani (upload Ops, boleh oleh Sales) dan faktur Accurate adalah fakta pengiriman dari order yang sudah dicek saat disimpan; lantai hari ini juga tidak berlaku untuk tanggal yang sudah lewat. Sisa risikonya: Sales bisa mengunggah surat jalan di bawah lantai untuk order yang tidak pernah ada. Pilihannya: batasi upload `ops_sales` ke Inventory Accounting, atau tambah kontrol C38 untuk baris Aktual tanpa order yang disetujui. Perlu dipilih.
+
+Q75. Aturan spot di database: dicatat Admin, Sales, atau commercial lead (commercial lead sudah punya hak sales atas `sales_line` sejak v3); tanpa nomor PO; tanggal hari ini; sebelum `cut_off_time`; `spot_enabled` minggu itu hidup; baris `commercial_daily` hari ini atau kemarin berstatus `jual_hari_ini` (bukan `di_atas_umur`); kg tidak melebihi stok fresh bebas di mart. SKU tanpa baris komersial hari ini atau kemarin tidak bisa dijual spot, jadi mart harus sudah dibangun. Penjualan spot adalah baris Order (`channel = 'spot'`, kirim hari ini), jadi ia ikut alokasi dan Terkirim seperti PO.
+
+Q76. kg spot di scorecard = jumlah kg baris `channel = 'spot'` bertanggal di minggu itu, apa pun statusnya. Baris spot tetap spot setelah dikirim. Faktur Accurate dengan nomor dokumen yang sama dengan baris spot ikut ditandai spot, tetapi penjualan spot biasanya belum punya nomor dokumen sendiri (nomor DO ada di `delivery`), jadi yang dihitung adalah baris penjualan spotnya.
+
+Q77. Approval dipakai di database. Approval yang menutup sebuah baris (yang sudah terkait dengan baris itu, lalu yang paling awal diputuskan) dikaitkan ke baris tersebut dalam transaksi yang sama, dengan kunci baris. Satu approval untuk satu baris, juga untuk permintaan paralel. `consumeApprovals` di aplikasi tidak lagi melepas kaitan; baris tempel dan upload tetap diberi catatan "dipakai".
+
+Q78. Halaman Komersial v4 hanya untuk hari ini. Riwayat `?date=` dari halaman v3 tidak ada di v4. Tidak ada mockup Komersial di `reference/design/`, jadi tidak ada banding §9.4.

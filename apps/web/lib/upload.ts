@@ -185,6 +185,9 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
         const byKey = new Map(scope.filter((e) => e.line_key).map((e) => [String(e.line_key), e]));
         const legacy = scope.filter((e) => !e.line_key);
         const accurateDocs = new Set(existing.filter((e) => e.source === "Accurate" && e.status === "Aktual").map((e) => e.document_ref as string));
+        // PRD v4 K8: a spot sale stays a spot sale when its invoice (same document number) replaces the order / Ops row
+        const spotDocs = new Set(existing.filter((e) => e.channel === "spot" && e.document_ref).map((e) => String(e.document_ref)));
+        if (spotDocs.size) for (const r of staged) if (r.document_ref && spotDocs.has(String(r.document_ref))) r.channel = "spot";
         const seen = new Set<string>();
         for (const r of staged) {
           if (src === "Ops" && accurateDocs.has(r.document_ref as string)) { t.unchanged++; continue; }

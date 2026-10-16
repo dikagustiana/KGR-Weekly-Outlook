@@ -173,6 +173,8 @@ export interface ScorecardRow {
   forecast_mape: Decimal | null;
   discount_count: number;
   discount_rp: Decimal;
+  /** kg sold through the spot channel (K8, P3.9). */
+  kg_spot: Decimal;
 }
 
 /**
@@ -186,8 +188,11 @@ export function scorecard(x: {
   forecasts: { sales_rep: string; kg: Num }[];
   blasts: { sales_rep: string; kg: Num; rp_downgrade: Num }[];
   discounts: { sales_rep: string; total_below: Num }[];
+  /** Spot sales of the week (sales_line channel 'spot'), any status. */
+  spot?: { sales_rep: string; kg: Num }[];
 }): ScorecardRow[] {
-  const reps = [...new Set([...x.targets, ...x.actuals, ...x.forecasts, ...x.blasts, ...x.discounts].map((r) => r.sales_rep).filter(Boolean))].sort();
+  const spot = x.spot ?? [];
+  const reps = [...new Set([...x.targets, ...x.actuals, ...x.forecasts, ...x.blasts, ...x.discounts, ...spot].map((r) => r.sales_rep).filter(Boolean))].sort();
   return reps.map((rep) => {
     const t = x.targets.filter((r) => r.sales_rep === rep);
     const tk = t.some((r) => r.target_kg !== null && r.target_kg !== undefined && r.target_kg !== "") ? sum(t.map((r) => D(r.target_kg ?? 0))) : null;
@@ -200,6 +205,7 @@ export function scorecard(x: {
       sales_rep: rep, target_kg: tk, actual_kg: ak, pct: tk === null ? null : div(ak, tk), target_rp: tr, actual_rp: ar,
       kg_to_frozen_unsold: sum(x.blasts.filter((r) => r.sales_rep === rep).map((r) => D(r.kg))), rp_downgrade: sum(x.blasts.filter((r) => r.sales_rep === rep).map((r) => D(r.rp_downgrade))),
       forecast_mape: fk.isZero() ? null : ak.minus(fk).abs().div(fk), discount_count: ds.length, discount_rp: sum(ds.map((r) => D(r.total_below))),
+      kg_spot: sum(spot.filter((r) => r.sales_rep === rep).map((r) => D(r.kg))),
     };
   });
 }
@@ -233,4 +239,27 @@ export function guardOrders(x: { lines: GuardLine[]; floors: Map<string, Num>; r
     if (!dup) newRequests.push({ key: l.key, customer: l.customer, requested_price: D(l.price), floor_price: D(floor!), rp_per_kg_below: b.rpPerKg, kg: D(l.kg), total_below: b.total });
   }
   return { covered, refused, newRequests };
+}
+
+/**
+ * Spot sale (K8, P3.9): the same rule public.tg_spot_guard applies, so the page can say why before anyone presses the
+ * button. Allowed for today only, before the cut-off time, with the week's spot_enabled on, for a key whose commercial
+ * status is "jual hari ini", up to its free fresh kg, without a PO number. Returns the reasons it is refused.
+ */
+export function spotCheck(x: {
+  spotEnabled: boolean; today: ISODate; date: ISODate; now: string; cutOffTime: string;
+  urgency: string | null; freeFreshKg: Num | null; kg: Num | null; poRef?: string | null;
+}): string[] {
+  const out: string[] = [];
+  if (!x.spotEnabled) out.push("jalur spot belum diaktifkan untuk minggu ini");
+  if (x.date !== x.today) out.push("penjualan spot hanya untuk hari ini");
+  if (x.now.slice(0, 5) >= x.cutOffTime.slice(0, 5)) out.push(`cut-off ${x.cutOffTime.slice(0, 5)} sudah lewat`);
+  if (x.urgency !== "jual_hari_ini") out.push("SKU tidak berstatus jual hari ini");
+  if (x.poRef && x.poRef.trim()) out.push("penjualan spot tanpa nomor PO");
+  if (x.kg !== null && x.kg !== undefined && x.kg !== "") {
+    const kg = D(x.kg), free = D(x.freeFreshKg ?? 0);
+    if (!kg.gt(0)) out.push("kg harus lebih dari 0");
+    else if (kg.gt(free)) out.push(`melebihi stok fresh bebas ${free.toFixed(0)} kg`);
+  }
+  return out;
 }

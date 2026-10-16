@@ -2,6 +2,17 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-5] Komersial (docs/PRD-v4.md irisan 5)
+
+### Added
+- Migration `20261020000100_v4_commercial.sql`: `floor_guard_v4` (C38 after the row is written, approval used up under a row lock), `allocation_floor` (no allocation of an unapproved line under the floor), `spot_guard` (K8), helpers `sales_key`, `floor_of`, `take_approval`, `sales_scorecard_weekly.kg_spot`.
+- Engine: `spotCheck`; `scorecard` counts kg spot.
+- Web: Komersial v4 behind `v4_design` (cards, ranking, spot, approval queue, C38–C40); actions to record a spot sale and to create the order of an approved discount; kg spot on the scorecard.
+
+### Changed
+- The old before-insert C38 trigger `floor_guard` is replaced; one approval covers one order line, also through the API.
+- `consumeApprovals` no longer unlinks an approval; an invoice or DO with the document number of a spot line keeps the spot channel.
+
 ## [v4-4] Tutup buku dan rilis server-side (docs/PRD-v4.md irisan 4)
 
 ### Added

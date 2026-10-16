@@ -1186,3 +1186,131 @@ begin
   execute 'reset role';
   raise exception 'RLS-RESULTS v4 irisan 4b (rolled back): %', out;
 end $$;
+
+-- v4 irisan 5 (journey B, S5): C38 cannot be bypassed through the API — not by sending the order again with the same
+-- approval, not as an Aktual line, not as a spot sale, not by allocating a line priced under the floor; spot (K8) only
+-- today, before the cut-off, with spot_enabled, for a "jual hari ini" key, within its free fresh kg, without a PO.
+do $$
+declare out text := ''; n int; wk uuid; ap uuid; l1 uuid; l2 uuid; t date := (now() at time zone 'Asia/Jakarta')::date; x text;
+begin
+  insert into public.app_user(email, role) values ('t27-sales@x.test','sales'),('t27-sales2@x.test','sales'),('t27-lead@x.test','commercial_lead'),
+    ('t27-fin@x.test','finance'),('t27-ppic@x.test','ppic'),('t27-adm@x.test','admin');
+  update public.app_setting set value = '{"enabled": true}' where key = 'm7_approval';
+  insert into public.week (week_start, update_date, tb_opening_date) values (t - (extract(isodow from t)::int - 1), t, t - extract(isodow from t)::int)
+    on conflict (week_start) do nothing;
+  select id into wk from public.week where week_start = t - (extract(isodow from t)::int - 1);
+  update public.week set status = 'open' where id = wk;
+  insert into public.parameter (week_id) values (wk) on conflict (week_id) do nothing;
+  update public.parameter set spot_enabled = true, cut_off_time = '23:59:59' where week_id = wk;
+  insert into public.commercial_daily (date, key, form, free_fresh_kg, cost_per_kg_ma, price_floor, price_list, urgency, rank)
+    values (t, 'T27-KEY', 'fresh', 480, 29850, 30850, 33000, 'jual_hari_ini', 1) on conflict (date, key) do update set price_floor = excluded.price_floor, urgency = excluded.urgency, free_fresh_kg = excluded.free_fresh_kg;
+  insert into public.sales_assignment (sales_rep, email, key) values ('T27', 't27-sales@x.test', 'T27-KEY');
+
+  -- journey B: Sales sees the SKU of the assignment with MA and floor; the order under the floor is refused, the request waits
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily_sales where key = 'T27-KEY' and date = t and price_floor is not null; out := out || 'sales sees assigned SKU with floor=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price) values (wk, t, 'Order', 'T27-KEY', 'PT Uji', 300, 30000); out := out || 'order under floor: ALLOWED(!); ';
+  exception when others then out := out || 'order under floor: rejected (C38); '; end;
+  begin insert into public.discount_approval (key, customer, requested_price, floor_price, rp_per_kg_below, kg, total_below, status) values ('T27-KEY', 'PT Uji', 30000, 30850, 850, 300, 255000, 'pending') returning id into ap;
+    out := out || 'request pending: OK; ';
+  exception when others then out := out || 'request pending: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, source, document_ref) values (wk, t, 'Aktual', 'T27-KEY', 'PT Uji', 300, 30000, 'Ops', 'SJ-T27'); out := out || 'signed DO (Aktual, Ops) under floor by sales: OK, delivery fact (Q74); ';
+  exception when others then out := out || 'signed DO (Aktual, Ops) by sales: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'PT Uji', 100, 30000); out := out || 'spot under floor: ALLOWED(!); ';
+  exception when others then out := out || 'spot under floor: rejected; '; end;
+  begin update public.discount_approval set status = 'approved' where id = ap; get diagnostics n = row_count; out := out || 'sales approves own rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales approves own: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t27-sales2@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily_sales where key = 'T27-KEY'; out := out || 'sales without assignment sees=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  -- 850 Rp/kg is above the lead's limit: Finance decides
+  perform set_config('request.jwt.claims', '{"email":"t27-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't27-lead@x.test', decided_at = now() where id = ap; out := out || 'lead approves 850 Rp/kg: ALLOWED(!); ';
+  exception when others then out := out || 'lead approves above limit: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t27-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.discount_approval set status = 'approved', decided_by = 't27-fin@x.test', decided_at = now() where id = ap; out := out || 'finance approves: OK; ';
+  exception when others then out := out || 'finance approves: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, po_ref) values (wk, t, 'Order', 'T27-KEY', 'PT Uji', 300, 30000, 'PO-T27') returning id into l1; out := out || 'order with approval: OK; ';
+  exception when others then out := out || 'order with approval: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, po_ref) values (wk, t, 'Order', 'T27-KEY', 'PT Uji', 300, 30000, 'PO-T27b'); out := out || 'same approval again: ALLOWED(!); ';
+  exception when others then out := out || 'same approval again: rejected; '; end;
+  begin update public.sales_line set kg = 400 where id = l1; out := out || 'raise kg beyond approval: ALLOWED(!); ';
+  exception when others then out := out || 'raise kg beyond approval: rejected; '; end;
+  execute 'reset role';
+  select case when sales_line_id = l1 then 'linked' else coalesce(sales_line_id::text, 'free') end into x from public.discount_approval where id = ap;
+  out := out || 'approval used by the order=' || x || case when x = 'linked' then '' else '(!)' end || '; ';
+
+  -- a line under the floor written while the guard did not apply (system / flag off) cannot be allocated
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, po_ref) values (wk, t, 'Order', 'T27-KEY', 'PT Lama', 200, 29000, 'PO-T27c') returning id into l2;
+  perform set_config('request.jwt.claims', '{"email":"t27-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation (date, sales_line_id, lot_ref, kg) values (t, l2, 'LOT-T27', 100); out := out || 'allocate unapproved line: ALLOWED(!); ';
+  exception when others then out := out || case when sqlerrm like 'C38%' then 'allocate unapproved line: rejected (C38); ' else 'allocate unapproved line: rejected (other: ' || sqlerrm || '); ' end; end;
+  begin insert into public.allocation (date, sales_line_id, lot_ref, kg) values (t, l1, 'LOT-T27', 100); out := out || 'allocate approved line: OK; ';
+  exception when others then out := out || 'allocate approved line: ' || case when sqlerrm like 'C38%' then 'DENIED(!) ' else 'other check: ' end || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- spot (K8)
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 100, 31000); out := out || 'spot at floor: OK; ';
+  exception when others then out := out || 'spot at floor: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 500, 31000); out := out || 'spot above free fresh: ALLOWED(!); ';
+  exception when others then out := out || 'spot above free fresh: rejected; '; end;
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price, po_ref) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 10, 31000, 'PO-X'); out := out || 'spot with PO: ALLOWED(!); ';
+  exception when others then out := out || 'spot with PO: rejected; '; end;
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t + 1, 'Order', 'spot', 'T27-KEY', 'Warung A', 10, 31000); out := out || 'spot tomorrow: ALLOWED(!); ';
+  exception when others then out := out || 'spot tomorrow: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t27-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung B', 50, 31500); out := out || 'lead records spot: OK; ';
+  exception when others then out := out || 'lead records spot: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, po_ref) values (wk, t, 'Order', 'T27-KEY', 'PT Uji', 10, 31000, 'PO-L'); out := out || 'lead writes a PO line at the floor (as sales, v3): OK; ';
+  exception when others then out := out || 'lead writes a PO line: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  update public.commercial_daily set urgency = 'jual_minggu_ini' where date = t and key = 'T27-KEY';
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 10, 31000); out := out || 'spot not jual hari ini: ALLOWED(!); ';
+  exception when others then out := out || 'spot not jual hari ini: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  update public.commercial_daily set urgency = 'jual_hari_ini' where date = t and key = 'T27-KEY';
+  update public.parameter set cut_off_time = '00:00:00' where week_id = wk;
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 10, 31000); out := out || 'spot after cut-off: ALLOWED(!); ';
+  exception when others then out := out || 'spot after cut-off: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  update public.parameter set cut_off_time = '23:59:59', spot_enabled = false where week_id = wk;
+  perform set_config('request.jwt.claims', '{"email":"t27-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, channel, key_manual, customer, kg, price) values (wk, t, 'Order', 'spot', 'T27-KEY', 'Warung A', 10, 31000); out := out || 'spot disabled: ALLOWED(!); ';
+  exception when others then out := out || 'spot disabled: rejected; '; end;
+  execute 'reset role';
+
+  -- Accurate actuals are booked facts: Admin may write an Aktual line under the floor
+  perform set_config('request.jwt.claims', '{"email":"t27-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, key_manual, customer, kg, price, source) values (wk, t, 'Aktual', 'T27-KEY', 'PT Uji', 5, 29000, 'Accurate'); out := out || 'admin Accurate Aktual under floor: OK; ';
+  exception when others then out := out || 'admin Accurate Aktual under floor: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'sales_scorecard_weekly' and column_name = 'kg_spot';
+  out := out || 'scorecard kg_spot column=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v4 irisan 5 (rolled back): %', out;
+end $$;
