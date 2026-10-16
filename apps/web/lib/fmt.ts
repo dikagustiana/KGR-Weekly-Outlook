@@ -44,6 +44,30 @@ export function jt(v: DecLike, dp = 1): string {
   return n === null ? "" : `${num(n / 1e6, dp)} jt`;
 }
 
+/**
+ * K16 (PRD v4 §5.1): Rp juta with one decimal and the minus sign U+2212, the only unit of the management view.
+ * jtV4(−67.528.109) = "−67,5"; rpJt = "Rp −67,5 jt". Missing values are never 0: they render as the given text.
+ */
+export function jtV4(v: DecLike, dp = 1): string {
+  const n = toNum(v, 2);
+  return n === null ? "" : minus(num(n / 1e6, dp));
+}
+
+export function rpJt(v: DecLike, missing = "belum diisi"): string {
+  const s = jtV4(v);
+  return s === "" ? missing : `Rp ${s} jt`;
+}
+
+export function pctV4(v: DecLike, dp = 1): string {
+  const s = pct(v, dp);
+  return minus(s);
+}
+
+/** ASCII hyphen-minus → U+2212 at the start of a number. */
+export function minus(s: string): string {
+  return s.replace(/^-/, "\u2212");
+}
+
 /** Billions in the house short form: 2.782.158.916 → "2,78 M". */
 export function mrd(v: DecLike, dp = 2): string {
   const n = toNum(v, 2);

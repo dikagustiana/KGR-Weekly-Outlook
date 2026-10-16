@@ -1,0 +1,47 @@
+{
+ "diffs": [
+  [
+   "headline",
+   "nilai",
+   "GP P&L minggu ini diproyeksikan Rp −67,5 jt (−4,1%); RPA menyumbang Rp −62,6 jt. Stok di atas batas umur Rp 2.782,2 jt, kas Jumat turun ke Rp 289,7 jt.",
+   "GP P&L minggu ini diproyeksikan Rp −67,5 jt (−4,1%); RPA menyumbang Rp −62,6 jt. Stok di atas batas umur Rp 685,4 jt."
+  ],
+  [
+   "c-outlook",
+   "nilai",
+   "1.639,0 | −67,5 jt (−4,1%) | 100% | −63,3 jt",
+   "1.656,8 | −67,5 jt (−4,1%) | 100% | −63,3 jt"
+  ],
+  [
+   "c-stok",
+   "nilai",
+   "2.782,2 | 116.289,8 | 7",
+   "685,4 | 38.659,8 | 30"
+  ],
+  [
+   "c-bulan",
+   "tile",
+   "ada di mockup",
+   "tidak dirender di halaman"
+  ],
+  [
+   "demand",
+   "tile",
+   "ada di mockup",
+   "tidak dirender di halaman"
+  ]
+ ],
+ "foldFail": [],
+ "grep": {
+  "I_, O_, T_ (nama lembar teknis)": 0,
+  "alamat e-mail": 0,
+  "\"bersumber Ops\"": 0,
+  "\"→\"": 0,
+  "\"M \" sebagai satuan": 0,
+  "# hex inline (style=)": 0,
+  "fontSize inline": 0
+ },
+ "contrastFail": [],
+ "tilesMockup": 21,
+ "tilesPage": 19
+}

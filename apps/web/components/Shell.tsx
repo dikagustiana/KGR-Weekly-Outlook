@@ -10,6 +10,8 @@ import { canToggleView } from "@/lib/view";
 import { currentView } from "@/lib/view-server";
 import { moduleSettings, navModules } from "@/lib/modules";
 import { jakartaToday } from "@kgr/engine";
+import { V4Frame } from "./v4/Frame";
+import { v4Nav, v4On } from "@/lib/v4/nav";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -21,6 +23,25 @@ const INPUTS: [string, string, Role[] | null][] = [
   ["input/runrate", "Run-rate", null], ["input/stok-awal", "Stok awal", null], ["upload", "Upload", null],
 ];
 
+/** Map an old `active` key of a page to the v4 navigation item it belongs to. */
+function v4Active(active: string): string | null {
+  if (active === "minggu-ini") return "minggu-ini";
+  if (active === "rencana" || active === "demand") return "rencana";
+  if (active === "/hari") return "alokasi";
+  if (active === "stok" || active.startsWith("/sku")) return "stok";
+  if (active.startsWith("/komersial")) return active === "/komersial/approval" ? "approval" : active === "/komersial/scorecard" ? "scorecard" : "komersial";
+  if (active === "rilis" || active === "kontrol" || active === "upload") return active;
+  if (active === "input/penjualan") return "pesanan";
+  if (active === "input/batch") return "batch";
+  if (active === "input/harga") return "harga";
+  if (active === "input/parameter") return "supply-lb";
+  if (active === "costing") return "costing";
+  if (active.startsWith("admin")) return "admin";
+  if (active.startsWith("/m/") || active === "m4_monthly:Bulanan") return "outlook-bulan";
+  if (active.startsWith("/kas")) return "kas";
+  return null;
+}
+
 export async function Shell({
   viewer, weeks, week, active, children, banner,
 }: { viewer: Viewer; weeks: WeekRow[]; week: WeekRow | null; active: string; children: ReactNode; banner?: ReactNode }) {
@@ -28,8 +49,28 @@ export async function Shell({
   const view = await currentView(viewer);
   // R13: the management view renders the reports only (no INPUT / ADMIN groups, Kontrol via the release line)
   const mgmt = view === "management";
+  const settings = await moduleSettings();
+  // PRD v4 irisan 1 (flag v4_design): one navigation row per role, the v4 visual grammar around every page
+  if (v4On(settings, viewer.role)) {
+    const nav = v4Nav(viewer.role, settings, { week: w ?? null, month: week ? week.update_date.slice(0, 7) : jakartaToday().slice(0, 7), today: jakartaToday() });
+    return (
+      <V4Frame
+        nav={nav} active={v4Active(active)} view={view}
+        period={w ? <WeekSelect weeks={weeks.map((x) => ({ start: x.week_start, end: x.week_end, status: x.status }))} current={w} active={active} longDates={mgmt} /> : null}
+        account={<>
+          {canToggleView(viewer.role) ? <Suspense fallback={null}><ViewToggle view={view} /></Suspense> : null}
+          <span>{mgmt ? (viewer.fullName ? `${viewer.fullName} · ` : "") : `${viewer.fullName ?? viewer.email} · `}{ROLE_LABEL[viewer.role]}</span>
+          <Link href={w ? `/akun?week=${w}` : "/akun"}>Akun</Link>
+          <form action="/auth/signout" method="post"><button className="v4b">Keluar</button></form>
+        </>}
+      >
+        {banner}
+        {children}
+      </V4Frame>
+    );
+  }
   // PRD v3 rule 5: only modules that are on, and only the pages the role may open
-  const mods = navModules(await moduleSettings(), viewer.role, {
+  const mods = navModules(settings, viewer.role, {
     week: w ?? null, month: week ? week.update_date.slice(0, 7) : jakartaToday().slice(0, 7), today: jakartaToday(),
   }, mgmt);
   return (

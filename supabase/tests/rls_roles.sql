@@ -859,3 +859,44 @@ begin
 
   raise exception 'RLS-RESULTS v4 irisan 0 K7/S5/§4.2 (rolled back): %', out;
 end $$;
+
+-- v4 irisan 1: flag v4_design (off by default, only Admin changes it) and the week-level rebuild trigger: a change of the
+-- run-rate, parameter or sell price of a week queues the Monday of that week (the weekly rows of pl_daily_v4 depend on them).
+do $$
+declare out text := ''; n int; wid uuid; ws date; b boolean;
+begin
+  insert into public.app_user(email, role) values ('t22-admin@x.test','admin'),('t22-ppic@x.test','ppic'),('t22-fin@x.test','finance'),('t22-mgmt@x.test','management');
+  select id, week_start into wid, ws from public.week order by week_start desc limit 1;
+  select (value ->> 'enabled')::boolean into b from public.app_setting where key = 'v4_design';
+  out := out || 'v4_design default enabled=' || coalesce(b::text, 'missing') || case when b = false then '' else '(!)' end || '; ';
+
+  perform set_config('request.jwt.claims', '{"email":"t22-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  update public.app_setting set value = '{"enabled": true}' where key = 'v4_design'; get diagnostics n = row_count;
+  out := out || 'ppic set v4_design rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t22-admin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  update public.app_setting set value = '{"enabled": true, "roles": ["management"]}' where key = 'v4_design'; get diagnostics n = row_count;
+  out := out || 'admin set v4_design rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  b := public.module_enabled('v4_design'); out := out || 'admin sees v4_design for management only=' || case when b then 'ON(!)' else 'off' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t22-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  b := public.module_enabled('v4_design'); out := out || 'management sees v4_design=' || case when b then 'on' else 'off(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  delete from public.rebuild_queue;
+  update public.parameter set lb_price_today = coalesce(lb_price_today, 0) + 1 where week_id = wid;
+  select count(*) into n from public.rebuild_queue where date = ws and status = 'queued';
+  out := out || 'parameter change queued the week=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  delete from public.rebuild_queue;
+  update public.runrate set week_adjustment = coalesce(week_adjustment, 0) + 1 where week_id = wid and id = (select id from public.runrate where week_id = wid limit 1);
+  select count(*) into n from public.rebuild_queue where date = ws and status = 'queued';
+  out := out || 'run-rate change queued the week=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select count(*) into n from public.rebuild_queue where status = 'queued';
+  out := out || 'queued rows once=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v4 irisan 1 (rolled back): %', out;
+end $$;

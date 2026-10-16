@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+// PRD v4 grammar, scoped to .v4 (flag v4_design)
+import "./v4.css";
 
 export const metadata: Metadata = {
   title: "KGR Weekly Outlook",

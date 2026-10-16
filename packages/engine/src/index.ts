@@ -23,3 +23,4 @@ export * from "./cash";
 export * from "./ccc";
 export * from "./commercial";
 export * from "./management";
+export * from "./week-outlook";

@@ -4,7 +4,7 @@ Berkas di folder ini adalah spec (PRD v4 §2 prinsip 8, §5.5), setara dengan pa
 
 Isi sekarang: `tokens.css` (§5.2, disalin dari teks PRD).
 
-Mockup `minggu-ini.html`, `outlook-bulan.html`, `kas-solvabilitas.html`, dan `ppic-rencana.html` dibuat di irisan 1 sebelum kode halaman (§5.5) dan ditambahkan ke folder ini oleh PR irisan itu.
+Mockup `minggu-ini.html` (§6.1), `outlook-bulan.html` (§6.2), `kas-solvabilitas.html` (§6.3), dan `ppic-rencana.html` (§6.4) dibuat di irisan 1. Berkas HTML itulah spec; `src/build-mockups.mjs` hanya penanya (`node reference/design/src/build-mockups.mjs`). Angka di tiap tile berasal dari teks PRD atau fixture; sumbernya ada di atribut `data-src` (docs/v4/QUESTIONS.md Q22). `grammar.css` adalah salinan aturan visual app pada 16 Okt 2026. `tokens.css` memuat dua token yang diganti setelah diukur (Q21).
 
 Belum ada di repo dan tidak ikut dikirim bersama PRD v4 (16 Okt 2026):
 

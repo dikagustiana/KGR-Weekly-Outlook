@@ -7,6 +7,8 @@ import { MODULE_KEYS, isModuleOn, moduleSettings, type ModuleSettings } from "@/
 import { supabaseServer } from "@/lib/supabase";
 import { managementV3 } from "@/lib/v3/management";
 import { HeadlineV3, managementSlots } from "@/components/v3/ManagementV3";
+import { redirect } from "next/navigation";
+import { v4On } from "@/lib/v4/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,9 @@ export default async function OutlookPage({ params }: PageProps) {
   const r = ctx.computed.result;
   // v3 (PRD v3 §6): headline tiles and sections of the modules that are on; Input and COGS always
   const all = await moduleSettings();
+  // PRD v4 K15, K18 (flag v4_design): the management view is "Minggu ini" (no RPA decision block 2, no cash-out
+  // block 5); the preparer view, the print view and the PDF keep every v1 block (parity)
+  if (ctx.view === "management" && v4On(all, ctx.viewer.role)) redirect(`/minggu-ini/${week}`);
   const mine: ModuleSettings = Object.fromEntries(MODULE_KEYS.map((k) => [k, { enabled: isModuleOn(all[k], ctx.viewer.role) }]));
   const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r) : null;
   return (
