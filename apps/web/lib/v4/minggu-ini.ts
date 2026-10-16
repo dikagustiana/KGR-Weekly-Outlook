@@ -17,6 +17,7 @@ import type { SlicerOption, StepDef } from "@/components/v4/Controls";
 import type { CaraHitungContent } from "@/components/v4/CaraHitung";
 import type { TilePos } from "@/components/v4/Tile";
 import { mingguIniV5, type MingguIniV5Pl } from "../v5/pl-tiles";
+import { managementV5, type ManagementV5Input } from "../v5/management";
 
 export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
@@ -34,7 +35,9 @@ export type TileContent =
   | { type: "list"; items: string[]; ordered?: boolean; empty?: string }
   | { type: "stepper"; steps: StepDef[]; current: number }
   /** The body comes from the page (TilePage `extras`), e.g. a client component. */
-  | { type: "slot" };
+  | { type: "slot" }
+  /** Small figures over a table (PRD v5 §6.1 live-bird simulation): choices as links, four values, rows, a closing line. */
+  | { type: "kpis"; controls?: { label: string; options: SlicerOption[]; current: string }[]; items: { label: string; value: string; sub: string; negative?: boolean }[]; cols?: Col[]; rows?: TRow[]; foot?: string };
 
 /** A plain GET form inside a tile (what-if inputs): no client code, the page reads the query string. */
 export interface TileForm { method: "get"; action: string; submit: string; fields: { name: string; label: string; value: string; size?: number }[] }
@@ -44,6 +47,8 @@ export interface TileModel {
   pos: TilePos;
   title?: string;
   note?: string;
+  /** K36: source label of the main number, after the note; in the negative colour when its input is past its deadline. */
+  source?: { text: string; late: boolean };
   kind?: "card" | "tall" | "bare";
   cara?: CaraHitungContent;
   /** Choices in the tile header (links; the page reads the query string), e.g. "Actual vs run-rate / Per minggu". */
@@ -93,6 +98,8 @@ export interface MingguIniInput {
   pdfHref: string | null;
   /** PRD v5 §4.7 (flag v5_pl): the month's rows with the fixed-cost estimate for the P&L tile; absent = v4. */
   v5Pl?: MingguIniV5Pl | null;
+  /** PRD v5 §6.1 (flag v5_management): LB simulation, decisions, loop status, source labels; absent = v4 / v5_pl. */
+  v5Mgmt?: ManagementV5Input | null;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
@@ -428,7 +435,9 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     },
   });
 
-  return { title: "Minggu ini", week: x.week.start, tiles: x.v5Pl ? mingguIniV5(tiles, { v5: x.v5Pl, weekStart: x.week.start, split: x.mode === "aktual" }) : tiles, hidden };
+  const withPl = x.v5Pl ? mingguIniV5(tiles, { v5: x.v5Pl, weekStart: x.week.start, split: x.mode === "aktual" }) : tiles;
+  // v5/6: the simulation and the decisions take the three rows after the P&L tile (rows 9–11 of the mockup)
+  return { title: "Minggu ini", week: x.week.start, tiles: x.v5Mgmt ? managementV5(withPl, x.v5Mgmt, { at: x.v5Pl ? 8 : 4 }) : withPl, hidden };
 }
 
 function lowestOf(days: { date: string; closing: string | null }[]): { date: string; balance: Decimal; average: Decimal } | null {

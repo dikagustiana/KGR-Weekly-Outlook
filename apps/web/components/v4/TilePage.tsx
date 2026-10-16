@@ -70,6 +70,14 @@ function body(t: TileModel): ReactNode {
     );
     case "stepper": return <Stepper steps={c.steps} current={c.current} />;
     case "slot": return null;
+    case "kpis": return (
+      <>
+        {(c.controls ?? []).map((k) => <Slicer key={k.label} label={k.label} options={k.options} current={k.current} />)}
+        <div className="simk">{c.items.map((i) => <div key={i.label} className="simk-i"><span className="simk-l">{i.label}</span><span className={`simk-v${i.negative ? " neg" : ""}`} data-tile-value="">{i.value}</span><span className="note">{i.sub}</span></div>)}</div>
+        {c.cols && c.rows ? <V4Table cols={c.cols} rows={c.rows} label={t.title} /> : null}
+        {c.foot ? <p className="note">{c.foot}</p> : null}
+      </>
+    );
     case "list": {
       if (!c.items.length) return <p className="note">{c.empty ?? "tidak ada"}</p>;
       const L = c.ordered ? "ol" : "ul";
@@ -83,7 +91,7 @@ export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: 
   return (
     <TileGrid label={label}>
       {tiles.map((t) => (
-        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note}
+        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note} source={t.source}
           extra={legendOf(t) || t.cara || t.views ? <span className="tile-x">{(t.views ?? []).map((v) => <Slicer key={v.label} label={v.label} options={v.options} current={v.current} hideLabel />)}{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {body(t)}
           {extras?.[t.id] ?? null}

@@ -1,26 +1,12 @@
 /** PRD v5 §4.7 (K29–K31, C55, G11) on fixtures/month-2026-08: Lampiran B.2 from the engine, ±0,1 jt. */
 import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
-import { loadV3Fixture } from "../src/fixtures";
 import { c55, cumulativeSeries, fixedEstimateRows, fixedNominals, plTable, plTotalsV5, plWeeks, FIXED_LINES_K29 } from "../src/pl-v5";
 import { lockBlockers, monthSummaryV4, totalsV4 } from "../src/month-v4";
 import { plRowsFromMart, plRowsToMart } from "../src/week-outlook";
-import type { FixedCostRow } from "../src/drivers";
 import { augustPlan, inp } from "./month-v4-fixture";
 
-// template 8.3 as seeded by 20261016000900_m5_drivers.sql: depreciation filled, salary and interest empty, rents later
-const SCHEDULE: FixedCostRow[] = [
-  { id: "r1", code: "SEWA-RPA-RAWA-TERATE", pl_line: "Rent Expenses", description: "Sewa RPA", amount_per_month: null, start_date: "2026-11-01", end_date: "2027-10-31", amortize: true, prepaid_total: "1133790000", active: true },
-  { id: "r2", code: "DEPRESIASI", pl_line: "Depreciation & amortisation", description: "Depresiasi", amount_per_month: "10393461.35", start_date: "2026-01-01", end_date: null, amortize: false, prepaid_total: null, active: true },
-  { id: "r3", code: "GAJI", pl_line: "Salaries and allowance", description: "Gaji", amount_per_month: null, start_date: "2026-01-01", end_date: null, amortize: false, prepaid_total: null, active: true },
-  { id: "r4", code: "SEWA-ABF-NMG", pl_line: "Storage Expenses", description: "Sewa ABF", amount_per_month: null, start_date: "2026-09-01", end_date: null, amortize: false, prepaid_total: null, active: true },
-  { id: "r5", code: "BUNGA", pl_line: "Interest Expense", description: "Bunga", amount_per_month: null, start_date: "2026-05-01", end_date: null, amortize: false, prepaid_total: null, active: true },
-  { id: "r6", code: "DEPOSIT-DS-CS", pl_line: "Storage Expenses", description: "Deposit", amount_per_month: null, start_date: "2026-07-22", end_date: null, amortize: false, prepaid_total: "38400000", active: false },
-];
-// July FINAL from the management report (fs-2026-09, PL rows 23 / 30 / 34 / 43), P&L sign
-const fs = loadV3Fixture<{ pl: { row: number; line: string; values: Record<string, string> }[] }>("fs-2026-09", "inputs.json");
-const jul = (row: number) => fs.pl.find((r) => r.row === row)!.values["2026-07-31"];
-const JULY = { month: "2026-07-01", byLine: { "Salaries and allowance": jul(23), "Rent Expenses": jul(30), "Depreciation & amortisation": jul(34), "Interest Expense": jul(43) } };
+import { JULY, SCHEDULE } from "./pl-v5-inputs";
 
 const a = augustPlan();
 const nominals = fixedNominals({ month: inp.month, schedule: SCHEDULE, lastFinal: JULY });
@@ -122,5 +108,22 @@ describe("K31 COGS and GP per forecast day; cumulative series of five measures",
     near(jt(cumulativeSeries("nibt_after", inp.month, rows, inp.cut_off, "0.10").total), -7.8);
     near(jt(cumulativeSeries("nibt", inp.month, rows, inp.cut_off, "0.10").total), 79.2);
     near(jt(cumulativeSeries("cogs", inp.month, rows, inp.cut_off, "0.10").total), 7467.7);
+  });
+});
+
+describe("golden fixtures/pl-2026-08 (PRD v5 §9.2)", () => {
+  it("both views of the P&L table and the five cumulative series = the golden; totals = Lampiran B.2", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const { repoRoot } = await import("../src/fixtures");
+    const { plGolden } = await import("./pl-golden");
+    const golden = JSON.parse(readFileSync(join(repoRoot(), "fixtures/pl-2026-08/golden.json"), "utf8"));
+    const now = plGolden();
+    expect(now).toEqual(golden);
+    const c = now.cumulative as Record<string, { total: string }>;
+    near(Number(c.revenue.total) / 1e6, 7764.1);
+    near(Number(c.gp.total) / 1e6, 296.4);
+    near(Number(c.nibt.total) / 1e6, 79.2);
+    near(Number(c.nibt_after.total) / 1e6, -7.8);
   });
 });

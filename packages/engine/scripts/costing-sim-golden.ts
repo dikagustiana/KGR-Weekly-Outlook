@@ -13,7 +13,7 @@ import { D } from "../src/decimal";
 import { loadFixtureWeek, loadV3Fixture } from "../src/fixtures";
 import { prepare } from "../src/prepare";
 import { computeWeek } from "../src/week";
-import { needBasisOutputs, simulateLivebird, tariffPerKgLb } from "../src/costing";
+import { batchBasisInputs, needBasisOutputs, simulateLivebird, tariffPerKgLb } from "../src/costing";
 
 const week = loadFixtureWeek("2026-08-24", "2026-08-27");
 const r = computeWeek(week);
@@ -31,6 +31,7 @@ const bp = (sku: string) => ({ key: `RPA|${sku}|Fresh`, yield: y(sku), priceRef:
 const params = week.parameters as unknown as Record<string, string>;
 const tariff = tariffPerKgLb({ freightPerKgLb: params.freight_plan_per_kg_lb, maklonPerKgProcessed: params.maklon_per_kg_processed, shrink: params.target_shrink });
 
+const bb = batchBasisInputs({ kgLb: r.block2.lbPlannedInHorizon, karkasAtRisk: r.block2.karkasAtRiskOfFreezing, frozenPrice: price("RPA|Karkas|Frozen")!, valuePerKgLb: r.block2.valuePerKgLbAtPlanShare });
 const inputs = {
   source: "fixtures/week-2026-08-24 (block 2, sales lines, sku_keys, parameters) + fixtures/plan-2026-08-24 yields (placeholder)",
   placeholder: true,
@@ -42,9 +43,9 @@ const inputs = {
     by_products: ["HJA (Hati/Jantung/Ampela)", "Usus", "Kepala", "Ceker", "Lemak"].map(bp),
   },
   batch: {
-    kg_lb: D(r.block2.lbPlannedInHorizon).toFixed(4),
-    outputs: [{ key: "RPA|Karkas|Frozen", kg: D(r.block2.karkasAtRiskOfFreezing).toFixed(4), priceRef: price("RPA|Karkas|Frozen") }],
-    extra_value: D(r.block2.valuePerKgLbAtPlanShare).times(D(r.block2.lbPlannedInHorizon)).minus(D(r.block2.karkasAtRiskOfFreezing).times(D(price("RPA|Karkas|Frozen")!))).toFixed(2),
+    kg_lb: bb.kgLb.toFixed(4),
+    outputs: bb.outputs.map((o) => ({ key: o.key, kg: D(o.kg).toFixed(4), priceRef: price(o.key) })),
+    extra_value: bb.extraValue.toFixed(2),
   },
 };
 const sim = (basis: "need" | "batch") => {
