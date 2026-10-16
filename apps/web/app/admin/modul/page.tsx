@@ -6,8 +6,8 @@ import { ActionForm } from "@/components/ActionForm";
 import { MODULE_KEYS, MODULE_LABEL, moduleSettings } from "@/lib/modules";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
-import { jakartaToday } from "@kgr/engine";
 import { processQueue, queueDates, setFlag } from "./actions";
+import { dataToday } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
     .order("requested_at", { ascending: false }).limit(60);
   const queue = (q ?? []) as QueueRow[];
   const queued = queue.filter((r) => r.status === "queued").length;
-  const today = jakartaToday();
+  const today = await dataToday(sb);
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/modul">
       <h1>Modul v3</h1>

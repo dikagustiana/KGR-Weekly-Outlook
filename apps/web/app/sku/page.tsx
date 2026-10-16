@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { D, isISODate, jakartaToday } from "@kgr/engine";
+import { D, isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, N, Td } from "@/components/ui";
 import { SKU_READERS, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { rekonSplitForWeek, skuBalances } from "@/lib/v3/ledger";
-import { computeForWeek } from "@/lib/data";
+import { computeForWeek, dataToday } from "@/lib/data";
 import { bsInventoryYesterday } from "@/lib/v3/week";
 import { tgl } from "@/lib/fmt";
 import { currentView } from "@/lib/view-server";
@@ -21,8 +21,8 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   await requireModulePage("m2_ledger", [...SKU_READERS]);
   const { viewer, weeks, week } = await plainContext(sp.week);
   const mgmt = (await currentView(viewer)) === "management";
-  const want = sp.date && isISODate(sp.date) ? sp.date : jakartaToday();
   const sb = await supabaseServer();
+  const want = sp.date && isISODate(sp.date) ? sp.date : await dataToday(sb);
   const { date, rows } = await skuBalances(sb, want);
   const group = sp.group ?? "";
   const form = sp.form ?? "";

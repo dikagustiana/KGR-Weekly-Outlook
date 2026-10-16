@@ -341,7 +341,9 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     const bad = grid ? grid.rows.filter((r) => r.cells.some((c) => c.status === "late")).length : 0;
     const month = today.slice(0, 7);
     const est = fixedNominals({ month: `${month}-01`, schedule: await fixedSchedule(sb), lastFinal: null }).filter((x) => x.source !== "jadwal").length;
-    const { data: reg } = await sb.from("assumption_register").select("agreed_at").is("deleted_at", null).gte("month", `${month}-01`).lte("month", `${month}-28`);
+    // the register hangs off the month's outlook (assumption_register.month_outlook_id), it has no month column
+    const { data: mo } = await sb.from("month_outlook").select("id").eq("month", `${month}-01`).maybeSingle();
+    const { data: reg } = mo ? await sb.from("assumption_register").select("agreed_at").eq("month_outlook_id", String((mo as Row).id)).is("deleted_at", null).neq("status", "superseded") : { data: [] };
     const regs = (reg ?? []) as Row[];
     return [
       { title: "Siap rilis", value: red && !grid?.override ? "belum" : "ya", sub: red ? `${bad} input bermasalah${grid?.override ? " · override K35" : ""}` : "grid tanpa sel merah", tone: red && !grid?.override ? "bad" : "plain" },

@@ -9,7 +9,7 @@ import {
   type Decimal, type TaskStatus, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
-import type { WeekRow } from "../data";
+import { dataToday, type WeekRow } from "../data";
 import type { Role } from "../roles";
 import type { Row } from "../v3/uploads";
 import { jakartaNow } from "../v3/allocation";
@@ -23,7 +23,9 @@ const s = (v: unknown): string | null => (v === null || v === undefined || v ===
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: Record<string, string | undefined>, cash: { date: string; closing: string | null }[] | null): Promise<ManagementV5Input> {
-  const n = jakartaNow(), today = n.date, now = `${n.date}T${n.time}:00+07:00`, tomorrow = addDays(today, 1);
+  // the decisions and the loop read as of the date the data stands on (the week's update date); "late" keeps the clock
+  const n = jakartaNow(), now = `${n.date}T${n.time}:00+07:00`;
+  const today = await dataToday(sb, n.date), tomorrow = addDays(today, 1);
   let ppic: Awaited<ReturnType<typeof loadPpicV5>> | null = null;
   try {
     ppic = await loadPpicV5(sb, { src: await loadPlanning(sb, w), result: r, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(w.week_start, -1)) });
@@ -151,8 +153,8 @@ export async function loadSources(sb: Supa, now: string, tasks?: TaskRef[]): Pro
   const lab = (what: string, role: Role, at: string | null, isLate: boolean): SourceLabel => sourceLabel({ what, role, at, late: isLate });
   const at = (r: Row | null, c: string) => wib(s(r?.[c]));
   return {
-    jurnal: lab(`jurnal s.d. ${dmOf(s(gl?.date))} + PO`, "inventory_accounting", at(gl, "created_at"), late("gl_daily")),
-    stok: lab(`kartu stok ${dmOf(s(st?.date))}`, "inventory_accounting", at(st, "created_at"), late("stock_daily")),
+    jurnal: lab(gl ? `jurnal s.d. ${dmOf(s(gl.date))} + PO` : "jurnal + PO", "inventory_accounting", at(gl, "created_at"), late("gl_daily")),
+    stok: lab(st ? `kartu stok ${dmOf(s(st.date))}` : "kartu stok", "inventory_accounting", at(st, "created_at"), late("stock_daily")),
     kas: lab("saldo dan rencana kas", "finance", at(ca, "updated_at"), false),
     beban_tetap: lab("jadwal beban tetap", "finance", at(fx, "updated_at"), late("fixed_cost")),
     wp: lab(`WP ${tied ? "sementara/final" : "sementara"}`, "cost_accounting", at(wp, "created_at"), late("costing_wp")),

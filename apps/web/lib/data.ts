@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
+import { computeWeek, isISODate, jakartaToday, type WeekInputs, type WeekResult } from "@kgr/engine";
 import { supabaseServer, type Supa } from "./supabase";
 
 export interface WeekRow {
@@ -40,6 +40,18 @@ export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
   const { data, error } = await sb.from("week").select("*").order("week_start", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as WeekRow[];
+}
+
+/**
+ * The date the data stands on: the update date of the latest week, or today when the data is current. The weekly
+ * engine counts "today" as the week's update date (v1); the mart rebuild and the pages that open on "today" use the
+ * same date, so data that stops on 27 Aug reads as of 27 Aug in October too and every tile agrees with the weekly
+ * numbers. Deadlines, cut-off times and timestamps keep the clock.
+ */
+export async function dataToday(sb: Supa, today: string = jakartaToday()): Promise<string> {
+  const { data } = await sb.from("week").select("update_date").order("update_date", { ascending: false }).limit(1).maybeSingle();
+  const u = (data as { update_date?: string | null } | null)?.update_date ?? null;
+  return u && u < today ? u : today;
 }
 
 export async function getWeek(sb: Supa, weekStart: string): Promise<WeekRow | null> {

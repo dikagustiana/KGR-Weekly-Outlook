@@ -140,3 +140,12 @@ Q-v5-51. Simulasi: basis kebutuhan = kebutuhan PO per kelas dari loader PPIC v5 
 Q-v5-52. "Perlu keputusan" dibentuk dari data: harga LB besok belum diputuskan; batch rencana di atas kebutuhan (downgrade vs batas `threshold`); permintaan diskon pending terbesar (Kepala Sales); kas terendah minggu ini negatif (Direksi). Mockup menulis "Pinjaman afiliasi 1.200,0 jt": jumlah pinjaman butuh rencana pendanaan per tanggal yang belum ada di mart kas, jadi yang tampil titik terendah kas.
 
 Q-v5-53. Label sumber K36 dipasang pada angka utama: Manajemen (kartu Outlook minggu ← jurnal + PO, Stok di atas umur ← kartu stok, Kas terendah ← kas, Outlook bulan ← jadwal beban tetap, simulasi ← WP), Commercial (stok bebas ← WP, komitmen ← PO), PPIC (PO, biaya rencana ← harga LB, batch ← supply LB). Waktu = data terakhir (created/updated) dalam WIB; "lewat tenggat" (merah, hanya labelnya) dari `input_task` 7 hari terakhir. Angka lain di ketiga layar belum berlabel.
+
+## Perbaikan setelah uji pada salinan KGR-OS (semua flag aktif)
+
+Q-v5-54. Tanggal data (`dataToday`): tanggal update minggu terakhir, atau hari ini bila datanya sudah terkini. Rebuild bulanan (cut-off), loader Manajemen v5 (tanggal potong, keputusan, putaran), Kas, Stok per SKU, Komersial, Outlook bulan dan tanggal default "Bangun ulang" memakainya, sama seperti engine mingguan memakai `update_date` sebagai hari ini. Tenggat, status terlambat, cut-off jam dan stempel waktu tetap memakai jam. Tanpa ini data contoh 24–30 Agu yang dibuka 16 Okt menampilkan potong 17/10, Agustus seluruhnya jurnal dan hari 27–31 Agu kosong.
+
+Q-v5-55. Hari kas tanpa satu pun saldo rekening (template kas harian belum di-upload; `cash_position_daily.accounts = 0`) bukan saldo Rp 0: Minggu ini memakai arus kas mingguan, halaman Kas menulis "belum diisi" untuk saldo dan proyeksinya. Keputusan "Pendanaan kas" memakai saldo tanpa pendanaan afiliasi (kolom `closing_without_affiliate`, atau `weekCash.lowestWithoutAffiliate`), sesuai teksnya.
+
+Q-v5-56. Tile yang modulnya aktif tetapi data mart-nya belum dibangun tetap di tempatnya dengan teks "belum dibangun" dan langkahnya (Admin, halaman Modul); tile yang modulnya mati tetap tidak ditampilkan. Baris grid minimal 76 px dan tumbuh mengikuti tile tertinggi; isi tile tidak lagi di-scroll atau terpotong. `.headline` dan `.card` dari stylesheet v1 tidak berlaku di dalam grid v4.
+

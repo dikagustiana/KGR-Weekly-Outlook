@@ -4,7 +4,7 @@ import "server-only";
  * queued date with @kgr/engine computeWeek and writes weekPlDaily for each of its 7 days (one scope = one date).
  * Pages read the mart; they never sum journal lines themselves. Flag v4_design (irisan 1).
  */
-import { addDays, computeWeek, mondayOf, plRowsToMart, weekPlDaily } from "@kgr/engine";
+import { addDays, computeWeek, mondayOf, plRowsByKey, plRowsToMart, weekPlDaily } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { loadWeek } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
@@ -19,7 +19,7 @@ export async function buildWeekPl(sb: Supa, date: string): Promise<string> {
   const loaded = await loadWeek(sb, ws);
   if (!loaded) return `minggu ${ws} belum ada`;
   const v5 = await v5CostingPlRows(sb, ws, addDays(ws, 6), addDays(loaded.week.update_date, -1));
-  const rows = plRowsToMart([...weekPlDaily(computeWeek(loaded.inputs)), ...v5]);
+  const rows = plRowsToMart(plRowsByKey([...weekPlDaily(computeWeek(loaded.inputs)), ...v5]));
   let written = 0, deleted = 0;
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i);

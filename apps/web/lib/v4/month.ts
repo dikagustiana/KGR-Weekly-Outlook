@@ -9,14 +9,14 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   D, actualRowsV4, addDays, bridgeV4, c32, c49, firstOfMonth, holidaysFromJournal, jakartaToday, lockBlockers, monthEnd, monthPlanV4, monthSummaryV4,
-  ordersV4FromWeek, plRowsToMart, runrateActualLines, runrateTest, toFixedString, totalsV4, unbilledFromWeek, v1LockDate, versionDaysV4,
+  ordersV4FromWeek, plRowsByKey, plRowsToMart, runrateActualLines, runrateTest, toFixedString, totalsV4, unbilledFromWeek, v1LockDate, versionDaysV4,
   engineAssumptions,
   type BridgeV4, type BudgetRow, type ControlV3, type CostEventRow, type LockBlocker, type MonthPlanV4, type MonthSummaryV4, type OpexInputV4, type PlRowV4,
   type RegisterRow, type RunrateTest, type VersionDayV4,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, fetchAll, listWeeks } from "../data";
+import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -199,7 +199,8 @@ export async function syncRegister(sb: Supa, first: string, register: RegisterRo
 
 export async function writeMonthV4(sb: Supa, st: MonthStateV4): Promise<{ written: number; deleted: number }> {
   let written = 0, deleted = 0;
-  const rows = plRowsToMart([...st.plan.rows, ...(st.v5Fixed?.rows ?? [])]);
+  // the plan has a row per PO line; the mart one per (date, segment, pl_line, basis)
+  const rows = plRowsToMart(plRowsByKey([...st.plan.rows, ...(st.v5Fixed?.rows ?? [])]));
   for (let d = st.first; d <= st.last; d = addDays(d, 1)) {
     const r = await martReplace(sb, "pl_daily_v4", d, rows.filter((x) => x.date === d));
     written += r.written; deleted += r.deleted;
@@ -216,11 +217,14 @@ export async function writeMonthV4(sb: Supa, st: MonthStateV4): Promise<{ writte
 
 let builtMonths = new Set<string>();
 let builderSettings: ModuleSettings = {};
+/** The cut-off of the months being rebuilt: the date the data stands on (dataToday), as the weekly engine. */
+let builderToday = "";
 
 registerBuilder({
   module: "m4_monthly", name: "monthly v4",
   begin: async (sb) => {
     builtMonths = new Set();
+    builderToday = await dataToday(sb);
     const { data } = await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl"]);
     builderSettings = {};
     for (const r of (data ?? []) as Row[]) builderSettings[r.key as "m5_drivers" | "v5_pl"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
@@ -229,7 +233,7 @@ registerBuilder({
     const m = firstOfMonth(date);
     if (builtMonths.has(m)) return `bulan ${m.slice(0, 7)} sudah dibangun (v4)`;
     builtMonths.add(m);
-    const st = await computeMonthV4(sb, m, jakartaToday(), builderSettings);
+    const st = await computeMonthV4(sb, m, builderToday || await dataToday(sb), builderSettings);
     const w = await writeMonthV4(sb, st);
     return `pl_daily_v4 ${m.slice(0, 7)}: cut-off ${st.cutOff}, ${st.plan.rows.length} baris (${w.written} ditulis, ${w.deleted} dihapus)`;
   },

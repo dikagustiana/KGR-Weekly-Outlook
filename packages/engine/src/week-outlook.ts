@@ -173,6 +173,21 @@ export function plRowsFromMart(rows: { date: string; segment: string; pl_line: s
 }
 
 /** Mart rows (plain JSON for mart_replace). Money 2 decimals, kg 2 decimals. */
+/**
+ * One row per key of the mart pl_daily_v4 (date, segment, pl_line, basis): the month plan writes a row per PO line,
+ * the mart keeps their sum (amounts and kg added, an amount stays null only when every row has none; anomaly if any).
+ */
+export function plRowsByKey(rows: PlRowV4[]): PlRowV4[] {
+  const add = (a: Decimal | null, b: Decimal | null) => (a === null ? b : b === null ? a : a.plus(b));
+  const m = new Map<string, PlRowV4>();
+  for (const r of rows) {
+    const k = `${r.date}|${r.segment}|${r.pl_line}|${r.basis}`;
+    const a = m.get(k);
+    m.set(k, a ? { ...a, actual: add(a.actual, r.actual), forecast: add(a.forecast, r.forecast), kg: add(a.kg, r.kg), anomaly: a.anomaly || r.anomaly } : { ...r });
+  }
+  return [...m.values()];
+}
+
 export function plRowsToMart(rows: PlRowV4[]): Record<string, unknown>[] {
   return rows.map((r) => ({
     date: r.date, segment: r.segment, pl_line: r.pl_line, basis: r.basis,

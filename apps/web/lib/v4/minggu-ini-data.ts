@@ -4,7 +4,7 @@ import "server-only";
  * and the PDF) and the data marts of the modules that are on. Nothing here sums or computes a number; the model
  * (minggu-ini.ts) asks @kgr/engine.
  */
-import { D, addDays, demandTotals, plRowsFromMart, type ControlV3 } from "@kgr/engine";
+import { D, addDays, demandTotals, plRowsFromMart, weekCash, type ControlV3 } from "@kgr/engine";
 import type { WeekCtx } from "../page";
 import { supabaseServer } from "../supabase";
 import { isModuleOn, moduleSettings } from "../modules";
@@ -77,10 +77,16 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   }
 
   let cashMart: MingguIniInput["cashMart"] = null, solvency: MingguIniInput["solvency"] = null;
+  /** Balances without new affiliate funding, for the decision "Pendanaan kas" (PRD v5 §6.1). */
+  let noFunding: { date: string; closing: string | null }[] | null = null;
   if (on.m6) {
-    const { data } = await sb.from("cash_position_daily").select("date, total_closing, projected_closing").gte("date", w.week_start).lte("date", w.week_end).order("date");
+    const { data } = await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date");
     const rows = (data ?? []) as Row[];
-    if (rows.length) cashMart = rows.map((c) => ({ date: String(c.date), closing: s(c.total_closing) ?? s(c.projected_closing), planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
+    // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
+    if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
+      cashMart = rows.map((c) => ({ date: String(c.date), closing: s(c.total_closing) ?? s(c.projected_closing), planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
+      noFunding = rows.map((c) => ({ date: String(c.date), closing: s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) }));
+    }
     const { data: sv } = await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle();
     const v = sv as Row | null;
     if (v && v.equity !== null && v.paid_in_capital !== null) {
@@ -162,7 +168,12 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   }));
 
   // PRD v5 §6.1 (flag v5_management): LB simulation, decisions waiting, loop status, source labels (K36)
-  const v5Mgmt = isModuleOn(settings.v5_management, role) ? await loadManagementV5(sb, w, r, sp, cashMart) : null;
+  if (!noFunding) {
+    // the weekly cash flow: the lowest day of the week, less the affiliate funding the week counts on (weekCash)
+    const wc = weekCash(r);
+    noFunding = [{ date: wc.lowest.date, closing: wc.lowestWithoutAffiliate.toFixed(2) }];
+  }
+  const v5Mgmt = isModuleOn(settings.v5_management, role) ? await loadManagementV5(sb, w, r, sp, noFunding) : null;
 
   const mode = sp.mode === "aktual" ? "aktual" : "proyeksi";
   const iso = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);

@@ -10,7 +10,7 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, fetchAll, listWeeks } from "../data";
+import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
 import type { Row } from "../v3/uploads";
 import { commercialMart } from "../v3/commercial";
 import { assignedKeysFor, commercialView } from "../v3/commercial-view";
@@ -40,12 +40,13 @@ async function storageRate(sb: Supa, date: string) {
 
 export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFilter): Promise<KomersialV5Input> {
   const now = jakartaNow();
+  const today = await dataToday(sb, now.date);
   const sales = viewer.role === "sales";
   const weeks = await listWeeks(sb);
-  const week = weeks.find((w) => w.week_start <= now.date && w.week_end >= now.date) ?? null;
-  const next = week ? addDays(week.week_start, 7) : addDays(now.date, 7);
+  const week = weeks.find((w) => w.week_start <= today && w.week_end >= today) ?? null;
+  const next = week ? addDays(week.week_start, 7) : addDays(today, 7);
   const [mart, asg, par, approvals, commits, lists, orders] = await Promise.all([
-    commercialMart(sb, now.date, sales),
+    commercialMart(sb, today, sales),
     sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email),
     week ? sb.from("parameter").select("sales_sees_cost, cut_off_time, commitment_lock_dow, commitment_lock_time").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -58,7 +59,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const assigned = assignedKeysFor(viewer.role, own);
   const view = commercialView(mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: assigned });
   const overAge = sales || !mart.date ? new Map<string, string | null>() : new Map(((await sb.from("sku_balance_daily").select("key, over_age_kg").eq("date", mart.date)).data ?? [] as Row[]).map((r: Row) => [String(r.key), s(r.over_age_kg)]));
-  const rate = sales ? null : await storageRate(sb, now.date);
+  const rate = sales ? null : await storageRate(sb, today);
   const all = stockSellRows(view.map((r) => ({
     key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: overAge.get(r.key) ?? "0",
     urgency: r.urgency, cost_per_kg: r.cost_per_kg ?? r.cost_per_kg_ma, cost_status: r.cost_status, price_ref: r.price_list, cost_check: r.cost_check,
@@ -105,7 +106,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   }
 
   return {
-    today: now.date, roleLabel: ROLE_LABEL[viewer.role], sales, base: "/komersial", filter, stockDate: mart.date,
+    today, roleLabel: ROLE_LABEL[viewer.role], sales, base: "/komersial", filter, stockDate: mart.date,
     rows: filterRows(all, filter), summary: stockSummary(all), holdingRate: rate, approvalsWaiting: approvals.count ?? 0, cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."),
     commitment: {
       weekStart: next, weekEnd: addDays(next, 6), deadline: `${DAYS[new Date(`${dlDate}T00:00:00Z`).getUTCDay()]} ${Number(dlDate.slice(8, 10))}/${dlDate.slice(5, 7)} ${time.replace(":", ".")}`,

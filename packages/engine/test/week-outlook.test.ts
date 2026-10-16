@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
 import { computeWeek } from "../src/week";
 import { loadFixtureWeek } from "../src/fixtures";
-import { gpBridge, jtV4, pctV4, plRowsFromMart, plRowsToMart, weekHeadline, weekOutlook, weekPlDaily } from "../src/week-outlook";
+import { gpBridge, jtV4, pctV4, plRowsByKey, plRowsFromMart, plRowsToMart, weekHeadline, weekOutlook, weekPlDaily, type PlRowV4 } from "../src/week-outlook";
 
 const r = computeWeek(loadFixtureWeek("2026-08-24", "2026-08-27"));
 const rows = weekPlDaily(r);
@@ -24,6 +24,25 @@ describe("weekPlDaily = weekly P&L split per day", () => {
   it("mart round trip keeps the totals", () => {
     const back = plRowsFromMart(plRowsToMart(rows) as never);
     expect(weekOutlook(back, week).projection.gp.toFixed(0)).toBe(weekOutlook(rows, week).projection.gp.toFixed(0));
+  });
+});
+
+describe("plRowsByKey: one row per mart key (date, segment, pl_line, basis)", () => {
+  it("rows per PO line are summed; the totals and the outlook do not move", () => {
+    // two PO lines on the same day and line, as the month plan writes them
+    const po = (forecast: string, kg: string | null): PlRowV4 => ({ date: "2026-08-27", segment: "LB main", pl_line: "COGS - Live Bird", basis: "po", actual: null, forecast: D(forecast), kg: kg === null ? null : D(kg), anomaly: false });
+    const twice = [...rows, po("-1216308.99", null), po("-5965187.06", "10")];
+    const one = plRowsByKey(twice);
+    const keys = new Set(one.map((x) => `${x.date}|${x.segment}|${x.pl_line}|${x.basis}`));
+    expect(keys.size).toBe(one.length);
+    expect(weekOutlook(one, week).projection.gp.toFixed(2)).toBe(weekOutlook(twice, week).projection.gp.toFixed(2));
+    const cogs = one.filter((x) => x.date === "2026-08-27" && x.pl_line === "COGS - Live Bird" && x.basis === "po");
+    expect(cogs).toHaveLength(1);
+    const before = rows.filter((x) => x.date === "2026-08-27" && x.pl_line === "COGS - Live Bird" && x.basis === "po").reduce((a, x) => a.plus(x.forecast ?? 0), D(0));
+    expect(cogs[0].forecast!.toFixed(2)).toBe(before.plus("-7181496.05").toFixed(2));
+    // a key whose rows have no amount keeps null, never 0 (K12: missing is not zero)
+    const gap: PlRowV4 = { date: "2026-08-25", segment: "Trading", pl_line: "Revenue - Trading", basis: "journal", actual: null, forecast: null, kg: null, anomaly: true };
+    expect(plRowsByKey([gap, { ...gap }])).toEqual([gap]);
   });
 });
 
