@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addDays, isISODate, jakartaToday, mondayOf } from "@kgr/engine";
+import { addDays, isISODate, mondayOf } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
@@ -7,7 +7,7 @@ import { Card, Td } from "@/components/ui";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { currentView } from "@/lib/view-server";
-import { fetchAll } from "@/lib/data";
+import { dataToday, fetchAll } from "@/lib/data";
 import { tgl } from "@/lib/fmt";
 import { scorecardAction } from "../actions";
 
@@ -19,8 +19,8 @@ export default async function ScorecardPage({ searchParams }: { searchParams: Pr
   const v = await requireModulePage("m7_approval", ["admin", "commercial_lead", "management", "operations_director"]);
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";
-  const ws = sp.week && isISODate(sp.week) ? mondayOf(sp.week) : addDays(mondayOf(jakartaToday()), -7);
   const sb = await supabaseServer();
+  const ws = sp.week && isISODate(sp.week) ? mondayOf(sp.week) : addDays(mondayOf(await dataToday(sb)), -7);
   const rows = await fetchAll<Record<string, unknown>>((a, b) => sb.from("sales_scorecard_weekly").select("*").eq("week_start", ws).order("sales_rep").range(a, b));
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/komersial">

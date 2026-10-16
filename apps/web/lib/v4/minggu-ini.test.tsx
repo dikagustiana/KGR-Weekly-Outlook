@@ -49,6 +49,18 @@ describe("module flags: a tile whose module is off is not rendered", () => {
   it("without the weekly P&L rows (mart not built) no headline and no outlook card, never a 0", () => {
     const m2 = mingguIniModel({ ...off, plRows: null });
     expect(m2.hidden).toEqual(expect.arrayContaining(["headline", "c-outlook", "ch-harian", "ch-bridge"]));
+    // their places say the mart is not built, so the page has no holes (production before the first rebuild)
+    const p = m2.tiles.filter((t) => t.id.endsWith("-pending"));
+    expect(p.map((t) => t.id)).toEqual(expect.arrayContaining(["headline-pending", "c-outlook-pending", "ch-harian-pending", "ch-bridge-pending"]));
+    const card = p.find((t) => t.id === "c-outlook-pending")!;
+    expect(card.content).toMatchObject({ type: "card", value: null, missing: "belum dibangun" });
+    expect(card.pos).toEqual({ x: 0, y: 2, w: 3, h: 2 });
+  });
+  it("a module that is on with its mart not built yet: a placeholder in the tile's place; a module that is off: nothing", () => {
+    const on = { ...off, on: { m1: false, m2: true, m3: true, m4: true, m6: true }, stock: null, month: null, solvency: null, demand: null };
+    const ids = mingguIniModel(on).tiles.map((t) => t.id);
+    expect(ids).toEqual(expect.arrayContaining(["c-bulan-pending", "c-solvabilitas-pending", "ch-stok-umur-pending", "demand-pending"]));
+    expect(m.tiles.map((t) => t.id).filter((i) => i.endsWith("-pending"))).toEqual([]);
   });
 });
 

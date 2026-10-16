@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { jakartaToday, simulateCcc } from "@kgr/engine";
+import { simulateCcc } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, N, Td } from "@/components/ui";
@@ -7,6 +7,7 @@ import { moduleEnabled, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { loadCash } from "@/lib/v3/cash";
 import { tgl } from "@/lib/fmt";
+import { dataToday } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,8 @@ export default async function CccPage({ searchParams }: { searchParams: Promise<
   const sp = await searchParams;
   const v = await requireModulePage("m6_cash", ["admin", "finance", "management", "operations_director"]);
   const { viewer, weeks, week } = await plainContext();
-  const date = jakartaToday();
   const sb = await supabaseServer();
+  const date = await dataToday(sb);
   const st = await loadCash(sb, date, { m4: await moduleEnabled("m4_monthly", v) });
   const c = st.ccc;
   const termsLb = num(sp.lb, "7"), termsTr = num(sp.tr, "14"), share = num(sp.share, "0.5"), stock = sp.stock ? num(sp.stock, "") : "";

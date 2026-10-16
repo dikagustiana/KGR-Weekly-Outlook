@@ -18,6 +18,11 @@ if [[ -n "${DATABASE_URL:-}" ]]; then
     psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null 2>&1 || { echo "migration not re-runnable: $f"; exit 1; }
   done
   for f in supabase/tests/v3_*.sql; do [[ -f "$f" ]] && { psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f" || exit 1; }; done
+  # every table, column and rpc the web app asks PostgREST for exists in the schema just migrated (mocks cannot see it)
+  T=$(mktemp -d)
+  psql "$URL" -Atc "select table_name || '|' || column_name from information_schema.columns where table_schema = 'public'" > "$T/cols" || exit 1
+  psql "$URL" -Atc "select proname from pg_proc where pronamespace = 'public'::regnamespace" > "$T/fns" || exit 1
+  python3 -I scripts/check-query-columns.py "$T/cols" "$T/fns" || { echo "test:rls FAILED (query columns)"; exit 1; }
 elif [[ -n "${SUPABASE_DB_URL:-}" ]]; then
   URL="$SUPABASE_DB_URL"
 else

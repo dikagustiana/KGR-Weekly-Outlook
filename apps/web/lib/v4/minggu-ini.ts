@@ -110,6 +110,14 @@ const cell = (v: Decimal | string | null | undefined, missing = "belum diisi") =
 const rpkg = (v: Decimal | string | null | undefined) => (v === null || v === undefined ? "belum diisi" : num(v, 0));
 const ddmm = (d: string) => `${dayName(d).slice(0, 3)} ${Number(d.slice(8, 10))}`;
 
+/**
+ * A tile whose module is on but whose data mart is not built yet keeps its place on the grid and says what to do
+ * (never a 0, never a hole in the page). A tile whose module is off is still left out.
+ */
+const NOT_BUILT = "Data mart minggu ini belum dibangun. Admin membangun ulang di halaman Modul (Bangun ulang data mart).";
+const pendingCard = (id: string, pos: TilePos, title: string): TileModel => ({ id, pos, kind: "card", title, note: NOT_BUILT, content: { type: "card", value: null, unit: "Rp jt", missing: "belum dibangun", compare: [] } });
+const pendingTall = (id: string, pos: TilePos, title: string): TileModel => ({ id, pos, kind: "tall", title, content: { type: "list", items: [], empty: NOT_BUILT } });
+
 export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   const r = x.r;
   const today = r.week.today;
@@ -154,7 +162,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     stockOverAge: stockValue, cash: cashLowest ? { lowest: cashLowest.balance, lowestDate: cashLowest.date, average: cashLowest.average } : null,
   });
   if (headline) tiles.push({ id: "headline", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: headline } });
-  else hidden.push("headline");
+  else {
+    hidden.push("headline");
+    tiles.push({ id: "headline-pending", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: "Angka minggu ini menunggu data mart. Admin membangun ulang di halaman Modul (Bangun ulang data mart)." } });
+  }
 
   // ---------------------------------------------------------------- row 2–3: five cards
   if (wo) {
@@ -176,7 +187,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         ],
       },
     });
-  } else hidden.push("c-outlook");
+  } else { hidden.push("c-outlook"); tiles.push(pendingCard("c-outlook-pending", P(0, 2, 3, 2), "Outlook minggu")); }
 
   if (stockValue !== null) {
     const kg = over ? over.kg : stockFallback!.kgToday;
@@ -190,7 +201,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       },
       content: { type: "card", value: jtV4(stockValue), unit: "Rp jt", compare: [{ label: "kg", value: num(kg, 1) }, { label: "SKU", value: String(skus) }], href: x.on.m2 ? "/sku" : `/w/${x.week.start}/stok` },
     });
-  } else hidden.push("c-stok");
+  } else {
+    hidden.push("c-stok");
+    if (x.on.m2) tiles.push(pendingCard("c-stok-pending", P(3, 2, 2, 2), "Stok di atas batas umur"));
+  }
 
   tiles.push({
     id: "c-kas", pos: P(5, 2, 2, 2), kind: "card", title: "Kas terendah minggu ini",
@@ -222,7 +236,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         href: `/m/${x.week.update.slice(0, 7)}`,
       },
     });
-  } else hidden.push("c-bulan");
+  } else {
+    hidden.push("c-bulan");
+    if (x.on.m4) tiles.push(pendingCard("c-bulan-pending", P(7, 2, 2, 2), "Outlook bulan"));
+  }
 
   if (x.on.m6 && x.solvency) {
     const s = x.solvency;
@@ -238,7 +255,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         href: "/kas",
       },
     });
-  } else hidden.push("c-solvabilitas");
+  } else {
+    hidden.push("c-solvabilitas");
+    if (x.on.m6) tiles.push(pendingCard("c-solvabilitas-pending", P(9, 2, 3, 2), "Solvabilitas"));
+  }
 
   // ---------------------------------------------------------------- rows 4–7: daily chart, bridge
   if (wo) {
@@ -269,7 +289,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       cara: { title: "GP produk ke GP P&L", fn: "gpBridge", rule: b.steps.map((s) => `${s.label}: ${s.rule}`).join(". "), sources: [{ label: "Tabel", value: "blok 1 (TOTAL KGR), pl_daily_v4" }], period: `${tgl(r.week.weekStart)} s.d. ${tgl(r.week.weekEnd)}` },
       content: { type: "waterfall", steps: steps.map((s) => ({ key: s.code, label: SHORT[s.code] ?? s.label, value: Number(s.value.div(1e6).toFixed(1)), valueText: jtV4(s.value), kind: s.code === "gp_produk" || s.code === "gp_pl" ? "total" : "delta", title: s.rule })) },
     });
-  } else hidden.push("ch-harian", "ch-bridge");
+  } else {
+    hidden.push("ch-harian", "ch-bridge");
+    tiles.push(pendingTall("ch-harian-pending", P(0, 4, 7, 4), "Revenue dan GP P&L per hari Sen–Min"), pendingTall("ch-bridge-pending", P(7, 4, 5, 4), "Dari GP produk ke GP P&L"));
+  }
 
   // ---------------------------------------------------------------- rows 8–11: segment table, COGS/kg
   const segs = r.block1;
@@ -374,7 +397,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         },
       },
     });
-  } else hidden.push("ch-stok-umur");
+  } else {
+    hidden.push("ch-stok-umur");
+    if (x.on.m2) tiles.push(pendingTall("ch-stok-umur-pending", P(0, 16, 6, 4), "Stok per umur, 7 SKU dengan nilai terbesar"));
+  }
 
   const cashPoints: ChartPoint[] = (x.on.m6 && x.cashMart ? x.cashMart.map((d) => ({ date: d.date, closing: d.closing === null ? null : D(d.closing), planned: d.planned })) : cash.days.map((d) => ({ date: d.date, closing: d.closing as Decimal | null, planned: d.basis === "rencana" })))
     .map((d) => ({
@@ -418,7 +444,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         ],
       },
     });
-  } else hidden.push("demand");
+  } else {
+    hidden.push("demand");
+    if (x.on.m3) tiles.push({ ...pendingTall("demand-pending", P(6, 20, 3, 3), "Demand dan rencana potong"), kind: undefined });
+  }
 
   const alerts = r.block7.filter((a) => a.audience === "management" && a.code !== "LB_DI_ATAS_BREAKEVEN").map((a) => `Peringatan: ${a.text}`);
   const unfilled = x.controlsV3.filter((k) => k.status === "BELUM DIISI" || k.status === "STALE").map((k) => `${k.code} ${k.status === "STALE" ? "data belum dibangun ulang" : "belum diisi"}: ${k.name}`);

@@ -74,8 +74,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
       .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).range(a, b)),
     sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle(),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class, replacement_buy_price").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price, replacement_buy_price").eq("week_id", week.id).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct, effective_from, effective_to, note").is("deleted_at", null)
       .lte("effective_from", ws).order("effective_from").range(a, b)),
@@ -87,6 +87,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason").eq("week_start", ws).is("deleted_at", null).range(a, b)),
   ]);
+  // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
+  const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const p = (param.data ?? {}) as Row;
   const stockDate = addDays(ws, -1);
@@ -127,7 +129,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     keys: new Map(keys.map((k) => [String(k.key), {
       segment: String(k.segment), sku: String(k.sku), form: String(k.form), cut_component: s(k.cut_component),
       fresh_window_hours: k.fresh_window_hours === null ? null : Number(k.fresh_window_hours), frozen_age_limit_days: k.frozen_age_limit_days === null ? null : Number(k.frozen_age_limit_days),
-      product_class: k.product_class === "by_product" ? "by_product" as const : "main" as const, replacement_buy_price: s(k.replacement_buy_price),
+      product_class: k.product_class === "by_product" ? "by_product" as const : "main" as const, replacement_buy_price: buy.get(String(k.key)) ?? null,
     }])),
     prices: new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)])),
     // PRD v5 §5.1: K / S / B exist before PPIC gives them an average; a class without one is not a v4 plan class yet

@@ -9,16 +9,19 @@ Semua irisan Bab 10 sudah dibangun, satu PR per irisan. Semua flag `v5_*` mati s
 | v5/0 foundation | [#24](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/24) | di-merge ke `main` | PRD v5, mockup ke `reference/design/v5/`, migrasi §5 (tabel/kolom kosong, kelas K/S/B tanpa angka, role `operations_director`, registry tugas, flag mati) |
 | v5/1 costing | [#25](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/25) | di-merge ke `main` | biaya rencana/estimasi/sementara/final, `simulateLivebird`, revaluasi K22, biaya idle, C53/C54/C57, Commercial membaca biaya + status, label K25 |
 | v5/2 pl | [#26](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/26) | di-merge ke `main` | beban tetap K29, laba rugi dua tampilan K30, kumulatif lima ukuran K31, C55 |
-| v5/3 ppic-class | [#27](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/27) | terbuka, base `main` | ukuran PO → kelas → kg LB (K28), rencana harian per kelas, layar PPIC v5, C50/C51/C58 |
-| v5/4 commercial-loop | [#28](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/28) | terbuka, base v5/3 | komitmen + kunci Jumat (K26), price list mingguan (K24), jawaban surplus, layar Commercial v5, C52 |
-| v5/5 input | [#29](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/29) | terbuka, base v5/4 | `upload-validate.ts` bersama browser/server, layar Input semua role, template/tempel/simpan sebagian/fingerprint, grid kelengkapan, K35 di `release_week` |
-| v5/6 management | [#30](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/30) | terbuka, base v5/5 | Manajemen v5: simulasi LB untuk Direktur Operasional + keputusan, perlu keputusan + status putaran, label sumber K36, "Lihat sebagai" K37 |
+| v5/3 ppic-class | [#27](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/27) | di-merge ke `main` | ukuran PO → kelas → kg LB (K28), rencana harian per kelas, layar PPIC v5, C50/C51/C58 |
+| v5/4 commercial-loop | [#28](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/28) | di-merge ke `main` | komitmen + kunci Jumat (K26), price list mingguan (K24), jawaban surplus, layar Commercial v5, C52 |
+| v5/5 input | [#29](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/29) | di-merge ke `main` | `upload-validate.ts` bersama browser/server, layar Input semua role, template/tempel/simpan sebagian/fingerprint, grid kelengkapan, K35 di `release_week` |
+| v5/6 management | [#30](https://github.com/dikagustiana/KGR-Weekly-Outlook/pull/30) | di-merge ke `main` | Manajemen v5: simulasi LB untuk Direktur Operasional + keputusan, perlu keputusan + status putaran, label sumber K36, "Lihat sebagai" K37 |
 
-PR #27–#30 bertumpuk: merge berurutan #27 → #28 → #29 → #30 (setiap base berpindah ke `main` setelah PR sebelumnya di-merge).
+PR #27–#30 bertumpuk dan sudah di-merge berurutan #27 → #28 → #29 → #30.
 
 ## Migrasi untuk KGR-OS (urutan)
 
-Sesudah migrasi v4 (`20261017*` sampai `20261020*`), di SQL Editor atau psql (`PGCLIENTENCODING=UTF8`), satu per satu:
+Status KGR-OS: diterapkan 16/10/2026 oleh pemilik dengan file sekaligus di SQL Editor; tabel cek akhir 11 baris `true` (sebelumnya: v3 lengkap, ke-10 migrasi v4 + v5 belum ada). Untuk database lain, dua cara dengan hasil yang sama:
+
+- **Sekaligus**: `docs/v5/kgr-os-migrasi-v4-v5-sekaligus.sql` di SQL Editor, satu kali Run. Isinya 10 file `20261017000100` sampai `20261023000100` disambung urut nama tanpa diubah (sha256 tiap file di kepala), ditambah cek prasyarat v3 di awal dan tabel cek 11 baris di akhir (semua `true`). Satu Run = satu transaksi: error di mana pun membatalkan semuanya. Diuji di salinan latihan KGR-OS sebagai satu query: skema identik dengan penerapan per file (`pg_dump -s`), isi seed sama (tanpa id/cap waktu), Run kedua tetap lolos, error yang disisipkan di file ke-8 membatalkan semuanya, database tanpa v3 ditolak sebelum apa pun berubah.
+- **Satu per satu**: migrasi v4 (`20261017*` sampai `20261020*`) urut nama, lalu file v5 di bawah, di SQL Editor atau psql (`PGCLIENTENCODING=UTF8`):
 
 | Urutan | File | Irisan | Cek |
 |---|---|---|---|

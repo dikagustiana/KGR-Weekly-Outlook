@@ -6,9 +6,9 @@ desain per fase `docs/v3/F<n>-design.md`. Fase 8 tidak dikerjakan (sesuai perint
 
 Status per 15 Okt 2026:
 
-- Semua fase F0 sampai F7 selesai sebagai 11 PR bertumpuk. Tidak ada yang di-merge.
-- **KGR-OS** (`pczjhmzpkknzkziipvit`), project tujuan baru dari pemilik: atas izin eksplisit pemilik, migrasi v1 dan seed sudah diterapkan dan diverifikasi.
-- **Migrasi v3 belum diterapkan ke Supabase mana pun.** Penerapan ke KGR-OS menunggu konfirmasi pemilik (§3). Di project lama juga belum.
+- Semua fase F0 sampai F7 selesai sebagai 11 PR bertumpuk. Atas instruksi pemilik, semuanya **di-merge ke `main`** (`23f973f`): #17 → … → #8 ke branch di bawahnya, lalu #7 ke `main`, jadi production cukup satu deploy. Semua modul tetap off.
+- **KGR-OS** (`pczjhmzpkknzkziipvit`), project tujuan baru dari pemilik: **semua 19 migrasi (v1 + v3) dan seed terpasang dan terverifikasi** (§3).
+- Project lama `uxqbtverhnpiryhzbenr` (yang masih dipakai aplikasi) belum menerima migrasi v3 (§2). Kode di `main` aman berjalan di sana selama semua modul off.
 - `computeWeek` dan golden v1 tidak bergeser di setiap commit:
   - `pnpm parity`: 17.161/17.161 sel, diff bersih.
   - `pnpm snapshot:diff`: kosong, SHA-256 snapshot minggu contoh tetap `947ce203…a83`.
@@ -43,7 +43,7 @@ pnpm test      → engine 182 passed + 3 todo · parsers 20 · web 14
 pnpm parity    → 17161/17161, git diff --exit-code docs/parity.md docs/parity-cells.csv bersih
 pnpm snapshot:diff → EMPTY (byte-identical)
 pnpm build     → sukses
-pnpm test:rls (PG16 lokal) → 19 migrasi, v3 diterapkan 2×, seed, 136 hasil uji peran, 0 bertanda (!)
+pnpm test:rls (PG16 lokal) → 19 migrasi, v3 diterapkan 2×, seed, 125 hasil uji peran (11 blok), 0 bertanda (!)
 ```
 
 CI GitHub:
@@ -83,7 +83,11 @@ Urutan untuk manusia, setelah setiap PR di-merge berurutan. Rinciannya di README
 
 Sebelum diisi (15 Okt 2026): kosong (0 migrasi, 0 tabel), tanpa repo terhubung, ditandai PRODUCTION oleh Supabase (branch `main`).
 
-**Yang sudah diterapkan Claude Code lewat Supabase MCP**, atas izin eksplisit pemilik ("ya, terapkan migrasi + seed ke KGR-OS"), dengan urutan gladi bersih "v1 → seed → v3":
+**Status: selesai.** Semua 19 migrasi dan seed terpasang (15 Okt 2026), dengan urutan gladi bersih "v1 → seed → v3".
+
+- **v1 + seed:** diterapkan Claude Code lewat Supabase MCP atas izin eksplisit pemilik ("ya, terapkan migrasi + seed ke KGR-OS").
+- **v3:** diterapkan pemilik dengan Supabase CLI dari Windows.
+- **Verifikasi:** oleh Claude Code lewat Supabase MCP.
 
 | Langkah | Status | Verifikasi |
 | --- | --- | --- |
@@ -92,20 +96,24 @@ Sebelum diisi (15 Okt 2026): kosong (0 migrasi, 0 tabel), tanpa repo terhubung, 
 | Seed `supabase/seed/*.sql` (39 potongan ≤ 24 KB) | **dimuat** | Master + minggu contoh, 14 tabel identik dengan lokal (jumlah baris + md5 kolom stabil, urutan `collate "C"`): `gl_line` 1.840, `coa_map` 208, `tb_opening` 208, `sales_line` 132, `item_map` 125, `receipt_line` 115, `opening_stock` 107, `cash_plan` 46, `sku_key` 41, `sku_price` 41, `runrate` 18, `batch` 4, `week` 1, `parameter` 1. Tidak ada baris `app_user` |
 | Uji peran v1 (`rls_roles.sql` blok 1, rollback) | **lulus** | 11 hasil, 0 bertanda `(!)`. `audit rows by sales=1` sesuai ekspektasi v1 di kepala file; nilai 2 di lokal berasal dari trigger rebuild v3 (`m2_ledger.sql` baris 277) |
 | Advisor keamanan Supabase | info | 2 jenis WARN pada fungsi `SECURITY DEFINER` v1 (`app_role`, `week_writable`, `admin_set_password`). Dipakai policy / memeriksa admin di dalam fungsi; sama dengan project lama. Tidak diubah (migrasi lama tidak boleh diubah) |
-| Migrasi v3 `20261016000100` … `001300` | **belum** | `apply_migration` untuk `20261016000100_v3_foundation` kembali berstatus *cancelled* (dua kali), tanpa error database. Konektor Supabase meminta konfirmasi untuk perintah destruktif: file ini memuat `alter table public.app_user drop constraint if exists app_user_role_check` lalu `add constraint` yang sama ditambah peran `commercial_lead` dan `cost_accounting`. Konfirmasi itu tidak masuk, jadi tidak diputari lewat `execute_sql`. Migrasi `000200`+ bergantung pada `000100` |
+| Migrasi v3 `20261016000100` … `001300` | **diterapkan** (pemilik, `supabase db push`) | `apply_migration` lewat MCP tidak bisa dipakai: berstatus *cancelled* atau *timeout* empat kali, karena konfirmasi perintah destruktif (`drop constraint if exists app_user_role_check` lalu `add constraint` yang sama ditambah `commercial_lead`, `cost_accounting`) tidak tersampaikan. Pemilik lalu menjalankan CLI; `supabase migration list` menunjukkan 19 migrasi di Local dan Remote |
+| Skema setelah v3 | **identik** | Tanda tangan `public` = gladi bersih lokal: 1.051 kolom, 217 constraint, 148 index, 209 policy, 143 trigger, RLS 65 tabel, 1 view, 3 bucket (`uploads`, `releases`, `backups`), hak eksekusi 23 fungsi. **Isi 23 fungsi** identik setelah karakter `\r` dibuang: 10 fungsi v3 tersimpan dengan akhir baris CRLF karena checkout Git di Windows (`core.autocrlf`). Bagi PostgreSQL itu hanya spasi; logika sama. Bila ingin LF, jalankan ulang 13 migrasi dari checkout LF (idempoten) |
+| Data setelah v3 | **identik** | 63 dari 64 tabel identik dengan gladi bersih (jumlah baris + md5): `app_setting` 8 flag (off), `mart_table` 11, `fixed_cost_schedule` 7, `urgency_rule` 5, `yield_matrix` 14, `weight_class` 1, `batch_output_sku` 14 (backfill M1), `sales_line` 132 (Order → Confirmed), `coa_map` 208 (driver), `rebuild_queue` 7. `closing_adjustment` (DI-01…DI-05): isi identik (md5 kode/uraian/nominal `045ec1b9…`), hanya `month_outlook_id` acak |
+| Uji peran `rls_roles.sql` (rollback) | **lulus** | 9 dari 11 blok dijalankan di KGR-OS: 108 hasil, sama persis dengan ekspektasi lokal, 0 `(!)`. Blok F2 dan F3b (17 hasil) memuat `delete` dan tertahan konfirmasi konektor. Keduanya lulus di lokal dan kebijakan aksesnya terbukti identik lewat tanda tangan skema. Setelah timeout dicek tidak ada sisa: 0 `app_user`, 0 lot, antrian rebuild tetap 7 |
+| Advisor keamanan setelah v3 | info | ERROR `security_definer_view` pada `commercial_daily_sales`: disengaja (V42), supaya sales membaca daftar kolom tanpa SI dan tanpa akses tabel `commercial_daily`. Dicek: `anon` tanpa hak (42501), login tak terdaftar 0 baris, sales tanpa kolom SI. WARN fungsi `SECURITY DEFINER` (`mart_replace`, `module_enabled`, `discount_limit` + 3 fungsi v1): semua memeriksa peran di dalam fungsi |
 
-Untuk menyelesaikan v3 di KGR-OS, pilih salah satu:
+Untuk menerapkan ulang (misalnya ke project Supabase lain yang sudah berisi v1 + seed), pilih salah satu:
 
-- Pemilik menyetujui konfirmasi Supabase saat Claude Code menerapkan ulang `20261016000100` dan seterusnya.
-- Atau manusia menjalankan `supabase db push --db-url "$KGR_OS_DB_URL"`. Riwayat sudah selaras, jadi hanya 13 migrasi v3 yang diterapkan, berurutan. Tidak perlu mengulang seed atau migrasi v3: seed sudah ada sebelum backfill v3, persis seperti gladi bersih.
-- Lalu `SUPABASE_DB_URL="$KGR_OS_DB_URL" pnpm test:rls` (136 hasil diharapkan, 0 `(!)`).
+- `supabase db push --db-url "$DB_URL"`. Hanya migrasi yang belum tercatat yang diterapkan.
+- Atau satu skrip gabungan di SQL Editor: 13 file v3 berurutan dalam satu transaksi, ditambah pencatatan riwayat. Skrip ini diuji dua kali di lokal dan menghasilkan skema + data yang sama dengan gladi bersih.
+- Lalu `SUPABASE_DB_URL="$DB_URL" pnpm test:rls` (125 hasil diharapkan, 0 `(!)`).
 
 Pemeriksaan pembanding (dipakai untuk menulis langkah manusia di bawah, untuk database Supabase lain yang masih kosong): urutan berikut sudah dicoba pada database kosong (PostgreSQL 16 lokal, `kgr_os_pathb`) dan dibandingkan dengan gladi bersih "v1 → seed → v3":
 
 - 62 dari 64 tabel `public` identik (jumlah baris + md5 kolom stabil).
 - `closing_adjustment` isinya identik (md5 kode/uraian/nominal sama); yang beda hanya `month_outlook_id` acak.
 - `rebuild_queue` berisi lebih banyak tanggal antrian (29 vs 7) — tidak berbahaya, diproses oleh "Proses antrian".
-- `rls_roles.sql` pada gladi bersih: 136 hasil, 0 bertanda `(!)`.
+- `rls_roles.sql` pada gladi bersih: 125 hasil, 0 bertanda `(!)`.
 
 Catatan CLI: bila `supabase db push --db-url` meminta `supabase/config.toml` (repo tidak menyimpannya), ada dua jalan:
 
@@ -233,8 +241,8 @@ Pilihan implementasi V1–V46 (mis. V5 grain `batch_output_sku`, V13 tanggal PO,
 
 | Siapa | Item | Di mana |
 | --- | --- | --- |
-| Pemilik | KGR-OS: setujui konfirmasi Supabase untuk migrasi v3 (atau jalankan `supabase db push --db-url`), lalu `pnpm test:rls`. Project lama: §2 bila tetap dipakai | §2, §3 |
-| Pemilik / Admin | Env Vercel bila pindah ke KGR-OS. Merge PR #7 → #17 berurutan. Pulihkan kuota GitHub Actions lalu jalankan ulang CI | Vercel, GitHub |
+| Pemilik | Pilih database aplikasi: KGR-OS (sudah lengkap) → env Vercel + admin pertama (§3); atau project lama → §2. Periksa deploy production `23f973f` di Vercel berstatus Ready | §2, §3, Vercel |
+| Pemilik / Admin | Env Vercel bila pindah ke KGR-OS. Pulihkan kuota GitHub Actions, lalu jalankan CI pada `main` (PR #7–#17 sudah di-merge tanpa CI) | Vercel, GitHub |
 | Admin | Admin pertama di project baru. Login peran baru **Kepala Sales** (`commercial_lead`) dan **Cost Accounting** (`cost_accounting`) lewat Admin → Pengguna → "Set kata sandi" | §3, aplikasi |
 | Admin | Secret workflow Backup (`SUPABASE_DB_URL`, opsional `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`). Skrip `supabase/fixes/F0-*.sql` di SQL Editor setelah dicoba di branch | GitHub, SQL Editor |
 | PPIC | **D1**: gap hasil potong 8–10% (susut atau output tak ditimbang?). **D2**: output SKU batch Pot_AGRO28/29/30. Yield matrix pengganti placeholder, kelas berat, kapasitas harian | upload WP, "PPIC — yield matrix", `/w/[minggu]/rencana` |
@@ -251,7 +259,7 @@ Pilihan implementasi V1–V46 (mis. V5 grain `batch_output_sku`, V13 tanggal PO,
 - Tidak ada `db push` ke project lama `uxqbtverhnpiryhzbenr`. KGR-OS hanya diisi setelah izin eksplisit pemilik (§3); perintah yang butuh konfirmasi Supabase tidak diputari.
 - Tidak membuat atau menghapus user `app_user`.
 - Tidak mengubah `apps/web/lib/env.ts`, `vercel.json`, atau env Vercel.
-- Tidak ada merge PR.
+- PR hanya di-merge setelah instruksi eksplisit pemilik ("Lanjut aja kamu yang merge"). Sebelum merge, isi branch dicek identik dengan commit yang lolos semua pemeriksaan. Merge tanpa CI karena kuota GitHub Actions habis.
 - Tidak mengubah fixture `fixtures/week-2026-08-24/*`.
 - Tidak menghapus bagian tampilan manajemen.
 - Tidak ada dependensi berat.

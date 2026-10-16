@@ -2,6 +2,18 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-6.1] Perbaikan setelah uji pada salinan KGR-OS
+
+### Fixed
+- `loadPlanning` read `sku_key.replacement_buy_price` (the column is on `sku_price`): PostgREST refused the query, so the PPIC v5 loader, the LB simulation and the demand rebuild failed on a real database. The Finance Input screen counted `assumption_register` by a `month` column that does not exist.
+- Month P&L mart: the plan writes a row per PO line; `plRowsByKey` sums them per (date, segment, pl_line, basis) before `mart_replace` (it failed with "ON CONFLICT DO UPDATE command cannot affect row a second time" whenever two PO lines shared a day).
+- Pages and the month rebuild read as of the date the data stands on (`dataToday`, Q-v5-54) instead of the clock.
+- Cash without bank balances is "belum diisi", not Rp 0 (Q-v5-55). Tiles with an unbuilt mart keep their place (Q-v5-56); grid rows grow with content; no inner scrollbars; v1 `.headline`/`.card` styles no longer leak into the v4 grid.
+
+### Added
+- `scripts/check-query-columns.py`, run by `test:rls` against the migrated schema: every table, column and rpc the web app asks PostgREST for must exist.
+- `docs/v5/kgr-os-migrasi-v4-v5-sekaligus.sql`: the ten v4 + v5 migrations in one SQL Editor run.
+
 ## [v5-6] Manajemen (docs/PRD-v5.md irisan 6)
 
 ### Added

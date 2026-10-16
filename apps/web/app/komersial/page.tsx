@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { isISODate, jakartaToday } from "@kgr/engine";
+import { isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, N, Td } from "@/components/ui";
@@ -14,6 +14,7 @@ import { moduleEnabled, moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
 import { KomersialV4 } from "./v4";
 import { KomersialV5 } from "./v5";
+import { dataToday } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +30,8 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
   if (v4On(await moduleSettings(), v.role)) return <KomersialV4 viewer={v} />;
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";
-  const date = sp.date && isISODate(sp.date) ? sp.date : jakartaToday();
   const sb = await supabaseServer();
+  const date = sp.date && isISODate(sp.date) ? sp.date : await dataToday(sb);
   const sales = v.role === "sales";
   const mart = await commercialMart(sb, date, sales);
   const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);

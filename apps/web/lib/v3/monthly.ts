@@ -6,14 +6,14 @@ import "server-only";
  */
 import { createHash } from "node:crypto";
 import {
-  D, accuracy, actualDaily, addDays, bridge, jakartaToday, calibrate, dailyTotals, daysInMonth, firstOfMonth, forecastDays, forecastPlRows, gpPctMtd,
+  D, accuracy, actualDaily, addDays, bridge, calibrate, dailyTotals, daysInMonth, firstOfMonth, forecastDays, forecastPlRows, gpPctMtd,
   holidaysFromJournal, isCogsLine, isRevenueLine, monthEnd, monthlyControls, opexRemaining, ordersFromWeek, runrateRevenue, sum,
   sumRows, toFixedString, unbilledFromWeek, v1LockDate, versionDays,
   type Bridge, type ControlV3, type Decimal, type ForecastOrder, type PlDailyRow, type RunRate, type VersionDay,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, fetchAll, listWeeks } from "../data";
+import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -148,11 +148,14 @@ async function writeEngineAssumptions(sb: Supa, st: MonthState): Promise<void> {
 
 let builtMonths = new Set<string>();
 let builderSettings: ModuleSettings = {};
+/** The cut-off of the months being rebuilt: the date the data stands on (dataToday), as the weekly engine. */
+let builderToday = "";
 
 registerBuilder({
   module: "m4_monthly", name: "monthly",
   begin: async (sb) => {
     builtMonths = new Set();
+    builderToday = await dataToday(sb);
     const { data } = await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle();
     builderSettings = { m5_drivers: { enabled: ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true } };
   },
@@ -160,8 +163,7 @@ registerBuilder({
     const m = firstOfMonth(date);
     if (builtMonths.has(m)) return `bulan ${m.slice(0, 7)} sudah dibangun`;
     builtMonths.add(m);
-    const today = jakartaToday();
-    const st = await computeMonth(sb, m, today, builderSettings);
+    const st = await computeMonth(sb, m, builderToday || await dataToday(sb), builderSettings);
     const w = await writeMonthMart(sb, st);
     return `bulan ${m.slice(0, 7)}: cut-off ${st.cutOff}, ${st.actualRows.length + st.forecastRows.length} baris (${w.written} ditulis, ${w.deleted} dihapus)`;
   },

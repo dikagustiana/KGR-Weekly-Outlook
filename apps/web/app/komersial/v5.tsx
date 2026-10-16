@@ -62,7 +62,8 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
       </div>
     );
   }
-  if (!mgmt && input.spot.length && ["admin", "sales", "commercial_lead"].includes(viewer.role)) {
+  // spot sales are recorded on the clock's day (spotSaleAction): not from a screen that shows an older data date
+  if (!mgmt && input.spot.length && ["admin", "sales", "commercial_lead"].includes(viewer.role) && input.today === jakartaNow().date) {
     extras["t-spot"] = (
       <div className="actionbar">
         <ActionForm v4="primary" action={spotSaleAction} submit="Catat spot" className="tile-form">

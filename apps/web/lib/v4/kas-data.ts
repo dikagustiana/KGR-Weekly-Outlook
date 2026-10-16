@@ -20,10 +20,14 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
     sb.from("solvency_monthly").select("*").lte("month", x.today).order("month", { ascending: false }).limit(2),
   ]);
   const p = pos as Row | null;
+  // a day built without any bank balance (no template kas harian uploaded yet) has no cash position: the balances and
+  // what is projected from them are "belum diisi", never Rp 0 (K12); the planned flows and the missing days stay
+  const noBalance = p !== null && Number(p.accounts ?? 0) === 0;
+  const hz = (p?.horizon ?? null) as KasHorizon | null;
   const row: KasInput["row"] = p ? {
-    date: String(p.date), totalClosing: s(p.total_closing), lowest: s(p.lowest_next_13w), lowestDate: s(p.lowest_date),
-    lowestWithout: s(p.lowest_without_affiliate), lowestWithoutDate: s(p.lowest_without_date), assumption: s(p.affiliate_assumption),
-    horizon: (p.horizon ?? null) as KasHorizon | null,
+    date: String(p.date), totalClosing: noBalance ? null : s(p.total_closing), lowest: noBalance ? null : s(p.lowest_next_13w), lowestDate: noBalance ? null : s(p.lowest_date),
+    lowestWithout: noBalance ? null : s(p.lowest_without_affiliate), lowestWithoutDate: noBalance ? null : s(p.lowest_without_date), assumption: s(p.affiliate_assumption),
+    horizon: hz && noBalance ? { ...hz, weeks: hz.weeks.map((w) => ({ ...w, closing: null, closing_without: null })), months: null, lowest: { ...hz.lowest, balance: null }, lowest_without: { ...hz.lowest_without, balance: null } } : hz,
   } : null;
 
   let solvency: KasInput["solvency"] = null;
