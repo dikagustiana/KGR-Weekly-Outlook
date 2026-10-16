@@ -19,16 +19,19 @@ import { V4Frame } from "../components/v4/Frame";
 import { kasFixtureFs, kasFixtureProjection, outlookBulanFixture } from "../test-support/month-fixture";
 import { outlookBulanModel } from "../lib/v4/outlook-bulan";
 import { kasModel } from "../lib/v4/kas";
+import { rencanaFixture } from "../test-support/rencana-fixture";
+import { rencanaModel } from "../lib/v4/rencana";
+import { ActionForm } from "../components/ActionForm";
 
 const out = resolve(process.argv[2] ?? "../../docs/v4/bukti/html");
 mkdirSync(out, { recursive: true });
 const css = readFileSync(resolve(__dirname, "../app/v4.css"), "utf8");
 
-function page(title: string, nav: string, body: React.ReactElement): string {
-  const settings = { v4_design: { enabled: true }, m2_ledger: { enabled: true }, m4_monthly: { enabled: true }, m6_cash: { enabled: true } };
-  const items = v4Nav("management", settings, { week: "2026-08-24", month: "2026-08", today: "2026-08-27" });
+function page(title: string, nav: string, body: React.ReactElement, role: "management" | "ppic" = "management"): string {
+  const settings = { v4_design: { enabled: true }, m2_ledger: { enabled: true }, m3_planning: { enabled: true }, m4_monthly: { enabled: true }, m6_cash: { enabled: true } };
+  const items = v4Nav(role, settings, { week: "2026-08-24", month: "2026-08", today: "2026-08-27" });
   const html = renderToStaticMarkup(
-    <V4Frame nav={items} active={nav} view="management" period={<span className="note">24–30 Agu 2026</span>} account={<span>Direksi · Management</span>}>
+    <V4Frame nav={items} active={nav} view={role === "management" ? "management" : "preparer"} period={<span className="note">24–30 Agu 2026</span>} account={<span>{role === "management" ? "Direksi · Management" : "PPIC"}</span>}>
       {body}
     </V4Frame>,
   );
@@ -61,7 +64,21 @@ for (const v of months) {
   writeFileSync(join(out, v.file), page(v.title, v.nav, <><h1 className="sr-only">{v.title}</h1><TilePage tiles={v.model.tiles} label={v.title} /></>));
   report[v.file] = { tiles: v.model.tiles.map((t) => t.id), hidden: v.model.hidden };
 }
+// PRD v4 irisan 3: PPIC Rencana (§6.4), with the action bars the page puts under t-rencana and t-harian (PPIC role)
+const noop = async () => ({});
+for (const v of [{ file: "ppic-rencana.html", reasons: [] as string[] }, { file: "ppic-rencana-alasan.html", reasons: ["C41"] }]) {
+  const m = rencanaModel(rencanaFixture({ reasons: v.reasons }));
+  const why = (tile: string, action: string) => m.actions.find((a) => a.tile === tile && a.action === action)?.disabledReason ?? null;
+  const bar = (label: string, primary: boolean, reason: string | null) => <div className="actionbar"><ActionForm v4={primary ? "primary" : true} action={noop} submit={label} disabled={reason !== null} />{reason ? <span className="reason">{reason}</span> : null}</div>;
+  const extras = {
+    "t-demand": m.actions.some((a) => a.action === "reason") ? bar("Simpan alasan C41", false, null) : null,
+    "t-rencana": bar("Simpan rencana versi 1", true, why("t-rencana", "save") ?? "yield sementara: boleh disimpan, tidak boleh disalin ke batch"),
+    "t-harian": bar("Salin ke batch rencana", false, why("t-harian", "copy")),
+  };
+  writeFileSync(join(out, v.file), page("PPIC Rencana", "rencana", <><h1 className="sr-only">{m.title}</h1><TilePage tiles={m.tiles} label={m.title} extras={extras} /></>, "ppic"));
+  report[v.file] = { tiles: m.tiles.map((t) => t.id), actions: m.actions };
+}
 writeFileSync(join(out, "minggu-ini.model.json"), JSON.stringify(report, null, 1));
-console.log(`v4-fixture: ${variants.length + months.length} halaman → ${out}`);
+console.log(`v4-fixture: ${variants.length + months.length + 2} halaman → ${out}`);
 console.log(JSON.stringify(report["minggu-ini.html"]));
 console.log(`stok di atas batas umur (ledger M2): ${ledgerOverAgeJt} jt; blok 4: ${r.block4.find((b) => b.status === "PERHATIAN")!.value.div(1e6).toFixed(1)} jt`);

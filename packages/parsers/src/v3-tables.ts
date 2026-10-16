@@ -5,7 +5,7 @@
 import type { Sheet } from "./workbook";
 import { F, detect, extract, type Detected, type FieldDef, type Mapping, type ParsedRow } from "./tables";
 
-export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply" | "cash_balance" | "cash_plan_daily" | "fixed_cost" | "budget";
+export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply" | "cash_balance" | "cash_plan_daily" | "fixed_cost" | "budget" | "delivery";
 
 export interface V3TableDef {
   kind: V3TableKind;
@@ -128,6 +128,17 @@ export const V3_TABLES: V3TableDef[] = [
       F("owner", "Pemilik", "text", ["pemilik", "owner", "penanggung jawab", "pic"]),
       F("version", "Versi", "number", ["versi", "version"]),
       F("note", "Catatan", "text", ["catatan", "keterangan", "alasan", "note"]),
+    ],
+  },
+  {
+    // PRD v4 §4.4 (K7): no_po, kode_item, tgl, kg, no_dokumen — one row per delivery of a PO line
+    kind: "delivery",
+    fields: [
+      F("po_ref", "No. PO", "text", ["no_po", "no po", "nomor po", "po", "po number"], true),
+      F("item_code", "Kode item", "text", ["kode_item", "kode item", "kode barang", "kode", "item code", "sku"], true),
+      F("date", "Tanggal kirim", "date", ["tgl", "tanggal", "tgl kirim", "tanggal kirim", "date"], true),
+      F("kg", "kg", "number", ["kg", "qty", "kuantitas", "berat", "kg kirim"], true),
+      F("document_ref", "No. dokumen", "text", ["no_dokumen", "no dokumen", "no do", "nomor do", "surat jalan", "no sj", "dokumen"], true),
     ],
   },
   {

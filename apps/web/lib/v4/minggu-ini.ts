@@ -13,7 +13,7 @@ import { jtV4, num, pctV4, rpJt, tgl, tglShort } from "../fmt";
 import type { CardCompare } from "@/components/v4/Card";
 import type { ChartPoint, LinePlot, PairGroup, StackRow, WaterfallStep } from "@/components/v4/Chart";
 import type { Col, TRow } from "@/components/v4/Table";
-import type { SlicerOption } from "@/components/v4/Controls";
+import type { SlicerOption, StepDef } from "@/components/v4/Controls";
 import type { CaraHitungContent } from "@/components/v4/CaraHitung";
 import type { TilePos } from "@/components/v4/Tile";
 
@@ -30,7 +30,8 @@ export type TileContent =
   | { type: "stacked"; rows: StackRow[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[]; table: { cols: Col[]; rows: TRow[] } }
   | { type: "table"; cols: Col[]; rows: TRow[]; limit?: number; form?: TileForm; sections?: { title: string; cols: Col[]; rows: TRow[] }[] }
   | { type: "chart+table"; points: ChartPoint[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[]; cols: Col[]; rows: TRow[] }
-  | { type: "list"; items: string[]; ordered?: boolean; empty?: string };
+  | { type: "list"; items: string[]; ordered?: boolean; empty?: string }
+  | { type: "stepper"; steps: StepDef[]; current: number };
 
 /** A plain GET form inside a tile (what-if inputs): no client code, the page reads the query string. */
 export interface TileForm { method: "get"; action: string; submit: string; fields: { name: string; label: string; value: string; size?: number }[] }

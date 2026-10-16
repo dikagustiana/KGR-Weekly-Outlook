@@ -65,3 +65,18 @@ export async function setCapacityAction(_: ActionState, form: FormData): Promise
     return { ok: "Kapasitas disimpan — simpan rencana ulang untuk memakai kapasitas baru" };
   } catch (e) { return { error: (e as Error).message }; }
 }
+
+/** §6.4: the written reason that lets a PERIKSA control (C41 by-product short) open the next step. */
+export async function reasonAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { sb, week } = await ctx(form, ["admin", "ppic"]);
+    const code = String(form.get("code") ?? "");
+    const reason = String(form.get("reason") ?? "").trim();
+    if (!/^C\d{2}$/.test(code)) return { error: "Kode kontrol tidak dikenal" };
+    if (reason.length < 5) return { error: "Tulis alasannya (paling sedikit 5 huruf)" };
+    const { error } = await sb.from("plan_check_reason").insert({ week_start: week.week_start, code, reason });
+    if (error) return { error: error.message.includes("duplicate") ? "Alasan untuk kontrol ini sudah ada" : error.message };
+    done(week.week_start);
+    return { ok: `Alasan ${code} disimpan` };
+  } catch (e) { return { error: (e as Error).message }; }
+}

@@ -97,3 +97,31 @@ Q42. Tile solvabilitas di Outlook bulan memakai `solvency_monthly` terakhir yang
 Q43. Simulasi termin di tile siklus kas berupa isian (termin LB, termin trading, porsi LB, target hari stok) dengan tombol Hitung, bukan slider yang bergerak sendiri. Halaman membaca isian dari alamat URL.
 
 Q44. Versi yang tampil. Halaman Outlook bulan menampilkan draft terkini secara default. Versi yang dikunci dibuka lewat baris tabel Versi (`?versi=V1`) dan diberi label "versi aktif". Label di slicer menyebut versi terkunci yang terakhir.
+
+## Irisan 3
+
+Q45. Tanggal stok untuk netting. P3.3 meminta stok pada Minggu sebelum minggu rencana, dengan kelayakan dinilai pada tanggal kirim. Kode menghitung jarak dari tanggal stok ke tanggal kirim pertama minggu itu, lalu memakai satu jarak untuk semua order minggu itu. Order yang dikirim lebih akhir dinilai dengan kelayakan tanggal kirim pertama, jadi stok fresh bisa tampak layak lebih lama daripada yang sebenarnya. Untuk stok frozen di minggu contoh hal ini tidak mengubah hasil. Di fixture, "stok Minggu" adalah stok awal minggu (saldo ledger 24 Agu). Netting per tanggal kirim bisa ditambah bila perlu.
+
+Q46. Forecast statistik (K2). P3.2 menyebut forecast "non-PO". Kode memakai rata-rata kg per hari kerja Normal selama 8 minggu sebelumnya (hari tanpa stok bebas di `sku_balance_daily` dikeluarkan), dikali hari kerja minggu itu, lalu dikurangi kg PO terbuka key itu di minggu yang sama. Dengan begitu PO tidak terhitung dua kali. Hanya skenario Base, dengan pola harian rata. Konfigurasi musiman dan skenario dari workbook tidak ada di database. Forecast statistik dihitung saat rebuild dan di halaman, tidak disimpan sebagai baris `forecast_line`: menulis `forecast_line` dari rebuild akan memicu rebuild lagi. Sumbernya tercatat di `demand_weekly.source_forecast`. Tanpa ledger M2, semua hari dianggap Normal.
+
+Q47. Simpan, setujui, salin. P3.5 menulis "savePlan menolak bila C42/C45/C46 bukan LULUS". P3.4 dan mockup menyatakan rencana dengan yield sementara (C42) boleh disimpan dengan label tetapi tidak boleh disalin ke batch. P3.5 sendiri menulis C46 membuat rencana "tidak bisa disetujui". Pasal-pasal ini bertentangan. Sementara ini: simpan hanya ditolak oleh C45 STALE; C42 memberi label `yield_provisional`; C46 menahan persetujuan; salin ke batch butuh C42, C45, C46, C47 LULUS (§6.4). Perlu dipilih.
+
+Q48. Kontrol per langkah. PRD tidak menyebut kontrol mana milik langkah mana. Sementara ini langkah 1 memakai C41, C44, C45; langkah 2 C42, C46; langkah 3 C30, C47. PERIKSA membuka langkah berikutnya bila alasannya sudah ditulis. Alasan disimpan di tabel baru `plan_check_reason`, yang tidak ada di §4.2.
+
+Q49. Mockup `ppic-rencana.html` menampilkan langkah 2 terbuka ("yield sementara") padahal C41 berstatus PERIKSA tanpa alasan. Menurut aturan §6.4 langkah 2 terkunci sampai alasan C41 ditulis. Halaman mengikuti teks §6.4. Varian fixture dengan alasan ada di `ppic-rencana-alasan.html`.
+
+Q50. `demand_shortfall.output_kg_at_plan` dihitung pada ekor yang dibutuhkan demand (K1), bukan pada ekor rencana tersimpan. Ekor rencana bisa lebih besar karena komitmen supply. Bila supply menaikkan ekor, output by-product naik dan kekurangan yang tampil lebih besar dari yang sebenarnya. Perlu dipilih basis mana yang dipakai.
+
+Q51. Pembulatan golden M3. Lampiran B.3 menulis kekurangan Kepala 842 kg dan Ceker 548 kg, dihitung dengan kg/ekor yang dibulatkan ke 4 desimal. Engine menghasilkan 843 dan 547. `fixtures/plan-2026-08-24/golden.json` menyimpan angka B.3 dengan toleransi 1 kg dan `placeholder: true`. Ekor 9.179, kg LB 18.358, dan net karkas 13.118 sama persis.
+
+Q52. Varian aktual lawan rencana (P3.7) dihitung per unit potong (Karkas, Usus, …), karena `plan_day.target_kg_by_key` disimpan per unit. Output aktual per key SKU dipetakan ke unitnya. Ekor aktual diambil dari `batch.head_count`; hari tanpa angka itu tetap kosong, tidak 0.
+
+Q53. Pengiriman di ledger M2 (lanjutan Q9). Pengiriman pada baris Order menjadi stok keluar aktual pada tanggal kirim, dan sisanya tetap rencana. Bila nomor DO pengiriman sudah masuk sebagai baris Aktual dari Accurate untuk item yang sama, pengiriman itu dianggap baris tersebut dan tidak dihitung lagi. Baris yang sudah Aktual tidak menambah pengiriman. Bila nomor DO ditulis berbeda di Ops dan di Accurate, stok keluar terhitung dua kali; C26 (rekon kartu stok) akan menangkapnya. Alokasi lot dipakai sekali untuk seluruh pengiriman sebuah baris.
+
+Q54. Upload pengiriman (CSV). Setiap baris dicocokkan ke baris Order terbuka dengan PO dan item yang sama, mulai dari tanggal kirim paling awal. kg dipecah ke beberapa baris bila satu PO punya beberapa baris item itu. `no_dokumen` wajib, supaya unggah ulang tidak mencatat dua kali. Index unik baru `delivery (sales_line_id, document_ref)` juga menahan dua Terkirim paralel dengan DO yang sama.
+
+Q55. Spot lalu blast (K8). Halaman Alokasi menampilkan sisa fresh sebagai calon jual spot, dengan tautan ke Komersial. Pencatatan penjualan spot (`sales_line.channel = 'spot'`) masuk irisan 5 (M7). Server menolak cut-off sebelum `cut_off_time` hari itu; hari yang sudah lewat selalu terbuka.
+
+Q56. Seed kapasitas. Baris per tanggal 19 Okt–29 Nov 2026 tanpa angka, dengan keterangan periode: maklon sampai 31 Okt, RPA Rawa Terate mulai 1 Nov. C47 memperlakukan nilai kosong sebagai belum diisi. Tanggal sesudah 29 Nov tidak di-seed.
+
+Q57. Syarat selesai irisan 3 di §10 ("paralel 2–4 minggu dengan rencana PPIC sebelum flag on") adalah langkah operasional PPIC dan pemilik produk. Pekerjaan ini menyiapkan halaman dan angka; perbandingannya belum dijalankan.

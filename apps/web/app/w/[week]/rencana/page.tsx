@@ -1,11 +1,13 @@
 import Link from "next/link";
+import { v4On } from "@/lib/v4/nav";
+import { RencanaV4 } from "./v4";
 import { addDays } from "@kgr/engine";
 import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { ActionForm } from "@/components/ActionForm";
 import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
-import { requireModulePage } from "@/lib/modules";
+import { moduleSettings, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { loadPlanning, proposePlan, weekPlanningControls } from "@/lib/v3/planning";
 import { stockMartControl } from "@/lib/v3/stale";
@@ -22,6 +24,7 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
   const q = await searchParams;
   const v = await requireModulePage("m3_planning", ["admin", "ppic", "finance"]);
   const ctx = await weekContext(week);
+  if (v4On(await moduleSettings(), v.role)) return <RencanaV4 ctx={ctx} kelas={q.kelas ?? null} />;
   const sb = await supabaseServer();
   const src = await loadPlanning(sb, ctx.week);
   const c45 = await stockMartControl(sb, addDays(ctx.week.week_start, -1));

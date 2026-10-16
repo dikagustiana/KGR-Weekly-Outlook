@@ -1,0 +1,28 @@
+{
+ "source": "docs/PRD-v4.md §3.1 golden M3 dan Lampiran B.3: week-2026-08-24 (order, stok awal, item map) + seed yield placeholder (supabase/migrations/20261016000700_m3_backfill.sql) + kelas STD 2,0 kg",
+ "week_fixture": "week-2026-08-24",
+ "update_date": "2026-08-27",
+ "stock": "stok awal minggu (saldo ledger M2 pada 2026-08-24, lot dari opening_stock.json); kelayakan dinilai pada tanggal kirim pertama",
+ "stock_balance_date": "2026-08-24",
+ "weight_class": { "code": "STD", "avg_kg": "2.000", "note": "Placeholder v3 F3a: rata-rata LB 2,0 kg" },
+ "windows": { "fresh_hours": 48, "frozen_days": 30 },
+ "weights": { "tentative": "0.7", "forecast": "0.5" },
+ "pattern_order": ["karkas", "boneless"],
+ "by_product_units": ["Kepala", "Ceker", "Usus", "HJA (Hati/Jantung/Ampela)", "Lemak"],
+ "yields": [
+  { "pattern": "karkas", "key": "Karkas", "yield_pct": "0.714599", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "karkas", "key": "Kepala", "yield_pct": "0.045299", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "karkas", "key": "Ceker", "yield_pct": "0.028518", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "karkas", "key": "Usus", "yield_pct": "0.042292", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "karkas", "key": "HJA (Hati/Jantung/Ampela)", "yield_pct": "0.054320", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "karkas", "key": "Lemak", "yield_pct": "0.003298", "note": "Placeholder: yield v1 × (1 − 0,03)" },
+  { "pattern": "boneless", "key": "BLD", "yield_pct": "0.180000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "BLP", "yield_pct": "0.130000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "Sayap", "yield_pct": "0.090000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "Ceker", "yield_pct": "0.040000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "Kepala", "yield_pct": "0.030000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "Kulit", "yield_pct": "0.060000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "HJA (Hati/Jantung/Ampela)", "yield_pct": "0.050000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" },
+  { "pattern": "boneless", "key": "KRK (Kerangka)", "yield_pct": "0.280000", "note": "Placeholder: I_Yield KGR_Demand_Forecast.xlsx" }
+ ]
+}

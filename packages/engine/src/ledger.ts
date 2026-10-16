@@ -264,6 +264,7 @@ export function computeLedger(x: LedgerInputs): LedgerResult {
     return [...pool.filter(ok).sort(order), ...rest.filter(ok).sort(order)];
   };
 
+  const allocUsed = new Map<LedgerAllocation, Decimal>();
   for (const e of evs) {
     if (e.kind === "lot") {
       addLot(e.lot!);
@@ -288,7 +289,12 @@ export function computeLedger(x: LedgerInputs): LedgerResult {
         const lot = lotBy.get(a.lot_ref);
         if (!lot) { issues.push(`Alokasi ${s.ref}: lot ${a.lot_ref} tidak ada`); continue; }
         if (!left.gt(0)) break;
-        take(lot, Decimal.min(D(a.kg), left), false); // an allocation never takes more than the line sells
+        // an allocation never takes more than the line sells, and is used once across the line's deliveries (K7)
+        const free = D(a.kg).minus(allocUsed.get(a) ?? ZERO);
+        if (!free.gt(0)) continue;
+        const kg = Decimal.min(free, left);
+        allocUsed.set(a, (allocUsed.get(a) ?? ZERO).plus(kg));
+        take(lot, kg, false);
       }
       if (left.gt(0)) {
         for (const lot of fifo(s.item_code, key, s.date!, e.planned)) {

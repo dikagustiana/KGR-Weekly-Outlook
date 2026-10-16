@@ -981,3 +981,53 @@ begin
 
   raise exception 'RLS-RESULTS v4 irisan 2 (rolled back): %', out;
 end $$;
+
+-- v4 irisan 3: the written reason that opens a PERIKSA step is PPIC's (§6.4); the M3 marts are server-only; one DO
+-- per PO line once (K7, re-upload and parallel Terkirim); capacity rows seeded empty for PPIC; demand_weekly columns.
+do $$
+declare out text := ''; n int; wid uuid; lid uuid; b text;
+begin
+  insert into public.app_user(email, role) values ('t24-ppic@x.test','ppic'),('t24-sales@x.test','sales'),('t24-fin@x.test','finance'),('t24-mgmt@x.test','management');
+  select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
+  insert into public.sales_line (week_id, date, status, item_code, kg, price, customer, delivery_date, demand_status, po_ref)
+  values (wid, '2030-06-04', 'Order', 'JLB0593', 1800, 30000, 'PT Uji', '2030-06-05', 'Confirmed', 'PO-T24') returning id into lid;
+
+  perform set_config('request.jwt.claims', '{"email":"t24-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_check_reason (week_start, code, reason) values ('2030-06-03', 'C41', 'kekurangan dibeli trading'); out := out || 'ppic reason C41: OK; ';
+  exception when others then out := out || 'ppic reason C41: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_check_reason (week_start, code, reason) values ('2030-06-03', 'C41', 'alasan kedua'); out := out || 'second active reason: ALLOWED(!); ';
+  exception when others then out := out || 'second active reason: rejected; '; end;
+  begin insert into public.plan_check_reason (week_start, code, reason) values ('2030-06-03', 'C44', 'ok'); out := out || 'reason too short: ALLOWED(!); ';
+  exception when others then out := out || 'reason too short: rejected; '; end;
+  begin insert into public.demand_shortfall (week_start, key, shortfall_kg) values ('2030-06-03', 'Usus', 1); out := out || 'ppic write demand_shortfall: ALLOWED(!); ';
+  exception when others then out := out || 'ppic write demand_shortfall: denied; '; end;
+  begin insert into public.plan_variance_daily (date, key, variance_kg) values ('2030-06-04', 'Karkas', 1); out := out || 'ppic write plan_variance_daily: ALLOWED(!); ';
+  exception when others then out := out || 'ppic write plan_variance_daily: denied; '; end;
+  update public.capacity set cut_capacity_head = 3000 where date = '2026-10-20'; get diagnostics n = row_count;
+  out := out || 'ppic fills seeded capacity rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t24-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_check_reason (week_start, code, reason) values ('2030-06-03', 'C44', 'forecast menyusul'); out := out || 'sales reason: ALLOWED(!); ';
+  exception when others then out := out || 'sales reason: denied; '; end;
+  update public.capacity set cut_capacity_head = 1 where date = '2026-10-21'; get diagnostics n = row_count;
+  out := out || 'sales change capacity rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  begin insert into public.delivery (sales_line_id, date, kg, document_ref) values (lid, '2030-06-05', 600, 'DO-T24'); out := out || 'sales deliver DO-T24: OK; ';
+  exception when others then out := out || 'sales deliver DO-T24: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.delivery (sales_line_id, date, kg, document_ref) values (lid, '2030-06-05', 600, 'DO-T24'); out := out || 'same DO again: ALLOWED(!); ';
+  exception when others then out := out || 'same DO again: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  select kg - fulfilled_kg into n from public.sales_line where id = lid; out := out || 'outstanding after one DO=' || n || case when n = 1200 then '' else '(!)' end || '; ';
+  select count(*) into n from public.capacity where note like 'Maklon%' and cut_capacity_head is null; out := out || 'maklon seed rows empty=' || n || case when n >= 12 then '' else '(!)' end || '; ';
+  select count(*) into n from public.capacity where note like 'RPA Rawa Terate%'; out := out || 'Rawa Terate seed rows=' || n || case when n = 29 then '' else '(!)' end || '; ';
+  select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'demand_weekly' and column_name in ('unit','product_class','source_forecast');
+  out := out || 'demand_weekly v4 columns=' || n || case when n = 3 then '' else '(!)' end || '; ';
+  begin insert into public.demand_weekly (week_start, key, product_class) values ('2030-06-03', 'x', 'lainnya'); out := out || 'product_class lainnya: ALLOWED(!); ';
+  exception when others then out := out || 'product_class lainnya: rejected; '; end;
+
+  raise exception 'RLS-RESULTS v4 irisan 3 (rolled back): %', out;
+end $$;

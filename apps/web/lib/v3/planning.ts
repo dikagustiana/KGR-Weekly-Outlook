@@ -4,7 +4,8 @@ import "server-only";
  * demandByDay, splitHeadsByDay, dailyPlan, planBatchRow, planningControls) and writes the results; no arithmetic here.
  */
 import {
-  D, addDays, dailyPlan, demandByDay, keyResolver, mondayOf, planBatchRow, planningControls, proposeWeekPlan, splitHeadsByDay, toFixedString, weekDemand,
+  D, addDays, dailyPlan, daysAheadOf, demandByDay, firstDelivery, keyResolver, mondayOf, outstandingKg, planBatchRow, planVarianceDaily, planningControls, ppicBlockers, ppicControls,
+  proposeWeekPlan, shortfallRows, splitHeadsByDay, statForecastWeek, toFixedString, weekDemand,
   type ControlV3, type DailyPlanRow, type Decimal, type ForecastLine, type OrderLine, type PatternYield, type Substitution, type WeekDemandResult, type WeekPlanProposal,
 } from "@kgr/engine";
 import { normDemandStatus, normSupplyStatus, parseV3Table, yieldFraction } from "@kgr/parsers";
@@ -46,10 +47,14 @@ export interface PlanningSources {
   threshold: string;
   leadTimeDays: number;
   v1: { shrink: string; freight: string; maklon: string; lbPriceToday: string; yields: { karkas: string; kepala: string; ceker: string; usus: string; hja: string; lemak: string } };
-  keys: Map<string, { segment: string; sku: string; form: string; cut_component: string | null; fresh_window_hours: number | null; frozen_age_limit_days: number | null }>;
+  keys: Map<string, { segment: string; sku: string; form: string; cut_component: string | null; fresh_window_hours: number | null; frozen_age_limit_days: number | null; product_class: "main" | "by_product"; replacement_buy_price: string | null }>;
   prices: Map<string, string | null>;
   weightClasses: { code: string; avg_kg: string; min_kg: string | null; max_kg: string | null; sort_order: number }[];
-  yieldRows: { weight_class: string; cut_pattern: string; key: string; yield_pct: string }[];
+  yieldRows: { weight_class: string; cut_pattern: string; key: string; yield_pct: string; note: string | null }[];
+  /** K2: Aktual sales of the 8 weeks before the week (key, date, kg) and the days a key had no free stock. */
+  history: { from: string; to: string; sales: { date: string; key: string; kg: string }[]; stockout: Set<string> };
+  /** Written reasons that let a PERIKSA control open the next step (§6.4). */
+  reasons: { code: string; reason: string }[];
   substitutions: Substitution[];
   stock: { date: string | null; lots: { key: string; form: "fresh" | "frozen"; free_kg: string; age_days: number }[] };
   windows: { fresh: number; frozen: number };
@@ -62,21 +67,25 @@ export interface PlanningSources {
 /** Everything one week's demand and plan need. */
 export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSources> {
   const ws = week.week_start, we = addDays(ws, 6);
-  const [items, orders, forecasts, param, keys, prices, classes, yields, subs, cap, lb, plans] = await Promise.all([
+  const hFrom = addDays(ws, -56), hTo = addDays(ws, -1);
+  const [items, orders, forecasts, param, keys, prices, classes, yields, subs, cap, lb, plans, hist, outs, reasons] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, date, delivery_date, demand_status, item_code, key_manual, kg, fulfilled_kg, price, customer, po_ref, po_date, sales_rep")
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, date, delivery_date, demand_status, item_code, key_manual, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, po_date, sales_rep")
       .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer").eq("week_start", ws).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).range(a, b)),
     sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle(),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class, replacement_buy_price").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct, effective_from, effective_to").is("deleted_at", null)
+    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct, effective_from, effective_to, note").is("deleted_at", null)
       .lte("effective_from", ws).order("effective_from").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("substitution").select("key_demand, key_substitute, priority, max_pct").is("deleted_at", null).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("capacity").select("date, cut_capacity_head, chiller_kg, abf_kg").gte("date", ws).lte("date", we).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("lb_supply").select("*").gte("date", ws).lte("date", we).is("deleted_at", null).order("date").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason").eq("week_start", ws).is("deleted_at", null).range(a, b)),
   ]);
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const p = (param.data ?? {}) as Row;
@@ -93,10 +102,10 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     week,
     orders: orders.map((o) => ({
       id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
-      demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), price: s(o.price), customer: s(o.customer),
+      demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
       po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
     })),
-    forecasts: forecasts.map((x) => ({ id: String(x.id), week_start: String(x.week_start), key: String(x.key), kg: String(x.kg), price_expected: s(x.price_expected), sales_rep: s(x.sales_rep), customer: s(x.customer) })),
+    forecasts: forecasts.map((x) => ({ id: String(x.id), week_start: String(x.week_start), key: String(x.key), kg: String(x.kg), price_expected: s(x.price_expected), sales_rep: s(x.sales_rep), customer: s(x.customer), source: x.forecast_source === "stat" ? "stat" as const : "sales" as const })),
     weights: { tentative: s(p.tentative_weight) ?? "0.7", forecast: s(p.forecast_weight) ?? "0.5" },
     threshold: s(p.downgrade_approval_threshold) ?? "25000000",
     leadTimeDays: Number(p.lead_time_days ?? 1),
@@ -107,10 +116,17 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     keys: new Map(keys.map((k) => [String(k.key), {
       segment: String(k.segment), sku: String(k.sku), form: String(k.form), cut_component: s(k.cut_component),
       fresh_window_hours: k.fresh_window_hours === null ? null : Number(k.fresh_window_hours), frozen_age_limit_days: k.frozen_age_limit_days === null ? null : Number(k.frozen_age_limit_days),
+      product_class: k.product_class === "by_product" ? "by_product" as const : "main" as const, replacement_buy_price: s(k.replacement_buy_price),
     }])),
     prices: new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)])),
     weightClasses: classes.map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })),
-    yieldRows: [...ym.values()].map((y) => ({ weight_class: String(y.weight_class), cut_pattern: String(y.cut_pattern), key: String(y.key), yield_pct: String(y.yield_pct) })),
+    yieldRows: [...ym.values()].map((y) => ({ weight_class: String(y.weight_class), cut_pattern: String(y.cut_pattern), key: String(y.key), yield_pct: String(y.yield_pct), note: s(y.note) })),
+    history: {
+      from: hFrom, to: hTo,
+      sales: hist.map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg ?? 0) })),
+      stockout: new Set(outs.map((o) => `${String(o.key)}|${String(o.date)}`)),
+    },
+    reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason) })),
     substitutions: subs.map((x) => ({ key_demand: String(x.key_demand), key_substitute: String(x.key_substitute), priority: Number(x.priority ?? 1), max_pct: String(x.max_pct ?? 1) })),
     stock: { date: sdate, lots: lots.map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days ?? 0) })) },
     windows: { fresh: Number(p.fresh_window_hours_default ?? 48), frozen: Number(p.frozen_age_limit_days_default ?? 30) },
@@ -145,6 +161,30 @@ export function unitYields(src: PlanningSources, weightClass: string): PatternYi
   return out;
 }
 
+/** K1: a production unit decides heads when one of its RPA keys is a main product (sku_key.product_class). */
+export function isMainUnit(src: PlanningSources, unit: string): boolean {
+  let any = false;
+  for (const k of src.keys.values()) if (k.segment === "RPA" && k.sku === unit) { any = true; if (k.product_class === "main") return true; }
+  return !any;
+}
+
+/** Replacement buy price of a unit (any RPA key of it), for the C41 suggestion "beli trading". */
+export function unitBuyPrice(src: PlanningSources, unit: string): string | null {
+  for (const k of src.keys.values()) if (k.segment === "RPA" && k.sku === unit && k.replacement_buy_price !== null) return k.replacement_buy_price;
+  return null;
+}
+
+/** K2: the statistical forecast of the week from the Aktual history (stockout days out), beyond the open PO kg. */
+export function statForecast(src: PlanningSources) {
+  const poKg = new Map<string, Decimal>();
+  const ws = src.week.week_start, we = addDays(ws, 6);
+  for (const o of src.orders) if (o.delivery_date && o.delivery_date >= ws && o.delivery_date <= we) poKg.set(o.key, (poKg.get(o.key) ?? D(0)).plus(outstandingKg(o)));
+  return statForecastWeek({
+    sales: src.history.sales, from: src.history.from, to: src.history.to, isWorkingDay: (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0,
+    stockout: (k, d) => src.history.stockout.has(`${k}|${d}`), weekStart: ws, poKg,
+  });
+}
+
 export function patternOrder(src: PlanningSources): string[] {
   return [...new Set(src.yieldRows.map((y) => y.cut_pattern))].sort((a, b) => (a === "karkas" ? -1 : b === "karkas" ? 1 : a.localeCompare(b)));
 }
@@ -157,11 +197,14 @@ export function computeDemand(src: PlanningSources, classCode?: string | null): 
   const cls = defaultClass(src, classCode);
   const yields = cls ? unitYields(src, cls.code) : [];
   const karkas = yields.find((y) => y.pattern === "karkas" && y.key === "Karkas")?.yield_pct ?? null;
+  const stat = statForecast(src);
   const demand = weekDemand({
-    weekStart: src.week.week_start, orders: src.orders, forecasts: src.forecasts, weights: src.weights,
-    freeLots: src.stock.lots, daysAhead: src.leadTimeDays,
+    weekStart: src.week.week_start, orders: src.orders, forecasts: [...src.forecasts, ...stat.lines], weights: src.weights,
+    // P3.3: eligibility on the delivery date (first delivery of the week), counted from the stock date
+    freeLots: src.stock.lots, daysAhead: daysAheadOf(src.stock.date ?? addDays(src.week.week_start, -1), firstDelivery(src.orders, src.week.week_start), src.leadTimeDays),
     windows: { freshHours: (k) => src.keys.get(k)?.fresh_window_hours ?? src.windows.fresh, frozenDays: (k) => src.keys.get(k)?.frozen_age_limit_days ?? src.windows.frozen },
     substitutions: src.substitutions, unitOf: (k) => unitOf(src, k), yields, avgLbKg: cls?.avg_kg ?? "2", patternOrder: patternOrder(src), karkasYield: karkas,
+    isMain: (u) => isMainUnit(src, u),
   });
   return { demand, cls, yields };
 }
@@ -181,6 +224,7 @@ export function unitPrices(src: PlanningSources): Record<string, { fresh: string
 
 export interface PlanProposal {
   demand: WeekDemandResult;
+  yields: PatternYield[];
   proposal: WeekPlanProposal;
   days: { rows: DailyPlanRow[]; unplaced: number };
   cls: PlanningSources["weightClasses"][number] | null;
@@ -208,7 +252,7 @@ export function proposePlan(src: PlanningSources, opts: { classCode?: string | n
     weekHeads: proposal.plan.head_count, needs, leadTimeDays: src.leadTimeDays, weekStart: src.week.week_start,
     limits: days.map((d) => ({ date: d, cut_capacity_head: src.capacity.get(d)?.cut_capacity_head ?? null, lb_supply_heads: lbByDay.has(d) ? lbByDay.get(d)! : null })),
   });
-  return { demand, proposal, days: planDays, cls, supplyHeads, capacityHeads };
+  return { demand, yields, proposal, days: planDays, cls, supplyHeads, capacityHeads };
 }
 
 export function demandRows(week: string, d: WeekDemandResult, cls: string | null, stockDate: string | null): Row[] {
@@ -216,6 +260,7 @@ export function demandRows(week: string, d: WeekDemandResult, cls: string | null
     week_start: week, key: r.key, confirmed_kg: f(r.confirmed_kg, 2), tentative_kg: f(r.tentative_kg, 2), forecast_kg: f(r.forecast_kg, 2), weighted_kg: f(r.weighted_kg, 2),
     stock_free_kg: f(r.stock_free_kg, 2), substituted_kg: f(r.substituted_kg, 2), net_kg: f(r.net_kg, 2), karkas_kg_equiv: f(r.karkas_kg_equiv, 2),
     cut_pattern: r.cut_pattern, kg_per_head: f(r.kg_per_head, 4), heads: f(r.heads, 4), binding: r.binding, weight_class: cls, stock_date: stockDate,
+    unit: r.unit, product_class: r.product_class, source_forecast: r.source_forecast,
   }));
 }
 
@@ -235,8 +280,52 @@ export async function buildDemandDay(sb: Supa, date: string): Promise<string> {
   const latest = src.plans[0];
   const { demand, cls } = computeDemand(src, latest ? s(latest.weight_class) : null);
   const w = await martReplace(sb, "demand_weekly", ws, demandRows(ws, demand, cls?.code ?? null, src.stock.date));
-  return `${demand.rows.length} key, ${demand.heads.heads} ekor (${w.written} ditulis, ${w.deleted} dihapus)`;
+  // K1 / C41: by-products short at the planned heads
+  const sf = await martReplace(sb, "demand_shortfall", ws, shortfallRows(ws, demand, (u) => unitBuyPrice(src, u)).map((r) => ({
+    week_start: r.week_start, key: r.key, net_kg: f(r.net_kg, 2), output_kg_at_plan: f(r.output_kg_at_plan, 2), shortfall_kg: f(r.shortfall_kg, 2), suggested_action: r.suggested_action,
+  })));
+  // P3.7: actual output per unit per day against the latest plan's targets, one scope per date of the week
+  const v = await varianceRows(sb, src);
+  let vw = 0;
+  for (let i = 0; i < 7; i++) { const d = addDays(ws, i); vw += (await martReplace(sb, "plan_variance_daily", d, v.filter((r) => r.date === d))).written; }
+  return `${demand.rows.length} key, ${demand.heads.heads} ekor, ${demand.shortfalls.filter((x) => x.shortfall_kg.gt(0)).length} by-product kurang (${w.written + sf.written + vw} ditulis, ${w.deleted + sf.deleted} dihapus)`;
 }
+
+/** plan_variance_daily rows of the week: Aktual batches (head count, SKU output mapped to production units) vs plan_day. */
+export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[]> {
+  const ws = src.week.week_start, we = addDays(ws, 6);
+  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).range(a, b));
+  const outs = batches.length ? await fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", batches.map((x) => String(x.id))).is("deleted_at", null).range(a, b)) : [];
+  const dateOf = new Map(batches.map((b) => [String(b.id), String(b.date)]));
+  const rows = planVarianceDaily({
+    planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
+    actualOutput: outs.map((o) => ({ date: dateOf.get(String(o.batch_id)) ?? ws, unit: (o.key ? unitOf(src, String(o.key)) : null) ?? String(o.key ?? "tanpa key"), kg: String(o.kg) })),
+    actualHeads: batches.filter((b) => b.head_count !== null).map((b) => ({ date: String(b.date), heads: Number(b.head_count) })),
+    from: ws, to: we,
+  });
+  return rows.map((r) => ({ date: r.date, key: r.key, planned_kg: f(r.planned_kg, 2), actual_kg: f(r.actual_kg, 2), variance_kg: f(r.variance_kg, 2), planned_heads: r.planned_heads, actual_heads: r.actual_heads }));
+}
+
+/**
+ * Controls of the PPIC page (PRD v4 §6.4, §7.1): C28 / C30 (v3) and C41, C42, C44, C46, C47 for the week's demand and
+ * the proposed (or saved) plan. C45 is added by the caller (it reads the stock mart's status).
+ */
+export function ppicWeekControls(src: PlanningSources, p: PlanProposal, today: string): ControlV3[] {
+  const stat = statForecast(src);
+  const prices = unitPrices(src);
+  const planDates = (src.planDays.length ? src.planDays.filter((d) => Number(d.head_count) > 0).map((d) => String(d.date)) : p.days.rows.filter((r) => r.head_count > 0).map((r) => r.date));
+  const used = new Set(p.yields.map((y) => `${y.pattern}|${y.key}`));
+  const notes = src.yieldRows.filter((y) => y.weight_class === (p.cls?.code ?? "") && [...used].some((u) => u.startsWith(`${y.cut_pattern}|`))).map((y) => y.note);
+  const v4 = ppicControls({
+    weekStart: src.week.week_start, demand: p.demand, buyPrice: (u) => unitBuyPrice(src, u), yieldNotes: notes,
+    surplus: Object.entries(p.proposal.plan.surplus_kg_by_key).map(([key, kg]) => ({ key, kg: kg.toFixed(2), fresh: prices[key]?.fresh ?? null, frozen: prices[key]?.frozen ?? null })),
+    planDates, capacity: (d) => src.capacity.get(d)?.cut_capacity_head ?? null,
+    historyDays: stat.historyDays, forecastKeys: new Set([...src.forecasts.map((x) => x.key), ...stat.lines.map((x) => x.key)]),
+  });
+  return [...weekPlanningControls(src, today), ...v4];
+}
+
+export { ppicBlockers };
 
 registerBuilder({ module: "m3_planning", name: "demand", begin: async () => { built = new Set(); }, build: buildDemandDay });
 
@@ -255,6 +344,9 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
   const p = proposePlan(src, opts);
   const version = (src.plans.length ? Math.max(...src.plans.map((x) => Number(x.version))) : 0) + 1;
   const wp = p.proposal.plan;
+  // C42: a plan on placeholder yields may be saved, labelled "yield sementara"; it cannot be copied to batches
+  const ctl = [...ppicWeekControls(src, p, week.update_date), c45];
+  const provisional = ctl.find((c) => c.code === "C42")?.status !== "LULUS";
   const { data, error } = await sb.from("plan_week").insert({
     week_start: week.week_start, version, weight_class: p.cls?.code ?? null, head_count: wp.head_count, heads_needed: wp.headsNeeded,
     supply_committed_heads: p.supplyHeads, capacity_heads: p.capacityHeads, binding_key: p.demand.binding.join(", ") || null,
@@ -262,6 +354,7 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
     output_kg_by_key: Object.fromEntries(Object.entries(wp.output_kg_by_key).map(([k, v]) => [k, f(v, 2)])),
     surplus_kg_by_key: Object.fromEntries(Object.entries(wp.surplus_kg_by_key).filter(([, v]) => v.gt(0)).map(([k, v]) => [k, f(v, 2)])),
     frozen_planned_kg: f(wp.frozen_planned_kg, 2), frozen_planned_rp_downgrade: f(wp.rp_downgrade, 2), needs_approval: wp.needsApproval, note: opts.note ?? null,
+    yield_provisional: provisional, controls: Object.fromEntries(ctl.map((c) => [c.code, c.status])),
   }).select("id").single();
   if (error) throw new WriteError(`plan_week: ${error.message}`);
   const id = String((data as Row).id);
@@ -275,10 +368,20 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
   const e2 = await sb.from("plan_day").insert(rows);
   if (e2.error) throw new WriteError(`plan_day: ${e2.error.message}`);
   void viewer;
-  return `Rencana v${version}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}`;
+  return `Rencana v${version}${provisional ? " (yield sementara)" : ""}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}`;
 }
 
 export async function approvePlan(sb: Supa, viewer: Viewer, planId: string): Promise<string> {
+  // C46: a plan with surplus but no fresh / frozen price cannot be approved (the downgrade is unknown)
+  const { data: pw } = await sb.from("plan_week").select("week_start, surplus_kg_by_key").eq("id", planId).maybeSingle();
+  const plan = pw as Row | null;
+  if (!plan) throw new WriteError("Rencana tidak ditemukan");
+  const week = (await listWeeks(sb)).find((w) => w.week_start === String(plan.week_start));
+  if (week) {
+    const prices = unitPrices(await loadPlanning(sb, week));
+    const missing = Object.entries((plan.surplus_kg_by_key ?? {}) as Record<string, string>).filter(([k, kg]) => D(kg).gt(0) && (!prices[k]?.fresh || !prices[k]?.frozen)).map(([k]) => k);
+    if (missing.length) throw new WriteError(`C46: harga fresh/frozen kosong untuk SKU bersurplus (${missing.join(", ")}); isi harga dulu`);
+  }
   const { error, count } = await sb.from("plan_week").update({ approved_by: viewer.email, approved_at: new Date().toISOString() }, { count: "exact" }).eq("id", planId).is("approved_by", null);
   if (error) throw new WriteError(error.message);
   return count ? "Rencana disetujui" : "Rencana sudah disetujui sebelumnya";
@@ -293,6 +396,11 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string)
   const plan = src.plans.find((x) => String(x.id) === planId);
   if (!plan) throw new WriteError("Rencana tidak ditemukan");
   if (plan.needs_approval && !plan.approved_by) throw new WriteError("Rencana dengan downgrade di atas batas belum disetujui");
+  // §6.4: copy only when C42, C45, C46 and C47 are LULUS (computed on the saved plan's days)
+  const c45 = await stockMartControl(sb, addDays(week.week_start, -1));
+  const p = proposePlan(src, { classCode: s(plan.weight_class) });
+  const block = ppicBlockers([...ppicWeekControls(src, p, week.update_date), c45], "copy");
+  if (block.length) throw new WriteError(`Belum bisa disalin ke batch: ${block.map((b) => `${b.code} ${b.status}`).join(", ")}`);
   const days = await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", planId).gt("head_count", 0).order("date").range(a, b));
   const cls = defaultClass(src, s(plan.weight_class));
   const ref = (d: string) => `PLAN-${week.week_start}-v${plan.version}-${d}`;

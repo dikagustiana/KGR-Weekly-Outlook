@@ -128,6 +128,8 @@ export interface ForecastLine {
   kg: Num;
   price_expected?: Num | null;
   sales_rep?: string | null;
+  /** K2: 'sales' (upload forecast_sales, default) or 'stat' (statistical, from history). */
+  source?: "sales" | "stat" | null;
 }
 
 export interface DemandWeights {
@@ -143,6 +145,8 @@ export interface WeeklyDemandRow {
   forecast_kg: Decimal;
   /** confirmed + tentative × w_t + forecast × w_f */
   weighted_kg: Decimal;
+  /** K2: where forecast_kg (beyond PO lines) came from; null without forecast lines. */
+  source_forecast?: "sales" | "stat" | null;
 }
 
 /** Step 1: Σ open PO lines with delivery date in [weekStart, weekStart+6] per status, + forecast lines of the week. */
@@ -163,7 +167,16 @@ export function weeklyDemand(x: { orders: OrderLine[]; forecasts: ForecastLine[]
     else if (o.demand_status === "Forecast") r.forecast_kg = r.forecast_kg.plus(open);
     else r.confirmed_kg = r.confirmed_kg.plus(open);
   }
-  for (const f of x.forecasts) if (f.week_start === x.weekStart) row(f.key).forecast_kg = row(f.key).forecast_kg.plus(D(f.kg));
+  // K2: a key with a Sales forecast for the week ignores the statistical one
+  const salesKeys = new Set(x.forecasts.filter((f) => f.week_start === x.weekStart && (f.source ?? "sales") === "sales").map((f) => f.key));
+  for (const f of x.forecasts) {
+    if (f.week_start !== x.weekStart) continue;
+    const src = f.source ?? "sales";
+    if (src === "stat" && salesKeys.has(f.key)) continue;
+    const r = row(f.key);
+    r.forecast_kg = r.forecast_kg.plus(D(f.kg));
+    r.source_forecast = src;
+  }
   for (const r of m.values()) r.weighted_kg = r.confirmed_kg.plus(r.tentative_kg.times(D(x.weights.tentative))).plus(r.forecast_kg.times(D(x.weights.forecast)));
   return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
@@ -289,6 +302,11 @@ export interface HeadsByPatternResult {
   topUps: { key: string; pattern: string; short_kg: Decimal; heads: number }[];
   /** Keys with net demand but no yield in any pattern (bought, not cut). */
   notCut: string[];
+  /**
+   * K1: by-products do not decide heads. Their output at the planned heads and what is still missing (P3.4, C41):
+   * output = Σ pattern heads × avg kg × yield; shortfall = max(0, net − output). Empty when every unit is main.
+   */
+  byProducts: { key: string; net_kg: Decimal; output_kg: Decimal; shortfall_kg: Decimal; kg_per_head: Decimal; pattern: string | null }[];
 }
 
 /**
@@ -297,7 +315,8 @@ export interface HeadsByPatternResult {
  * patterns (by-products) are covered by the heads already planned in every pattern, and any shortfall adds heads to the
  * pattern with the highest yield for them (first in `order` on a tie).
  */
-export function headsByPattern(x: { net: { key: string; kg: Num }[]; yields: PatternYield[]; avgLbKg: Num; order?: string[] }): HeadsByPatternResult {
+export function headsByPattern(x: { net: { key: string; kg: Num }[]; yields: PatternYield[]; avgLbKg: Num; order?: string[]; isMain?: (key: string) => boolean }): HeadsByPatternResult {
+  const isMain = x.isMain ?? (() => true);
   const avg = D(x.avgLbKg);
   const order = [...(x.order ?? []), ...x.yields.map((y) => y.pattern)].filter((p, i, a) => a.indexOf(p) === i);
   const y = new Map<string, Map<string, Decimal>>();
@@ -308,14 +327,16 @@ export function headsByPattern(x: { net: { key: string; kg: Num }[]; yields: Pat
   }
   const need = x.net.filter((n) => D(n.kg).gt(0));
   const notCut = need.filter((n) => !y.has(n.key)).map((n) => n.key);
+  // K1: only the main products set the heads of a pattern; by-products come with them
+  const mainNeed = need.filter((n) => isMain(n.key));
   const patterns: PatternHeads[] = order.map((p) => {
-    const excl = need.filter((n) => y.get(n.key)?.size === 1 && y.get(n.key)!.has(p));
+    const excl = mainNeed.filter((n) => y.get(n.key)?.size === 1 && y.get(n.key)!.has(p));
     const h = toHeads({ net: excl, yieldPct: (k) => y.get(k)?.get(p)?.toString() ?? null, avgLbKg: avg });
     return { pattern: p, heads: h.heads, binding: h.binding, rows: h.rows };
-  }).filter((p) => p.heads > 0 || need.some((n) => y.get(n.key)?.has(p.pattern)));
+  }).filter((p) => p.heads > 0 || mainNeed.some((n) => y.get(n.key)?.has(p.pattern)));
   const byName = new Map(patterns.map((p) => [p.pattern, p]));
   const topUps: HeadsByPatternResult["topUps"] = [];
-  for (const n of need.filter((q) => (y.get(q.key)?.size ?? 0) > 1).sort((a, b) => a.key.localeCompare(b.key))) {
+  for (const n of mainNeed.filter((q) => (y.get(q.key)?.size ?? 0) > 1).sort((a, b) => a.key.localeCompare(b.key))) {
     const ys = y.get(n.key)!;
     const supply = sum([...ys.entries()].map(([p, v]) => D(byName.get(p)?.heads ?? 0).times(avg).times(v)));
     const short = D(n.kg).minus(supply);
@@ -329,7 +350,16 @@ export function headsByPattern(x: { net: { key: string; kg: Num }[]; yields: Pat
     ph.heads += add;
     topUps.push({ key: n.key, pattern: best, short_kg: short, heads: add });
   }
-  return { avg_lb_kg: avg, patterns, heads: patterns.reduce((a, p) => a + p.heads, 0), topUps, notCut };
+  const byProducts: HeadsByPatternResult["byProducts"] = [];
+  for (const n of need.filter((q) => !isMain(q.key) && y.has(q.key)).sort((a, b) => a.key.localeCompare(b.key))) {
+    const ys = y.get(n.key)!;
+    const output = sum([...ys.entries()].map(([p, v]) => D(byName.get(p)?.heads ?? 0).times(avg).times(v)));
+    // the pattern the by-product mostly comes from (planned heads × yield), for the kg per head column
+    let best: string | null = null;
+    for (const p of order) if (ys.has(p) && (best === null || D(byName.get(p)?.heads ?? 0).times(ys.get(p)!).gt(D(byName.get(best)?.heads ?? 0).times(ys.get(best)!)))) best = p;
+    byProducts.push({ key: n.key, net_kg: D(n.kg), output_kg: output, shortfall_kg: max(ZERO, D(n.kg).minus(output)), kg_per_head: best ? avg.times(ys.get(best)!) : ZERO, pattern: best });
+  }
+  return { avg_lb_kg: avg, patterns, heads: patterns.reduce((a, p) => a + p.heads, 0), topUps, notCut, byProducts };
 }
 
 export interface WeekDemandInput {
@@ -351,6 +381,8 @@ export interface WeekDemandInput {
   patternOrder?: string[];
   /** Karkas yield of the class (karkas pattern), for the karkas-equivalent column. */
   karkasYield?: Num | null;
+  /** K1: production unit that decides heads (product_class 'main'); absent = every unit. */
+  isMain?: (unit: string) => boolean;
 }
 
 export interface DemandWeeklyRow {
@@ -370,6 +402,10 @@ export interface DemandWeeklyRow {
   heads: Decimal | null;
   karkas_kg_equiv: Decimal | null;
   binding: boolean;
+  /** K1: 'main' decides heads, 'by_product' only comes with them; null = bought, not cut. */
+  product_class: "main" | "by_product" | null;
+  /** K2: source of the forecast kg ('sales' upload or 'stat'), null without forecast. */
+  source_forecast: "sales" | "stat" | null;
 }
 
 export interface WeekDemandResult {
@@ -380,6 +416,8 @@ export interface WeekDemandResult {
   /** Binding unit per pattern. */
   binding: string[];
   totals: { weighted_kg: Decimal; stock_free_kg: Decimal; net_kg: Decimal };
+  /** K1 / C41: by-products short at the planned heads (demand_shortfall). */
+  shortfalls: HeadsByPatternResult["byProducts"];
 }
 
 /** Steps 1–3 (PRD v3 §4.4) for one week: weighted demand → netting → heads by pattern. */
@@ -393,7 +431,8 @@ export function weekDemand(x: WeekDemandInput): WeekDemandResult {
     if (u !== null && n.net_kg.gt(0)) units.set(u, (units.get(u) ?? ZERO).plus(n.net_kg));
   }
   const unitNet = [...units.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, kg]) => ({ key, kg }));
-  const heads = headsByPattern({ net: unitNet, yields: x.yields, avgLbKg: x.avgLbKg, order: x.patternOrder });
+  const heads = headsByPattern({ net: unitNet, yields: x.yields, avgLbKg: x.avgLbKg, order: x.patternOrder, isMain: x.isMain });
+  const mainOf = (u: string) => (x.isMain ? x.isMain(u) : true);
   const avg = D(x.avgLbKg);
   const binding = heads.patterns.map((p) => p.binding).filter((b): b is string => b !== null);
   // pattern of a unit: where it is exclusive, else where its shortfall went, else its highest yield
@@ -419,9 +458,11 @@ export function weekDemand(x: WeekDemandInput): WeekDemandResult {
       key: w.key, confirmed_kg: w.confirmed_kg, tentative_kg: w.tentative_kg, forecast_kg: w.forecast_kg, weighted_kg: w.weighted_kg,
       stock_free_kg: n.stock_used_kg, substituted_kg: n.substituted_kg, net_kg: n.net_kg, unit: u, cut_pattern: p, kg_per_head: kgPerHead, heads: h,
       karkas_kg_equiv: h !== null && x.karkasYield !== null && x.karkasYield !== undefined ? h.times(avg).times(D(x.karkasYield)) : null,
-      binding: u !== null && binding.includes(u),
+      binding: u !== null && mainOf(u) && binding.includes(u),
+      product_class: u === null ? null : mainOf(u) ? "main" : "by_product",
+      source_forecast: w.source_forecast ?? null,
     };
   });
   const totals = { weighted_kg: sum(rows.map((r) => r.weighted_kg)), stock_free_kg: sum(rows.map((r) => r.stock_free_kg)), net_kg: sum(rows.map((r) => r.net_kg)) };
-  return { rows, unitNet, heads, binding, totals };
+  return { rows, unitNet, heads, binding, totals, shortfalls: heads.byProducts };
 }

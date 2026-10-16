@@ -25,3 +25,4 @@ export * from "./commercial";
 export * from "./management";
 export * from "./week-outlook";
 export * from "./month-v4";
+export * from "./ppic-v4";

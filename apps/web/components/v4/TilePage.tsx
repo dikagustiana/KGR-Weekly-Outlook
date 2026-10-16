@@ -1,6 +1,6 @@
 import { Tile, TileGrid } from "./Tile";
 import { CardBody } from "./Card";
-import { ModeToggle, ReleaseLine, Slicer } from "./Controls";
+import { ModeToggle, ReleaseLine, Slicer, Stepper } from "./Controls";
 import { ComboChart, Legend, LineChart, PairedBars, StackedBars, Waterfall } from "./Chart";
 import { V4Table } from "./Table";
 import { CaraHitung } from "./CaraHitung";
@@ -68,6 +68,7 @@ function body(t: TileModel): ReactNode {
         {(c.sections ?? []).map((s) => <div key={s.title}><h3 className="tile-t">{s.title}</h3><V4Table cols={s.cols} rows={s.rows} label={s.title} /></div>)}
       </>
     );
+    case "stepper": return <Stepper steps={c.steps} current={c.current} />;
     case "list": {
       if (!c.items.length) return <p className="note">{c.empty ?? "tidak ada"}</p>;
       const L = c.ordered ? "ol" : "ul";
@@ -77,13 +78,14 @@ function body(t: TileModel): ReactNode {
 }
 
 /** A page of tiles (PRD v4 §6): one grid, every tile placed at its x, y, w, h. */
-export function TilePage({ tiles, label }: { tiles: TileModel[]; label: string }) {
+export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: string; extras?: Record<string, ReactNode> }) {
   return (
     <TileGrid label={label}>
       {tiles.map((t) => (
         <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note}
           extra={legendOf(t) || t.cara ? <span className="tile-x">{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {body(t)}
+          {extras?.[t.id] ?? null}
         </Tile>
       ))}
     </TileGrid>

@@ -133,11 +133,29 @@ export async function allocateDay(sb: Supa, viewer: Viewer, date: string): Promi
   return `${rows.length} alokasi FEFO ditulis${stale.length ? `, ${stale.length} alokasi lama dilepas` : ""}${un ? ` — ${un} baris PO belum tertutup stok` : ""}`;
 }
 
+/** Jakarta wall clock (HH:MM) and date now. */
+export function jakartaNow(now = new Date()): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Jakarta", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(now);
+  const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return { date: `${g("year")}-${g("month")}-${g("day")}`, time: `${g("hour") === "24" ? "00" : g("hour")}:${g("minute")}` };
+}
+
+/** K8: the cut-off of a day opens at the cut-off time of that day (a past day is open, a future day is not). */
+export function cutoffOpen(date: string, cutOffTime: string, now = jakartaNow()): { ok: boolean; reason: string | null } {
+  const t = cutOffTime.slice(0, 5);
+  if (date < now.date) return { ok: true, reason: null };
+  if (date > now.date || now.time < t) return { ok: false, reason: `Cut-off ${date} baru bisa setelah pukul ${t} WIB; sebelum itu sisa fresh dijual spot dulu (K8)` };
+  return { ok: true, reason: null };
+}
+
 /** "Cut-off": blast the fresh kg left (engine cutoffBlasts) to frozen — once per day. */
 export async function cutoffDay(sb: Supa, viewer: Viewer, date: string): Promise<string> {
   const d = await loadDayAllocation(sb, date);
   if (!d) throw new WriteError("Ledger stok (M2) belum ada");
   if (d.cutoffDone.length) throw new WriteError(`Cut-off ${date} sudah dicatat (${d.cutoffDone.length} blast)`);
+  // K8: until the cut-off time the fresh rest is sold spot first; blasting is only possible after it
+  const open = cutoffOpen(date, d.cutOffTime);
+  if (!open.ok) throw new WriteError(open.reason!);
   if (!d.cutoff.length) return "Tidak ada sisa fresh yang perlu di-blast";
   const rows = d.cutoff.map((b) => ({
     date, time: d.cutOffTime, lot_ref_from: b.lot_ref, key_from: b.key_from, key_to: b.key_to, kg: toFixedString(b.kg, 2), reason: "cutoff",

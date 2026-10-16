@@ -13,6 +13,7 @@ import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
+import { salesWithDeliveries } from "../v4/delivery-ledger";
 
 const s = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
 const f = (x: Decimal | null | undefined, dp: number) => (x === null || x === undefined ? null : toFixedString(x, dp));
@@ -39,7 +40,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, week_id, date, status, item_code, key_manual, kg, hpp_actual, document_ref")
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, week_id, date, status, item_code, key_manual, kg, cancelled_kg, hpp_actual, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("blast_event").select("id, date, lot_ref_from, key_to, kg").is("deleted_at", null).order("date").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("lot_movement").select("id, date, lot_ref, key, item_code, kg, cost, note").eq("ref_table", "manual").order("date").range(a, b)),
@@ -50,6 +51,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     // M3 allocations (F3b): which lot a PO line / DO takes. Missing table (M3 not migrated) = none.
     fetchAll<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]),
   ]);
+  // K7 (PRD v4 irisan 3): deliveries recorded on open PO lines; missing table (v4 not migrated) = none
+  const deliveries = await fetchAll<Row>((a, b) => sb.from("delivery").select("id, sales_line_id, date, kg, document_ref").is("deleted_at", null).gte("date", first.week_start).order("date").range(a, b)).catch(() => [] as Row[]);
   // M1 specific cost per batch × key (posted allocations), used as the lot's SI cost; MA stays on the GRN cost
   const si = new Map<string, { kg: ReturnType<typeof D>; cost: ReturnType<typeof D> }>();
   for (const r of allocs) {
@@ -83,10 +86,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
         unit_cost: s(r.unit_cost), document_ref: s(r.document_ref), cost_per_kg_si: c && !c.kg.isZero() ? c.cost.div(c.kg).toFixed(4) : null,
       };
     }),
-    sales: sales.filter((r) => r.status === "Aktual" || isLatest(r.week_id)).map((r) => ({
-      ref: String(r.id), date: s(r.date), status: s(r.status), item_code: s(r.item_code), key: keyOf(s(r.key_manual), s(r.item_code)), kg: s(r.kg),
-      hpp_actual: s(r.hpp_actual), document_ref: s(r.document_ref),
-    })),
+    sales: salesWithDeliveries(sales.filter((r) => r.status === "Aktual" || isLatest(r.week_id)), deliveries, keyOf),
     blasts: blasts.map((b) => ({ ref: String(b.id), date: String(b.date), lot_ref: String(b.lot_ref_from), kg: String(b.kg), to_key: s(b.key_to) })),
     adjustments: manual.map((m) => ({
       ref: String(m.id), date: String(m.date), lot_ref: s(m.lot_ref), key: String(m.key), item_code: s(m.item_code), kg: String(m.kg),
