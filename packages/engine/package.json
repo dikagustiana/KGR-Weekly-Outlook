@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./fixtures": "./src/fixtures.ts",
-    "./example": "./src/example-week.ts"
+    "./example": "./src/example-week.ts",
+    "./upload": "./src/upload-validate.ts"
   },
   "scripts": {
     "test": "vitest run",

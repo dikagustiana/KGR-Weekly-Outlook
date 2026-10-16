@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { addDays, computeWeek, releaseVerdict, snapshotJsonV3, v1Codes } from "@kgr/engine";
+import { addDays, computeWeek, k35, releaseVerdict, snapshotJsonV3, v1Codes, type CellStatus } from "@kgr/engine";
 import type { Supa } from "./supabase";
 import { loadWeek } from "./data";
 import { outlookPdf } from "./pdf";
@@ -8,6 +8,8 @@ import { WriteError } from "./write";
 import { moduleSettings } from "./modules";
 import { moduleSettingsGlobal } from "./rebuild";
 import { v3ForWeek } from "./v3/week";
+import { jakartaNow } from "./v3/allocation";
+import { v5InputOn } from "./v5/input-data";
 
 /** Overrides and pending rebuilds of a scope, and whether the §7.2 rule is on (flag v4_release). */
 export async function releaseContext(sb: Supa, scopeKind: "week" | "month", scope: string, from: string, to: string) {
@@ -39,6 +41,17 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
   if (!verdict.ok) {
     const name = (code: string) => result.controls.controls.find((c) => `C${c.no}` === code)?.name ?? (code === "STALE" ? `mart belum dibangun ulang (${rc.staleDates.join(", ")})` : code);
     throw new WriteError(`Rilis ditolak — ${verdict.rejections.map((r) => `${r.code} ${r.status}: ${name(r.code)}${r.overridable ? " (bisa override dengan alasan dan bukti)" : ""}`).join("; ")}`);
+  }
+  // PRD v5 K35 (flag v5_input): red cells of the completeness grid hold the release unless Finance recorded K35;
+  // public.release_week checks the same in the release transaction
+  if (await v5InputOn(sb)) {
+    const { data: cells } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6));
+    const n = jakartaNow();
+    const v = k35({
+      cells: ((cells ?? []) as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
+      weekStart, now: `${n.date}T${n.time}:00+07:00`, override: rc.overrides.some((o) => o.code === "K35"),
+    });
+    if (!v.ok) throw new WriteError(`Rilis ditolak — K35 kelengkapan data merah: ${v.red.map((c) => `${c.kind} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`).join(", ")}. Lengkapi input, atau Finance mencatat alasan di layar Input ("Rilis dengan alasan").`);
   }
   // v3 module outputs (only modules that are on) under their own keys; all flags off = the v1 snapshot byte for byte
   const v3 = await v3ForWeek(sb, loaded.week, moduleSettingsGlobal(await moduleSettings()), result);

@@ -30,3 +30,5 @@ export * from "./close-v4";
 export * from "./pl-v5";
 export * from "./ppic-class";
 export * from "./commercial-v5";
+export * from "./upload-validate";
+export * from "./input-tasks";

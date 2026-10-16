@@ -6,7 +6,7 @@ import "server-only";
  * (planCost mode rencana); C50, C51, C58. The demand builder writes demand_class_weekly; the PPIC page reads this.
  */
 import {
-  D, addDays, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, netShareOf, planCost, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
+  D, addDays, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
   type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type SizedLine, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -67,7 +67,8 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
     setup: { classOf: (sz) => latest.get(sz.toFixed(2)) ?? null, yieldKarkas: (c) => yieldOf(c, "Karkas"), avgKg: (c) => avg.get(c) ?? null, midOffset: SIZE_MID_OFFSET, fallback: FALLBACK },
   });
   const daily = dailyClassPlan({ demand, leadTimeDays: src.leadTimeDays });
-  const registered = classes.map((c) => String(c.code));
+  // C51: registered = PPIC gave the class numbers (v5/0 seeds K/S/B codes without; same rule as the upload check)
+  const registered = registeredClasses(classes.map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) })));
   const used = [
     ...src.yieldRows.map((y) => ({ source: "yield", weight_class: y.weight_class })),
     ...src.lbSupply.filter((l) => s(l.weight_class)).map((l) => ({ source: "supply LB", weight_class: String(l.weight_class) })),

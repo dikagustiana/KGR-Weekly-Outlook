@@ -1,0 +1,282 @@
+{
+ "_note": "Lampiran B.5 (PRD v5 §9.2): hasil validateUpload atas po_sample.xlsx, wp_sample.xlsx, yield_sample.xlsx dengan context.json. Kelas WP = STD karena rentang K/S/B belum diisi PPIC (O5); 'kelas S' Lampiran B.5 memakai rentang ilustrasi mockup dan diuji terpisah, bukan golden.",
+ "po_lines": {
+  "total": 7,
+  "ok_count": 4,
+  "checks": [
+   {
+    "level": "ok",
+    "title": "Kolom wajib",
+    "detail": "lengkap",
+    "result": "lolos"
+   },
+   {
+    "level": "fail",
+    "title": "Kode item terpetakan",
+    "detail": "6 dari 7",
+    "result": "1 baris",
+    "code": "C56"
+   },
+   {
+    "level": "fail",
+    "title": "Ukuran karkas RPA terisi",
+    "detail": "4 dari 5 baris karkas",
+    "result": "1 baris",
+    "code": "C50"
+   },
+   {
+    "level": "fail",
+    "title": "Tanggal kirim ≥ hari ini",
+    "detail": "6 dari 7",
+    "result": "1 baris"
+   },
+   {
+    "level": "fail",
+    "title": "kg dan harga terisi",
+    "detail": "6 dari 7",
+    "result": "1 baris"
+   },
+   {
+    "level": "warn",
+    "title": "Harga ≥ lantai (biaya)",
+    "detail": "2 dari 7",
+    "result": "5 baris → approval",
+    "code": "C38"
+   },
+   {
+    "level": "ok",
+    "title": "Pelanggan sesuai assignment",
+    "detail": "semua pelanggan",
+    "result": "lolos",
+    "code": "K32"
+   }
+  ],
+  "rows": [
+   {
+    "ref": "KGR26.00341",
+    "name": "Ayam Karkas Mix · kirim 27/08",
+    "kg": "811,3",
+    "level": "fail",
+    "action": "ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)"
+   },
+   {
+    "ref": "KGR26.00349",
+    "name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A · kirim 29/08",
+    "kg": "1.755,0",
+    "level": "warn",
+    "action": "harga 36.705 < lantai 37.400: approval Kepala Sales"
+   },
+   {
+    "ref": "KGR26.00350",
+    "name": "Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium · kirim 29/08",
+    "kg": "1.496,6",
+    "level": "warn",
+    "action": "harga 36.705 < lantai 37.400: approval Kepala Sales"
+   },
+   {
+    "ref": "KGR26.00353",
+    "name": "BLP Frozen · kirim 27/08",
+    "kg": "3.229,2",
+    "level": "warn",
+    "action": "harga 43.086 < lantai 47.199: approval Kepala Sales"
+   },
+   {
+    "ref": "KGR26.00357",
+    "name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A · kirim 29/08",
+    "kg": "302,8",
+    "level": "warn",
+    "action": "harga 36.705 < lantai 37.400: approval Kepala Sales"
+   },
+   {
+    "ref": "KGR26.00360",
+    "name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A · kirim 26/08",
+    "kg": "120,0",
+    "level": "fail",
+    "action": "tanggal kirim 26/08 sudah lewat; harga 36.705 < lantai 37.400: approval Kepala Sales"
+   },
+   {
+    "ref": "KGR26.00361",
+    "name": "X-999 (tidak dikenal)",
+    "kg": "50,0",
+    "level": "fail",
+    "action": "kode tidak dikenal: petakan di master item; harga kosong"
+   }
+  ],
+  "ok_lines": [
+   3,
+   4,
+   5,
+   6
+  ],
+  "summary": "4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.",
+  "needsReason": [],
+  "fingerprint": "v1:1228f59d23ef0f1d01b19519db11"
+ },
+ "costing_wp": {
+  "total": 8,
+  "ok_count": 6,
+  "checks": [
+   {
+    "level": "ok",
+    "title": "Kolom wajib",
+    "detail": "lengkap",
+    "result": "lolos"
+   },
+   {
+    "level": "fail",
+    "title": "Kode SKU terpetakan",
+    "detail": "6 dari 8 baris",
+    "result": "2 baris",
+    "code": "C56"
+   },
+   {
+    "level": "info",
+    "title": "Batch B260826 · rata-rata LB",
+    "detail": "7.512,0 kg / 3.902 ekor = 1,93 kg/ekor",
+    "result": "kelas STD"
+   },
+   {
+    "level": "fail",
+    "title": "Σ SKU vs hasil potong",
+    "detail": "6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%)",
+    "result": "perlu penjelasan",
+    "code": "C22"
+   },
+   {
+    "level": "ok",
+    "title": "Yield karkas",
+    "detail": "73,4% (batas 68–76%)",
+    "result": "lolos"
+   }
+  ],
+  "rows": [
+   {
+    "ref": "JLB0763",
+    "name": "Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A",
+    "kg": "612,4",
+    "level": "ok",
+    "action": ""
+   },
+   {
+    "ref": "JLB0829",
+    "name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A",
+    "kg": "2.081,0",
+    "level": "ok",
+    "action": ""
+   },
+   {
+    "ref": "JLB0922",
+    "name": "Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium",
+    "kg": "1.108,7",
+    "level": "ok",
+    "action": ""
+   },
+   {
+    "ref": "JLB0856",
+    "name": "Karkas Uk 1.3 Karkas Uk 1.3 Fresh Premium",
+    "kg": "1.710,0",
+    "level": "ok",
+    "action": ""
+   },
+   {
+    "ref": "X-HATI",
+    "name": "(tidak dikenal)",
+    "kg": "401,2",
+    "level": "fail",
+    "action": "kode tidak dikenal: petakan di master item"
+   },
+   {
+    "ref": "KPL-01",
+    "name": "(tidak dikenal)",
+    "kg": "338,0",
+    "level": "fail",
+    "action": "kode tidak dikenal: petakan di master item"
+   },
+   {
+    "ref": "JLB0078",
+    "name": "Boneless BL Fresh Ceker",
+    "kg": "213,9",
+    "level": "ok",
+    "action": ""
+   },
+   {
+    "ref": "JLB0135",
+    "name": "Boneless BL Fresh Usus Kotor",
+    "kg": "317,6",
+    "level": "ok",
+    "action": ""
+   }
+  ],
+  "ok_lines": [
+   2,
+   3,
+   4,
+   5,
+   8,
+   9
+  ],
+  "summary": "6 dari 8 baris bisa disimpan. Batch dengan selisih di atas 2% tetap berstatus sementara sampai diberi alasan.",
+  "needsReason": [
+   "B260826"
+  ],
+  "fingerprint": "v1:1608d6f7fec05514143f37752ffc"
+ },
+ "yield_matrix": {
+  "total": 18,
+  "ok_count": 0,
+  "checks": [
+   {
+    "level": "ok",
+    "title": "Kolom wajib",
+    "detail": "lengkap",
+    "result": "lolos"
+   },
+   {
+    "level": "fail",
+    "title": "Kelas terdaftar",
+    "detail": "K, S, B belum ada di tabel kelas berat (baru STD)",
+    "result": "daftarkan dulu",
+    "code": "C51"
+   },
+   {
+    "level": "ok",
+    "title": "Σ yield per kelas ≤ 100%",
+    "detail": "K 89,2% · S 89,9% · B 90,4%",
+    "result": "per kelas"
+   },
+   {
+    "level": "ok",
+    "title": "Yield karkas di 68–76%",
+    "detail": "K 70,2% · S 71,5% · B 72,4%",
+    "result": "per kelas"
+   }
+  ],
+  "rows": [
+   {
+    "ref": "K",
+    "name": "6 kunci",
+    "kg": "70,2%",
+    "level": "fail",
+    "action": "daftarkan kelas K"
+   },
+   {
+    "ref": "S",
+    "name": "6 kunci",
+    "kg": "71,5%",
+    "level": "fail",
+    "action": "daftarkan kelas S"
+   },
+   {
+    "ref": "B",
+    "name": "6 kunci",
+    "kg": "72,4%",
+    "level": "fail",
+    "action": "daftarkan kelas B"
+   }
+  ],
+  "ok_lines": [],
+  "summary": "0 dari 18 baris bisa disimpan. Yield menggantikan placeholder C42 setelah kelas terdaftar.",
+  "needsReason": [],
+  "fingerprint": "v1:1e7d9ff68c854f13b22160bf7609"
+ }
+}

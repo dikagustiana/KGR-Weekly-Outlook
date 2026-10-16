@@ -1,0 +1,23 @@
+{
+ "_note": "Konteks golden Lampiran B.5 (PRD v5 §9.2). items = fixtures/week-2026-08-24/item_map.json (dimuat tes). floors = biaya/kg MA mart Commercial ebe4ad8 (peta FLOOR di Input.dc.html; Lampiran C), hanya key yang dipakai contoh. classes = keadaan seed: STD 1,8–2,2 (m3_backfill) dan K/S/B tanpa angka (v5/0, O5). batches = batch contoh WP (26 Agu) tanpa angka rencana. Parameter = default O6 dan target_shrink fixture.",
+ "today": "2026-08-27",
+ "floors": {
+  "RPA|Karkas|Fresh": "37400",
+  "RPA|Karkas|n/a": "27098",
+  "RPA|Karkas|Frozen": "35153",
+  "Trading|BLP|Frozen": "47199",
+  "RPA|Ceker|Fresh": "15996",
+  "RPA|Usus|Fresh": "3476"
+ },
+ "classes": [
+  { "code": "STD", "min_kg": "1.800", "max_kg": "2.200", "avg_kg": "2.000" },
+  { "code": "K", "min_kg": null, "max_kg": null, "avg_kg": null },
+  { "code": "S", "min_kg": null, "max_kg": null, "avg_kg": null },
+  { "code": "B", "min_kg": null, "max_kg": null, "avg_kg": null }
+ ],
+ "batches": [{ "ref": "B260826", "date": "2026-08-26", "lb_kg": null, "heads": null }],
+ "customers": "all",
+ "tolerance": "0.02",
+ "shrinkTarget": "0.03",
+ "yieldKarkas": { "min": "0.68", "max": "0.76" }
+}

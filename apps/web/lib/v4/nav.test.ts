@@ -30,3 +30,15 @@ describe("v4 navigation per role (PRD v4 §5.4)", () => {
     expect(v4On({}, "admin")).toBe(false);
   });
 });
+
+describe("v5/5: Input (flag v5_input)", () => {
+  const v5 = { ...allOn, v5_input: { enabled: true } };
+  it("one Input item replaces Upload; at most 7 items; off = Upload as before", () => {
+    for (const r of ROLES) expect(v4Nav(r, v5, ctx).length, r).toBeLessThanOrEqual(NAV_MAX);
+    expect(v4Nav("cost_accounting", v5, ctx).map((n) => [n.label, n.href])).toEqual([["Costing", "/w/2026-08-24/costing"], ["Kontrol costing", "/w/2026-08-24/kontrol"], ["Input", "/input"]]);
+    expect(v4Nav("finance", v5, ctx).map((n) => n.label)).toEqual(["Outlook bulan", "Biaya tetap & driver", "Tutup buku", "Kas", "Rilis", "Kontrol", "Input"]);
+    expect(v4Nav("finance", allOn, ctx).map((n) => n.label).pop()).toBe("Upload");
+    expect(v4Nav("management", v5, ctx).map((n) => n.label).pop()).toBe("Input");
+    expect(v4Nav("operations_director", v5, ctx).map((n) => n.label).pop()).toBe("Input");
+  });
+});
