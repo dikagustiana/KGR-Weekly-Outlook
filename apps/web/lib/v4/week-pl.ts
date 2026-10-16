@@ -28,7 +28,7 @@ export async function buildWeekPl(sb: Supa, date: string): Promise<string> {
   return `pl_daily_v4 minggu ${ws}: ${rows.length} baris (${written} ditulis, ${deleted} dihapus)`;
 }
 
-registerBuilder({ module: "v4_design", name: "pl minggu", begin: async () => { built = new Set(); }, build: buildWeekPl });
+registerBuilder({ module: "v4_design", unless: "m4_monthly", name: "pl minggu", begin: async () => { built = new Set(); }, build: buildWeekPl });
 
 /** Rows of the week for the management view (the 7 days of the week). */
 export async function weekPlRows(sb: Supa, weekStart: string): Promise<Record<string, unknown>[]> {

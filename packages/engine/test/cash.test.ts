@@ -108,3 +108,47 @@ describe("cash rules", () => {
     expect(c2[1].detail).toEqual(["2026-10-14"]);
   });
 });
+
+describe("PRD v4 §3.7: operations and affiliate funding apart (G6)", async () => {
+  const { cashProjectionSplit, cashProjection12mOrNull, AFFILIATE_CATEGORY } = await import("../src/cash");
+  const bal = [{ date: "2026-08-26", account_no: "BCA", opening: null, closing: "1289251345.68" }];
+  const plans = [
+    { date: "2026-08-27", amount: "59620700", cf_category: "Penerimaan dari pelanggan", description: "Penerimaan" },
+    { date: "2026-08-28", amount: "-1229000000", cf_category: "Bayar jasa", description: "Bayar jasa maklon dan cold storage" },
+    { date: "2026-08-28", amount: "-30200000", cf_category: "Bayar pemasok", description: "Pemasok trading" },
+    { date: "2026-08-28", amount: "200000000", cf_category: AFFILIATE_CATEGORY, description: "Pinjaman afiliasi tambahan" },
+    { date: "2026-08-29", amount: "528526120", cf_category: "Penerimaan dari pelanggan", description: "Penerimaan" },
+  ];
+  const sp = cashProjectionSplit({ start: "2026-08-26", balances: bal, plans, weeks: 2, affiliateReceived: "1200000000" });
+  const jt1 = (v: { div(n: number): { toFixed(n: number): string } }) => v.div(1e6).toFixed(1);
+  it("lowest with the facility: Fri 28 Aug 289,7 jt; without it (planned 200 and received 1.200 taken out): −1.110,3 jt", () => {
+    expect([sp.lowest.date, jt1(sp.lowest.balance)]).toEqual(["2026-08-28", "289.7"]);
+    expect([sp.lowestWithout.date, jt1(sp.lowestWithout.balance)]).toEqual(["2026-08-28", "-1110.3"]);
+  });
+  it("affiliate funding is its own column in the weeks; operations keep in and out", () => {
+    const w = sp.weeks[0];
+    expect(jt1(w.affiliateNet)).toBe("200.0");
+    expect(jt1(w.operatingOut)).toBe("-1259.2");
+    expect(jt1(w.operatingIn)).toBe("588.1");
+  });
+  it("what drives the deficit on the lowest day: the biggest outflows first, affiliate flows excluded", () => {
+    expect(sp.drivers.map((d) => jt1(d.amount))).toEqual(["-1229.0", "-30.2"]);
+    expect(sp.assumption).toContain("1200.0");
+  });
+  it("a transfer between own accounts is neither operating in/out nor a driver of the deficit (it nets to zero)", () => {
+    const tr = cashProjectionSplit({ start: "2026-08-26", balances: bal, weeks: 2, affiliateReceived: "1200000000", plans: [...plans,
+      { date: "2026-08-28", amount: "-400000000", cf_category: "Transfer antar rekening", description: "PB dari BCA 8577 ke BCA 8585" },
+      { date: "2026-08-28", amount: "400000000", cf_category: "Transfer antar rekening", description: "PB dari BCA 8577" }] });
+    expect(jt1(tr.weeks[0].operatingOut)).toBe("-1259.2");
+    expect(jt1(tr.weeks[0].operatingIn)).toBe("588.1");
+    expect(tr.drivers.map((d) => jt1(d.amount))).toEqual(["-1229.0", "-30.2"]);
+    expect(jt1(tr.lowest.balance)).toBe("289.7");
+  });
+  it("no plans = no drivers and without = with minus what was received; 12 months without an outlook = null, not zeros", () => {
+    const e = cashProjectionSplit({ start: "2026-08-26", balances: bal, plans: [], weeks: 1 });
+    expect(e.lowestWithout.balance.toFixed(2)).toBe(e.lowest.balance.toFixed(2));
+    expect(e.drivers).toEqual([]);
+    expect(cashProjection12mOrNull({ month: "2026-09-01", startClosing: "100", nibtOutlook: null, depreciation: null })).toBeNull();
+    expect(cashProjection12mOrNull({ month: "2026-09-01", startClosing: "100", nibtOutlook: "-50", depreciation: "10" })![0].closing.toFixed(0)).toBe("60");
+  });
+});

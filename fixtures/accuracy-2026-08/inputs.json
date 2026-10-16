@@ -1,0 +1,22 @@
+{
+ "month": "2026-08-01",
+ "final_source": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx PL - Management Report K12 / K15 / K51",
+ "final": {
+  "revenue": "8361760903",
+  "gp": "306709757.0300026",
+  "nibt": "-26517860.509997386"
+ },
+ "v1_source": "docs/PRD-v4.md P13, Lampiran A (artifact Claude Design \"KGR Management View v2\", Bulanan)",
+ "v1": {
+  "revenue_jt": "7712.4",
+  "gp_jt": "293.4",
+  "nibt_jt": null,
+  "actual_mtd_revenue_jt": "6385.9",
+  "actual_mtd_gp_jt": "347.4"
+ },
+ "adjustments": {
+  "revenue": "0",
+  "gp": "0",
+  "nibt": "0"
+ }
+}

@@ -11,25 +11,29 @@ import {
 } from "@kgr/engine";
 import { jtV4, num, pctV4, rpJt, tgl, tglShort } from "../fmt";
 import type { CardCompare } from "@/components/v4/Card";
-import type { ChartPoint, PairGroup, StackRow, WaterfallStep } from "@/components/v4/Chart";
+import type { ChartPoint, LinePlot, PairGroup, StackRow, WaterfallStep } from "@/components/v4/Chart";
 import type { Col, TRow } from "@/components/v4/Table";
 import type { SlicerOption } from "@/components/v4/Controls";
 import type { CaraHitungContent } from "@/components/v4/CaraHitung";
 import type { TilePos } from "@/components/v4/Tile";
 
 export type TileContent =
-  | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null }
+  | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
   | { type: "mode"; label: string; options: [SlicerOption, SlicerOption]; current: string }
   | { type: "release"; text: string; pdfHref: string | null }
   | { type: "headline"; text: string }
   | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string }
-  | { type: "combo"; points: ChartPoint[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
+  | { type: "combo"; points: ChartPoint[]; labelMax?: number; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
+  | { type: "line"; plot: LinePlot; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "waterfall"; steps: WaterfallStep[] }
   | { type: "paired"; groups: PairGroup[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "stacked"; rows: StackRow[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[]; table: { cols: Col[]; rows: TRow[] } }
-  | { type: "table"; cols: Col[]; rows: TRow[]; sections?: { title: string; cols: Col[]; rows: TRow[] }[] }
+  | { type: "table"; cols: Col[]; rows: TRow[]; limit?: number; form?: TileForm; sections?: { title: string; cols: Col[]; rows: TRow[] }[] }
   | { type: "chart+table"; points: ChartPoint[]; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[]; cols: Col[]; rows: TRow[] }
   | { type: "list"; items: string[]; ordered?: boolean; empty?: string };
+
+/** A plain GET form inside a tile (what-if inputs): no client code, the page reads the query string. */
+export interface TileForm { method: "get"; action: string; submit: string; fields: { name: string; label: string; value: string; size?: number }[] }
 
 export interface TileModel {
   id: string;

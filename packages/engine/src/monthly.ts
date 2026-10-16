@@ -2,10 +2,12 @@
  * M4 — monthly outlook (PRD v3 §4.5). Pure functions, decimal.js.
  *
  * Actual per day = journal (P&L accounts via coa_map.pl_line; revenue positive, costs negative as in v1 O_PnL) plus
- * delivered-not-invoiced DOs (basis do_unbilled). Forecast per day after the cut-off: days with PO lines = their
- * weighted revenue and cost; working days without PO = run-rate (mean revenue of the last 20 working days without
- * anomaly days: 0 on a working day, or > mean + 3σ) at the GP% of the last 4 weeks; other days 0.
+ * delivered-not-invoiced DOs (basis do_unbilled, K11). Forecast per day after the cut-off: days with PO lines = their
+ * weighted revenue and cost; working days without PO = run-rate (K3, PRD v4: mean revenue of the working days in the
+ * last `runrate_window_days` (7) calendar days before the cut-off, without anomaly days: 0 on a working day, or above
+ * mean + 3σ) at the GP% of the month to date (K5, P6); Sundays and holidays at the factor the actuals show (August: 0).
  * Outlook = actual MTD + forecast; range = ± tolerance on the forecast part only.
+ * The v3 rule (mean of the 20 last working days) is revoked (PRD v4 §0.2).
  */
 import { D, Decimal, ZERO, div, sum, type Num } from "./decimal";
 import { addDays, daysInMonth, diffDays, firstOfMonth, type ISODate } from "./dates";
@@ -75,17 +77,27 @@ export interface RunRate {
   /** Working days used (newest last). */
   days: ISODate[];
   anomalies: { date: ISODate; reason: "nol" | "> 3σ" }[];
+  /** First day of the calendar window and its length (K3: runrate_window_days, 7). */
+  windowFrom: ISODate;
+  windowDays: number;
+  /**
+   * Revenue on Sundays and holidays in the window as a share of the run-rate (K3 "faktor Minggu/libur dari pola
+   * actual"; August 2026: 0 because 23 Aug has no revenue). Applied to non-working days without PO.
+   */
+  offDayFactor: Decimal;
 }
 
 /**
- * Run-rate revenue per working day (PRD v3 §4.5): mean over the last `n` working days ≤ cut-off without anomaly days
- * (revenue 0 on a working day, or above mean + 3σ of the non-zero working days). Holidays (no journal at all, listed
- * in `holidays`) are not working days.
+ * Run-rate revenue per working day (PRD v4 K3, §3.2 P3): mean over the working days of the last `windowDays` calendar
+ * days up to the cut-off, without anomaly days (revenue 0 on a working day, or above mean + 3σ of the non-zero working
+ * days of the window). Holidays (no journal at all, listed in `holidays`) are not working days. 31 Aug 2026 =
+ * (301,4 + 579,3 + 82,3 + 226,7 + 362,3) / 5 = 310,4 jt (25 Aug, revenue 0, is thrown out).
  */
-export function runrateRevenue(x: { revenueByDay: Map<ISODate, Decimal>; from: ISODate; cutOff: ISODate; isWorkingDay: (d: ISODate) => boolean; holidays?: ISODate[]; n?: number; sigma?: number }): RunRate {
-  const n = x.n ?? 20, k = x.sigma ?? 3;
-  const days: ISODate[] = [];
-  for (let d = x.from; d <= x.cutOff; d = addDays(d, 1)) if (x.isWorkingDay(d) && !(x.holidays ?? []).includes(d)) days.push(d);
+export function runrateRevenue(x: { revenueByDay: Map<ISODate, Decimal>; cutOff: ISODate; isWorkingDay: (d: ISODate) => boolean; holidays?: ISODate[]; windowDays?: number; sigma?: number }): RunRate {
+  const windowDays = x.windowDays ?? 7, k = x.sigma ?? 3;
+  const windowFrom = addDays(x.cutOff, -(windowDays - 1));
+  const days: ISODate[] = [], off: ISODate[] = [];
+  for (let d = windowFrom; d <= x.cutOff; d = addDays(d, 1)) (x.isWorkingDay(d) && !(x.holidays ?? []).includes(d) ? days : off).push(d);
   const val = (d: ISODate) => x.revenueByDay.get(d) ?? ZERO;
   const nonZero = days.filter((d) => !val(d).isZero()).map(val);
   const mean = nonZero.length ? sum(nonZero).div(nonZero.length) : ZERO;
@@ -98,8 +110,27 @@ export function runrateRevenue(x: { revenueByDay: Map<ISODate, Decimal>; from: I
     else if (val(d).gt(cap)) anomalies.push({ date: d, reason: "> 3σ" });
     else ok.push(d);
   }
-  const used = ok.slice(-n);
-  return { revenue: used.length ? sum(used.map(val)).div(used.length) : ZERO, days: used, anomalies };
+  const revenue = ok.length ? sum(ok.map(val)).div(ok.length) : ZERO;
+  const offDayFactor = revenue.isZero() || !off.length ? ZERO : sum(off.map(val)).div(off.length).div(revenue);
+  return { revenue, days: ok, anomalies, windowFrom, windowDays, offDayFactor };
+}
+
+/** GP% of the month to date (K5, P6: the reference margin of run-rate days until M1 gives a margin per SKU). */
+export function gpPctMtd(daily: Map<ISODate, { revenue: Decimal; cogs: Decimal }>, month: ISODate, cutOff: ISODate): Decimal {
+  let rev = ZERO, cogs = ZERO;
+  for (const [d, t] of daily) if (d >= firstOfMonth(month) && d <= cutOff) { rev = rev.plus(t.revenue); cogs = cogs.plus(t.cogs); }
+  return div(rev.plus(cogs), rev);
+}
+
+/**
+ * V1 lock day (K9): the Thursday of week `lockWeek` of the month, counted as the n-th Thursday (Thursday = the weekly
+ * release day). August 2026, lockWeek 3 → 20 Aug 2026 (Thursdays: 6, 13, 20, 27).
+ */
+export function v1LockDate(month: ISODate, lockWeek: number): ISODate {
+  const first = firstOfMonth(month);
+  const dow = new Date(`${first}T00:00:00Z`).getUTCDay();
+  const firstThu = addDays(first, (4 - dow + 7) % 7);
+  return addDays(firstThu, 7 * (Math.max(1, lockWeek) - 1));
 }
 
 /** GP% of the last `days` calendar days up to the cut-off (actual). */
@@ -127,6 +158,8 @@ export function forecastDays(x: {
   gpPct: Decimal;
   isWorkingDay: (d: ISODate) => boolean;
   holidays?: ISODate[];
+  /** Share of the run-rate booked on Sundays / holidays without PO (K3); default 0. */
+  offDayFactor?: Num;
 }): ForecastDay[] {
   const end = monthEnd(x.cutOff);
   const out: ForecastDay[] = [];
@@ -138,6 +171,9 @@ export function forecastDays(x: {
     } else if (x.isWorkingDay(d) && !(x.holidays ?? []).includes(d)) {
       const gp = x.runrate.times(x.gpPct);
       out.push({ date: d, basis: "runrate", revenue: x.runrate, cogs: gp.minus(x.runrate), gp, kg: null });
+    } else if (D(x.offDayFactor ?? 0).gt(0)) {
+      const rev = x.runrate.times(D(x.offDayFactor!)), gp = rev.times(x.gpPct);
+      out.push({ date: d, basis: "runrate", revenue: rev, cogs: gp.minus(rev), gp, kg: null });
     } else out.push({ date: d, basis: "none", revenue: ZERO, cogs: ZERO, gp: ZERO, kg: null });
   }
   return out;
@@ -285,10 +321,10 @@ export function accuracy(x: { final: Record<"revenue" | "gp" | "nibt", Num>; adj
 /** After FINAL: run-rate and GP% of the closed month as proposals for the next month (outlook_assumption, source kalibrasi). */
 export function calibrate(x: { revenueByDay: Map<ISODate, Decimal>; daily: Map<ISODate, { revenue: Decimal; cogs: Decimal }>; month: ISODate; isWorkingDay: (d: ISODate) => boolean; holidays?: ISODate[] }): { code: string; value: Decimal; description: string }[] {
   const end = monthEnd(x.month);
-  const rr = runrateRevenue({ revenueByDay: x.revenueByDay, from: firstOfMonth(x.month), cutOff: end, isWorkingDay: x.isWorkingDay, holidays: x.holidays, n: 31 });
+  const rr = runrateRevenue({ revenueByDay: x.revenueByDay, cutOff: end, isWorkingDay: x.isWorkingDay, holidays: x.holidays });
   return [
-    { code: "runrate_revenue", value: rr.revenue, description: `Run-rate revenue per hari kerja bulan ${x.month.slice(0, 7)} (${rr.days.length} hari, ${rr.anomalies.length} anomali)` },
-    { code: "gp_pct", value: gpPctWindow(x.daily, end, daysInMonth(x.month)), description: `GP% bulan ${x.month.slice(0, 7)}` },
+    { code: "runrate_revenue", value: rr.revenue, description: `Run-rate revenue per hari kerja, ${rr.windowDays} hari kalender terakhir bulan ${x.month.slice(0, 7)} (${rr.days.length} hari kerja, ${rr.anomalies.length} anomali)` },
+    { code: "gp_pct", value: gpPctMtd(x.daily, x.month, end), description: `GP% bulan ${x.month.slice(0, 7)}` },
   ];
 }
 
@@ -313,7 +349,7 @@ export function sumRows(rows: PlDailyRow[]): { actual: OutlookTotals; forecast: 
 }
 
 /** Working days ≤ the cut-off without a single journal line: public holidays (not anomalies). */
-export function holidaysFromJournal(rows: PlDailyRow[], from: ISODate, cutOff: ISODate, isWorkingDay: (d: ISODate) => boolean): ISODate[] {
+export function holidaysFromJournal(rows: { date: ISODate }[], from: ISODate, cutOff: ISODate, isWorkingDay: (d: ISODate) => boolean): ISODate[] {
   const seen = new Set(rows.map((r) => r.date));
   const out: ISODate[] = [];
   for (let d = from; d <= cutOff; d = addDays(d, 1)) if (isWorkingDay(d) && !seen.has(d)) out.push(d);

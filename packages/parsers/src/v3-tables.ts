@@ -5,7 +5,7 @@
 import type { Sheet } from "./workbook";
 import { F, detect, extract, type Detected, type FieldDef, type Mapping, type ParsedRow } from "./tables";
 
-export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply" | "cash_balance" | "cash_plan_daily";
+export type V3TableKind = "cost_pool_pi" | "stock_card" | "po_lines" | "forecast_sales" | "yield_matrix" | "lb_supply" | "cash_balance" | "cash_plan_daily" | "fixed_cost" | "budget";
 
 export interface V3TableDef {
   kind: V3TableKind;
@@ -114,6 +114,33 @@ export const V3_TABLES: V3TableDef[] = [
       F("fixed_cost_schedule_id", "ID jadwal tetap", "text", ["id_jadwal_tetap", "id jadwal tetap", "jadwal", "schedule"]),
     ],
   },
+  {
+    // PRD v4 §3.3 template 8.3: one row per COA per period (fixed-cost drivers only)
+    kind: "fixed_cost",
+    fields: [
+      F("account", "COA", "text", ["coa", "kode akun", "no akun", "akun", "account", "kode coa"], true),
+      F("amount_per_month", "Nominal per bulan", "number", ["nominal_per_bulan", "nominal per bulan", "nominal bulan", "nominal", "rp per bulan", "per bulan", "amount per month", "jumlah per bulan"], true),
+      F("start_date", "Berlaku dari", "date", ["berlaku_dari", "berlaku dari", "mulai", "dari", "start", "tanggal mulai", "bulan mulai"], true),
+      F("end_date", "Berlaku sampai", "date", ["berlaku_sampai", "berlaku sampai", "sampai", "akhir", "end", "tanggal akhir", "bulan akhir"]),
+      F("day_basis", "Basis bagi", "text", ["basis_bagi", "basis bagi", "basis", "hari", "basis hari"]),
+      F("posting_day", "Jadwal posting", "number", ["jadwal_posting", "jadwal posting", "tanggal posting", "tgl posting", "posting", "tanggal dibukukan"]),
+      F("basis_doc", "Dasar", "text", ["dasar", "dokumen dasar", "basis dokumen", "kontrak", "dasar hukum"]),
+      F("owner", "Pemilik", "text", ["pemilik", "owner", "penanggung jawab", "pic"]),
+      F("version", "Versi", "number", ["versi", "version"]),
+      F("note", "Catatan", "text", ["catatan", "keterangan", "alasan", "note"]),
+    ],
+  },
+  {
+    // PRD v4 §4.4: month × segment × metric
+    kind: "budget",
+    fields: [
+      F("month", "Bulan", "date", ["bulan", "periode", "month", "period"], true),
+      F("segment", "Segmen", "text", ["segmen", "segment"], true),
+      F("metric", "Metrik", "text", ["metrik", "metric", "ukuran", "jenis"], true),
+      F("value", "Nilai", "number", ["nilai", "value", "jumlah", "amount", "angka", "budget"], true),
+      F("version", "Versi", "number", ["versi", "version", "revisi"]),
+    ],
+  },
 ];
 
 export function v3TableDef(kind: V3TableKind): V3TableDef {
@@ -169,4 +196,31 @@ export function yieldFraction(v: string | null | undefined): string | null {
   const point = i.length - 2;
   const pad = point <= 0 ? "0." + "0".repeat(-point) + digits.replace(/^0+/, "") : digits.slice(0, point) + "." + digits.slice(point);
   return pad.replace(/\.?0+$/, "") || "0";
+}
+
+/** Fixed-cost day basis from the template: empty = calendar days (K6). */
+export function normDayBasis(v: string | null | undefined): "calendar" | "working" | null {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "" || /^(kalender|hari kalender|calendar|cal)$/.test(s)) return "calendar";
+  if (/^(kerja|hari kerja|working|work|wd)$/.test(s)) return "working";
+  return null;
+}
+
+export type BudgetMetric = "kg" | "revenue" | "gp" | "opex" | "nibt";
+
+/** Budget metric from the sheet (Indonesian or English). */
+export function normBudgetMetric(v: string | null | undefined): BudgetMetric | null {
+  const s = String(v ?? "").trim().toLowerCase().replace(/[^a-z ]/g, "").trim();
+  if (/^(kg|volume|vol|tonase)$/.test(s)) return "kg";
+  if (/^(revenue|pendapatan|penjualan|sales)$/.test(s)) return "revenue";
+  if (/^(gp|gross profit|laba kotor|gp pl|gp p l)$/.test(s)) return "gp";
+  if (/^(opex|biaya|biaya operasional|operating expense|opex total)$/.test(s)) return "opex";
+  if (/^(nibt|laba sebelum pajak|net income before tax|pbt)$/.test(s)) return "nibt";
+  return null;
+}
+
+/** First day of the month of a budget row: "2026-08-17" or "2026-08" → "2026-08-01". */
+export function budgetMonthFirst(v: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(String(v ?? "").trim());
+  return m && Number(m[2]) >= 1 && Number(m[2]) <= 12 ? `${m[1]}-${m[2]}-01` : null;
 }

@@ -6,6 +6,8 @@ import { WriteError } from "./write";
 
 export interface Builder {
   module: ModuleKey;
+  /** Skipped while this other module is on (it writes the same mart scope with more information, e.g. the month builder over the week builder). */
+  unless?: ModuleKey;
   name: string;
   /** Load and compute once per rebuild run (e.g. the whole ledger), before the dates are written. */
   begin?: (sb: Supa) => Promise<void>;

@@ -1,0 +1,39 @@
+# Irisan 2 gates, 2026-10-16T03:21Z, commit basis 22b6232 + working tree
+
+$ pnpm typecheck
+> kgr-weekly-outlook@ typecheck /home/user/KGR-Weekly-Outlook
+> pnpm -r typecheck
+packages/engine typecheck$ tsc -p tsconfig.json
+packages/engine typecheck: Done
+packages/parsers typecheck$ tsc -p tsconfig.json
+packages/parsers typecheck: Done
+apps/web typecheck$ tsc --noEmit
+apps/web typecheck: Done
+exit 0
+
+$ pnpm test
+packages/engine test:  Test Files  16 passed (16)
+packages/engine test:       Tests  242 passed | 1 todo (243)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  22 passed (22)
+apps/web test:  Test Files  8 passed (8)
+apps/web test:       Tests  48 passed (48)
+
+$ pnpm parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+docs/parity.md, docs/parity-cells.csv: tidak berubah
+
+$ pnpm snapshot:diff
+baseline: /home/user/KGR-Weekly-Outlook/tests/snapshots/outlook-2026-08-24.before.json
+new fields present: block2.action={"kind":"NEGOSIASI","targetPrice":"20725.657457","kg":null,"text":"NEGOSIASI ≤ Rp 20.726: harga live bird hari ini Rp 24.600 di atas breakeven rencana potong"}; block7[].audience=preparer,management,management
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+
+$ pnpm build
+ ✓ Compiled successfully in 11.1s
+├ ƒ /api/m/[month]/pdf                     156 B         102 kB
+├ ƒ /api/m/[month]/snapshot.json           156 B         102 kB
+├ ƒ /kas                                 1.82 kB         107 kB
+├ ƒ /kas/ccc                             1.36 kB         107 kB
+├ ƒ /m/[month]                           2.03 kB         108 kB
+├ ƒ /m/[month]/biaya                     1.51 kB         107 kB
+├ ƒ /m/[month]/tutup-buku                1.55 kB         107 kB

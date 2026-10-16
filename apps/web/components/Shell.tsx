@@ -37,7 +37,7 @@ function v4Active(active: string): string | null {
   if (active === "input/parameter") return "supply-lb";
   if (active === "costing") return "costing";
   if (active.startsWith("admin")) return "admin";
-  if (active.startsWith("/m/") || active === "m4_monthly:Bulanan") return "outlook-bulan";
+  if (active === "/m" || active.startsWith("/m/") || active === "m4_monthly:Bulanan") return "outlook-bulan";
   if (active.startsWith("/kas")) return "kas";
   return null;
 }

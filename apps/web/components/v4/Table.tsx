@@ -7,6 +7,8 @@ export interface Col {
   num?: boolean;
   /** Decision column (bold) or supporting column (muted), §5.3. */
   kind?: "key" | "sup";
+  /** Let long text wrap (narrow tiles); cells stay on one line otherwise. */
+  wrap?: boolean;
 }
 
 export interface TRow {
@@ -26,7 +28,7 @@ export interface TRow {
 export function V4Table({ cols, rows, empty = "tidak ada data untuk periode ini", limit = 50, detailHref, label }: {
   cols: Col[]; rows: TRow[]; empty?: string; limit?: number; detailHref?: string; label?: string;
 }) {
-  if (!rows.length) return <p className="note">{empty}</p>;
+  if (!rows.length) return <p className="note" data-tile-value="">{empty}</p>;
   const shown = rows.slice(0, limit);
   return (
     <>
@@ -37,7 +39,7 @@ export function V4Table({ cols, rows, empty = "tidak ada data untuk periode ini"
             <tr key={r.id} className={[r.kind, r.on ? "on" : ""].filter(Boolean).join(" ") || undefined}>
               {r.span ? <td colSpan={cols.length}>{r.cells[cols[0].key]}</td> : cols.map((c, i) => {
                 const v = r.cells[c.key] ?? "";
-                const cls = [c.num ? "n" : "", c.kind ?? ""].filter(Boolean).join(" ") || undefined;
+                const cls = [c.num ? "n" : "", c.kind ?? "", c.wrap ? "wrap" : ""].filter(Boolean).join(" ") || undefined;
                 return <td key={c.key} className={cls}>{i === 0 && r.href ? <Link href={r.href}>{v}</Link> : v}</td>;
               })}
             </tr>

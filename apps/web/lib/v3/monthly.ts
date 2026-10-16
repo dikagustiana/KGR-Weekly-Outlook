@@ -6,9 +6,9 @@ import "server-only";
  */
 import { createHash } from "node:crypto";
 import {
-  D, accuracy, actualDaily, addDays, bridge, jakartaToday, calibrate, dailyTotals, daysInMonth, firstOfMonth, forecastDays, forecastPlRows, gpPctWindow,
-  holidaysFromJournal, isCogsLine, isRevenueLine, monthEnd, monthlyControls, nthWorkingDay, opexRemaining, ordersFromWeek, runrateRevenue, sum,
-  sumRows, toFixedString, unbilledFromWeek, versionDays,
+  D, accuracy, actualDaily, addDays, bridge, jakartaToday, calibrate, dailyTotals, daysInMonth, firstOfMonth, forecastDays, forecastPlRows, gpPctMtd,
+  holidaysFromJournal, isCogsLine, isRevenueLine, monthEnd, monthlyControls, opexRemaining, ordersFromWeek, runrateRevenue, sum,
+  sumRows, toFixedString, unbilledFromWeek, v1LockDate, versionDays,
   type Bridge, type ControlV3, type Decimal, type ForecastOrder, type PlDailyRow, type RunRate, type VersionDay,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -38,8 +38,11 @@ export interface MonthState {
   orders: ForecastOrder[];
   drivers: MonthDrivers | null;
   tolerance: string;
-  v1LockDay: number;
+  /** K9: the V1 lock Thursday is the Thursday of week `v1LockWeek` (parameter v1_lock_week, 3). */
+  v1LockWeek: number;
   v1LockDate: string;
+  /** K3: run-rate window in calendar days (parameter runrate_window_days, 7). */
+  windowDays: number;
 }
 
 /** Cut-off of a month: the month_outlook override, else yesterday for the running month, else the month end. */
@@ -67,14 +70,14 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const weeks = (await listWeeks(sb)).filter((w) => w.week_end >= first && w.week_start <= last);
   const orders: ForecastOrder[] = [];
   const unbilled: ReturnType<typeof unbilledFromWeek> = [];
-  let tolerance = "0.10", v1LockDay = 20, wT = "0.7", wF = "0.5";
+  let tolerance = "0.10", v1LockWeek = 3, windowDays = 7, wT = "0.7", wF = "0.5";
   for (const w of weeks) {
     const c = await computeForWeek(w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
     const { data: p } = await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle();
     const pr = (p ?? {}) as Row;
-    tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; v1LockDay = Number(pr.v1_lock_day ?? v1LockDay);
+    tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; v1LockWeek = Number(pr.v1_lock_week ?? v1LockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
     const lo = addDays(cutOff, 1) > w.week_start ? addDays(cutOff, 1) : w.week_start;
     const hi = last < w.week_end ? last : w.week_end;
@@ -86,10 +89,10 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const actualRows = all.filter((r) => r.date >= first);
   const holidays = holidaysFromJournal(all, from, cutOff, isWorkingDay);
   const daily = dailyTotals(all);
-  const runrate = runrateRevenue({ revenueByDay: new Map([...daily].map(([d, t]) => [d, t.revenue])), from, cutOff, isWorkingDay, holidays });
+  const runrate = runrateRevenue({ revenueByDay: new Map([...daily].map(([d, t]) => [d, t.revenue])), cutOff, isWorkingDay, holidays, windowDays });
   for (const a of runrate.anomalies) for (const r of actualRows) if (r.date === a.date) r.anomaly = true;
-  const gpPct = gpPctWindow(daily, cutOff);
-  const days = cutOff >= last ? [] : forecastDays({ cutOff, orders, runrate: runrate.revenue, gpPct, isWorkingDay, holidays });
+  const gpPct = gpPctMtd(daily, first, cutOff);
+  const days = cutOff >= last ? [] : forecastDays({ cutOff, orders, runrate: runrate.revenue, gpPct, isWorkingDay, holidays, offDayFactor: runrate.offDayFactor });
   const drivers = settings.m5_drivers?.enabled ? await loadMonthDrivers(sb, first, addDays(cutOff, 1)) : null;
   // run-rate opex lines from the v1 run-rate table of the last week in the month (monthly amounts)
   const lastWeek = weeks[weeks.length - 1];
@@ -101,8 +104,8 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   }) : [];
   const forecastRows = forecastPlRows({ days, orders, opex });
   return {
-    first, last, cutOff, outlook, actualRows, forecastRows, holidays, runrate, gpPct, orders, drivers, tolerance, v1LockDay,
-    v1LockDate: nthWorkingDay(first, v1LockDay, isWorkingDay, holidays),
+    first, last, cutOff, outlook, actualRows, forecastRows, holidays, runrate, gpPct, orders, drivers, tolerance, v1LockWeek, windowDays,
+    v1LockDate: v1LockDate(first, v1LockWeek),
   };
 }
 
@@ -125,12 +128,12 @@ async function writeEngineAssumptions(sb: Supa, st: MonthState): Promise<void> {
   const mo = await ensureOutlook(sb, st.first);
   const rows: { code: string; description: string; value_text: string | null; value_num: string | null }[] = [
     { code: "cut_off", description: "Cut-off (aktual s.d.)", value_text: st.cutOff, value_num: null },
-    { code: "runrate_revenue", description: `Run-rate revenue per hari kerja (${st.runrate.days.length} hari kerja terakhir tanpa anomali)`, value_text: null, value_num: toFixedString(st.runrate.revenue, 2) },
-    { code: "gp_pct_4w", description: "GP% 4 minggu terakhir (hari run-rate)", value_text: null, value_num: toFixedString(st.gpPct, 6) },
+    { code: "runrate_revenue", description: `Run-rate revenue per hari kerja (${st.runrate.days.length} hari kerja dalam ${st.windowDays} hari kalender terakhir, tanpa anomali)`, value_text: null, value_num: toFixedString(st.runrate.revenue, 2) },
+    { code: "gp_pct_4w", description: "GP% bulan berjalan (margin acuan hari run-rate)", value_text: null, value_num: toFixedString(st.gpPct, 6) },
     { code: "anomaly_days", description: "Hari anomali (tidak ikut run-rate)", value_text: st.runrate.anomalies.map((a) => `${a.date} (${a.reason})`).join(", ") || "—", value_num: null },
     { code: "holidays", description: "Hari kerja tanpa jurnal (libur)", value_text: st.holidays.join(", ") || "—", value_num: null },
     { code: "forecast_tolerance_pct", description: "Toleransi forecast (rentang)", value_text: null, value_num: st.tolerance },
-    { code: "v1_lock_date", description: `Kunci V1 (hari kerja ke-${st.v1LockDay})`, value_text: st.v1LockDate, value_num: null },
+    { code: "v1_lock_date", description: `Kunci V1 (Kamis minggu ke-${st.v1LockWeek})`, value_text: st.v1LockDate, value_num: null },
   ];
   const { data } = await sb.from("outlook_assumption").select("id, code, value_text, value_num").eq("month_outlook_id", String(mo.id)).eq("source", "engine").is("deleted_at", null);
   const have = new Map(((data ?? []) as Row[]).map((r) => [String(r.code), r]));
@@ -194,7 +197,7 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
   const got = new Set(((have ?? []) as Row[]).map((r) => String(r.version)));
   if (got.has(version)) throw new WriteError(`${version} sudah dikunci`);
   const st = await computeMonth(sb, first, version === "FINAL" ? addDays(monthEnd(first), 1) : today, settings);
-  if (version === "V1" && today < st.v1LockDate) throw new WriteError(`V1 dikunci mulai hari kerja ke-${st.v1LockDay} (${st.v1LockDate})`);
+  if (version === "V1" && today < st.v1LockDate) throw new WriteError(`V1 dikunci mulai Kamis minggu ke-${st.v1LockWeek} (${st.v1LockDate})`);
   if (version === "V2" && !got.has("V1")) throw new WriteError("Kunci V1 dulu");
   if (version === "FINAL" && today <= monthEnd(first)) throw new WriteError("FINAL dikunci setelah akhir bulan");
   const adj = version === "FINAL" ? ((await sb.from("closing_adjustment").select("*").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[] : [];

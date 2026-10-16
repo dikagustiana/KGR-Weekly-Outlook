@@ -1,0 +1,90 @@
+{
+ "status": "diusulkan, menunggu review pemilik produk (K4); dihitung engine, bukan angka mockup",
+ "rules": "K3 run-rate = rata-rata hari kerja dalam 7 hari kalender terakhir tanpa hari anomali; K5 GP P&L, margin acuan = GP% bulan berjalan; K11 jurnal + DO belum difaktur; biaya run-rate = rata-rata harian actual bulan berjalan (K6)",
+ "cut_off": "2026-08-26",
+ "unit": "jt Rp, 1 desimal",
+ "actual": {
+  "revenue": "6385.9",
+  "cogs": "-6038.5",
+  "gp": "347.4",
+  "opex": "-182.2",
+  "nibt": "165.2"
+ },
+ "forecast": {
+  "revenue": "1378.2",
+  "cogs": "-1429.3",
+  "gp": "-51.0",
+  "opex": "-35.0",
+  "nibt": "-86.1"
+ },
+ "outlook": {
+  "revenue": "7764.1",
+  "cogs": "-7467.7",
+  "gp": "296.4",
+  "opex": "-217.2",
+  "nibt": "79.2"
+ },
+ "range": {
+  "revenue": [
+   "7626.3",
+   "7901.9"
+  ],
+  "gp": [
+   "291.3",
+   "301.5"
+  ]
+ },
+ "po": {
+  "revenue": "1067.8",
+  "kg": "40437"
+ },
+ "runrate": {
+  "revenue_per_day": "310.4",
+  "days": [
+   "2026-08-20",
+   "2026-08-21",
+   "2026-08-22",
+   "2026-08-24",
+   "2026-08-26"
+  ],
+  "anomalies": [
+   {
+    "date": "2026-08-25",
+    "reason": "nol"
+   }
+  ],
+  "mean_actual_window": "258.7",
+  "off_day_factor": "0.000000",
+  "margin_ref_pct": "5.44"
+ },
+ "daily_revenue": {
+  "2026-08-27": "457.7",
+  "2026-08-28": "232.1",
+  "2026-08-29": "378.0",
+  "2026-08-30": "0.0",
+  "2026-08-31": "310.4"
+ },
+ "share_po": "0.775",
+ "by_segment": [
+  {
+   "segment": "LB main",
+   "revenue": "2587.9",
+   "gp": "-58.5"
+  },
+  {
+   "segment": "LB by-product",
+   "revenue": "70.2",
+   "gp": "13.4"
+  },
+  {
+   "segment": "Trading",
+   "revenue": "5105.9",
+   "gp": "456.9"
+  },
+  {
+   "segment": "Umum",
+   "revenue": "0.0",
+   "gp": "-115.4"
+  }
+ ]
+}

@@ -53,3 +53,47 @@ Q21. Token yang gagal kontras. Pemeriksa §9.4 mengukur `--chart-2` #9fb8d8 pada
 Q22. Angka di mockup. §5.5 meminta mockup "dengan angka fixture". Mockup `minggu-ini.html` memakai angka teks PRD di tempat PRD menyebutnya (§3.4, §3.7, Lampiran B) dan angka fixture `week-2026-08-24` sisanya; tiap tile mencatat sumbernya di atribut `data-src`. Angka fixture itu dibaca dari keluaran engine yang sama dengan halaman, jadi perbandingan nilai di tile tersebut tidak independen; yang diuji independen hanyalah posisi, ukuran, judul, struktur, dan angka dari teks PRD. Mockup `outlook-bulan`, `kas-solvabilitas`, dan `ppic-rencana` sudah ada tetapi halamannya baru dikerjakan di irisan 2 dan 3.
 
 Q23. ECharts. Komponen Chart §5.3 menyebut ECharts. Menambah dependency itu butuh mengubah `pnpm-lock.yaml`; `pnpm add --lockfile-only` gagal di lingkungan ini (registry meminta otorisasi), dan `pnpm install --frozen-lockfile` tidak bisa mengambil `xlsx` dari `cdn.sheetjs.com`. Chart dibuat sebagai SVG di server dengan kontrak yang sama (kolom, garis, waterfall, batang berpasangan, batang bertumpuk; periode terpilih disorot; klik batang = tautan yang memfilter tile terkait; label nilai bila titik ≤ 12; tooltip membawa basis). Mengganti ke ECharts nanti hanya menyentuh `components/v4/Chart.tsx`.
+
+## Irisan 2
+
+Q24. Tanggal kunci V1. K9 menetapkan `v1_lock_week` = 3, dan kode membacanya sebagai Kamis ketiga bulan itu: Agustus 2026 jatuh pada 20 Agu, September pada 17 Sep. Contoh label di §6.2 berbunyi "V1 dikunci 27 Agu 2026 · cut-off 26 Agu", padahal 27 Agu adalah Kamis keempat. Kedua pasal ini tidak cocok. Kode mengikuti K9 (minggu ketiga), dan label di halaman menampilkan tanggal kunci yang sebenarnya. Perlu dipastikan apakah yang dimaksud minggu ketiga atau Kamis setelah cut-off.
+
+Q25. Persen akurasi. P13 menulis contoh "+649,4 jt, +8,4%", dan 8,4% itu dihitung terhadap V1: (8.361,8 − 7.712,4) ÷ 7.712,4. MAPE yang lazim dihitung terhadap actual: 649,4 ÷ 8.361,8 = 7,8%. Tile akurasi menampilkan keduanya. Kolom selisih memakai cara PRD (persen terhadap versi), dan baris "MAPE revenue" memakai |selisih| ÷ FINAL. Perlu dipilih salah satu sebagai angka resmi.
+
+Q26. Cost rencana di hari ber-PO (P6). PRD meminta porsi PO yang tidak tertutup stok bebas dinilai pada cost rencana M1/M3 (harga LB × yield + ekspedisi + maklon, atau harga beli ulang trading). Itu belum dibuat. Sementara ini HPP order memakai biaya rata-rata v1 per key, termasuk penerimaan yang direncanakan. Pada fixture Agustus semua key punya biaya, jadi hasilnya sama. SKU tanpa biaya ditandai `costKnown = false`, dan V1 tidak bisa dikunci selama masih ada yang begitu. Cost rencana dibuat bersama M3 di irisan 3.
+
+Q27. Berkas golden. §9.2 meminta `golden.json` ditulis ulang oleh engine. Ekstraktor fixture ditulis dalam Python dan tidak bisa menjalankan engine TypeScript. Karena itu angka engine ditulis ke berkas terpisah, `fixtures/month-2026-08/golden-v4.json`, oleh `packages/engine/scripts/month-golden.ts`. `golden.json` tetap berisi angka FS, dan target v3 yang dicabut K4 dipindah ke kunci `revoked_v3_targets` sebagai catatan.
+
+Q28. Golden Agustus versi engine dan Lampiran B.2. Hasil engine: forecast revenue 1.378,2, GP forecast −51,0, outlook 7.764,1 / GP 296,4 (3,8%), rentang 7.626,3–7.901,9, NIBT 79,2 jt. Lampiran B.2 menulis −51,2 / 296,2 / 7.902,0. Selisih GP berasal dari margin: PRD membulatkannya ke 5,4%, engine memakai 5,44%. Batas atas rentang dihitung dari angka yang belum dibulatkan. NIBT dihitung karena biaya run-rate diambil dari actual bulan berjalan; mockup menulis "belum diisi". Statusnya "diusulkan" sampai pemilik produk memeriksa (K4). Saat menyusun bukti ini ditemukan kesalahan engine: di hari run-rate, biaya ekspedisi dan blasting dikurangkan lagi di atas margin, padahal margin acuan (GP P&L ÷ revenue) sudah memuatnya. Kesalahan itu membuat GP forecast −54,9. Sudah diperbaiki, dan ada tesnya.
+
+Q29. Biaya run-rate di forecast. Untuk pos yang bukan biaya tetap atau variabel, biaya per hari = actual bulan berjalan ÷ hari kalender yang sudah lewat, tanpa `cost_event`. Pos tanpa actual bulan ini memakai nominal bulanan tabel `runrate` v1 ÷ hari dalam bulan. PRD §3.3 hanya menyebut "rata-rata harian actual tanpa hari anomali", jadi jendelanya adalah pilihan kode.
+
+Q30. Tanda `cost_event.amount`. Finance mengisi biaya satu kali sebagai angka positif. Engine mengubahnya ke tanda P&L (negatif), kecuali Other Income.
+
+Q31. Budget. Form di halaman Outlook bulan menyimpan segmen "Total". Upload menyimpan per segmen. Setiap perubahan isi menjadi versi baru, dan yang dibaca adalah versi terbaru. Kolom `approved_by` diisi pengunggah karena belum ada langkah persetujuan terpisah. Metrik kg tidak dibandingkan: mart belum membawa kg actual untuk semua hari, sehingga pemecahan volume / harga / margin (P9) belum tampil. Garis budget di grafik kumulatif dibagi rata per hari kerja; PRD tidak menyebut cara membaginya.
+
+Q32. Skenario "tanpa fasilitas afiliasi". Yang dikeluarkan adalah arus "Pinjaman afiliasi (net)" yang direncanakan, ditambah pinjaman afiliasi yang sudah masuk minggu ini menurut actual arus kas mingguan. Untuk minggu contoh, angka terendahnya −910,3 jt, sama dengan §6.1. Pinjaman afiliasi dari bulan-bulan sebelumnya tetap ada di saldo awal. Ini asumsi, dan tertulis di catatan tile. Transfer antar rekening sendiri tidak dihitung sebagai arus operasi maupun pendorong defisit, karena jumlahnya nol bersih.
+
+Q33. Proyeksi kas 13 minggu dan 12 bulan disimpan di mart. §4 tidak punya tempat untuk deret proyeksi. Kolom baru `cash_position_daily.horizon` (jsonb, migrasi `20261017000400`) diisi job rebuild kas, dan halaman membacanya tanpa menghitung (K17). Proyeksi 12 bulan memakai NIBT outlook bulan berjalan dari `pl_daily_v4` ditambah penyusutan, dianggap tetap. Tanpa outlook v4, tile menulis "tidak tersedia".
+
+Q34. Grafik kumulatif. Teks §6.2 menyebut garis actual, garis outlook putus-putus, band ±10%, dan garis budget. Mockup `outlook-bulan.html` menggambar empat batang (MTD, outlook, rendah, tinggi). Teks dan mockup bertentangan. Halaman mengikuti teks; empat angka mockup tampil sebagai label pada garis. Perlu dipastikan mana yang dimaksud.
+
+Q35. Grafik harian. Mockup hanya menampilkan 20–31 Agu, yaitu jendela run-rate dan sisa bulan. Halaman mengikuti mockup. Seluruh bulan terlihat di grafik kumulatif.
+
+Q36. Status register. Mockup menulis "ditetapkan K3" dan "ditetapkan K9" untuk run-rate dan toleransi. P10 menyatakan asumsi tanpa pemilik dan tanggal disepakati menahan kunci versi. Engine mengusulkan semua baris dengan status "belum" sampai Finance menyepakatinya, termasuk baris yang angkanya sudah ditetapkan keputusan K. Perlu dipastikan apakah baris yang ditetapkan K dianggap sudah disepakati.
+
+Q37. Dua builder bulanan. Saat `m4_monthly` hidup, builder v3 (`pl_daily`) tetap berjalan untuk halaman v3 dan PDF bulanan, dan builder v4 menulis `pl_daily_v4`. Builder mingguan irisan 1 (`v4_design`) dilewati selama `m4_monthly` hidup, karena builder bulanan sudah menulis tanggal yang sama.
+
+Q38. FINAL, tutup buku, dan PDF bulanan masih memakai jalur v3 sampai irisan 4. Dengan flag hidup, angka di layar Outlook bulan (v4) bisa berbeda dari PDF bulanan (v3) sampai irisan 4 selesai.
+
+Q39. Upload `delivery` (CSV) dipindah ke irisan 3 bersama M3, karena pembacanya ledger M2 dan alokasi.
+
+Q40. Tombol "Bangun ulang" di halaman bulanan v3. Sejak S1 di irisan 0, `mart_replace` menolak klien pengguna, sehingga tombol itu gagal. Sekarang tombol itu, juga versi v4-nya, memasukkan bulan ke antrian lalu memprosesnya dengan service role.
+
+Q41. C33 dan tanggal berlaku driver. §3.3 menyebut driver hanya diganti lewat master dengan tanggal berlaku. `coa_map` tidak punya kolom tanggal berlaku, dan §4.1 tidak menambahkannya. Perubahan driver saat ini hanya tercatat di audit log. Driver bertanggal berlaku butuh kolom atau tabel baru; perlu keputusan.
+
+Q42. Tile solvabilitas di Outlook bulan memakai `solvency_monthly` terakhir yang tidak melewati akhir bulan yang dilihat; mockup memakai angka September dari §1.1 di halaman Agustus. Baris bunga memakai Interest Expense bulan yang dilihat dari `pl_daily_v4`. Untuk fixture Agustus nilainya "belum diisi", karena bunga Agustus baru dibukukan di akhir bulan dan belum ada input template 8.3.
+
+Q43. Simulasi termin di tile siklus kas berupa isian (termin LB, termin trading, porsi LB, target hari stok) dengan tombol Hitung, bukan slider yang bergerak sendiri. Halaman membaca isian dari alamat URL.
+
+Q44. Versi yang tampil. Halaman Outlook bulan menampilkan draft terkini secara default. Versi yang dikunci dibuka lewat baris tabel Versi (`?versi=V1`) dan diberi label "versi aktif". Label di slicer menyebut versi terkunci yang terakhir.

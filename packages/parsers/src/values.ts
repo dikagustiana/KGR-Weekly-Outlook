@@ -64,13 +64,16 @@ export function serialToISO(serial: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** Parse a date cell: Excel serial, ISO, dd/mm/yyyy, dd-mm-yyyy, "24 Agu 2026", "24-Aug-26". */
+/** Parse a date cell: Excel serial, ISO, "2026-08" (first of month), dd/mm/yyyy, dd-mm-yyyy, "24 Agu 2026", "24-Aug-26". */
 export function parseDate(v: Cell | undefined): string | null {
   if (isBlank(v)) return null;
   if (typeof v === "number") return serialToISO(v);
   const s = String(v).trim();
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) return iso(+m[1], +m[2], +m[3]);
+  // "2026-08" (a month, budget sheets) → its first day
+  m = s.match(/^(\d{4})-(\d{1,2})$/);
+  if (m) return iso(+m[1], +m[2], 1);
   m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/);
   if (m) return iso(year(+m[3]), +m[2], +m[1]);
   m = s.match(/^(\d{1,2})[\s-]+([A-Za-z]+)[\s-]+(\d{2,4})/);

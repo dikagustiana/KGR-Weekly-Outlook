@@ -11,7 +11,8 @@ import { isModuleOn, moduleSettings } from "../modules";
 import { weekPlRows } from "./week-pl";
 import { v4On } from "./nav";
 import type { MingguIniInput, StockMart } from "./minggu-ini";
-import { firstOfMonth, monthSummary } from "@kgr/engine";
+import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type BudgetRow } from "@kgr/engine";
+import { fetchAll } from "../data";
 import { plDaily } from "../v3/monthly";
 
 type Row = Record<string, unknown>;
@@ -88,16 +89,34 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   let month: MingguIniInput["month"] = null;
   if (on.m4) {
     const first = firstOfMonth(w.update_date);
-    const [rows, mo] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt").eq("month", first).maybeSingle()]);
-    const m = (mo.data ?? null) as Row | null;
-    if (rows.length) {
-      const sum = monthSummary(rows, first, m ? { revenue: s(m.budget_revenue), gp: s(m.budget_gp), nibt: s(m.budget_nibt) } : null, "0.10");
-      const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    // "Satu angka": the same mart and the same engine call as the page Outlook bulan (pl_daily_v4, monthSummaryV4, budget)
+    const [v4, bud] = await Promise.all([
+      fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+    ]);
+    if (v4.length) {
+      const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
+      const latest = bud.reduce((m, r) => Math.max(m, Number(r.version)), 0);
+      const budget = latest ? bud.filter((r) => Number(r.version) === latest).map((r) => ({ segment: "Total", metric: String(r.metric) as BudgetRow["metric"], value: String(r.value) })) : [];
+      const vb = vsBudget({ outlook: sum.outlook, actual: sum.actual, budget, remainingWorkingDays: sum.remainingWorkingDays });
+      const line = (m: string) => vb?.lines.find((l) => l.metric === m) ?? null;
       month = {
         label: MONTH[Number(first.slice(5, 7)) - 1], revenue: sum.outlook.revenue.toFixed(2), gp: sum.outlook.gp.toFixed(2),
         gpPct: sum.outlook.revenue.isZero() ? null : sum.outlook.gp.div(sum.outlook.revenue).toFixed(6),
-        budgetRevenue: sum.budget.revenue === null ? null : sum.budget.revenue.toFixed(2), budgetGp: sum.budget.gp === null ? null : sum.budget.gp.toFixed(2),
+        budgetRevenue: line("revenue")?.budget.toFixed(2) ?? null, budgetGp: line("gp")?.budget.toFixed(2) ?? null,
       };
+    } else {
+      const [rows, mo] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt").eq("month", first).maybeSingle()]);
+      const m = (mo.data ?? null) as Row | null;
+      if (rows.length) {
+        const sum = monthSummary(rows, first, m ? { revenue: s(m.budget_revenue), gp: s(m.budget_gp), nibt: s(m.budget_nibt) } : null, "0.10");
+        month = {
+          label: MONTH[Number(first.slice(5, 7)) - 1], revenue: sum.outlook.revenue.toFixed(2), gp: sum.outlook.gp.toFixed(2),
+          gpPct: sum.outlook.revenue.isZero() ? null : sum.outlook.gp.div(sum.outlook.revenue).toFixed(6),
+          budgetRevenue: sum.budget.revenue === null ? null : sum.budget.revenue.toFixed(2), budgetGp: sum.budget.gp === null ? null : sum.budget.gp.toFixed(2),
+        };
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normDemandStatus, normSupplyStatus, parseV3Table, yieldFraction, type Sheet } from "../src";
+import { budgetMonthFirst, normBudgetMetric, normDayBasis, normDemandStatus, normSupplyStatus, parseV3Table, yieldFraction, type Sheet } from "../src";
 
 const sheet = (rows: (string | number | null)[][]): Sheet[] => [{ name: "Sheet1", rows }];
 
@@ -61,5 +61,36 @@ describe("reference/templates/Template_Kas_Harian.xlsx (scripts/make_cash_templa
     const wb = readWorkbook(readFileSync(join(repoRoot(), "reference", "templates", "Template_Kas_Harian.xlsx")), "Template_Kas_Harian.xlsx");
     expect(parseV3Table("cash_balance", wb).detected?.sheet).toBe("Saldo");
     expect(parseV3Table("cash_plan_daily", wb).detected?.sheet).toBe("Rencana");
+  });
+});
+
+describe("M5 template 8.3 and budget uploads (PRD v4 §3.3, §4.4)", () => {
+  it("fixed_cost: COA, nominal, berlaku dari/sampai, basis bagi, jadwal posting, dasar, pemilik", () => {
+    const r = parseV3Table("fixed_cost", sheet([
+      ["COA", "Nominal per bulan", "Berlaku dari", "Berlaku sampai", "Basis bagi", "Jadwal posting", "Dasar", "Pemilik", "Catatan"],
+      ["6-1100", "85.565.549", "2026-08-01", "2026-08-31", "hari kalender", 25, "payroll Agustus", "HR", ""],
+      ["6-2100", "94.482.500", "2026-11-01", "", "kerja", 1, "kontrak sewa RPA Rawa Terate", "GA", "grace 2 bulan"],
+    ]));
+    expect(r.issues).toEqual([]);
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows[0].values).toMatchObject({ account: "6-1100", amount_per_month: "85565549", start_date: "2026-08-01", end_date: "2026-08-31", posting_day: "25", basis_doc: "payroll Agustus", owner: "HR" });
+    expect(normDayBasis(r.rows[0].values.day_basis)).toBe("calendar");
+    expect(normDayBasis(r.rows[1].values.day_basis)).toBe("working");
+    expect(normDayBasis("mingguan")).toBeNull();
+    expect(normDayBasis("")).toBe("calendar");
+  });
+
+  it("budget: bulan × segmen × metrik", () => {
+    const r = parseV3Table("budget", sheet([["Bulan", "Segmen", "Metrik", "Nilai"], ["2026-08", "RPA", "Revenue", "5.000.000.000"], ["2026-08-17", "Trading", "volume", "120000"], ["2026-13", "RPA", "gp", "1"]]));
+    expect(r.rows[0].values).toMatchObject({ month: "2026-08-01", segment: "RPA", metric: "Revenue", value: "5000000000" });
+    expect(r.rows[1].values.month).toBe("2026-08-17");
+    expect(budgetMonthFirst("2026-08")).toBe("2026-08-01");
+    expect(budgetMonthFirst("2026-08-17")).toBe("2026-08-01");
+    expect(budgetMonthFirst("2026-13")).toBeNull();
+    expect(normBudgetMetric("Revenue")).toBe("revenue");
+    expect(normBudgetMetric("volume")).toBe("kg");
+    expect(normBudgetMetric("laba kotor")).toBe("gp");
+    expect(normBudgetMetric("NIBT")).toBe("nibt");
+    expect(normBudgetMetric("lain")).toBeNull();
   });
 });

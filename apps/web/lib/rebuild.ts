@@ -19,6 +19,8 @@ import "./v3/cash";
 import "./v3/commercial";
 import "./v3/discount";
 import "./v4/week-pl";
+import "./v4/month";
+import "./v4/uploads-month";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 
@@ -32,7 +34,7 @@ export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
 export async function rebuildDay(sb: Supa, date: string, settings: ModuleSettings): Promise<string[]> {
   const out: string[] = [];
   for (const b of BUILDERS) {
-    if (!settings[b.module]?.enabled) continue;
+    if (!settings[b.module]?.enabled || (b.unless && settings[b.unless]?.enabled)) continue;
     out.push(`${b.name}: ${await b.build(sb, date)}`);
   }
   return out;
@@ -68,7 +70,7 @@ export async function processRebuildQueue(settings: ModuleSettings, limit = 62):
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r.id]);
   let done = 0, failed = 0;
   const notes: string[] = [];
-  if (byDate.size) for (const b of BUILDERS) if (settings[b.module]?.enabled && b.begin) await b.begin(sb);
+  if (byDate.size) for (const b of BUILDERS) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
     await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids);
     try {
