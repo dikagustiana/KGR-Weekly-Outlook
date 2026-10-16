@@ -84,8 +84,10 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     const rows = (data ?? []) as Row[];
     // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
     if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
-      cashMart = rows.map((c) => ({ date: String(c.date), closing: s(c.total_closing) ?? s(c.projected_closing), planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
-      noFunding = rows.map((c) => ({ date: String(c.date), closing: s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) }));
+      // a day before the first upload stays without a balance (null, never 0) even when later days have one
+      const has = (c: Row) => Number(c.accounts ?? 0) > 0;
+      cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
+      noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }
     const { data: sv } = await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle();
     const v = sv as Row | null;

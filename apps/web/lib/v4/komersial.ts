@@ -34,7 +34,8 @@ export interface KomersialInput {
   rows: CommercialViewRow[];
   /** Sales without any assignment: default deny (§8 S2). */
   unassigned: boolean;
-  spot: { enabled: boolean; cutOffTime: string; now: string; canRecord: boolean };
+  /** clock: the calendar date of the clock when it differs from `today` (the data date); spot sales are for that day only. */
+  spot: { enabled: boolean; cutOffTime: string; now: string; canRecord: boolean; clock?: string };
   approvals: ApprovalRow[];
   controls: { code: string; name: string; status: string; action: string }[] | null;
 }
@@ -115,7 +116,7 @@ export function komersialModel(x: KomersialInput): KomersialModel {
 
   // spot (K8): fresh SKUs "jual hari ini" with free kg, before the cut-off
   const spotRows = rows.filter((r) => r.urgency === "jual_hari_ini" && D(r.free_fresh_kg).gt(0));
-  const pageReason = spotCheck({ spotEnabled: x.spot.enabled, today: x.today, date: x.today, now: x.spot.now, cutOffTime: x.spot.cutOffTime, urgency: "jual_hari_ini", freeFreshKg: null, kg: null })[0] ?? null;
+  const pageReason = spotCheck({ spotEnabled: x.spot.enabled, today: x.spot.clock ?? x.today, date: x.today, now: x.spot.now, cutOffTime: x.spot.cutOffTime, urgency: "jual_hari_ini", freeFreshKg: null, kg: null })[0] ?? null;
   const sCols: Col[] = [{ key: "k", label: "SKU", kind: "key" }, { key: "f", label: "Fresh bebas kg", num: true }, { key: "fl", label: "Lantai Rp/kg", num: true }, { key: "h", label: "Jam ke cut-off", num: true, kind: "sup" }];
   tiles.push({
     id: "t-spot", pos: { x: 0, y: 8, w: 6, h: 4 }, title: `Jual spot sebelum cut-off ${x.spot.cutOffTime.slice(0, 5)}`,

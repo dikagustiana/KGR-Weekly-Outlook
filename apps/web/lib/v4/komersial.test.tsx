@@ -59,6 +59,9 @@ describe("Komersial §6.7", () => {
     expect(late.actions.find((a) => a.action === "spot")!.disabledReason).toBe("cut-off 14:00 sudah lewat");
     const off = komersialModel(base({ spot: { enabled: false, cutOffTime: "14:00:00", now: "10:00", canRecord: true } }));
     expect(tile("t-spot", off)!.note).toContain("belum diaktifkan");
+    // the page shows an older data date than the clock (data stops before today): spot is recorded on today only
+    const old = komersialModel(base({ spot: { enabled: true, cutOffTime: "14:00:00", now: "10:00", canRecord: true, clock: "2026-10-16" } }));
+    expect(old.actions.find((a) => a.action === "spot")!.disabledReason).toBe("penjualan spot hanya untuk hari ini");
   });
   it("approval: no deciding one's own request; the approved one of the requester becomes an order", () => {
     const own = m.actions.find((a) => a.action === "decide" && a.id === "a1")!;

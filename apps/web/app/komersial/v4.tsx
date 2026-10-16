@@ -53,7 +53,7 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   ].map((c) => ({ code: c.code, name: c.name, status: c.status, action: [c.action, c.detail.slice(0, 4).join(", ")].filter(Boolean).join(": ") })) : null;
   const model = komersialModel({
     today, date: mart.date, role: viewer.role, rows, unassigned: sales && own.length === 0, approvals, controls,
-    spot: { enabled: p.spot_enabled === true, cutOffTime: String(p.cut_off_time ?? "14:00"), now: now.time, canRecord: !mgmt && ["admin", "sales", "commercial_lead"].includes(viewer.role) },
+    spot: { enabled: p.spot_enabled === true, cutOffTime: String(p.cut_off_time ?? "14:00"), now: now.time, canRecord: !mgmt && ["admin", "sales", "commercial_lead"].includes(viewer.role), clock: now.date },
   });
 
   const extras: Record<string, ReactNode> = {};

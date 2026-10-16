@@ -49,7 +49,8 @@ export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
  * numbers. Deadlines, cut-off times and timestamps keep the clock.
  */
 export async function dataToday(sb: Supa, today: string = jakartaToday()): Promise<string> {
-  const { data } = await sb.from("week").select("update_date").order("update_date", { ascending: false }).limit(1).maybeSingle();
+  // a week created ahead (rollover before Monday: update_date = week_start) says nothing about the data of today
+  const { data } = await sb.from("week").select("update_date").lte("update_date", today).order("update_date", { ascending: false }).limit(1).maybeSingle();
   const u = (data as { update_date?: string | null } | null)?.update_date ?? null;
   return u && u < today ? u : today;
 }
