@@ -78,3 +78,23 @@ Q-v5-24. C55 menahan kunci V1 di pre-flight app (`lockBlockers`); `release_month
 Q-v5-25. COGS hari ber-PO memakai biaya per kg order dari engine mingguan (HPP per key) seperti `ebe4ad8`; biaya `planCost` v5/1 per SKU belum menggantikannya supaya B.2 tetap. Bila diinginkan, penggantian bisa dibuat di belakang `v5_costing` dengan golden baru.
 
 Q-v5-26. Tata letak: di Outlook bulan dan Minggu ini v4, tile laba rugi masuk baris 5–8 lebar 12 dan tile di bawahnya turun empat baris. Penyatuan "Versi dan bridge" dan urutan mockup Manajemen v5 lainnya dikerjakan di v5/6.
+
+## Irisan 3
+
+Q-v5-27. O4 (default: ukuran kolom terpisah). Ukuran baris PO = `sales_line.size_kg` → `item_map.size_kg` → dibaca dari nama item ("Uk 1.3" = 1,30). Dua kolom pertama adalah koreksi manual dan tidak wajib diisi; selama flag mati tidak ada yang menulis atau membaca kolom itu. `sku_key` karkas tidak dipecah per ukuran.
+
+Q-v5-28. Stok tidak punya ukuran, jadi netting tetap per key (v4 P3.3) dan porsi net key itu dibagi ke ukuran menurut kg PO. Di minggu contoh stok karkas fresh tidak layak (6,9 hari), sehingga net = PO.
+
+Q-v5-29. Peta ukuran → K/S/B Lampiran B.3 adalah ilustrasi: hanya dipakai sebagai input tes berlabel (`fixtures/plan-2026-08-24` blok `v5`, `placeholder: true`), tidak di-seed. Di KGR-OS semua ukuran jatuh ke STD dengan C50 sampai PPIC mengisi `size_class_map`; kelas tanpa yield karkas memakai yield STD (C42).
+
+Q-v5-30. Pembulatan ekor per kelas dari jumlah tak dibulatkan: S 4.420,5 tampil 4.421 (PRD 4.420), total 9.871 sama. Kekurangan by-product engine Kepala 842,5 → 843 (PRD 842), Ceker 547,5 → 547 (PRD 548), dalam toleransi golden v4 1 kg.
+
+Q-v5-31. Versi "Tersimpan" di layar memakai batch rencana yang diinput dalam horizon (blok 2 v1), seperti mockup: surplus = kg LB × yield karkas STD − kebutuhan karkas, downgrade pada harga acuan fresh/frozen minggu itu. "Simpan rencana" menulis `plan_week` (aturan v4, kelas STD untuk ekor) dan `plan_week_class` per kelas dari kebutuhan.
+
+Q-v5-32. C58 membaca `lb_supply.kg` sebagai kg LB per kelas per tanggal potong (status confirmed/received); supply tanpa kelas tidak dihitung untuk kelas mana pun. Salin ke batch butuh C58 LULUS atau alasan tertulis (kode C58 di `plan_check_reason`).
+
+Q-v5-33. C51 di upload supply LB hanya saat `v5_ppic_class` hidup (perilaku v4 tetap). Upload yield sudah menolak kelas yang tidak terdaftar sejak v4.
+
+Q-v5-34. O3: titik tengah "Uk x.x" = x.x + 0,05 sebagai konstanta (`SIZE_MID_OFFSET`); §5 tidak menyebut kolom parameter untuk itu. Lead time potong dari `parameter.lead_time_days` (1).
+
+Q-v5-35. Kartu "Spot fresh hari ini" di tile "Dari Commercial" dan kalimat stok di headline mockup belum diisi data (tampil "belum ada"); data spot dari Commercial v5 (irisan 4).

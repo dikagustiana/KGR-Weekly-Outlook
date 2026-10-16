@@ -23,6 +23,7 @@ import "./v4/month";
 import "./v4/uploads-month";
 import "./v4/uploads-ppic";
 import "./v4/close";
+import "./v5/ppic-data";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

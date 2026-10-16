@@ -1,0 +1,20 @@
+B.3 per ukuran: ukuran | PO kg | kelas | kg LB/ekor | kg LB | ekor
+Uk 0.9 | 58 | K | 1.33 | 81 | 61
+Uk 1.0 | 1763 | K | 1.47 | 2467 | 1679
+Uk 1.2 | 1246 | S | 1.75 | 1744 | 997
+Uk 1.3 | 4622 | S | 1.89 | 6468 | 3424
+Uk 1.4 | 3664 | B | 2.03 | 5128 | 2527
+Uk 1.5 | 954 | B | 2.17 | 1335 | 616
+tanpa | 811 | STD | 2.00 | 1135 | 568
+Total | 13118 | | 1.86 | 18358 | 9871
+per kelas: K 2548 kg LB / 1739.9 ekor; S 8212 kg LB / 4420.5 ekor; B 6463 kg LB / 3142.6 ekor; STD 1135 kg LB / 567.7 ekor
+
+B.4 per tanggal potong: potong | kirim | karkas | kg LB | ekor | K/S/B | tanpa ukuran
+2026-08-26 | 2026-08-27 | 5332 | 7461 | 3870 | 0 / 2081 / 1221 | 568
+2026-08-27 | 2026-08-28 | 3333 | 4664 | 2536 | 646 / 1040 / 851 | 0
+2026-08-28 | 2026-08-29 | 4454 | 6233 | 3465 | 1094 / 1300 / 1071 | 0
+potong 28 Agu kg LB per kelas: K 1599 / S 2456 / B 2178
+
+kekurangan by-product: Ceker 547.5; HJA (Hati/Jantung/Ampela) 1022.2; Kepala 842.5; Usus 896.5
+usulan: biaya 498.5 jt; GP -11.7 jt; breakeven 23961 ; karkas fresh Rp/kg 37590
+tersimpan: kg LB 27219 surplus 6331.9 kg, downgrade 32.0 jt, margin blok 2 -105.5 jt

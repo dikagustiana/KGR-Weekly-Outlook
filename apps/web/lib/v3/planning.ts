@@ -590,13 +590,18 @@ registerV3Kind({
   kind: "lb_supply", module: "m3_planning", label: "Purchasing — supply live bird (tawaran / konfirmasi)", source: "Manual",
   target: "lb_supply", roles: ["admin", "purchasing", "ppic"],
   description: "Kolom: tanggal, pemasok, kelas berat, ekor, kg, harga Rp/kg, status (offer/confirmed/received). Tanggal × pemasok × kelas yang sama ditimpa. Ekor confirmed membatasi rencana harian.",
-  async stage({ sheets }) {
+  async stage({ sb, sheets }) {
     const res = parseV3Table("lb_supply", sheets);
     const issues = [...res.issues];
     const ok: { target: string; data: Row }[] = [];
+    // PRD v5 C51 (flag v5_ppic_class): a supply row of a class that is not registered is not saved
+    const { data: flag } = await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle();
+    const v5 = ((flag as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
+    const classes = v5 ? new Set(((await sb.from("weight_class").select("code")).data ?? []).map((c: Row) => String(c.code))) : null;
     for (const r of res.rows.filter((x) => !x.issues.length)) {
       const st = normSupplyStatus(r.values.status);
       if (!st) { issues.push(`Baris ${r.rowNo}: status "${r.values.status}" tidak dikenal`); continue; }
+      if (classes && r.values.weight_class && !classes.has(String(r.values.weight_class))) { issues.push(`Baris ${r.rowNo}: C51 GAGAL — kelas berat ${r.values.weight_class} belum terdaftar`); continue; }
       ok.push({ target: "lb", data: { ...r.values, status: st } });
     }
     const p = plan0("lb_supply", "Supply LB");

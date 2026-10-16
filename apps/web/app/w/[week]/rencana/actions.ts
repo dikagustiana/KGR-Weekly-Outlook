@@ -5,7 +5,9 @@ import { parseNumber } from "@kgr/parsers";
 import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { getWeek } from "@/lib/data";
-import { approvePlan, copyPlanToBatches, savePlan } from "@/lib/v3/planning";
+import { approvePlan, copyPlanToBatches, loadPlanning, savePlan } from "@/lib/v3/planning";
+import { loadClassDemand, planWeekClassRows } from "@/lib/v5/ppic-data";
+import { WriteError } from "@/lib/write";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -25,6 +27,42 @@ export async function savePlanAction(_: ActionState, form: FormData): Promise<Ac
     const sup = String(form.get("supply_heads") ?? "").trim();
     const heads = sup === "" ? null : parseNumber(sup);
     const msg = await savePlan(sb, v, week, { classCode: String(form.get("weight_class") || "") || null, supplyCommittedHeads: heads === null ? null : Math.round(Number(heads)), note: String(form.get("note") ?? "") || null });
+    done(week.week_start);
+    return { ok: msg };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/**
+ * PRD v5 §4.3 (flag v5_ppic_class): save the plan (plan_week, v4 rules, class STD for the heads) and its classes
+ * (plan_week_class: kg LB and heads per class of the need). C42 PERIKSA may be saved, labelled "yield sementara".
+ */
+export async function saveClassPlanAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const v = await requireModuleAction("v5_ppic_class", ["admin", "ppic"]);
+    const { sb, week } = await ctx(form, ["admin", "ppic"]);
+    const msg = await savePlan(sb, v, week, { classCode: "STD", supplyCommittedHeads: null, note: "v5: rencana per kelas" });
+    const { data: pw } = await sb.from("plan_week").select("id").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle();
+    if (!pw) throw new WriteError("plan_week tidak ditemukan setelah disimpan");
+    const cs = await loadClassDemand(sb, await loadPlanning(sb, week));
+    const rows = planWeekClassRows(String((pw as { id: string }).id), cs.demand);
+    if (rows.length) {
+      const { error } = await sb.from("plan_week_class").insert(rows);
+      if (error) throw new WriteError(`plan_week_class: ${error.message}`);
+    }
+    done(week.week_start);
+    return { ok: `${msg}; ${rows.length} kelas` };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/** Copy to batch (v5): the v4 rules (C42, C45, C46, C47) and C58 LULUS, or C58 with a written reason. */
+export async function copyClassPlanAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    await requireModuleAction("v5_ppic_class", ["admin", "ppic"]);
+    const { sb, week } = await ctx(form, ["admin", "ppic"]);
+    const src = await loadPlanning(sb, week);
+    const c58 = (await loadClassDemand(sb, src)).controls.find((c) => c.code === "C58");
+    if (c58 && c58.status !== "LULUS" && !src.reasons.some((r) => r.code === "C58")) throw new WriteError(`C58 ${c58.status}: ${c58.action}`);
+    const msg = await copyPlanToBatches(sb, week, String(form.get("plan_id")));
     done(week.week_start);
     return { ok: msg };
   } catch (e) { return { error: (e as Error).message }; }

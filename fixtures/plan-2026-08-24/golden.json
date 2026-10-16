@@ -10,5 +10,135 @@
  "kg_lb": "18358",
  "by_product_output_kg": { "HJA (Hati/Jantung/Ampela)": "997", "Usus": "776", "Kepala": "832", "Ceker": "524" },
  "by_product_shortfall_kg": { "HJA (Hati/Jantung/Ampela)": "1022", "Usus": "897", "Kepala": "842", "Ceker": "548" },
- "without_k1": { "heads": 19778, "binding": "Usus", "kg_lb": "39556", "karkas_surplus_kg_approx": "15149" }
+ "without_k1": { "heads": 19778, "binding": "Usus", "kg_lb": "39556", "karkas_surplus_kg_approx": "15149" },
+ "v5": {
+  "placeholder": true,
+  "status": "Lampiran B.3 dan B.4 PRD v5 (kelas K/S/B ilustrasi, yield placeholder); toleransi 1 kg LB dan 1 ekor per baris",
+  "by_size": {
+   "Uk 0.9": {
+    "po_kg": "58",
+    "class": "K",
+    "lb_per_head": "1.33",
+    "kg_lb": "81",
+    "heads": "61"
+   },
+   "Uk 1.0": {
+    "po_kg": "1763",
+    "class": "K",
+    "lb_per_head": "1.47",
+    "kg_lb": "2467",
+    "heads": "1679"
+   },
+   "Uk 1.2": {
+    "po_kg": "1246",
+    "class": "S",
+    "lb_per_head": "1.75",
+    "kg_lb": "1744",
+    "heads": "997"
+   },
+   "Uk 1.3": {
+    "po_kg": "4622",
+    "class": "S",
+    "lb_per_head": "1.89",
+    "kg_lb": "6468",
+    "heads": "3424"
+   },
+   "Uk 1.4": {
+    "po_kg": "3664",
+    "class": "B",
+    "lb_per_head": "2.03",
+    "kg_lb": "5128",
+    "heads": "2527"
+   },
+   "Uk 1.5": {
+    "po_kg": "954",
+    "class": "B",
+    "lb_per_head": "2.17",
+    "kg_lb": "1335",
+    "heads": "616"
+   },
+   "tanpa": {
+    "po_kg": "811",
+    "class": "STD",
+    "lb_per_head": "2.00",
+    "kg_lb": "1135",
+    "heads": "568"
+   }
+  },
+  "by_class": {
+   "K": {
+    "kg_lb": "2548",
+    "heads": "1740"
+   },
+   "S": {
+    "kg_lb": "8212",
+    "heads": "4420"
+   },
+   "B": {
+    "kg_lb": "6463",
+    "heads": "3143"
+   },
+   "STD": {
+    "kg_lb": "1135",
+    "heads": "568"
+   }
+  },
+  "total": {
+   "po_kg": "13118",
+   "kg_lb": "18358",
+   "heads": "9871",
+   "lb_per_head": "1.86"
+  },
+  "daily": [
+   {
+    "cut": "2026-08-26",
+    "ship": "2026-08-27",
+    "karkas_kg": "5332",
+    "kg_lb": "7461",
+    "heads": "3870",
+    "K": "0",
+    "S": "2081",
+    "B": "1221",
+    "unsized": "568"
+   },
+   {
+    "cut": "2026-08-27",
+    "ship": "2026-08-28",
+    "karkas_kg": "3333",
+    "kg_lb": "4664",
+    "heads": "2536",
+    "K": "646",
+    "S": "1040",
+    "B": "851",
+    "unsized": "0"
+   },
+   {
+    "cut": "2026-08-28",
+    "ship": "2026-08-29",
+    "karkas_kg": "4454",
+    "kg_lb": "6233",
+    "heads": "3465",
+    "K": "1094",
+    "S": "1300",
+    "B": "1071",
+    "unsized": "0"
+   }
+  ],
+  "cut_2026_08_28_kg_lb": {
+   "K": "1599",
+   "S": "2456",
+   "B": "2178"
+  },
+  "by_product_shortfall_kg": {
+   "HJA (Hati/Jantung/Ampela)": "1022",
+   "Usus": "897",
+   "Kepala": "842",
+   "Ceker": "548"
+  },
+  "batch_plan": {
+   "kg_lb": "27219",
+   "surplus_kg": "6332",
+   "downgrade_jt": "32.0"
+  }
+ }
 }

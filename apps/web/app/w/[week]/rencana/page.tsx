@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { v4On } from "@/lib/v4/nav";
 import { RencanaV4 } from "./v4";
+import { RencanaV5 } from "./v5";
 import { addDays } from "@kgr/engine";
 import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { ActionForm } from "@/components/ActionForm";
 import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
-import { moduleSettings, requireModulePage } from "@/lib/modules";
+import { moduleEnabled, moduleSettings, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { loadPlanning, proposePlan, weekPlanningControls } from "@/lib/v3/planning";
 import { stockMartControl } from "@/lib/v3/stale";
@@ -24,6 +25,8 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
   const q = await searchParams;
   const v = await requireModulePage("m3_planning", ["admin", "ppic", "finance"]);
   const ctx = await weekContext(week);
+  // PRD v5 §6.3 (flag v5_ppic_class): demand per size → class → kg LB replaces the heads-based plan
+  if (await moduleEnabled("v5_ppic_class", v)) return <RencanaV5 ctx={ctx} versi={q.versi === "batch" ? "batch" : "need"} />;
   if (v4On(await moduleSettings(), v.role)) return <RencanaV4 ctx={ctx} kelas={q.kelas ?? null} />;
   const sb = await supabaseServer();
   const src = await loadPlanning(sb, ctx.week);
