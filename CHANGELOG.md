@@ -2,6 +2,12 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-4] Putaran Commercial ↔ PPIC (docs/PRD-v5.md irisan 4)
+
+### Added
+- Engine `commercial-v5.ts`: `holdingRate`, `stockSellRows`, `stockSummary`, `filterRows`, `commitmentDemand` (K26), `commitmentDeadline`, `c52`, `spotRows`, `kgByBaseKey`.
+- Web (flag `v5_commercial`): Commercial v5 screen (filter, five cards, ranking with cost status, commitments with lock by the commercial lead, PPIC surplus with an answer, spot); price list of next week locked with the commitments (K24); locked commitments as Confirmed demand in PPIC.
+
 ## [v5-3] PPIC per kelas (docs/PRD-v5.md irisan 3)
 
 ### Added

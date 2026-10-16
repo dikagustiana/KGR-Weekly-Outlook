@@ -145,7 +145,7 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     demand: d, daily: cs.daily, classes: cs.classes,
     karkas: { freshKg: fresh, naKg: na, frozenOrderKg: v4.rows.filter((r) => r.key === "RPA|Karkas|Frozen").reduce((a, r) => a.plus(r.weighted_kg), D(0)), frozenCovered: v4.rows.filter((r) => r.key === "RPA|Karkas|Frozen").every((r) => r.net_kg.isZero()), stockFreshKg: null, stockFreshAgeDays: null },
     po: { from: cs.ship?.from ?? ws, to: cs.ship?.to ?? we, kg: sumKg(inH), rpaKg: sumKg(inH.filter((o) => seg(o.key) === "RPA")), tradingKg: sumKg(inH.filter((o) => seg(o.key) === "Trading")), tentativeKg: sumKg(inH.filter((o) => o.demand_status === "Tentative")) },
-    byProducts: bp.map((b) => ({ unit: b.unit, shortfall_kg: b.shortfall_kg })), needCost,
+    byProducts: bp.map((b) => ({ unit: b.unit, net_kg: b.net_kg, output_kg: b.output_kg, shortfall_kg: b.shortfall_kg })), needCost,
     lbPrice: { price: lbPrice ? D(lbPrice) : null, source: lbDecided ? "keputusan Direktur Operasional" : "harga hari ini (parameter)" },
     batch: D(b2.lbPlannedInHorizon).gt(0) && wp ? {
       kgLb: D(b2.lbPlannedInHorizon), batches: result.block6.rows.find((r) => r.status === "Rencana")?.batches ?? 0, margin: D(b2.expectedMarginOfPlan), surplusKg: wp.surplus_kg, downgrade: wp.downgrade,

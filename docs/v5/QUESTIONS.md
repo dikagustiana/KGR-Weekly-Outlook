@@ -98,3 +98,15 @@ Q-v5-33. C51 di upload supply LB hanya saat `v5_ppic_class` hidup (perilaku v4 t
 Q-v5-34. O3: titik tengah "Uk x.x" = x.x + 0,05 sebagai konstanta (`SIZE_MID_OFFSET`); §5 tidak menyebut kolom parameter untuk itu. Lead time potong dari `parameter.lead_time_days` (1).
 
 Q-v5-35. Kartu "Spot fresh hari ini" di tile "Dari Commercial" dan kalimat stok di headline mockup belum diisi data (tampil "belum ada"); data spot dari Commercial v5 (irisan 4).
+
+## Irisan 4
+
+Q-v5-36. Stok bebas di layar = `free_kg` mart Commercial (saldo lot − reservasi alokasi), seperti v4 M7. Komitmen minggu depan tidak dikurangkan dari stok hari ini; komitmen terkunci menjadi demand `Confirmed` di rencana Senin (K26) sebesar kg yang belum tertutup PO minggu itu, ditempatkan pada hari Senin. Baris komitmen tidak membawa ukuran, jadi di PPIC v5 dihitung kelas STD (C50).
+
+Q-v5-37. Key komitmen dan price list = SKU dasar (`RPA|Karkas`); fresh kg → `|Fresh`, frozen kg → `|Frozen`. Harga di form komitmen menjadi `price_list_week.price_fresh` minggu depan saat Kepala Sales mengunci; `price_frozen` tidak diisi dari form (mockup hanya punya satu kolom harga). Costing minggu depan memakai harga itu (v5/1, K24).
+
+Q-v5-38. Tarif simpan harian = beban "Storage Expenses" jurnal bulan lalu ÷ nilai stok (Σ `cost_ma` `sku_balance_daily`) pada akhir bulan lalu ÷ hari bulan itu. PRD memakai persediaan neraca (3.532,6 jt Agustus); app memakai mart stok yang mewakili angka yang sama. Tanpa jurnal atau mart bulan lalu, kartu menulis "tarif simpan belum ada". Sales tidak melihat tarif (jurnal bukan untuk Sales).
+
+Q-v5-39. Lampiran C (126.434 kg / 3.233,3 jt / 26 SKU) berasal dari mart KGR-OS, bukan dari fixture minggu contoh; ledger fixture memberi 128.026 kg / 3.282,1 jt per 26 Agu. Angka ini tidak termasuk daftar reproduksi (B.1–B.5); tes layar memakai baris Lampiran C yang tertulis di mockup sebagai input.
+
+Q-v5-40. Tile "Dari PPIC" di Commercial memakai loader PPIC v5 (satu angka dengan layar PPIC): surplus dari batch rencana, biaya rencana karkas fresh, kekurangan by-product. Sales tidak melihat tile ini berisi detail rencana (data planning bukan untuk Sales); Kepala Sales dan Admin menjawab surplus.

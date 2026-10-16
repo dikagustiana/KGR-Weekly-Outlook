@@ -24,7 +24,7 @@ export interface PpicV5Input {
   /** v4 netting of the karkas keys (fresh with sizes, n/a without, frozen covered by stock). */
   karkas: { freshKg: Decimal; naKg: Decimal; frozenOrderKg: Decimal; frozenCovered: boolean; stockFreshKg: Decimal | null; stockFreshAgeDays: number | null };
   po: { from: string; to: string; kg: Decimal; rpaKg: Decimal; tradingKg: Decimal; tentativeKg: Decimal };
-  byProducts: { unit: string; shortfall_kg: Decimal }[];
+  byProducts: { unit: string; net_kg: Decimal; output_kg: Decimal; shortfall_kg: Decimal }[];
   /** Need version at the LB price decided last (§4.1 mode rencana); null without a price. */
   needCost: PlanCostResult | null;
   lbPrice: { price: Decimal | null; source: "keputusan Direktur Operasional" | "harga hari ini (parameter)" };
