@@ -51,6 +51,17 @@ describe("golden month-2026-08 (K4: computed by the engine with K3, K5, K11)", (
     }
     expect(A.summary.poShare!.toFixed(3)).toBe(g.share_po);
   });
+  it("P6 run-rate day: GP = revenue × margin, with no expedition or blasting row on top (the margin already carries them); 31 Aug GP 16,9 jt", () => {
+    const d31 = A.plan.rows.filter((r) => r.date === "2026-08-31" && r.forecast !== null);
+    const rev = d31.filter((r) => r.pl_line.startsWith("Revenue")).reduce((a, r) => a.plus(r.forecast!), D(0));
+    const cogs = d31.filter((r) => r.pl_line.startsWith("COGS") || r.pl_line.startsWith("Other COGS")).reduce((a, r) => a.plus(r.forecast!), D(0));
+    expect(jt(rev.plus(cogs))).toBe("16.9");
+    expect(d31.some((r) => r.pl_line === "Other COGS - Expedition" || r.pl_line === "COGS - Blasting")).toBe(false);
+    // PO days keep the M5 COGS lines (P6: "dikurangi COGS lain (ekspedisi, blasting) dari driver M5")
+    expect(A.plan.rows.some((r) => r.date === "2026-08-27" && r.pl_line === "COGS - Blasting" && r.forecast !== null)).toBe(true);
+    // Lampiran B.2: GP forecast ≈ −68,0 + 310,4 × 5,4% = −51,2 jt; with the unrounded 5,44% the engine gives −51,0
+    expect(jt(A.summary.forecast.gp)).toBe("-51.0");
+  });
   it("the revoked 7.712,4 is not reproduced: the engine is 51,7 jt above it and the gap is the K3 run-rate and PO weighting", () => {
     expect(A.summary.outlook.revenue.div(1e6).minus("7712.4").toFixed(1)).toBe("51.7");
   });

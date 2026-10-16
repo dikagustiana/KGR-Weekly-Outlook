@@ -16,13 +16,16 @@ import { mingguIniModel, type MingguIniInput } from "../lib/v4/minggu-ini";
 import { v4Nav } from "../lib/v4/nav";
 import { TilePage } from "../components/v4/TilePage";
 import { V4Frame } from "../components/v4/Frame";
+import { kasFixtureFs, kasFixtureProjection, outlookBulanFixture } from "../test-support/month-fixture";
+import { outlookBulanModel } from "../lib/v4/outlook-bulan";
+import { kasModel } from "../lib/v4/kas";
 
 const out = resolve(process.argv[2] ?? "../../docs/v4/bukti/html");
 mkdirSync(out, { recursive: true });
 const css = readFileSync(resolve(__dirname, "../app/v4.css"), "utf8");
 
 function page(title: string, nav: string, body: React.ReactElement): string {
-  const settings = { v4_design: { enabled: true }, m2_ledger: { enabled: true }, m6_cash: { enabled: true } };
+  const settings = { v4_design: { enabled: true }, m2_ledger: { enabled: true }, m4_monthly: { enabled: true }, m6_cash: { enabled: true } };
   const items = v4Nav("management", settings, { week: "2026-08-24", month: "2026-08", today: "2026-08-27" });
   const html = renderToStaticMarkup(
     <V4Frame nav={items} active={nav} view="management" period={<span className="note">24–30 Agu 2026</span>} account={<span>Direksi · Management</span>}>
@@ -48,7 +51,17 @@ for (const v of variants) {
   report[v.file] = { tiles: model.tiles.map((t) => t.id), hidden: model.hidden };
   if (v.file === "minggu-ini.html") writeFileSync(join(out, "minggu-ini.model.full.json"), JSON.stringify(model.tiles, (_, x) => (typeof x === "object" && x !== null && "toFixed" in x && "s" in x ? x.toString() : x), 1));
 }
+// PRD v4 irisan 2: Outlook bulan (§6.2) and Kas & solvabilitas (§6.3)
+const months: { file: string; title: string; nav: string; model: { tiles: Parameters<typeof TilePage>[0]["tiles"]; hidden: string[] } }[] = [
+  { file: "outlook-bulan.html", title: "Outlook bulan", nav: "outlook-bulan", model: outlookBulanModel(outlookBulanFixture()) },
+  { file: "kas-solvabilitas.html", title: "Kas & solvabilitas", nav: "kas", model: kasModel(kasFixtureFs()) },
+  { file: "kas-solvabilitas-proyeksi.html", title: "Kas & solvabilitas", nav: "kas", model: kasModel(kasFixtureProjection()) },
+];
+for (const v of months) {
+  writeFileSync(join(out, v.file), page(v.title, v.nav, <><h1 className="sr-only">{v.title}</h1><TilePage tiles={v.model.tiles} label={v.title} /></>));
+  report[v.file] = { tiles: v.model.tiles.map((t) => t.id), hidden: v.model.hidden };
+}
 writeFileSync(join(out, "minggu-ini.model.json"), JSON.stringify(report, null, 1));
-console.log(`v4-fixture: ${variants.length} halaman → ${out}`);
+console.log(`v4-fixture: ${variants.length + months.length} halaman → ${out}`);
 console.log(JSON.stringify(report["minggu-ini.html"]));
 console.log(`stok di atas batas umur (ledger M2): ${ledgerOverAgeJt} jt; blok 4: ${r.block4.find((b) => b.status === "PERHATIAN")!.value.div(1e6).toFixed(1)} jt`);

@@ -142,6 +142,8 @@ export interface FixedOutlookLine {
   scheduled: Decimal;
   actual_mtd: Decimal;
   outlook: Decimal;
+  /** What is left to book this month: max(0, scheduled − actual MTD) (§3.3). */
+  remaining: Decimal;
   /** Rows of the line without an amount (Finance must fill them). */
   missing: string[];
   over: boolean;
@@ -157,14 +159,15 @@ export function monthFixedOutlook(schedule: FixedCostRow[], actualMtd: Record<st
     const to = r.end_date !== null && r.end_date < last ? r.end_date : last;
     const n = diffDays(to, from) + 1;
     const m = monthlyAmount(r);
-    const l = lines.get(r.pl_line) ?? { pl_line: r.pl_line, day_basis: "working" as const, scheduled: ZERO, actual_mtd: D(actualMtd[r.pl_line] ?? 0), outlook: ZERO, missing: [], over: false };
+    const l = lines.get(r.pl_line) ?? { pl_line: r.pl_line, day_basis: "working" as const, scheduled: ZERO, actual_mtd: D(actualMtd[r.pl_line] ?? 0), outlook: ZERO, remaining: ZERO, missing: [], over: false };
     if (r.day_basis !== "working") l.day_basis = "calendar";
     if (m === null) l.missing.push(r.description);
     else l.scheduled = l.scheduled.plus(m.times(n).div(days));
     lines.set(r.pl_line, l);
   }
   for (const l of lines.values()) {
-    l.outlook = l.actual_mtd.plus(max(ZERO, l.scheduled.minus(l.actual_mtd)));
+    l.remaining = max(ZERO, l.scheduled.minus(l.actual_mtd));
+    l.outlook = l.actual_mtd.plus(l.remaining);
     l.over = l.actual_mtd.gt(l.scheduled) && l.missing.length === 0;
   }
   return [...lines.values()].sort((a, b) => a.pl_line.localeCompare(b.pl_line));

@@ -2,6 +2,28 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-2] Outlook bulanan dan kas (docs/PRD-v4.md irisan 2)
+
+### Added
+- Engine `month-v4.ts` (P1–P14): rows per day × segment × line × basis for `pl_daily_v4`, run-rate per segment, forecast with PO, run-rate and M5 drivers, summary and range, vs budget, register of assumptions, run-rate test, lock blockers, V1 → V2 bridge for revenue / GP / NIBT, accuracy against FINAL, C49 and C32.
+- Engine `monthly.ts`: K3 `runrateRevenue` (7 calendar days), `gpPctMtd`, `v1LockDate`; `drivers.ts`: template 8.3 fields, `dailyFixed` on working days, `carryForwardFixed`, C43; `cash.ts`: `cashProjectionSplit`, `cashProjection12mOrNull`, `cashWeeksFromDays`.
+- Migration `20261017000400_v4_cash_split.sql`: split and scenario columns plus `horizon` on `cash_position_daily`.
+- Web: builder "monthly v4" (`lib/v4/month.ts`), lock V1/V2 with snapshot SHA-256, pages Outlook bulan (`/m/[month]`), Kas & solvabilitas (`/kas`) and Biaya tetap & driver (`/m/[month]/biaya`) behind `v4_design`; Finance actions for budget, cut-off, register, lock, template 8.3 rows and one-off costs.
+- Uploads `fixed_cost` (template 8.3) and `budget`; parsers accept a month written as `2026-08`.
+- Fixtures `month-2026-08/golden-v4.json` (proposed, K4) and `accuracy-2026-08`.
+
+### Changed
+- Run-rate of the v3 monthly path follows K3; the week builder of irisan 1 is skipped while `m4_monthly` is on.
+- "Bangun ulang" on the monthly page queues the month and runs it with the service role (S1 had made the old button fail).
+- The month card of Minggu ini reads `pl_daily_v4` and `budget`, as Outlook bulan does.
+
+### Fixed
+- Run-rate days no longer subtract expedition and blasting again on top of the GP P&L margin (P6).
+- Transfers between own bank accounts are no longer counted as operating flows or deficit drivers.
+
+### Verified
+- Weekly snapshot byte-identical; parity 17.161/17.161; tests engine 242, parsers 22, web 48; RLS 15 blocks without (!); migrations re-runnable on the KGR-OS rehearsal copy; screenshot comparison in `docs/v4/bukti/`.
+
 ## [v4-1] Design system dan Minggu ini (docs/PRD-v4.md irisan 1)
 
 ### Added

@@ -73,13 +73,13 @@ const sumRev = (rows: PlRowV4[], date: string, pick: "actual" | "forecast", seg?
 function registerLabel(r: RegisterRow, windowDays: number): string {
   if (r.code.startsWith("anomaly_")) return `${tglShort(r.code.slice(8))} anomali`;
   switch (r.code) {
-    case "cut_off": return "Cut-off aktual";
-    case "runrate_revenue": return `Run-rate per hari kerja (${windowDays} hari, tanpa anomali)`;
-    case "runrate_offday": return "Faktor Minggu dan libur";
-    case "margin_ref": return "Margin acuan hari run-rate";
-    case "tolerance": return "Toleransi forecast";
+    case "cut_off": return "Cut-off";
+    case "runrate_revenue": return `Run-rate ${windowDays} hari`;
+    case "runrate_offday": return "Faktor Minggu";
+    case "margin_ref": return "Margin acuan";
+    case "tolerance": return "Toleransi";
     case "v1_lock": return "Kunci V1";
-    case "po_volume": return "Volume PO sisa bulan";
+    case "po_volume": return "Volume PO";
     default: return r.name;
   }
 }
@@ -280,7 +280,7 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
   };
   tiles.push({
     id: "ch-kumulatif", pos: P(0, 8, 8, 4), kind: "tall", title: `Revenue kumulatif ${monthWord}: actual dan outlook`,
-    note: sm.remainingDays > 0 ? `Band ± ${pctV4(x.tolerance, 0)} hanya pada porsi forecast: ${jtV4(sm.range.revenueLow)}–${jtV4(sm.range.revenueHigh)} jt.${budgetRev ? " Garis budget dibagi rata per hari kerja." : ""}` : undefined,
+    note: sm.remainingDays > 0 ? `Band ±${pctV4(x.tolerance, 0)} hanya pada porsi forecast: ${jtV4(sm.range.revenueLow)}–${jtV4(sm.range.revenueHigh)} jt.${budgetRev ? " Garis budget dibagi rata per hari kerja." : ""}` : undefined,
     cara: {
       title: "Revenue kumulatif", fn: "versionDaysV4 + monthSummaryV4.range", rule: "Jumlah berjalan revenue harian: jurnal s.d. cut-off, sesudahnya PO atau run-rate. Band = ± toleransi × jumlah forecast berjalan.",
       period: `${tgl(first)} s.d. ${tgl(last)}`, basis: "journal, do_unbilled, po, runrate", status, sources: [{ label: "Tabel", value: "pl_daily_v4" }, ...(budgetRev ? [{ label: "Budget", value: "tabel budget, dibagi rata per hari kerja" }] : [])],
@@ -289,13 +289,15 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
   });
 
   const reg = x.register.filter((r) => r.status !== "superseded");
+  const open = reg.filter((r) => r.status !== "agreed" || !r.agreed_at);
   const openFirst = [...reg].sort((a, b) => Number(b.status !== "agreed") - Number(a.status !== "agreed"));
-  const rCols: Col[] = [{ key: "a", label: "Asumsi", kind: "key" }, { key: "v", label: "Nilai", num: true }, { key: "o", label: "Pemilik", kind: "sup" }, { key: "s", label: "Disepakati", kind: "sup" }];
+  const rCols: Col[] = [{ key: "a", label: "Asumsi", kind: "key", wrap: true }, { key: "v", label: "Nilai", num: true }, { key: "o", label: "Pemilik", kind: "sup", wrap: true }, { key: "s", label: "Disepakati", kind: "sup" }];
   tiles.push({
     id: "register", pos: P(8, 8, 4, 4), kind: "tall", title: "Register asumsi",
+    note: open.length ? `${open.length} dari ${reg.length} belum disepakati; versi tidak bisa dikunci sebelum disepakati.` : undefined,
     content: {
-      type: "table", cols: rCols, limit: 6,
-      rows: openFirst.map((r) => ({ id: r.code, cells: { a: registerLabel(r, x.windowDays), v: registerValue(r), o: r.owner ?? "belum diisi", s: r.status === "agreed" && r.agreed_at ? `disepakati ${tglShort(r.agreed_at.slice(0, 10))}` : "belum disepakati" } })),
+      type: "table", cols: rCols, limit: 5,
+      rows: openFirst.map((r) => ({ id: r.code, cells: { a: registerLabel(r, x.windowDays), v: registerValue(r), o: r.owner ?? "belum diisi", s: r.status === "agreed" && r.agreed_at ? tglShort(r.agreed_at.slice(0, 10)) : "belum" } })),
     },
   });
 
@@ -340,20 +342,22 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
 
   // ---------------------------------------------------------------- rows 16–18: accuracy, solvency
   if (x.accuracy) {
-    const a = x.accuracy, one = (m: string) => a.lines.find((l) => l.metric === m)!;
-    const rev = one("revenue"), gp = one("gp"), nibt = one("nibt");
+    const a = x.accuracy;
+    const rev = a.lines.find((l) => l.metric === "revenue") ?? null;
     const diff = (l: AccuracyLineV4) => `${jtV4(l.absError)}${l.pctOfVersion ? ` (${pctV4(l.pctOfVersion.abs())})` : ""}`;
     const aCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: a.version, num: true }, { key: "f", label: "FINAL", num: true }, { key: "d", label: "Selisih", num: true }];
+    const LBL: Record<string, string> = { revenue: "Revenue", gp: "GP P&L", nibt: "NIBT" };
     const aRows: TRow[] = [
-      { id: "rev", cells: { k: "Revenue", v: jtV4(rev.value), f: jtV4(rev.final), d: diff(rev) } },
-      { id: "gp", cells: { k: "GP P&L", v: jtV4(gp.value), f: jtV4(gp.final), d: diff(gp) } },
-      { id: "nibt", cells: { k: "NIBT", v: jtV4(nibt.value), f: jtV4(nibt.final), d: diff(nibt) } },
-      { id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } },
-      { id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: jtV4(rev.absErrorPre) } },
+      // a metric the version did not carry (e.g. NIBT of a version locked without the cost plan) is left out, not shown as 0
+      ...(["revenue", "gp", "nibt"] as const).map((m) => a.lines.find((l) => l.metric === m)).filter((l): l is AccuracyLineV4 => !!l)
+        .map((l) => ({ id: l.metric, cells: { k: LBL[l.metric], v: jtV4(l.value), f: jtV4(l.final), d: diff(l) } })),
+      ...(rev ? [{ id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } }] : []),
+      ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: jtV4(rev.absErrorPre) } }] : []),
       ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? jtV4(a.poDays.diff) : "belum ada"} / ${a.runrateDays ? jtV4(a.runrateDays.diff) : "belum ada"}` } }] : []),
     ];
     tiles.push({
-      id: "akurasi", pos: P(0, 16, 6, 3), title: `Akurasi ${monthName(a.month)} (FINAL)`,
+      id: "akurasi", pos: P(0, 16, 6, 3), title: "Akurasi bulan terakhir yang FINAL",
+      note: `${monthName(a.month)}, ${a.version} terhadap FINAL; persen di kolom selisih terhadap ${a.version}.`,
       cara: { title: "Akurasi", fn: "accuracyV4", rule: "Selisih mutlak versi terhadap FINAL; MAPE = |selisih| ÷ FINAL (hanya revenue); sebelum penyesuaian = FINAL dikurangi penyesuaian tutup buku. Persen di kolom selisih terhadap versi.", period: monthName(a.month), basis: "snapshot versi, FINAL", status: "locked", sources: [{ label: "Tabel", value: "month_outlook_version, closing_adjustment" }] },
       content: { type: "table", cols: aCols, rows: aRows },
     });
@@ -369,7 +373,7 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
     const sRows: TRow[] = [
       { id: "eq", cells: { k: `Ekuitas (${pctV4(D(s.equity).div(D(s.paidIn)), 0)} modal disetor)`, v: jtV4(s.equity) } },
       { id: "af", cells: { k: "Utang pihak berelasi", v: jtV4(s.affiliate) } },
-      { id: "bg", cells: { k: "Bunga bulan ini", v: hasInterest ? jtV4(interest.neg()) : "belum diisi" } },
+      { id: "bg", cells: { k: `Bunga ${monthWord}`, v: hasInterest ? jtV4(interest.neg()) : "belum diisi" } },
       { id: "kas", cells: { k: "Kas", v: s.cash === null ? "belum diisi" : jtV4(s.cash) } },
       { id: "bn", cells: { k: "Bulan sampai ekuitas negatif", v: s.months === null ? "tidak berlaku (laba)" : num(s.months, 1) } },
     ];

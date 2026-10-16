@@ -5,7 +5,7 @@
  * affiliate facility (G6, §3.7); the scenario's assumption is on the card. A month without a basis outlook reads
  * "tidak tersedia", never a flat line (G6). The fixture harness builds the same model from fixtures/fs-2026-09.
  */
-import { D, Decimal, simulateCcc, type CccResult } from "@kgr/engine";
+import { D, Decimal, simulateCcc, toFixedString, type CashSplit, type CccResult, type ControlV3, type cashProjection12m } from "@kgr/engine";
 import { jtV4, num, pctV4, tgl, tglShort } from "../fmt";
 import type { ChartPoint } from "@/components/v4/Chart";
 import type { Col, TRow } from "@/components/v4/Table";
@@ -16,7 +16,8 @@ export interface KasHorizon {
   as_of: string;
   accounts: { account_no: string; bank: string | null; closing: string | null; date: string; carried: boolean }[];
   missing_days: string[];
-  weeks: { week_start: string; closing: string | null; closing_without: string | null; operating_in: string | null; operating_out: string | null; affiliate_net: string | null }[];
+  /** affiliate_received: the affiliate funding already in the balance of the week of as_of (the scenario takes it out too). */
+  weeks: { week_start: string; closing: string | null; closing_without: string | null; operating_in: string | null; operating_out: string | null; affiliate_net: string | null; affiliate_received?: string | null }[];
   months: { month: string; change: string | null; closing: string | null }[] | null;
   drivers: { description: string; amount: string | null }[];
   affiliate_received: string | null;
@@ -25,11 +26,43 @@ export interface KasHorizon {
   controls: { code: string; status: string }[];
 }
 
+const f2 = (x: Decimal | null | undefined) => (x === null || x === undefined ? null : toFixedString(x, 2));
+
+/**
+ * The horizon the cash rebuild writes next to the day's row (cash_position_daily.horizon): what the management page
+ * shows beyond the day itself. Pure; the rebuild job (lib/v3/cash.ts) and the fixture harness call it the same way.
+ */
+export function kasHorizon(x: {
+  date: string;
+  position: { account_no: string; closing: Decimal; date: string; carried: boolean }[];
+  banks: Record<string, string | null>;
+  controls: ControlV3[];
+  split: CashSplit;
+  months: ReturnType<typeof cashProjection12m> | null;
+  affiliateReceived: Decimal;
+}): KasHorizon {
+  return {
+    as_of: x.date,
+    accounts: x.position.map((b) => ({ account_no: b.account_no, bank: x.banks[b.account_no] ?? null, closing: f2(b.closing), date: b.date, carried: b.carried })),
+    missing_days: x.controls.find((c) => c.code === "C36")?.detail ?? [],
+    weeks: x.split.weeks.map((w, i) => ({
+      week_start: w.week_start, closing: f2(w.closing), closing_without: f2(w.closingWithout), operating_in: f2(w.operatingIn), operating_out: f2(w.operatingOut), affiliate_net: f2(w.affiliateNet),
+      affiliate_received: i === 0 ? f2(x.affiliateReceived) : null,
+    })),
+    months: x.months ? x.months.map((m) => ({ month: m.month, change: f2(m.change), closing: f2(m.closing) })) : null,
+    drivers: x.split.drivers.map((d) => ({ description: d.description, amount: f2(d.amount) })),
+    affiliate_received: f2(x.affiliateReceived),
+    lowest: { date: x.split.lowest.date, balance: f2(x.split.lowest.balance) },
+    lowest_without: { date: x.split.lowestWithout.date, balance: f2(x.split.lowestWithout.balance) },
+    controls: x.controls.map((c) => ({ code: c.code, status: c.status })),
+  };
+}
+
 export interface KasInput {
   today: string;
   /** The latest cash_position_daily row; null = nothing built yet. */
   row: { date: string; totalClosing: string | null; lowest: string | null; lowestDate: string | null; lowestWithout: string | null; lowestWithoutDate: string | null; assumption: string | null; horizon: KasHorizon | null } | null;
-  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; prevAffiliate: string | null; interest: string | null } | null;
+  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
   ccc: { date: string; dio: string | null; dso: string | null; dpo: string | null; ccc: string | null; workingCapital: string | null; cogsPerDay: string | null; revenuePerDay: string | null; windowDays: number | null } | null;
   /** What-if from the query string: termin LB, termin trading, porsi LB, target hari stok. */
   sim: { lb: string; tr: string; share: string; stock: string };
@@ -42,6 +75,8 @@ const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h
 const tone = (v: Decimal | null | undefined): "neg" | undefined => (v !== null && v !== undefined && v.lt(0) ? "neg" : undefined);
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const dn = (v: string | null | undefined) => (v === null || v === undefined ? null : D(v));
+/** A cash plan description is a bank memo: the part after "—" when there is one, cut to 40 characters. */
+const short = (s: string) => { const t = (s.includes("—") ? s.split("—").slice(1).join("—") : s).trim().replace(/\s+/g, " "); return t.length > 40 ? `${t.slice(0, 39)}…` : t; };
 
 export function kasModel(x: KasInput): KasModel {
   const tiles: TileModel[] = [];
@@ -80,6 +115,8 @@ export function kasModel(x: KasInput): KasModel {
   });
   if (sv) {
     const aff = D(sv.affiliate), prev = dn(sv.prevAffiliate);
+    // Interest Expense of the month (actual + forecast rows of pl_daily_v4), a cost: shown positive
+    const interest = sv.interestRows ? sv.interestRows.reduce((a, r) => a.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).neg() : null;
     tiles.push({
       id: "c-afiliasi", pos: P(5, 1, 3, 2), kind: "card", title: "Utang pihak berelasi",
       cara: { title: "Utang pihak berelasi", fn: "solvency", rule: "Other Payable – Related Parties + Trade Payables – Affiliates dari neraca mingguan terakhir; bunga = Interest Expense outlook bulan ini.", period: sv.label, basis: "neraca mingguan", status: "draft", sources: [{ label: "Tabel", value: "solvency_monthly, pl_daily_v4" }] },
@@ -87,7 +124,7 @@ export function kasModel(x: KasInput): KasModel {
         type: "card", value: jtV4(aff), unit: "Rp jt",
         compare: [
           ...(prev ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
-          { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: sv.interest === null ? "belum diisi" : `${jtV4(sv.interest)} jt` },
+          { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: interest === null ? "belum diisi" : `${jtV4(interest)} jt` },
         ],
       },
     });
@@ -115,7 +152,7 @@ export function kasModel(x: KasInput): KasModel {
     });
     tiles.push({
       id: "ch-13minggu", pos: P(0, 3, 7, 4), kind: "tall", title: "Saldo akhir per minggu, 13 minggu",
-      note: row?.assumption ?? undefined,
+      note: `Garis: tanpa fasilitas afiliasi, yaitu arus afiliasi yang direncanakan${h.weeks[0]?.affiliate_received && !D(h.weeks[0].affiliate_received).isZero() ? ` dan Rp ${jtV4(h.weeks[0].affiliate_received)} jt yang sudah masuk minggu ini` : ""} dikeluarkan (asumsi).`,
       cara: { title: "Saldo akhir per minggu", fn: "cashProjectionSplit (cash_position_daily.horizon)", rule: "Batang = saldo akhir minggu dengan rencana kas; garis = skenario tanpa fasilitas afiliasi.", period: `${tgl(asOf)} + 13 minggu`, basis: "saldo aktual, rencana kas", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon)" }] },
       content: { type: "combo", points: pts, labelMax: 13, legend: [{ tone: "s1", label: "dengan pendanaan afiliasi" }, { tone: "ln", label: "tanpa fasilitas afiliasi" }] },
     });
@@ -123,11 +160,11 @@ export function kasModel(x: KasInput): KasModel {
 
   // ---------------------------------------------------------------- accounts
   {
-    const cols: Col[] = [{ key: "a", label: "Rekening", kind: "key" }, { key: "b", label: "Bank", kind: "sup" }, { key: "s", label: "Saldo", num: true }, { key: "d", label: "Per", kind: "sup" }];
+    const cols: Col[] = [{ key: "a", label: "Rekening", kind: "key" }, { key: "b", label: "Bank", kind: "sup" }, { key: "s", label: "Saldo (Rp jt)", num: true }, { key: "d", label: "Per", kind: "sup" }];
     const rows: TRow[] = (h?.accounts ?? []).map((a) => ({ id: a.account_no, cells: { a: a.account_no, b: a.bank ?? "belum diisi", s: a.closing ? jtV4(a.closing) : "belum diisi", d: a.carried ? tglShort(a.date) : "hari ini" } }));
     const miss = h?.missing_days ?? [];
     tiles.push({
-      id: "t-rekening", pos: P(7, 3, 5, 4), kind: "tall", title: "Saldo per rekening (Rp jt)",
+      id: "t-rekening", pos: P(7, 3, 5, 4), kind: "tall", title: "Saldo per rekening",
       note: h ? (miss.length ? `${miss.length} hari kerja tanpa upload kas: ${miss.slice(0, 3).map(tglShort).join(", ")}${miss.length > 3 ? " …" : ""}.` : "Semua hari kerja punya upload kas.") : undefined,
       content: { type: "table", cols, rows, limit: 10 },
     });
@@ -181,19 +218,19 @@ export function kasModel(x: KasInput): KasModel {
   if (h && h.weeks.length) {
     const cols: Col[] = [
       { key: "w", label: "Minggu", kind: "key" }, { key: "i", label: "Masuk operasi", num: true }, { key: "o", label: "Keluar operasi", num: true }, { key: "n", label: "Arus operasi", num: true },
-      { key: "a", label: "Pendanaan afiliasi", num: true, kind: "sup" }, { key: "c", label: "Saldo akhir", num: true, kind: "key" }, { key: "x", label: "Tanpa fasilitas", num: true },
+      { key: "a", label: "Pendanaan afiliasi rencana", num: true, kind: "sup" }, { key: "r", label: "Afiliasi sudah masuk", num: true, kind: "sup" }, { key: "c", label: "Saldo akhir", num: true, kind: "key" }, { key: "x", label: "Tanpa fasilitas", num: true },
     ];
     const rows: TRow[] = h.weeks.map((w) => {
       const i = dn(w.operating_in) ?? D(0), o = dn(w.operating_out) ?? D(0);
-      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: jtV4(i), o: jtV4(o), n: jtV4(i.plus(o)), a: jtV4(w.affiliate_net ?? 0), c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
+      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: jtV4(i), o: jtV4(o), n: jtV4(i.plus(o)), a: jtV4(w.affiliate_net ?? 0), r: w.affiliate_received ? jtV4(w.affiliate_received) : "", c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
     });
     const drivers = h.drivers.filter((d) => d.amount !== null).slice(0, 3);
     tiles.push({
       id: "t-arus", pos: P(0, 11, 12, 4), kind: "tall", title: "Arus kas operasi vs pendanaan afiliasi per minggu (Rp jt)",
-      note: drivers.length && row?.lowestWithoutDate ? `Terendah tanpa fasilitas ${tglShort(row.lowestWithoutDate)}; pembayaran terbesar hari itu: ${drivers.map((d) => `${d.description} ${jtV4(d.amount)} jt`).join(", ")}.` : undefined,
+      note: drivers.length && row?.lowestWithoutDate ? `Terendah tanpa fasilitas ${tglShort(row.lowestWithoutDate)}; pembayaran terbesar hari itu: ${drivers.map((d) => `${short(d.description)} ${jtV4(d.amount)} jt`).join("; ")}.` : undefined,
       content: { type: "table", cols, rows, limit: 8 },
     });
-  } else hidden.push("t-arus");
+  } else tiles.push({ id: "t-arus", pos: P(0, 11, 12, 4), kind: "tall", title: "Arus kas operasi vs pendanaan afiliasi per minggu (Rp jt)", content: { type: "list", items: ["tidak ada data untuk periode ini"] } });
 
   return { title: "Kas & solvabilitas", tiles, hidden };
 }

@@ -75,7 +75,7 @@ export function ComboChart({ width, height, points, label, empty = "tidak ada da
       {points.map((p, i) => (p.line === null || p.line === undefined ? null : (
         <g key={`l${p.key}`}>
           <circle className="dot" cx={cx(i)} cy={y(p.line)} r={3.5} />
-          {showLabels && p.lineText ? <text className={`v${p.line < 0 ? " neg" : ""}`} x={cx(i) + 6} y={y(p.line) + 15}>{p.lineText}</text> : null}
+          {showLabels && p.lineText ? <text className={`v${p.line < 0 ? " neg" : ""}`} x={i === points.length - 1 ? cx(i) - 6 : cx(i) + 6} y={y(p.line) + 15} textAnchor={i === points.length - 1 ? "end" : undefined}>{p.lineText}</text> : null}
         </g>
       )))}
     </svg>

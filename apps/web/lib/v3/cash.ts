@@ -16,6 +16,7 @@ import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
 import { plDaily, isWorkingDay } from "./monthly";
+import { kasHorizon } from "../v4/kas";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: Decimal | null | undefined) => (x === null || x === undefined ? null : toFixedString(x, 2));
@@ -129,23 +130,15 @@ export async function buildCashDay(sb: Supa, date: string, m4: boolean): Promise
     projected_closing: f2(d0?.projected_closing ?? null), lowest_next_13w: f2(st.projection.lowest), lowest_date: st.projection.lowestDate, accounts: st.position.length,
     // PRD v4 §3.7: the planned flows of the day split into operations and affiliate funding, and the scenario without the facility
     closing_without_affiliate: f2(st.split.days[0]?.closingWithout ?? null),
-    operating_in: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && D(p.amount).gt(0)).map((p) => D(p.amount)))) ?? "0",
-    operating_out: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && D(p.amount).lt(0)).map((p) => D(p.amount)))) ?? "0",
+    operating_in: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).gt(0)).map((p) => D(p.amount)))) ?? "0",
+    operating_out: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).lt(0)).map((p) => D(p.amount)))) ?? "0",
     affiliate_net: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category === "Pinjaman afiliasi (net)").map((p) => D(p.amount)))) ?? "0",
     lowest_without_affiliate: f2(st.split.lowestWithout.balance), lowest_without_date: st.split.lowestWithout.date, affiliate_assumption: st.split.assumption,
     // everything the management page "Kas & solvabilitas" shows beyond today's row (K17: the page reads this, it does not compute)
-    horizon: {
-      as_of: date,
-      accounts: st.position.map((b) => ({ account_no: b.account_no, bank: s(st.accounts.find((a) => String(a.account_no) === b.account_no)?.bank), closing: f2(b.closing), date: b.date, carried: b.carried })),
-      missing_days: (st.controls.find((c) => c.code === "C36")?.detail ?? []),
-      weeks: st.split.weeks.map((w) => ({ week_start: w.week_start, closing: f2(w.closing), closing_without: f2(w.closingWithout), operating_in: f2(w.operatingIn), operating_out: f2(w.operatingOut), affiliate_net: f2(w.affiliateNet) })),
-      months: st.monthsV4 ? st.monthsV4.map((m) => ({ month: m.month, change: f2(m.change), closing: f2(m.closing) })) : null,
-      drivers: st.split.drivers.map((d) => ({ description: d.description, amount: f2(d.amount) })),
-      affiliate_received: f2(st.affiliateReceived),
-      lowest: { date: st.split.lowest.date, balance: f2(st.split.lowest.balance) },
-      lowest_without: { date: st.split.lowestWithout.date, balance: f2(st.split.lowestWithout.balance) },
-      controls: st.controls.map((c) => ({ code: c.code, status: c.status })),
-    },
+    horizon: kasHorizon({
+      date, position: st.position, banks: Object.fromEntries(st.accounts.map((a) => [String(a.account_no), s(a.bank)])), controls: st.controls,
+      split: st.split, months: st.monthsV4, affiliateReceived: st.affiliateReceived,
+    }),
   }]);
   if (st.ccc) {
     await martReplace(sb, "ccc_daily", date, [{

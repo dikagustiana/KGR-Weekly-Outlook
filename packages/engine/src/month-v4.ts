@@ -122,10 +122,14 @@ export interface OpexInputV4 {
  * Cost rows of the forecast days (K6, §3.3): fixed lines = max(0, nominal − actual MTD) spread over the remaining
  * days; variable lines = Rp/kg × the kg of the PO days; run-rate lines = the average actual day of the month;
  * events on their own date. A fixed line wins over a variable or run-rate line of the same name.
+ * On a run-rate day the GP is revenue × the reference margin (P6), and that margin is GP P&L ÷ revenue, which already
+ * carries every mapped COGS line (expedition, blasting): COGS-type lines are not added again on those days.
  */
 export function opexRowsV4(x: {
   month: ISODate; cutOff: ISODate; isWorkingDay: (d: ISODate) => boolean; holidays?: ISODate[];
   input: OpexInputV4; kgByDay: Map<ISODate, Decimal>;
+  /** Run-rate days: no COGS-type cost row (the margin covers it). */
+  marginDays?: Set<ISODate>;
 }): PlRowV4[] {
   const first = firstOfMonth(x.month), last = monthEnd(x.month), dim = daysInMonth(x.month);
   const remaining: ISODate[] = [];
@@ -136,6 +140,7 @@ export function opexRowsV4(x: {
   const out: PlRowV4[] = [];
   const add = (date: ISODate, line: string, basis: PlRowV4["basis"], v: Decimal, kg: Decimal | null = null) => {
     if (v.isZero()) return;
+    if (basis !== "event" && isCogsLine(line) && x.marginDays?.has(date)) return;
     out.push({ date, segment: segmentOfLine(line), pl_line: line, basis, actual: null, forecast: v, kg, anomaly: false });
   };
   const fixedLines = new Set<string>();
@@ -245,7 +250,8 @@ export function monthPlanV4(x: {
       } else days.push({ date: d, kind: "none", revenue: ZERO, kg: null });
     }
   }
-  rows.push(...opexRowsV4({ month: x.month, cutOff: x.cutOff, isWorkingDay: x.isWorkingDay, holidays: x.holidays, input: x.opex, kgByDay }));
+  const marginDays = new Set(days.filter((d) => d.kind === "runrate").map((d) => d.date));
+  rows.push(...opexRowsV4({ month: x.month, cutOff: x.cutOff, isWorkingDay: x.isWorkingDay, holidays: x.holidays, input: x.opex, kgByDay, marginDays }));
   return {
     rows: rows.sort((a, b) => a.date.localeCompare(b.date) || a.segment.localeCompare(b.segment) || a.pl_line.localeCompare(b.pl_line) || a.basis.localeCompare(b.basis)),
     runrate, margin, days, poRevenue, runrateRevenue: rrRevenue, costMissingKeys: costKeys.size,

@@ -1,0 +1,35 @@
+{
+ "diffs": [
+  [
+   "ccc",
+   "catatan",
+   "(tanpa catatan)",
+   "HPP dan penjualan dari jurnal 30 hari terakhir (maks. 90)."
+  ],
+  [
+   "t-arus",
+   "judul",
+   "Arus kas operasi vs pendanaan afiliasi, minggu 24–30 Agu (Rp jt)",
+   "Arus kas operasi vs pendanaan afiliasi per minggu (Rp jt)"
+  ],
+  [
+   "t-arus",
+   "nilai",
+   "",
+   "tidak ada data untuk periode ini"
+  ]
+ ],
+ "foldFail": [],
+ "grep": {
+  "I_, O_, T_ (nama lembar teknis)": 0,
+  "alamat e-mail": 0,
+  "\"bersumber Ops\"": 0,
+  "\"→\"": 0,
+  "\"M \" sebagai satuan": 0,
+  "# hex inline (style=)": 0,
+  "fontSize inline": 0
+ },
+ "contrastFail": [],
+ "tilesMockup": 11,
+ "tilesPage": 11
+}

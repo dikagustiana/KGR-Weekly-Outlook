@@ -900,3 +900,84 @@ begin
 
   raise exception 'RLS-RESULTS v4 irisan 1 (rolled back): %', out;
 end $$;
+
+-- v4 irisan 2: budget (P4) and one-off costs (§3.3) are Finance's and hidden from Sales; a locked budget is revised by
+-- a new version; the register is agreed by Finance only; the month marts, data_status and the cash horizon are written
+-- by the server job only; template 8.3 columns are checked in the database; a locked version stays as it was.
+do $$
+declare out text := ''; n int; mo uuid; vid uuid; fid uuid; b text;
+begin
+  insert into public.app_user(email, role) values ('t23-fin@x.test','finance'),('t23-sales@x.test','sales'),('t23-mgmt@x.test','management'),('t23-ppic@x.test','ppic'),('t23-admin@x.test','admin');
+  insert into public.month_outlook (month, status) values ('2030-07-01', 'open') returning id into mo;
+  insert into public.assumption_register (month_outlook_id, code, name, value_num, owner, source) values (mo, 'runrate_revenue', 'Run-rate', 310400000, 'Group Project Finance', 'engine');
+  insert into public.coa_map (account, name, type, pl_line, driver_type) values ('9-T23', 'Gaji uji', 'LabaRugi', 'Salaries and allowance', 'fixed') on conflict (account) do update set driver_type = 'fixed';
+
+  -- Finance: budget version 1, a one-off cost, agrees the run-rate
+  perform set_config('request.jwt.claims', '{"email":"t23-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.budget (version, month, segment, metric, value, locked) values (1, '2030-07-01', 'Total', 'revenue', 8000000000, true); out := out || 'finance budget v1: OK; ';
+  exception when others then out := out || 'finance budget v1: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.budget set value = 1 where month = '2030-07-01' and version = 1; out := out || 'finance edit locked budget: ALLOWED(!); ';
+  exception when others then out := out || 'finance edit locked budget: denied; '; end;
+  begin insert into public.budget (version, month, segment, metric, value) values (2, '2030-07-01', 'Total', 'revenue', 7500000000); out := out || 'finance budget v2: OK; ';
+  exception when others then out := out || 'finance budget v2: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.cost_event (date, pl_line, amount, reason) values ('2030-07-15', 'Maintenance Expenses', 25000000, 'perbaikan chiller'); out := out || 'finance cost_event: OK; ';
+  exception when others then out := out || 'finance cost_event: DENIED(!) ' || sqlerrm || '; '; end;
+  update public.assumption_register set status = 'agreed', agreed_at = now() where month_outlook_id = mo; get diagnostics n = row_count;
+  out := out || 'finance agree register rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.fixed_cost_schedule (code, account, pl_line, description, amount_per_month, start_date, day_basis, posting_day, basis_doc, owner, version)
+    values ('T83|9-T23|2030-07-01', '9-T23', 'Salaries and allowance', 'payroll', 85565549, '2030-07-01', 'calendar', 25, 'payroll', 'HR', 1) returning id into fid; out := out || 'finance template 8.3 row: OK; ';
+  exception when others then out := out || 'finance template 8.3 row: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fixed_cost_schedule (code, pl_line, description, start_date, day_basis) values ('T83|x|2030-07-02', 'Rent Expenses', 'x', '2030-07-01', 'mingguan'); out := out || 'day_basis mingguan: ALLOWED(!); ';
+  exception when others then out := out || 'day_basis mingguan: rejected; '; end;
+  begin insert into public.fixed_cost_schedule (code, pl_line, description, start_date, posting_day) values ('T83|x|2030-07-03', 'Rent Expenses', 'x', '2030-07-01', 32); out := out || 'posting day 32: ALLOWED(!); ';
+  exception when others then out := out || 'posting day 32: rejected; '; end;
+  -- marts and the status registry: no client write
+  begin insert into public.pl_daily_v4 (date, segment, pl_line, basis, actual) values ('2030-07-01', 'Trading', 'Revenue - Trading', 'journal', 1); out := out || 'finance write pl_daily_v4: ALLOWED(!); ';
+  exception when others then out := out || 'finance write pl_daily_v4: denied; '; end;
+  begin insert into public.data_status (table_name, scope, status) values ('month_lock', '2030-07-01', 'validated'); out := out || 'finance write data_status: ALLOWED(!); ';
+  exception when others then out := out || 'finance write data_status: denied; '; end;
+  begin insert into public.cash_position_daily (date, total_closing, horizon) values ('2030-07-01', 1, '{}'); out := out || 'finance write cash horizon: ALLOWED(!); ';
+  exception when others then out := out || 'finance write cash horizon: denied; '; end;
+  begin perform public.mart_replace('pl_daily_v4', '2030-07-01', '[]'::jsonb); out := out || 'finance mart_replace: ALLOWED(!); ';
+  exception when others then out := out || 'finance mart_replace: denied; '; end;
+  -- V1 with the v4 columns; afterwards nobody changes it
+  begin insert into public.month_outlook_version (month_outlook_id, version, cut_off_date, locked_by, snapshot, snapshot_sha256, revenue, gp, nibt, rule_version, anomaly_days, po_share, approved_by)
+    values (mo, 'V1', '2030-07-18', 't23-fin@x.test', '{"rule_version":"v4-2026-10"}', repeat('a', 64), 7764100000, 292500000, 75300000, 'v4-2026-10', '[{"date":"2030-07-15","reason":"nol"}]', 0.775, 't23-fin@x.test') returning id into vid;
+    out := out || 'finance lock V1 (v4 columns): OK; ';
+  exception when others then out := out || 'finance lock V1 (v4 columns): DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.month_outlook_version set revenue = 1 where id = vid; get diagnostics n = row_count; out := out || 'finance change V1 rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance change V1: denied; '; end;
+  execute 'reset role';
+
+  -- Sales sees neither budget nor one-off costs; Management reads, never writes; PPIC cannot add one-off costs
+  perform set_config('request.jwt.claims', '{"email":"t23-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.budget where month = '2030-07-01'; out := out || 'sales read budget=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.cost_event where date = '2030-07-15'; out := out || 'sales read cost_event=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t23-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.budget where month = '2030-07-01'; out := out || 'mgmt read budget=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  begin insert into public.budget (version, month, segment, metric, value) values (3, '2030-07-01', 'Total', 'gp', 1); out := out || 'mgmt write budget: ALLOWED(!); ';
+  exception when others then out := out || 'mgmt write budget: denied; '; end;
+  update public.assumption_register set status = 'proposed' where month_outlook_id = mo; get diagnostics n = row_count;
+  out := out || 'mgmt change register rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t23-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.cost_event (date, pl_line, amount, reason) values ('2030-07-16', 'Maintenance Expenses', 1, 'x'); out := out || 'ppic cost_event: ALLOWED(!); ';
+  exception when others then out := out || 'ppic cost_event: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- a one-off cost queues its date for the month rebuild; the cash mart carries the horizon column
+  select count(*) into n from public.rebuild_queue where date = '2030-07-15' and status = 'queued'; out := out || 'cost_event queued rebuild=' || n || case when n >= 1 then '' else '(!)' end || '; ';
+  select data_type into b from information_schema.columns where table_schema = 'public' and table_name = 'cash_position_daily' and column_name = 'horizon';
+  out := out || 'cash_position_daily.horizon=' || coalesce(b, 'missing(!)') || '; ';
+  select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'cash_position_daily'
+    and column_name in ('closing_without_affiliate','operating_in','operating_out','affiliate_net','lowest_without_affiliate','lowest_without_date','affiliate_assumption');
+  out := out || 'cash split columns=' || n || case when n = 7 then '' else '(!)' end || '; ';
+
+  raise exception 'RLS-RESULTS v4 irisan 2 (rolled back): %', out;
+end $$;

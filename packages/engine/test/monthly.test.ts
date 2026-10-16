@@ -12,8 +12,10 @@ import {
   accuracy, actualDaily, bridge, forecastPlRows, ordersFromWeek, sharePoRows, calibrate, dailyTotals, forecastDays, gpPctMtd, monthOutlook, monthlyControls, nthWorkingDay, runrateRevenue, sumRows, v1LockDate,
 } from "../src/monthly";
 
-type G = Record<string, unknown> & { targets: { cut_off: string; actual: Record<string, string>; forecast: Record<string, string>; outlook: Record<string, string>; daily_revenue: Record<string, string>; share_with_po: string }; fs_final_2026_08: { lines: Record<string, string> } };
+type G = Record<string, unknown> & { fs_final_2026_08: { lines: Record<string, string> } };
 const g = loadV3Fixture<G>("month-2026-08", "golden.json");
+// engine golden of PRD v4 (K4: the v3 targets in golden.json are revoked; actual and PO days are unchanged)
+const g4 = loadV3Fixture<{ actual: Record<string, string>; daily_revenue: Record<string, string> }>("month-2026-08", "golden-v4.json");
 const inp = loadV3Fixture<{ month: string; cut_off: string; week_fixture: string; forecast_tolerance_pct: string }>("month-2026-08", "inputs.json");
 const w = loadFixtureWeek(inp.week_fixture.replace("week-", ""));
 const wk = computeWeek(w);
@@ -34,14 +36,14 @@ describe("monthly golden — cut-off 26 Aug", () => {
   it("actual MTD = journal 1–26 Aug: revenue 6.385,9 jt, GP 347,4 jt (O_PnL!G9 / G15 ± Rp 1)", () => {
     expect(out.actual.revenue.minus(D(g["O_PnL!G9"] as string)).abs().lte(1)).toBe(true);
     expect(out.actual.gp.minus(D(g["O_PnL!G15"] as string)).abs().lte(1)).toBe(true);
-    expect(jt(out.actual.revenue)).toBe(g.targets.actual.revenue);
-    expect(jt(out.actual.gp)).toBe(g.targets.actual.gp);
+    expect(jt(out.actual.revenue)).toBe(g4.actual.revenue);
+    expect(jt(out.actual.gp)).toBe(g4.actual.gp);
     expect(sumRows(rows).actual.revenue.toFixed(2)).toBe(out.actual.revenue.toFixed(2));
   });
   it("PO days 27–29 Aug = weighted PO revenue (457,8 / 232,1 / 378,0 jt ± 0,1 — the mockup rounds per segment: 27 Aug = RPA 271,8 + Trading 186,0); Sunday 30 Aug = 0", () => {
     for (const d of ["2026-08-27", "2026-08-28", "2026-08-29", "2026-08-30"]) {
       const f = fc.find((x) => x.date === d)!;
-      expect(f.revenue.div(1e6).minus(D(g.targets.daily_revenue[d])).abs().lte("0.1")).toBe(true);
+      expect(f.revenue.div(1e6).minus(D(g4.daily_revenue[d])).abs().lte("0.1")).toBe(true);
     }
     expect(fc.find((x) => x.date === "2026-08-30")!.basis).toBe("none");
     expect(fc.filter((x) => x.basis === "po").length).toBe(3);

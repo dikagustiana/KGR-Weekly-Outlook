@@ -135,6 +135,15 @@ describe("PRD v4 §3.7: operations and affiliate funding apart (G6)", async () =
     expect(sp.drivers.map((d) => jt1(d.amount))).toEqual(["-1229.0", "-30.2"]);
     expect(sp.assumption).toContain("1200.0");
   });
+  it("a transfer between own accounts is neither operating in/out nor a driver of the deficit (it nets to zero)", () => {
+    const tr = cashProjectionSplit({ start: "2026-08-26", balances: bal, weeks: 2, affiliateReceived: "1200000000", plans: [...plans,
+      { date: "2026-08-28", amount: "-400000000", cf_category: "Transfer antar rekening", description: "PB dari BCA 8577 ke BCA 8585" },
+      { date: "2026-08-28", amount: "400000000", cf_category: "Transfer antar rekening", description: "PB dari BCA 8577" }] });
+    expect(jt1(tr.weeks[0].operatingOut)).toBe("-1259.2");
+    expect(jt1(tr.weeks[0].operatingIn)).toBe("588.1");
+    expect(tr.drivers.map((d) => jt1(d.amount))).toEqual(["-1229.0", "-30.2"]);
+    expect(jt1(tr.lowest.balance)).toBe("289.7");
+  });
   it("no plans = no drivers and without = with minus what was received; 12 months without an outlook = null, not zeros", () => {
     const e = cashProjectionSplit({ start: "2026-08-26", balances: bal, plans: [], weeks: 1 });
     expect(e.lowestWithout.balance.toFixed(2)).toBe(e.lowest.balance.toFixed(2));

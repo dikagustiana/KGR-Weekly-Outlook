@@ -199,6 +199,9 @@ export const horizonDays = (a: ISODate, b: ISODate) => diffDays(b, a) + 1;
 
 export const AFFILIATE_CATEGORY = "Pinjaman afiliasi (net)";
 export const isAffiliatePlan = (p: CashPlan) => (p.cf_category ?? "").trim() === AFFILIATE_CATEGORY;
+/** Moves between the company's own accounts: they net to zero, so they are neither operations nor a deficit driver. */
+export const INTERNAL_TRANSFER_CATEGORY = "Transfer antar rekening";
+export const isInternalTransfer = (p: CashPlan) => (p.cf_category ?? "").trim() === INTERNAL_TRANSFER_CATEGORY;
 
 export interface CashSplitWeek {
   week_start: ISODate;
@@ -244,15 +247,15 @@ export function cashProjectionSplit(x: { start: ISODate; balances: CashBalance[]
     const aff2 = sum(ps.filter(isAffiliatePlan).map((p) => D(p.amount)));
     return {
       week_start: ws, closing: w.closing, closingWithout: ds.length ? ds[ds.length - 1].closingWithout : w.closing.minus(recv),
-      operatingIn: sum(ps.filter((p) => !isAffiliatePlan(p) && D(p.amount).gt(0)).map((p) => D(p.amount))),
-      operatingOut: sum(ps.filter((p) => !isAffiliatePlan(p) && D(p.amount).lt(0)).map((p) => D(p.amount))),
+      operatingIn: sum(ps.filter((p) => !isAffiliatePlan(p) && !isInternalTransfer(p) && D(p.amount).gt(0)).map((p) => D(p.amount))),
+      operatingOut: sum(ps.filter((p) => !isAffiliatePlan(p) && !isInternalTransfer(p) && D(p.amount).lt(0)).map((p) => D(p.amount))),
       affiliateNet: aff2,
     };
   });
   void monday;
   const lo = (f: (d: (typeof days)[number]) => Decimal) => days.reduce((a, b) => (f(b).lt(f(a)) ? b : a), days[0]);
   const l1 = lo((d) => d.closing), l2 = lo((d) => d.closingWithout);
-  const drivers = live.filter((p) => p.date === l2.date && !isAffiliatePlan(p) && D(p.amount).lt(0))
+  const drivers = live.filter((p) => p.date === l2.date && !isAffiliatePlan(p) && !isInternalTransfer(p) && D(p.amount).lt(0))
     .map((p) => ({ description: p.description ?? p.cf_category ?? "pembayaran", amount: D(p.amount) })).sort((a, b) => a.amount.cmp(b.amount)).slice(0, 5);
   return {
     days, weeks, lowest: { date: l1.date, balance: l1.closing }, lowestWithout: { date: l2.date, balance: l2.closingWithout }, drivers,

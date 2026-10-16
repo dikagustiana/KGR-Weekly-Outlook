@@ -1,0 +1,59 @@
+{
+ "diffs": [
+  [
+   "headline",
+   "nilai",
+   "Revenue Agustus diproyeksikan Rp 7.764,1 jt, GP P&L Rp 296,2 jt (3,8%); sisa bulan 77% ber-PO.",
+   "Revenue Agustus diproyeksikan Rp 7.764,1 jt, GP P&L Rp 296,4 jt (3,8%); sisa bulan 77% ber-PO."
+  ],
+  [
+   "c-forecast",
+   "nilai",
+   "1.378,2 | −51,2 jt | 23%",
+   "1.378,2 | −51,0 jt | 23%"
+  ],
+  [
+   "c-outlook",
+   "nilai",
+   "7.764,1 | 7.626,3–7.902,0 | 296,2 jt (3,8%) | belum diisi",
+   "7.764,1 | 7.626,3–7.901,9 | 296,4 jt (3,8%) | 79,2 jt"
+  ],
+  [
+   "ch-kumulatif",
+   "catatan",
+   "Band ±10% hanya pada porsi forecast: 7.626,3–7.902,0 jt.",
+   "Band ±10% hanya pada porsi forecast: 7.626,3–7.901,9 jt."
+  ],
+  [
+   "register",
+   "catatan",
+   "(tanpa catatan)",
+   "8 dari 8 belum disepakati; versi tidak bisa dikunci sebelum disepakati."
+  ],
+  [
+   "akurasi",
+   "catatan",
+   "Selisih terbesar dari penyesuaian tutup buku (revenue belum difaktur, revaluasi COGS unbilled).",
+   "Agustus 2026, V1 terhadap FINAL; persen di kolom selisih terhadap V1."
+  ],
+  [
+   "solvabilitas",
+   "judul",
+   "Solvabilitas September 2026",
+   "Solvabilitas Agustus 2026"
+  ]
+ ],
+ "foldFail": [],
+ "grep": {
+  "I_, O_, T_ (nama lembar teknis)": 0,
+  "alamat e-mail": 0,
+  "\"bersumber Ops\"": 0,
+  "\"→\"": 0,
+  "\"M \" sebagai satuan": 0,
+  "# hex inline (style=)": 0,
+  "fontSize inline": 0
+ },
+ "contrastFail": [],
+ "tilesMockup": 16,
+ "tilesPage": 16
+}

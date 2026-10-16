@@ -11,6 +11,9 @@ import { supabaseServer } from "@/lib/supabase";
 import { loadMonthDrivers, monthStart } from "@/lib/v3/drivers";
 import { tgl } from "@/lib/fmt";
 import { saveDriverAction, saveScheduleAction } from "./actions";
+import { moduleSettings } from "@/lib/modules";
+import { v4On } from "@/lib/v4/nav";
+import { BiayaV4 } from "./v4";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +24,8 @@ export default async function BiayaPage({ params }: { params: Promise<{ month: s
   const { month } = await params;
   const first = monthStart(month);
   if (!first) notFound();
-  await requireModulePage("m5_drivers", ["admin", "finance"]);
+  const v = await requireModulePage("m5_drivers", ["admin", "finance"]);
+  if (v4On(await moduleSettings(), v.role)) return <BiayaV4 first={first} viewer={v} />;
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const d = await loadMonthDrivers(sb, first, jakartaToday());
