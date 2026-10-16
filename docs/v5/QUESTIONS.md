@@ -38,3 +38,25 @@ Q-v5-6. Versi komitmen setelah kunci: draft versi baru boleh dibuat Sales dengan
 Q-v5-7. `weight_class.avg_kg` dibuat boleh null supaya K/S/B bisa ada tanpa angka (§5.1). Rencana v4 hanya memakai kelas yang sudah punya rata-rata, jadi STD tetap kelas bawaan sampai PPIC mengisi.
 
 Q-v5-8. Screenshot 1366×768 per layar mockup (§12 butir 2) belum bisa dibuat: berkas `.dc.html` butuh runtime `support.js` Claude Design yang tidak ikut diekspor (README mockup). Mockup dibaca sebagai spec dari markup dan `renderVals()`.
+
+## Irisan 1
+
+Q-v5-9. Lampiran B.1 direproduksi dalam toleransi, dengan selisih 1–2 Rp/kg dari pembulatan input PRD (kg 18.358, nilai 486,7 jt): breakeven basis kebutuhan 23.961 (PRD 23.960), basis batch 20.726 (20.727); GP pada 24.600 −11,7 jt (−11,8), k 1,0241 (1,0242); basis batch COGS 739,0 jt (739,1), GP −105,4 jt. Fixture `costing-sim-2026-08-24` menyimpan hasil engine; tes memeriksa angka PRD dengan toleransi ±0,1 jt dan ±2 Rp/kg.
+
+Q-v5-10. Mode `estimasi` (hari potong, sebelum WP): kg SKU = kg LB batch × yield standar `yield_matrix` STD pola karkas, karena yield K/S/B belum diisi (O5). Karkas dibagi fresh/frozen menurut `out_karkas_fresh / out_karkas_frozen` di header batch; tanpa pembagian semua fresh.
+
+Q-v5-11. Harga acuan (K24): `price_list_week` terkunci minggu lalu. Sebelum price list pertama dikunci, costing memakai `sku_price.ref_sell_price` minggu batch dan memberi label "harga acuan minggu ini". SKU tanpa harga (Lemak fresh di minggu contoh) = biaya `missing`, tidak 0.
+
+Q-v5-12. Harga LB untuk estimasi/sementara: `lb_price_decision` tanggal potong (keputusan terakhir), lalu `batch.lb_price`, lalu `parameter.lb_price_today`. Sumbernya ditampilkan di halaman Costing.
+
+Q-v5-13. C54 pada stok: lot stok awal Ceker dan Kepala fresh dinilai 14.221 dan 13.024 Rp/kg (nilai buku). Setelah alokasi joint batch baru, biaya per kg SKU di mart tetap di atas 3 × harga sampai lot stok awal habis, sehingga Commercial masih menandai keduanya "periksa biaya" (O11). Uji G9 memakai biaya per SKU dari costing batch 126: penerimaan menandai Ceker dan Kepala (Usus juga), joint costing sementara membersihkannya.
+
+Q-v5-14. Revaluasi (K22) memakai biaya sementara yang dihitung ulang dari input (WP + harga keputusan + angkut/maklon aktual), bukan disimpan, supaya mart bisa dibangun ulang. Batch yang diposting sebelum `v5_costing` hidup (`app_setting.value.since`, atau tanggal flag diubah) tidak direvaluasi: lotnya tidak pernah membawa biaya sementara. Tanggal final = tanggal WIB `allocation_run.posted_at`.
+
+Q-v5-15. "Biaya kapasitas idle" diperlakukan sebagai beban pokok (seperti "Selisih costing"), segmen LB main, basis `fixed`; hari setelah cut-off memakai kg LB batch rencana dan masuk kolom forecast. Bila Finance ingin di bawah GP, cukup mengubah `V5_COGS_LINES`.
+
+Q-v5-16. Kolom biaya v5 untuk Sales lewat view baru `commercial_daily_sales_v5` (dibaca app saat `v5_costing` hidup). View `commercial_daily_sales` tidak diubah, karena migrasi m7 dan v4 menggantinya dengan daftar kolom lama dan tidak akan bisa dijalankan ulang bila view itu bertambah kolom.
+
+Q-v5-17. K25 diterapkan saat `v5_costing` hidup: headline manajemen, blok 2 (manajemen, preparer, cetak, PDF) dan baris "Aksi" di Ekonomi rencana diganti angka simulasi + "Harga dan volume live bird diputuskan Direktur Operasional." Saat flag mati layar sama dengan `ebe4ad8` (aturan 6). `block2.action` tetap dihitung `computeWeek` (snapshot v1) tetapi tidak ditampilkan. "REKOMENDASI" blok 3 (beli trading) bukan live bird dan tidak diubah.
+
+Q-v5-18. Builder ledger, Commercial dan P&L v5 belum dijalankan terhadap API Supabase di sesi ini (tidak ada PostgREST lokal). Logika diuji di engine (fixture minggu contoh) dan hak akses di `rls_roles.sql`; jalankan rebuild setelah flag hidup di KGR-OS (lihat `docs/v5/irisan-1.md`).

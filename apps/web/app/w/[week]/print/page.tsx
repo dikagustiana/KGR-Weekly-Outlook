@@ -2,6 +2,7 @@ import { weekContext, type PageProps } from "@/lib/page";
 import { OutlookBody } from "@/components/OutlookBody";
 import { PrintButton } from "@/components/PrintButton";
 import { tgl } from "@/lib/fmt";
+import { moduleEnabled } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function PrintPage({ params }: PageProps) {
         <h1>KGR — Weekly Outlook · Minggu {tgl(r.week.weekStart)} – {tgl(r.week.weekEnd)} · Update {tgl(r.week.today, true)}</h1>
         <span>Kontrol: <b>{r.controls.overall}</b> <PrintButton /></span>
       </div>
-      <OutlookBody r={r} week={week} print />
+      <OutlookBody r={r} week={week} print k25={await moduleEnabled("v5_costing", ctx.viewer)} />
     </main>
   );
 }

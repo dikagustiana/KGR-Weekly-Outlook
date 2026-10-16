@@ -11,6 +11,7 @@ import type { Supa } from "../supabase";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "./uploads";
+import { v5CostingOn } from "../v5/costing";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -23,6 +24,8 @@ export interface CommercialState {
   reps: string[];
   assigned: Row[];
   controls: ControlV3[];
+  /** v5_costing on: rows carry the costing engine's cost per kg, its status and C54. */
+  v5: boolean;
 }
 
 export async function computeCommercial(sb: Supa, date: string): Promise<CommercialState> {
@@ -42,8 +45,10 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
     fetchAll<Row>((a, b) => sb.from("price_floor_rule").select("key, group_code, markup_rp_per_kg, markup_pct, effective_from").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep").is("deleted_at", null).gte("week_start", addDays(date, -35)).range(a, b)),
-    week ? sb.from("parameter").select("blast_cost_per_kg, discount_limit_rp_per_kg, sales_sees_cost").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
+    week ? sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
+  // v5 §4.1 / §4.6 (K17): the cost per kg of the stock is the ledger's lot cost (costing engine), with its status
+  const v5 = await v5CostingOn(sb);
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const info = new Map(keys.map((k) => [String(k.key), k]));
   const price = new Map(prices.map((p) => [String(p.key), s(p.ref_sell_price)]));
@@ -59,7 +64,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
   const p = (param.data ?? {}) as Row;
   const blast = s(p.blast_cost_per_kg) ?? "0";
   const rows = commercialRows({
-    date, blastCostPerKg: blast,
+    date, blastCostPerKg: blast, costAnomalyRatio: s(p.cost_anomaly_ratio) ?? "3",
     urgencyRules: urg.map((u) => ({ form: u.form === "fresh" ? "fresh" : "frozen", age_from: Number(u.age_from), age_to: u.age_to === null ? null : Number(u.age_to), status: String(u.status) as UrgencyRule["status"] })),
     floorRules: floors.map((f): PriceFloorRule => ({ key: s(f.key), group_code: s(f.group_code), markup_rp_per_kg: String(f.markup_rp_per_kg ?? 0), markup_pct: String(f.markup_pct ?? 0), effective_from: String(f.effective_from) })),
     items: bal.map((b) => {
@@ -70,6 +75,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
         oldest_age_days: b.oldest_age_days === null ? null : Number(b.oldest_age_days), hours_to_cutoff: hours.has(key) ? hours.get(key)! : null,
         cost_per_kg_ma: s(b.cost_per_kg_ma), cost_per_kg_si: s(b.cost_per_kg_si), price_list: price.get(key) ?? null, price_frozen: price.get(frozenKeyOf(key)) ?? null,
         realized_price_7d: real.has(key) ? real.get(key)!.toFixed(4) : null, storage_per_kg_day: s(k?.storage_cost_per_kg_day), ordered_today_kg: today.get(key) ?? "0",
+        ...(v5 ? { cost_per_kg: s(b.cost_per_kg_si), cost_status: s(b.cost_status) } : {}),
       };
     }),
   });
@@ -78,7 +84,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
   return {
     date, stockDate, week, rows,
     params: { salesSeesCost: p.sales_sees_cost !== false, discountLimit: s(p.discount_limit_rp_per_kg) ?? "500", blastCostPerKg: blast },
-    reps: [...new Set(reps)].sort(), assigned, controls,
+    reps: [...new Set(reps)].sort(), assigned, controls, v5,
   };
 }
 
@@ -91,6 +97,7 @@ export function martRows(st: CommercialState): Row[] {
     price_floor: f(r.price_floor, 4), price_list: f(r.price_list, 4), margin_per_kg_list: f(r.margin_per_kg_list, 4), realized_price_7d: f(r.realized_price_7d, 4),
     margin_per_kg_realized: f(r.margin_per_kg_realized, 4), holding_loss_per_day: f(r.holding_loss_per_day, 2), downgrade_risk_rp: f(r.downgrade_risk_rp, 2),
     urgency: r.urgency, priority_score: f(r.priority_score, 2), rank: r.rank, ordered_today_kg: f(r.ordered_today_kg, 2),
+    ...(st.v5 ? { cost_per_kg: f(r.cost_per_kg, 4), cost_status: r.cost_status ?? null, cost_check: r.cost_check ?? false } : {}),
   }));
 }
 
@@ -102,9 +109,12 @@ export async function buildCommercialDay(sb: Supa, date: string): Promise<string
 
 registerBuilder({ module: "m7_commercial", name: "commercial", build: buildCommercialDay });
 
-/** Reads for /komersial: the latest built day ≤ date (sales through the view without the SI cost). */
+/**
+ * Reads for /komersial: the latest built day ≤ date (sales through the view without the SI cost; with v5_costing on,
+ * the v5 view that adds the cost per SKU, its status and C54).
+ */
 export async function commercialMart(sb: Supa, date: string, sales: boolean): Promise<{ date: string | null; rows: Row[] }> {
-  const table = sales ? "commercial_daily_sales" : "commercial_daily";
+  const table = !sales ? "commercial_daily" : (await v5CostingOn(sb)) ? "commercial_daily_sales_v5" : "commercial_daily_sales";
   const { data } = await sb.from(table).select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle();
   const d = data ? String((data as Row).date) : null;
   if (!d) return { date: null, rows: [] };

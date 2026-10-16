@@ -83,10 +83,12 @@ export function komersialModel(x: KomersialInput): KomersialModel {
   });
 
   const showMa = rows.some((r) => r.cost_per_kg_ma !== null) || x.role !== "sales";
+  // v5 §4.1 (flag v5_costing): the cost per kg comes from costing with its status as text; C54 says "periksa"
+  const v5 = rows.some((r) => r.cost_status !== null);
   const cols: Col[] = [
     { key: "n", label: "#", num: true }, { key: "k", label: "SKU", kind: "key" }, { key: "u", label: "Status" },
     { key: "ff", label: "Fresh bebas kg", num: true }, { key: "fz", label: "Frozen bebas kg", num: true }, { key: "a", label: "Umur hari", num: true },
-    ...(showMa ? [{ key: "ma", label: "MA Rp/kg", num: true }] : []),
+    ...(v5 ? [...(showMa ? [{ key: "c", label: "Biaya Rp/kg", num: true }] : []), { key: "cs", label: "Status biaya" }] : showMa ? [{ key: "ma", label: "MA Rp/kg", num: true }] : []),
     { key: "fl", label: "Lantai Rp/kg", num: true, kind: "key" as const }, { key: "pl", label: "List Rp/kg", num: true },
     { key: "ml", label: "Margin/kg list", num: true }, { key: "p7", label: "Harga 7 hari", num: true }, { key: "m7", label: "Margin/kg 7 hari", num: true },
     { key: "hl", label: "Rugi simpan/hari Rp", num: true, kind: "sup" }, { key: "ot", label: "Order hari ini kg", num: true, kind: "sup" },
@@ -97,6 +99,7 @@ export function komersialModel(x: KomersialInput): KomersialModel {
       n: r.rank === null ? "" : String(r.rank), k: r.key, u: URGENCY_LABEL[r.urgency ?? "aman"] ?? r.urgency ?? "",
       ff: kg(r.free_fresh_kg), fz: kg(r.free_frozen_kg), a: r.oldest_age_days === null ? "" : String(r.oldest_age_days),
       ma: rpkg(r.cost_per_kg_ma), fl: rpkg(r.price_floor), pl: rpkg(r.price_list),
+      c: rpkg(r.cost_per_kg), cs: r.cost_status === null ? "" : `${r.cost_status}${r.cost_check ? " · periksa biaya" : ""}`,
       ml: r.margin_per_kg_list === null ? MISSING : minus(num(r.margin_per_kg_list, 0)), p7: rpkg(r.realized_price_7d),
       m7: r.margin_per_kg_realized === null ? MISSING : minus(num(r.margin_per_kg_realized, 0)),
       hl: r.holding_loss_per_day === null ? "" : num(r.holding_loss_per_day, 0), ot: kg(r.ordered_today_kg),
@@ -104,7 +107,9 @@ export function komersialModel(x: KomersialInput): KomersialModel {
   }));
   tiles.push({
     id: "t-ranking", pos: { x: 0, y: 2, w: 12, h: 6 }, title: x.date ? `Stok yang harus dijual, per ${tglShort(x.date)}` : "Stok yang harus dijual",
-    note: x.unassigned ? "Belum ada penugasan SKU untuk Anda. Minta penugasan ke commercial lead." : "Urutan: di atas batas umur, jual hari ini, jual minggu ini, aman; lalu rugi simpan per hari dan risiko turun ke frozen.",
+    note: x.unassigned ? "Belum ada penugasan SKU untuk Anda. Minta penugasan ke commercial lead." : ["Urutan: di atas batas umur, jual hari ini, jual minggu ini, aman; lalu rugi simpan per hari dan risiko turun ke frozen.",
+      ...(v5 ? ["Biaya per kg dari costing; status biaya: estimasi = kg LB × yield standar, sementara = dari WP potong, final = setelah alokasi diposting."] : []),
+      ...(v5 && rows.some((r) => r.cost_check) ? [`Periksa biaya (C54): ${rows.filter((r) => r.cost_check).map((r) => r.key).join(", ")} — biaya per kg di atas batas kali harga acuan.`] : [])].join(" "),
     content: { type: "table", cols, rows: tRows, limit: 12 },
   });
 

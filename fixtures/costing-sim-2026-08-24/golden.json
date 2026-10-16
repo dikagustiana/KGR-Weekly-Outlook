@@ -1,0 +1,546 @@
+{
+ "status": "diusulkan",
+ "placeholder": true,
+ "need": {
+  "kg_lb": "18357.76",
+  "value": "486713476.30",
+  "breakeven": "23960.68",
+  "rows": [
+   {
+    "price": "20000",
+    "cogs": "414004300.49",
+    "gp": "72709175.81",
+    "k": "0.850612",
+    "margin_per_kg_lb": "3960.68",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "31221.71"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "25518.36"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "3840.51"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1275.92"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "3427.12"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "2637.75"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "21000",
+    "cogs": "432362064.79",
+    "gp": "54351411.51",
+    "k": "0.888330",
+    "margin_per_kg_lb": "2960.68",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "32606.14"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "26649.89"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4010.81"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1332.49"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "3579.08"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "2754.71"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "22000",
+    "cogs": "450719829.09",
+    "gp": "35993647.21",
+    "k": "0.926048",
+    "margin_per_kg_lb": "1960.68",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "33990.58"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "27781.43"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4181.10"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1389.07"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "3731.05"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "2871.67"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "23000",
+    "cogs": "469077593.39",
+    "gp": "17635882.91",
+    "k": "0.963765",
+    "margin_per_kg_lb": "960.68",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "35375.01"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "28912.96"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4351.40"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1445.65"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "3883.01"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "2988.64"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "24000",
+    "cogs": "487435357.69",
+    "gp": "-721881.39",
+    "k": "1.001483",
+    "margin_per_kg_lb": "-39.32",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "36759.44"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "30044.50"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4521.70"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1502.22"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "4034.98"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "3105.60"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "24600",
+    "cogs": "498450016.27",
+    "gp": "-11736539.97",
+    "k": "1.024114",
+    "margin_per_kg_lb": "-639.32",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "37590.10"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "30723.42"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4623.87"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1536.17"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "4126.15"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "3175.78"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "25000",
+    "cogs": "505793121.99",
+    "gp": "-19079645.69",
+    "k": "1.039201",
+    "margin_per_kg_lb": "-1039.32",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "38143.87"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "31176.03"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4691.99"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1558.80"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "4186.94"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "3222.56"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   },
+   {
+    "price": "26000",
+    "cogs": "524150886.29",
+    "gp": "-37437409.99",
+    "k": "1.076919",
+    "margin_per_kg_lb": "-2039.32",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Fresh",
+      "kg": "12307.15",
+      "price_ref": "36705",
+      "cost_per_kg": "39528.30"
+     },
+     {
+      "key": "RPA|Karkas|n/a",
+      "kg": "811.29",
+      "price_ref": "30000",
+      "cost_per_kg": "32307.56"
+     },
+     {
+      "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+      "kg": "997.19",
+      "price_ref": "4515",
+      "cost_per_kg": "4862.29"
+     },
+     {
+      "key": "RPA|Usus|Fresh",
+      "kg": "776.39",
+      "price_ref": "1500",
+      "cost_per_kg": "1615.38"
+     },
+     {
+      "key": "RPA|Kepala|Fresh",
+      "kg": "831.59",
+      "price_ref": "4029",
+      "cost_per_kg": "4338.91"
+     },
+     {
+      "key": "RPA|Ceker|Fresh",
+      "kg": "523.53",
+      "price_ref": "3101",
+      "cost_per_kg": "3339.53"
+     },
+     {
+      "key": "RPA|Lemak|Fresh",
+      "kg": "60.54",
+      "price_ref": null,
+      "cost_per_kg": null
+     }
+    ]
+   }
+  ]
+ },
+ "batch": {
+  "kg_lb": "27218.60",
+  "value": "633585248.07",
+  "breakeven": "20725.66",
+  "rows": [
+   {
+    "price": "20000",
+    "cogs": "613833867.20",
+    "gp": "19751380.87",
+    "k": "0.968826",
+    "margin_per_kg_lb": "725.66",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "30671.09"
+     }
+    ]
+   },
+   {
+    "price": "21000",
+    "cogs": "641052467.20",
+    "gp": "-7467219.13",
+    "k": "1.011786",
+    "margin_per_kg_lb": "-274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "32031.11"
+     }
+    ]
+   },
+   {
+    "price": "22000",
+    "cogs": "668271067.20",
+    "gp": "-34685819.13",
+    "k": "1.054745",
+    "margin_per_kg_lb": "-1274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "33391.13"
+     }
+    ]
+   },
+   {
+    "price": "23000",
+    "cogs": "695489667.20",
+    "gp": "-61904419.13",
+    "k": "1.097705",
+    "margin_per_kg_lb": "-2274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "34751.14"
+     }
+    ]
+   },
+   {
+    "price": "24000",
+    "cogs": "722708267.20",
+    "gp": "-89123019.13",
+    "k": "1.140665",
+    "margin_per_kg_lb": "-3274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "36111.16"
+     }
+    ]
+   },
+   {
+    "price": "24600",
+    "cogs": "739039427.20",
+    "gp": "-105454179.13",
+    "k": "1.166440",
+    "margin_per_kg_lb": "-3874.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "36927.17"
+     }
+    ]
+   },
+   {
+    "price": "25000",
+    "cogs": "749926867.20",
+    "gp": "-116341619.13",
+    "k": "1.183624",
+    "margin_per_kg_lb": "-4274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "37471.18"
+     }
+    ]
+   },
+   {
+    "price": "26000",
+    "cogs": "777145467.20",
+    "gp": "-143560219.13",
+    "k": "1.226584",
+    "margin_per_kg_lb": "-5274.34",
+    "skus": [
+     {
+      "key": "RPA|Karkas|Frozen",
+      "kg": "19474.90",
+      "price_ref": "31658",
+      "cost_per_kg": "38831.19"
+     }
+    ]
+   }
+  ]
+ }
+}

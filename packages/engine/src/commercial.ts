@@ -60,6 +60,12 @@ export interface CommercialInput {
   realized_price_7d: Num | null;
   storage_per_kg_day: Num | null;
   ordered_today_kg?: Num;
+  /**
+   * PRD v5 §4.6, K20: the SKU's cost per kg from the costing engine and its status. When given, the floor is this cost
+   * (+ the markup of a rule, default 0) and margins are computed on it; absent = the v4 rule on MA.
+   */
+  cost_per_kg?: Num | null;
+  cost_status?: string | null;
 }
 
 export interface CommercialRow {
@@ -83,15 +89,32 @@ export interface CommercialRow {
   priority_score: Decimal;
   rank: number;
   ordered_today_kg: Decimal;
+  /** v5: the cost the floor and margins stand on, its status, and the C54 flag (cost > ratio × list price). */
+  cost_per_kg?: Decimal | null;
+  cost_status?: string | null;
+  cost_check?: boolean;
 }
 
 const dn = (v: Num | null | undefined) => (v === null || v === undefined || v === "" ? null : D(v));
 
-export function commercialRows(x: { date: ISODate; items: CommercialInput[]; urgencyRules: UrgencyRule[]; floorRules: PriceFloorRule[]; blastCostPerKg: Num }): CommercialRow[] {
+/** PRD v5 §4.6: floor = cost (any status) + the markup of the rule in force; no rule = the cost itself (markup default 0). */
+export function priceFloorV5(x: { key: string; group_code: string | null; costPerKg: Num | null; rules: PriceFloorRule[]; date: ISODate }): Decimal | null {
+  if (x.costPerKg === null || x.costPerKg === undefined || x.costPerKg === "") return null;
+  const cost = D(x.costPerKg);
+  const inForce = x.rules.filter((r) => r.effective_from <= x.date).sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+  const rule = inForce.find((r) => r.key === x.key) ?? inForce.find((r) => r.key === null && r.group_code !== null && r.group_code === x.group_code) ?? inForce.find((r) => r.key === null && r.group_code === null);
+  return rule ? cost.plus(D(rule.markup_rp_per_kg)).plus(cost.times(D(rule.markup_pct))) : cost;
+}
+
+export function commercialRows(x: { date: ISODate; items: CommercialInput[]; urgencyRules: UrgencyRule[]; floorRules: PriceFloorRule[]; blastCostPerKg: Num; costAnomalyRatio?: Num }): CommercialRow[] {
   const rows = x.items.filter((i) => D(i.free_kg).gt(0)).map((i): CommercialRow => {
     const free = D(i.free_kg);
-    const ma = dn(i.cost_per_kg_ma), list = dn(i.price_list), real = dn(i.realized_price_7d);
-    const floor = priceFloor({ key: i.key, group_code: i.group_code, costPerKgMa: i.cost_per_kg_ma, rules: x.floorRules, date: x.date, storagePerKgDay: i.storage_per_kg_day, blastCostPerKg: x.blastCostPerKg });
+    const v5 = i.cost_per_kg !== undefined;
+    // v5 (K17, §4.1): margins from the costing engine's cost per kg; the MA column keeps the ledger MA
+    const ma = dn(i.cost_per_kg_ma), cost = v5 ? dn(i.cost_per_kg) : ma, list = dn(i.price_list), real = dn(i.realized_price_7d);
+    const floor = v5
+      ? priceFloorV5({ key: i.key, group_code: i.group_code, costPerKg: i.cost_per_kg ?? null, rules: x.floorRules, date: x.date })
+      : priceFloor({ key: i.key, group_code: i.group_code, costPerKgMa: i.cost_per_kg_ma, rules: x.floorRules, date: x.date, storagePerKgDay: i.storage_per_kg_day, blastCostPerKg: x.blastCostPerKg });
     const holding = D(i.storage_per_kg_day ?? 0).times(free);
     const pz = dn(i.price_frozen);
     const downgrade = i.form === "fresh" && list !== null && pz !== null ? max(ZERO, list.minus(pz)).times(free) : ZERO;
@@ -100,9 +123,13 @@ export function commercialRows(x: { date: ISODate; items: CommercialInput[]; urg
     return {
       key: i.key, group_code: i.group_code, form: i.form, free_fresh_kg: i.form === "fresh" ? free : ZERO, free_frozen_kg: i.form === "frozen" ? free : ZERO,
       oldest_age_days: i.oldest_age_days, hours_to_cutoff: hours, cost_per_kg_ma: ma, cost_per_kg_si: dn(i.cost_per_kg_si), price_floor: floor, price_list: list,
-      margin_per_kg_list: list !== null && ma !== null ? list.minus(ma) : null, realized_price_7d: real, margin_per_kg_realized: real !== null && ma !== null ? real.minus(ma) : null,
+      margin_per_kg_list: list !== null && cost !== null ? list.minus(cost) : null, realized_price_7d: real, margin_per_kg_realized: real !== null && cost !== null ? real.minus(cost) : null,
       holding_loss_per_day: holding, downgrade_risk_rp: downgrade, urgency: urgency(x.urgencyRules, i.oldest_age_days, i.form), priority_score: priority, rank: 0,
       ordered_today_kg: D(i.ordered_today_kg ?? 0),
+      ...(v5 ? {
+        cost_per_kg: dn(i.cost_per_kg), cost_status: i.cost_status ?? null,
+        cost_check: cost !== null && list !== null && list.gt(0) && cost.gt(list.times(D(x.costAnomalyRatio ?? 3))),
+      } : {}),
     };
   });
   rows.sort((a, b) => URGENCY_ORDER.indexOf(a.urgency) - URGENCY_ORDER.indexOf(b.urgency) || b.priority_score.cmp(a.priority_score) || a.key.localeCompare(b.key));

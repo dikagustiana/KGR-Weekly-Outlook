@@ -4,7 +4,8 @@ import "server-only";
  * @kgr/engine (computeLedger, balanceAt, reconcile, ledgerControls); this file loads rows and writes the results.
  */
 import {
-  balanceAt, computeLedger, keyResolver, ledgerControls, reconcile, reconcileSplit, toFixedString, D, addDays,
+  balanceAt, computeLedger, finalLots, keyResolver, ledgerControls, lowestStatus, reconcile, reconcileSplit, revalueLots, toFixedString, D, addDays,
+  type CostStatus, type FinalBatch,
   type BalanceResult, type ControlV3, type Decimal, type LedgerInputs, type LedgerKeyInfo, type LedgerResult, type ReconPart, type StockCardRow,
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
@@ -14,6 +15,7 @@ import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
 import { salesWithDeliveries } from "../v4/delivery-ledger";
+import { costOfKey, v5CostingOn, v5LedgerCosts, type V5LedgerCosts } from "../v5/costing";
 
 const s = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
 const f = (x: Decimal | null | undefined, dp: number) => (x === null || x === undefined ? null : toFixedString(x, dp));
@@ -24,6 +26,8 @@ export interface LedgerSources {
   latest: WeekRow;
   /** Stock-card snapshots per date: uploads, and the Monday opening stock of every later week (balance of the day before). */
   cards: Map<string, StockCardRow[]>;
+  /** PRD v5 §4.1 (flag v5_costing): costing status and cost of the RPA batches; null = flag off (ebe4ad8 behaviour). */
+  v5: V5LedgerCosts | null;
 }
 
 /** Everything the ledger needs, from the first week that has opening stock to the latest week's projection. */
@@ -37,6 +41,9 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     .is("deleted_at", null).is("superseded_at", null).range(a, b));
   const first = weeks.find((w) => opening.some((o) => o.week_id === w.id));
   if (!first) return null;
+  // v5 K20–K23: an RPA batch without a posted allocation takes the planCost of its status (estimasi / sementara)
+  const v5 = (await v5CostingOn(sb)) ? await v5LedgerCosts(sb, first.week_start, latest.update_date, latest.id) : null;
+  const v5Cost = new Map(v5 ? v5.batches.map((b) => [b.batch_ref, b.costByKey]) : []);
   const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
@@ -81,9 +88,10 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     receipts: receipts.filter((r) => r.status === "Aktual" || isLatest(r.week_id)).map((r) => {
       const key = keyOf(s(r.key_manual), s(r.item_code));
       const c = r.receipt_source === "Produksi RPA" ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
+      const v = !c && v5 && r.receipt_source === "Produksi RPA" ? costOfKey(v5Cost.get(s(r.document_ref) ?? "") ?? new Map(), key) : undefined;
       return {
         ref: String(r.id), date: s(r.date), status: s(r.status), source: s(r.receipt_source), item_code: s(r.item_code), key, kg: s(r.kg),
-        unit_cost: s(r.unit_cost), document_ref: s(r.document_ref), cost_per_kg_si: c && !c.kg.isZero() ? c.cost.div(c.kg).toFixed(4) : null,
+        unit_cost: s(r.unit_cost), document_ref: s(r.document_ref), cost_per_kg_si: c && !c.kg.isZero() ? c.cost.div(c.kg).toFixed(4) : v ? v.toFixed(4) : null,
       };
     }),
     sales: salesWithDeliveries(sales.filter((r) => r.status === "Aktual" || isLatest(r.week_id)), deliveries, keyOf),
@@ -109,7 +117,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     const d = addDays(w.week_start, -1);
     if (rows.length && !cards.has(d)) cards.set(d, rows.map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: s(o.kg) ?? "0", value: s(o.value) })));
   }
-  return { inputs, weeks, latest, cards };
+  return { inputs, weeks, latest, cards, v5 };
 }
 
 /**
@@ -132,7 +140,8 @@ async function ledgerAllocations(sb: Supa, rows: Row[], sales: LedgerInputs["sal
     .filter((a) => active.has(a.sales_ref));
 }
 
-type Run = { src: LedgerSources; led: LedgerResult; revenueDates: Map<string, string>; ma: Map<string, Map<string, Decimal>> };
+type Revaluation = { byDate: Map<string, ReturnType<typeof revalueLots>["rows"]>; pl: { date: string; amount: string }[] };
+type Run = { src: LedgerSources; led: LedgerResult; revenueDates: Map<string, string>; ma: Map<string, Map<string, Decimal>>; reval?: Revaluation | null };
 let run: Run | null = null;
 
 async function ensureRun(sb: Supa): Promise<Run | null> {
@@ -151,6 +160,41 @@ async function ensureRun(sb: Supa): Promise<Run | null> {
   return run;
 }
 
+/**
+ * K22 (flag v5_costing): the batches turned final since v5 costing runs, revalued on their final date — lot_revaluation
+ * rows per date and the "Selisih costing" P&L amounts (revaluation_sold_mode). Computed once per rebuild run.
+ */
+function revaluationOf(r: Run): Revaluation | null {
+  if (r.reval !== undefined) return r.reval;
+  const v5 = r.src.v5;
+  if (!v5) return (r.reval = null);
+  const finals: FinalBatch[] = v5.batches.filter((b) => b.finalDate && b.provisional && b.finalDate >= v5.since && b.finalDate >= r.src.inputs.startDate).map((b) => ({
+    batch_ref: b.batch_ref, finalDate: b.finalDate!, statusFrom: b.provisional!.status,
+    costFromByKey: new Map(b.provisional!.lines.filter((l) => l.costPerKg !== null).map((l) => [l.key, l.costPerKg!])),
+  }));
+  const byDate: Revaluation["byDate"] = new Map();
+  const pl: Revaluation["pl"] = [];
+  for (const d of [...new Set(finals.map((x) => x.finalDate))].sort()) {
+    const bal = balanceAt(r.led, d, r.src.inputs.keys, r.src.inputs.params);
+    const res = revalueLots({ date: d, mode: v5.mode, lots: finalLots({ led: r.led, date: d, kgByLot: new Map(bal.perLot.map((l) => [l.lot_ref, l.kg])), finals }) });
+    byDate.set(d, res.rows);
+    pl.push(...res.plRows.map((p) => ({ date: p.date, amount: p.amount.toFixed(2) })));
+  }
+  return (r.reval = { byDate, pl });
+}
+
+/** "Selisih costing" amounts (P&L sign) for the P&L builders; [] while v5_costing or the ledger is off. */
+export async function v5SelisihCosting(sb: Supa): Promise<{ date: string; amount: string }[]> {
+  // the ledger builder's run of this rebuild when it ran, else a fresh one (not kept: the M2 builder owns the cache)
+  let r = run;
+  if (!r) {
+    const src = await loadLedgerSources(sb);
+    if (!src?.v5) return [];
+    r = { src, led: computeLedger(src.inputs), revenueDates: new Map(), ma: new Map() };
+  }
+  return revaluationOf(r)?.pl ?? [];
+}
+
 /** rebuildDay for M2: lots entering the ledger that day, that day's movements, balances per lot and per key. */
 export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
   const r = await ensureRun(sb);
@@ -158,12 +202,15 @@ export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
   const { src, led } = r;
   if (date < src.inputs.startDate) return "sebelum stok awal";
   const ledgerDate = (l: { origin: string; origin_date: string }) => (l.origin_date < src.inputs.startDate ? src.inputs.startDate : l.origin_date);
+  // v5 K20: a lot carries the status of its batch's cost; opening stock, trading and adjustments are final
+  const statusOfLot = (l: { batch_ref: string | null }): CostStatus => (l.batch_ref ? src.v5?.statusByBatch.get(l.batch_ref) ?? "final" : "final");
   const firstMove = new Map<string, string>();
   for (const m of led.movements) if (!m.planned && (!firstMove.has(m.lot_ref) || m.date < firstMove.get(m.lot_ref)!)) firstMove.set(m.lot_ref, m.date);
   const lots = led.lots.filter((l) => !l.planned && (firstMove.get(l.ref) ?? ledgerDate(l)) === date).map((l) => ({
     lot_ref: l.ref, batch_ref: l.batch_ref, key: l.key, item_code: l.item_code, form: l.form, origin: l.origin, origin_date: l.origin_date,
     ledger_date: date, parent_lot_ref: l.parent_ref, kg_in: f(l.kg_in, 2), cost_in: f(l.cost_in, 2), cost_per_kg_si: f(l.cost_per_kg_si, 4),
     cost_per_kg_book: f(l.cost_per_kg_book, 4), assumed: l.assumed, note: l.note,
+    ...(src.v5 ? { cost_status: statusOfLot(l) } : {}),
   }));
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lotKey = new Map(led.lots.map((l) => [l.ref, l]));
@@ -197,17 +244,28 @@ export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
     cost_si: f(l.cost_si, 2), cost_per_kg_si: f(l.cost_per_kg_si, 4), age_days: l.age_days, hours_to_cutoff: l.hours_to_cutoff,
     reserved_kg: f(l.reserved_kg, 2), free_kg: f(l.free_kg, 2), over_age: l.over_age,
   }));
+  const lotStatus = new Map(led.lots.map((l) => [l.ref, statusOfLot(l)]));
+  const keyStatus = (key: string) => lowestStatus(b.perLot.filter((l) => l.key === key && l.kg.gt(0)).map((l) => lotStatus.get(l.lot_ref))) ?? "final";
   const keyRows = b.perKey.map((k) => ({
     date, key: k.key, group_code: k.group_code, form: k.form, kg: f(k.kg, 2), free_kg: f(k.free_kg, 2), reserved_kg: f(k.reserved_kg, 2),
     cost_ma: f(k.cost_ma, 2), cost_per_kg_ma: f(k.cost_per_kg_ma, 4), cost_si: f(k.cost_si, 2), cost_per_kg_si: f(k.cost_per_kg_si, 4),
     oldest_age_days: k.oldest_age_days, over_age_kg: f(k.over_age_kg, 2), lots: k.lots, projected: date >= src.inputs.today,
+    // v5: the lowest status of the lots still in stock (rencana < estimasi < sementara < final)
+    ...(src.v5 ? { cost_status: keyStatus(k.key) } : {}),
   }));
   const w1 = await martReplace(sb, "lot", date, lots);
   const w2 = await martReplace(sb, "lot_movement", date, moves);
   const w3 = await martReplace(sb, "lot_balance_daily", date, lotRows);
   const w4 = await martReplace(sb, "sku_balance_daily", date, keyRows);
-  const wr = w1.written + w2.written + w3.written + w4.written, del = w1.deleted + w2.deleted + w3.deleted + w4.deleted;
-  return `${keyRows.length} key, ${lotRows.length} lot, ${moves.length} mutasi (${wr} ditulis, ${del} dihapus)`;
+  // K22: lot_revaluation of the day (written only while v5_costing is on)
+  const rv = src.v5 ? (revaluationOf(r)?.byDate.get(date) ?? []).map((x) => ({
+    date, lot_ref: x.lot_ref, key: x.key, cost_from: f(x.cost_from, 4), cost_to: f(x.cost_to, 4), kg_remaining: f(x.kg_remaining, 2), kg_sold: f(x.kg_sold, 2),
+    amount: f(x.amount, 2), amount_sold: f(x.amount_sold, 2), status_from: x.status_from, status_to: x.status_to,
+    sold_by_date: x.sold_by_date.map((y) => ({ date: y.date, kg: f(y.kg, 2), amount: f(y.amount, 2) })),
+  })) : null;
+  const w5 = rv ? await martReplace(sb, "lot_revaluation", date, rv) : { written: 0, deleted: 0 };
+  const wr = w1.written + w2.written + w3.written + w4.written + w5.written, del = w1.deleted + w2.deleted + w3.deleted + w4.deleted + w5.deleted;
+  return `${keyRows.length} key, ${lotRows.length} lot, ${moves.length} mutasi${rv ? `, ${rv.length} revaluasi` : ""} (${wr} ditulis, ${del} dihapus)`;
 }
 
 registerBuilder({ module: "m2_ledger", name: "ledger", begin: async (sb) => { run = null; await ensureRun(sb); }, build: buildLedgerDay });

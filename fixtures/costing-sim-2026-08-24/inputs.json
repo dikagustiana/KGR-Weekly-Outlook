@@ -1,0 +1,73 @@
+{
+ "source": "fixtures/week-2026-08-24 (block 2, sales lines, sku_keys, parameters) + fixtures/plan-2026-08-24 yields (placeholder)",
+ "placeholder": true,
+ "tariff_per_kg_lb": "2552.0000",
+ "prices": [
+  20000,
+  21000,
+  22000,
+  23000,
+  24000,
+  24600,
+  25000,
+  26000
+ ],
+ "need": {
+  "horizon": {
+   "from": "2026-08-27",
+   "to": "2026-08-29"
+  },
+  "karkas_yield": "0.714599",
+  "kg_lb": "18357.7643",
+  "demand": [
+   {
+    "key": "RPA|Karkas|Fresh",
+    "kg": "12307.15",
+    "priceRef": "36705"
+   },
+   {
+    "key": "RPA|Karkas|n/a",
+    "kg": "811.29",
+    "priceRef": "30000"
+   }
+  ],
+  "by_products": [
+   {
+    "key": "RPA|HJA (Hati/Jantung/Ampela)|Fresh",
+    "yield": "0.054320",
+    "priceRef": "4515"
+   },
+   {
+    "key": "RPA|Usus|Fresh",
+    "yield": "0.042292",
+    "priceRef": "1500"
+   },
+   {
+    "key": "RPA|Kepala|Fresh",
+    "yield": "0.045299",
+    "priceRef": "4029"
+   },
+   {
+    "key": "RPA|Ceker|Fresh",
+    "yield": "0.028518",
+    "priceRef": "3101"
+   },
+   {
+    "key": "RPA|Lemak|Fresh",
+    "yield": "0.003298",
+    "priceRef": null
+   }
+  ]
+ },
+ "batch": {
+  "kg_lb": "27218.6000",
+  "outputs": [
+   {
+    "key": "RPA|Karkas|Frozen",
+    "kg": "19474.8993",
+    "priceRef": "31658"
+   }
+  ],
+  "extra_value": "17048886.03"
+ }
+}

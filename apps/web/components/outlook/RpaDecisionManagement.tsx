@@ -1,6 +1,7 @@
 import type { Decimal, WeekResult } from "@kgr/engine";
 import { N } from "@/components/ui";
 import { num, tgl } from "@/lib/fmt";
+import { K25_DECIDER } from "@/lib/v5/k25";
 
 type Line = { l: string; v: Decimal; u: string; how: string; dp?: number; pct?: boolean };
 
@@ -9,7 +10,7 @@ type Line = { l: string; v: Decimal; u: string; how: string; dp?: number; pct?: 
  * then the rest folded under "Lihat perhitungan". "Cara hitung" is a tooltip on each label (plain words).
  * Same fields as the preparer table; nothing recomputed.
  */
-export function RpaDecisionManagement({ r }: { r: WeekResult }) {
+export function RpaDecisionManagement({ r, k25 = false }: { r: WeekResult; k25?: boolean }) {
   const b2 = r.block2;
   // R3: with no net fresh need, "kebutuhan bersih", "LB maksimum" and "porsi fresh" are 0 by construction
   const covered = b2.netFreshNeed.isZero();
@@ -35,7 +36,7 @@ export function RpaDecisionManagement({ r }: { r: WeekResult }) {
   ];
   return (
     <>
-      <div className="reco neutral" data-reco>{b2.action.text}</div>
+      {k25 ? <p className="muted">Simulasi, bukan rekomendasi. {K25_DECIDER}</p> : <div className="reco neutral" data-reco>{b2.action.text}</div>}
       <Lines lines={key} />
       {covered ? (
         <p className="cond">
