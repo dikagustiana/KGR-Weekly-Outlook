@@ -397,7 +397,8 @@ begin
 
   perform set_config('request.jwt.claims', '{"email":"t9-fin@x.test","role":"authenticated"}', true);
   execute 'set local role authenticated';
-  begin insert into public.month_outlook_version (month_outlook_id, version, snapshot, snapshot_sha256, revenue) values (mid, 'V1', '{}'::jsonb, 'x', 100) returning id into vid; out := out || 'finance lock V1: OK; ';
+  -- PRD v4 §7.2: a version is written only by public.release_month
+  begin select public.release_month('2030-03-01', 'V1', '{}', encode(sha256(convert_to('{}', 'UTF8')), 'hex'), null, '{"revenue":"100"}'::jsonb, null, null, null) into vid; out := out || 'finance lock V1: OK; ';
   exception when others then out := out || 'finance lock V1: DENIED(!) ' || sqlerrm || '; '; end;
   begin update public.month_outlook_version set revenue = 1 where id = vid; out := out || 'edit locked version: ALLOWED(!); ';
   exception when others then out := out || 'edit locked version: denied; '; end;
@@ -941,11 +942,12 @@ begin
   exception when others then out := out || 'finance write cash horizon: denied; '; end;
   begin perform public.mart_replace('pl_daily_v4', '2030-07-01', '[]'::jsonb); out := out || 'finance mart_replace: ALLOWED(!); ';
   exception when others then out := out || 'finance mart_replace: denied; '; end;
-  -- V1 with the v4 columns; afterwards nobody changes it
-  begin insert into public.month_outlook_version (month_outlook_id, version, cut_off_date, locked_by, snapshot, snapshot_sha256, revenue, gp, nibt, rule_version, anomaly_days, po_share, approved_by)
+  -- V1 with the v4 columns (written as the system here: release_month itself is tested in irisan 4); nobody changes it
+  execute 'reset role';
+  insert into public.month_outlook_version (month_outlook_id, version, cut_off_date, locked_by, snapshot, snapshot_sha256, revenue, gp, nibt, rule_version, anomaly_days, po_share, approved_by)
     values (mo, 'V1', '2030-07-18', 't23-fin@x.test', '{"rule_version":"v4-2026-10"}', repeat('a', 64), 7764100000, 292500000, 75300000, 'v4-2026-10', '[{"date":"2030-07-15","reason":"nol"}]', 0.775, 't23-fin@x.test') returning id into vid;
-    out := out || 'finance lock V1 (v4 columns): OK; ';
-  exception when others then out := out || 'finance lock V1 (v4 columns): DENIED(!) ' || sqlerrm || '; '; end;
+  out := out || 'V1 with v4 columns stored; ';
+  execute 'set local role authenticated';
   begin update public.month_outlook_version set revenue = 1 where id = vid; get diagnostics n = row_count; out := out || 'finance change V1 rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
   exception when others then out := out || 'finance change V1: denied; '; end;
   execute 'reset role';
@@ -1030,4 +1032,157 @@ begin
   exception when others then out := out || 'product_class lainnya: rejected; '; end;
 
   raise exception 'RLS-RESULTS v4 irisan 3 (rolled back): %', out;
+end $$;
+
+-- v4 irisan 4: §7.2 release only through release_week / release_month (role, SHA-256, controls per rule, STALE, version
+-- order, FINAL after month end, K9, C48); overrides per control for the role the policy names, no generic admin override;
+-- C48 blocks posting a costing; batches from 1 Nov 2026 take the own-RPA mode; DI-01 columns on the ledger.
+do $$
+declare out text := ''; n int; wk uuid; r text;
+  ok8 text := '{"engineVersion":"t","controls":{"overall":"BELUM DIISI","controls":[{"no":8,"status":"BELUM DIISI"},{"no":11,"status":"LULUS"}]}}';
+  bad11 text := '{"engineVersion":"t","controls":{"overall":"ADA GAGAL","controls":[{"no":8,"status":"LULUS"},{"no":11,"status":"GAGAL"}]}}';
+  m1 text := '{"rule_version":"v4-test","controls":[{"code":"C33","status":"LULUS"},{"code":"C34","status":"LULUS"},{"code":"C49","status":"BELUM DIISI"}]}';
+begin
+  insert into public.app_user(email, role) values ('t25-fin@x.test','finance'),('t25-adm@x.test','admin'),('t25-sales@x.test','sales'),('t25-ca@x.test','cost_accounting');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2031-03-03', '2031-03-06', '2031-02-28') returning id into wk;
+  delete from public.rebuild_queue where date between '2031-03-03' and '2031-03-09';
+
+  -- sales may not release; finance with a changed snapshot is refused
+  perform set_config('request.jwt.claims', '{"email":"t25-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'sales release_week: ALLOWED(!); ';
+  exception when others then out := out || 'sales release_week: denied; '; end;
+  begin perform public.release_month('2026-01-01', 'V1', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2026-01-31', '{}'::jsonb, 'v4-test', null, null); out := out || 'sales release_month: ALLOWED(!); ';
+  exception when others then out := out || 'sales release_month: denied; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C8', 'alasan sales yang panjang', 'file'); out := out || 'sales override: ALLOWED(!); ';
+  exception when others then out := out || 'sales override: denied; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t25-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, repeat('0', 64), null, '[]'::jsonb); out := out || 'SHA mismatch: ALLOWED(!); ';
+  exception when others then out := out || 'SHA mismatch: rejected; '; end;
+  begin insert into public.release (week_id, update_date, engine_version, snapshot, snapshot_sha256, control_status, controls, released_by)
+    values (wk, '2031-03-06', 't', ok8::jsonb, 'x', 'LULUS', '{}'::jsonb, 'x'); out := out || 'direct release insert: ALLOWED(!); ';
+  exception when others then out := out || 'direct release insert: denied; '; end;
+  -- flag off (v1 rule): GAGAL rejects, even with an override; BELUM DIISI releases
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C11', 'stok minus karena DO terlambat', 'SJ-1'); out := out || 'finance override C11: OK; ';
+  exception when others then out := out || 'finance override C11: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(wk, bad11, encode(sha256(convert_to(bad11, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'v1 rule C11 GAGAL with override: ALLOWED(!); ';
+  exception when others then out := out || 'v1 rule C11 GAGAL: rejected (' || sqlerrm || '); '; end;
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'v1 rule C8 BELUM DIISI: released; ';
+  exception when others then out := out || 'v1 rule C8 BELUM DIISI: REJECTED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C45', 'mart lama tapi angka benar', 'cek'); out := out || 'override C45: ALLOWED(!); ';
+  exception when others then out := out || 'override C45: denied; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C48', 'batch tanpa output', 'cek'); out := out || 'override C48: ALLOWED(!); ';
+  exception when others then out := out || 'override C48: denied; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C9', 'pendek', 'x'); out := out || 'override short reason: ALLOWED(!); ';
+  exception when others then out := out || 'override short reason: rejected; '; end;
+  execute 'reset role';
+
+  -- flag on (§7.2): BELUM DIISI and STALE reject; admin has no override for C1–C20; finance's override lifts C8
+  update public.app_setting set value = '{"enabled": true}' where key = 'v4_release';
+  perform set_config('request.jwt.claims', '{"email":"t25-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'strict C8 BELUM DIISI: ALLOWED(!); ';
+  exception when others then out := out || 'strict C8 BELUM DIISI: rejected (' || sqlerrm || '); '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t25-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C8', 'admin ingin melewati', 'file'); out := out || 'admin override C8: ALLOWED(!); ';
+  exception when others then out := out || 'admin override C8: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t25-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2031-03-03', 'C8', 'parameter shrink disepakati rapat', 'notulen 5 Mar'); out := out || 'finance override C8: OK; ';
+  exception when others then out := out || 'finance override C8: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'strict with override C8: released; ';
+  exception when others then out := out || 'strict with override C8: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select created_role into r from public.release_override where code = 'C8' and scope = '2031-03-03' and deleted_at is null;
+  out := out || 'override role stamped=' || coalesce(r, 'null') || case when r = 'finance' then '' else '(!)' end || '; ';
+  insert into public.rebuild_queue (date, reason) values ('2031-03-04', 'uji STALE');
+  perform set_config('request.jwt.claims', '{"email":"t25-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'strict STALE: ALLOWED(!); ';
+  exception when others then out := out || 'strict STALE: rejected (' || sqlerrm || '); '; end;
+  -- monthly: order, FINAL after the month end, K9, overrides per version, immutability
+  begin perform public.release_month('2026-02-01', 'V2', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2026-02-20', '{}'::jsonb, 'v4-test', null, null); out := out || 'V2 before V1: ALLOWED(!); ';
+  exception when others then out := out || 'V2 before V1: rejected; '; end;
+  begin perform public.release_month('2030-06-01', 'FINAL', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2030-06-30', '{}'::jsonb, 'v4-test', null, null); out := out || 'FINAL before month end: ALLOWED(!); ';
+  exception when others then out := out || 'FINAL before month end: rejected; '; end;
+  begin perform public.release_month('2030-06-01', 'V1', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2030-06-10', '{}'::jsonb, 'v4-test', null, null); out := out || 'V1 before K9 date: ALLOWED(!); ';
+  exception when others then out := out || case when sqlerrm like '%K9%' then 'V1 before K9 date: rejected; ' else 'V1 before K9: wrong reason(!) ' || sqlerrm || '; ' end; end;
+  begin perform public.release_month('2026-01-01', 'V1', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2026-01-20', '{"revenue":"1"}'::jsonb, 'v4-test', null, null); out := out || 'V1 C49 BELUM DIISI: ALLOWED(!); ';
+  exception when others then out := out || 'V1 C49 BELUM DIISI: rejected (' || sqlerrm || '); '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2026-01-01:V1', 'C49', 'P&L bulan berjalan belum ditutup Accurate', 'email 20 Jan'); out := out || 'finance override C49 V1: OK; ';
+  exception when others then out := out || 'finance override C49 V1: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_month('2026-01-01', 'V1', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2026-01-20', '{"revenue":"1"}'::jsonb, 'v4-test', null, null); out := out || 'V1 with override: locked; ';
+  exception when others then out := out || 'V1 with override: REJECTED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_month('2026-01-01', 'V1', m1, encode(sha256(convert_to(m1, 'UTF8')), 'hex'), '2026-01-20', '{"revenue":"1"}'::jsonb, 'v4-test', null, null); out := out || 'V1 twice: ALLOWED(!); ';
+  exception when others then out := out || 'V1 twice: rejected; '; end;
+  begin insert into public.month_outlook_version (month_outlook_id, version, snapshot, snapshot_sha256) select id, 'V2', '{}'::jsonb, 'x' from public.month_outlook where month = '2026-01-01';
+    out := out || 'direct version insert: ALLOWED(!); ';
+  exception when others then out := out || 'direct version insert: denied; '; end;
+  begin update public.month_outlook_version set revenue = 2 where version = 'V1' and month_outlook_id = (select id from public.month_outlook where month = '2026-01-01'); get diagnostics n = row_count;
+    out := out || 'V1 rewritten rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'V1 rewrite: rejected; '; end;
+  execute 'reset role';
+  select count(*) into n from public.release r join public.week w on w.id = r.week_id where w.week_start = '2031-03-03';
+  out := out || 'releases written=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v4 irisan 4a (rolled back): %', out;
+end $$;
+
+-- v4 irisan 4b: C48 on posting and on FINAL; own-RPA mode from 1 Nov 2026; overhead per head; DI-01 ledger columns;
+-- override roles per control for M1 (cost accounting) and none for sales.
+do $$
+declare out text := ''; n int; wk uuid; bid uuid; bid2 uuid; rid uuid; m text := '{"rule_version":"v4-test","controls":[]}'; t text;
+begin
+  insert into public.app_user(email, role) values ('t26-fin@x.test','finance'),('t26-ca@x.test','cost_accounting'),('t26-inv@x.test','inventory_accounting');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2026-11-02', '2026-11-05', '2026-10-31') returning id into wk;
+  insert into public.batch (week_id, date, status, batch_ref) values (wk, '2026-11-03', 'Aktual', 'T26-A') returning id into bid;
+  select cost_mode into t from public.batch where id = bid;
+  out := out || 'batch 3 Nov cost_mode=' || t || case when t = 'own' then '' else '(!)' end || '; ';
+  insert into public.batch (week_id, date, status, batch_ref, cost_mode) values (wk, '2026-11-04', 'Aktual', 'T26-B', 'own') returning id into bid2;
+  select count(*) into n from information_schema.columns where table_schema = 'public' and ((table_name = 'overhead_rate' and column_name = 'rate_per_head') or (table_name = 'lot_movement' and column_name in ('revenue_date','cost_ma_revenue')));
+  out := out || 'v4 irisan 4 columns=' || n || case when n = 3 then '' else '(!)' end || '; ';
+
+  perform set_config('request.jwt.claims', '{"email":"t26-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation_run (batch_id, total_cost, total_allocated, status) values (bid, 12000000, 12000000, 'posted'); out := out || 'post costing without output: ALLOWED(!); ';
+  exception when others then out := out || 'post costing without output: rejected (C48); '; end;
+  begin insert into public.allocation_run (batch_id, total_cost, total_allocated, status) values (bid, 12000000, 12000000, 'draft') returning id into rid; out := out || 'draft without output: OK; ';
+  exception when others then out := out || 'draft without output: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.allocation_run set status = 'posted' where id = rid; out := out || 'draft → posted without output: ALLOWED(!); ';
+  exception when others then out := out || 'draft to posted without output: rejected; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2026-11-01:FINAL', 'C21', 'selisih pembulatan alokasi', 'WP 3 Nov'); out := out || 'cost accounting override C21: OK; ';
+  exception when others then out := out || 'cost accounting override C21: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2026-11-01:FINAL', 'C35', 'rekening baru belum diunggah', 'BCA'); out := out || 'cost accounting override C35: ALLOWED(!); ';
+  exception when others then out := out || 'cost accounting override C35: denied; '; end;
+  execute 'reset role';
+  insert into public.batch_output_sku (batch_id, item_code, kg) values (bid2, 'JLB0593', 900);
+  perform set_config('request.jwt.claims', '{"email":"t26-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.allocation_run (batch_id, total_cost, total_allocated, status) values (bid2, 1, 1, 'posted'); out := out || 'post costing with output: OK; ';
+  exception when others then out := out || 'post costing with output: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"t26-inv@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.release_override_policy set allowed_roles = array['inventory_accounting'] where code = 'C26'; get diagnostics n = row_count;
+    out := out || 'non-admin edits override policy rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'non-admin edits override policy: denied; '; end;
+  begin insert into public.lot_movement (movement_ref, lot_ref, date, type, kg, ref_table, revenue_date, cost_ma_revenue) values ('t26', 'L', '2026-11-03', 'out_sale', -1, 'sales_line', '2026-10-31', -1);
+    out := out || 'client writes lot_movement: ALLOWED(!); ';
+  exception when others then out := out || 'client writes lot_movement: denied; '; end;
+  execute 'reset role';
+
+  -- FINAL of September 2026 is refused while an Aktual batch of the month has no output (C48), whatever the controls say
+  insert into public.batch (week_id, date, status, batch_ref) values (wk, '2026-09-30', 'Aktual', 'T26-SEP');
+  perform set_config('request.jwt.claims', '{"email":"t26-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_month('2026-09-01', 'FINAL', m, encode(sha256(convert_to(m, 'UTF8')), 'hex'), '2026-09-30', '{}'::jsonb, 'v4-test', null, null); out := out || 'FINAL with C48 batch: ALLOWED(!); ';
+  exception when others then out := out || case when sqlerrm like '%C48%' and sqlerrm like '%T26-SEP%' then 'FINAL with C48 batch: rejected; ' else 'FINAL wrong reason(!) ' || sqlerrm || '; ' end; end;
+  execute 'reset role';
+  raise exception 'RLS-RESULTS v4 irisan 4b (rolled back): %', out;
 end $$;

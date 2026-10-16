@@ -4,8 +4,8 @@ import "server-only";
  * @kgr/engine (computeLedger, balanceAt, reconcile, ledgerControls); this file loads rows and writes the results.
  */
 import {
-  balanceAt, computeLedger, keyResolver, ledgerControls, reconcile, toFixedString, D, addDays,
-  type BalanceResult, type ControlV3, type Decimal, type LedgerInputs, type LedgerKeyInfo, type LedgerResult, type StockCardRow,
+  balanceAt, computeLedger, keyResolver, ledgerControls, reconcile, reconcileSplit, toFixedString, D, addDays,
+  type BalanceResult, type ControlV3, type Decimal, type LedgerInputs, type LedgerKeyInfo, type LedgerResult, type ReconPart, type StockCardRow,
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
@@ -132,13 +132,22 @@ async function ledgerAllocations(sb: Supa, rows: Row[], sales: LedgerInputs["sal
     .filter((a) => active.has(a.sales_ref));
 }
 
-let run: { src: LedgerSources; led: LedgerResult } | null = null;
+type Run = { src: LedgerSources; led: LedgerResult; revenueDates: Map<string, string>; ma: Map<string, Map<string, Decimal>> };
+let run: Run | null = null;
 
-async function ensureRun(sb: Supa): Promise<{ src: LedgerSources; led: LedgerResult } | null> {
+async function ensureRun(sb: Supa): Promise<Run | null> {
   if (run) return run;
   const src = await loadLedgerSources(sb);
   if (!src) return null;
-  run = { src, led: computeLedger(src.inputs) };
+  // PRD v4 §3.5 DI-01: an Ops DO line replaced by its Accurate invoice line keeps its date as the revenue date (K11)
+  const ops = await fetchAll<Row>((a, b) => sb.from("sales_line").select("date, document_ref").eq("source", "Ops").eq("status", "Aktual")
+    .not("superseded_at", "is", null).is("deleted_at", null).gte("date", src.inputs.startDate).range(a, b));
+  const revenueDates = new Map<string, string>();
+  for (const o of ops) {
+    const d = s(o.document_ref), dt = s(o.date);
+    if (d && dt && (!revenueDates.has(d) || dt < revenueDates.get(d)!)) revenueDates.set(d, dt);
+  }
+  run = { src, led: computeLedger(src.inputs), revenueDates, ma: new Map() };
   return run;
 }
 
@@ -158,11 +167,30 @@ export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
   }));
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lotKey = new Map(led.lots.map((l) => [l.ref, l]));
-  const moves = led.movements.filter((m) => !m.planned && m.date === date && m.ref_table !== "lot_movement").map((m) => ({
-    movement_ref: m.ref, lot_ref: m.lot_ref, date: m.date, type: m.type, kg: f(m.kg, 2), cost: f(m.cost_si, 2), cost_ma: f(m.cost_ma, 2),
-    ref_table: m.ref_table, ref_id: m.ref_id, document_ref: m.document_ref, sales_line_id: m.sales_ref && uuid.test(m.sales_ref) ? m.sales_ref : null,
-    key: lotKey.get(m.lot_ref)?.key ?? null, item_code: lotKey.get(m.lot_ref)?.item_code ?? null, assumed: m.assumed, note: null,
-  }));
+  // MA per kg of a key at the end of a day (DI-01: the COGS of a DO at the revenue date)
+  const maAt = (day: string, key: string | null): Decimal | null => {
+    if (!key) return null;
+    if (!r.ma.has(day)) {
+      const bal = balanceAt(led, day, src.inputs.keys, src.inputs.params);
+      const m = new Map<string, { kg: Decimal; cost: Decimal }>();
+      for (const k of bal.perKey) { const o = m.get(k.key) ?? { kg: D(0), cost: D(0) }; m.set(k.key, { kg: o.kg.plus(k.kg), cost: o.cost.plus(k.cost_ma) }); }
+      r.ma.set(day, new Map([...m].filter(([, v]) => v.kg.gt(0)).map(([k, v]) => [k, v.cost.div(v.kg)])));
+    }
+    return r.ma.get(day)!.get(key) ?? null;
+  };
+  const moves = led.movements.filter((m) => !m.planned && m.date === date && m.ref_table !== "lot_movement").map((m) => {
+    const key = lotKey.get(m.lot_ref)?.key ?? null;
+    const rev = m.type === "out_sale" && m.document_ref ? r.revenueDates.get(m.document_ref) ?? null : null;
+    const revenueDate = rev && rev < m.date ? rev : null;
+    const ma = revenueDate ? maAt(revenueDate, key) : null;
+    return {
+      movement_ref: m.ref, lot_ref: m.lot_ref, date: m.date, type: m.type, kg: f(m.kg, 2), cost: f(m.cost_si, 2), cost_ma: f(m.cost_ma, 2),
+      ref_table: m.ref_table, ref_id: m.ref_id, document_ref: m.document_ref, sales_line_id: m.sales_ref && uuid.test(m.sales_ref) ? m.sales_ref : null,
+      key, item_code: lotKey.get(m.lot_ref)?.item_code ?? null, assumed: m.assumed, note: null,
+      // DI-01: both values kept — cost_ma on the invoice date (the movement date), cost_ma_revenue on the DO date
+      revenue_date: revenueDate, cost_ma_revenue: ma === null ? null : f(m.kg.times(ma), 2),
+    };
+  });
   const b = balanceAt(led, date, src.inputs.keys, src.inputs.params);
   const lotRows = b.perLot.map((l) => ({
     date, lot_ref: l.lot_ref, key: l.key, form: l.form, kg: f(l.kg, 2), cost_ma: f(l.cost_ma, 2), cost_per_kg_ma: f(l.cost_per_kg_ma, 4),
@@ -206,6 +234,40 @@ export async function ledgerForWeek(sb: Supa, week: WeekRow, bsYesterday: string
   const reconciling = fixes.filter((x) => x.status !== "applied" && x.amount !== null).map((x) => ({ label: String(x.fix_id), amount: String(x.amount) }));
   const r = ledgerControlsAt(src, led, date, bsYesterday, reconciling);
   return { controls: r.controls, balance: r.balance, date };
+}
+
+/**
+ * PRD v4 §3.6: the reconciliation split in five, kg and Rp apart, on the balance date of a week (update date − 1).
+ * (a) uses the latest stock card on or before that date against the ledger on the card's own date. (c) carries the D3
+ * rows not yet booked as reasoned items (as C27 does); (e) the opening gap stays a difference until D3 is booked or
+ * decided by Finance: no plug.
+ */
+export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: string | null): Promise<{ date: string; cardDate: string | null; parts: ReconPart[] } | null> {
+  const src = await loadLedgerSources(sb);
+  if (!src) return null;
+  const led = computeLedger(src.inputs);
+  const date = addDays(week.update_date, -1);
+  const balance = balanceAt(led, date, src.inputs.keys, src.inputs.params);
+  const cardDate = [...src.cards.keys()].filter((d) => d <= date).sort().pop() ?? null;
+  const hppByRef = new Map(src.inputs.sales.filter((x) => x.hpp_actual !== null && x.hpp_actual !== undefined && x.hpp_actual !== "").map((x) => [x.ref, x.hpp_actual!]));
+  const fixes = await fetchAll<Row>((a, b) => sb.from("data_fix").select("week_id, amount, status").eq("fix_id", "D3").eq("scope", "opening_vs_bs").range(a, b));
+  const firstWeek = src.weeks.find((w) => w.week_start === src.inputs.startDate);
+  const d3First = fixes.find((x) => x.week_id === firstWeek?.id && x.amount !== null);
+  const openingValue = src.inputs.opening.reduce((acc, o) => acc.plus(D(o.value ?? 0)), D(0));
+  const openGap = d3First ? D(String(d3First.amount)) : null;
+  const reasoned = [
+    ...fixes.filter((x) => x.week_id === week.id && x.amount !== null && x.status !== "applied").map((x) => ({ label: "D3 belum dibukukan", amount: String(x.amount), part: "c" as const })),
+    ...(d3First && (d3First.status === "applied" || d3First.status === "decided") ? [{ label: `D3 ${d3First.status === "applied" ? "dibukukan" : "diputuskan Finance"}`, amount: String(d3First.amount), part: "e" as const }] : []),
+  ];
+  const parts = reconcileSplit({
+    ledger: led, balance, hppByRef, stockCard: null, bsInventory: bsYesterday,
+    openingBs: openGap === null ? null : openingValue.minus(openGap).toFixed(2), openingValue: openGap === null ? null : openingValue.toFixed(2), reasoned,
+  });
+  if (cardDate) {
+    const a = reconcileSplit({ ledger: led, balance: balanceAt(led, cardDate, src.inputs.keys, src.inputs.params), hppByRef, stockCard: src.cards.get(cardDate)!, bsInventory: null, openingBs: null, openingValue: null, reasoned: [] }).find((x) => x.part === "a")!;
+    parts[0] = a;
+  }
+  return { date, cardDate, parts };
 }
 
 /** Reads for /sku and /sku/[key]: the latest built day ≤ the requested date. */

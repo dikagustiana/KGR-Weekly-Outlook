@@ -4,7 +4,10 @@ import { WeekShell } from "@/components/WeekShell";
 import { ActionForm } from "@/components/ActionForm";
 import { Badge, Card, Msg, N } from "@/components/ui";
 import { can } from "@/lib/roles";
-import { release } from "./actions";
+import { overrideAction, release } from "./actions";
+import { OverridePanel } from "@/components/v4/OverridePanel";
+import { releaseContext } from "@/lib/release";
+import { addDays, releaseVerdict, v1Codes } from "@kgr/engine";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleSettings } from "@/lib/modules";
 import { moduleSettingsGlobal } from "@/lib/rebuild";
@@ -24,11 +27,18 @@ export default async function KontrolPage({ params }: PageProps) {
   const ctx = await weekContext(week);
   const c = ctx.computed.result.controls;
   const canRelease = can(ctx.viewer.role, "release");
-  const v3 = await v3ForWeek(await supabaseServer(), ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result);
+  const sb = await supabaseServer();
+  const v3 = await v3ForWeek(sb, ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result);
+  // PRD v4 §7.2: the same verdict public.release_week applies in the release transaction
+  const rc = await releaseContext(sb, "week", week, week, addDays(week, 6));
+  const verdict = releaseVerdict({ controls: v1Codes(c.controls), mandatory: null, overrides: rc.overrides.map((o) => o.code), strict: rc.strict, staleDates: rc.staleDates, policy: rc.policy });
+  const label = (code: string, status: string) => code === "STALE" ? `STALE: mart belum dibangun ulang untuk ${rc.staleDates.join(", ")}` : `${code} ${status}: ${c.controls.find((x) => `C${x.no}` === code)?.name ?? ""}`;
   return (
     <WeekShell ctx={ctx} active="kontrol">
       <h1>Kontrol — cek sebelum outlook dikirim</h1>
-      <p className="muted">Rilis butuh semua kontrol LULUS; PERIKSA dan BELUM DIISI boleh dirilis dengan peringatan; GAGAL memblokir rilis.</p>
+      <p className="muted">{rc.strict
+        ? "Rilis ditolak di server bila ada kontrol GAGAL, BELUM DIISI, atau STALE. Override per kontrol hanya oleh peran yang diizinkan, dengan alasan dan bukti; PERIKSA boleh dirilis dengan peringatan."
+        : "Rilis butuh semua kontrol LULUS; PERIKSA dan BELUM DIISI boleh dirilis dengan peringatan; GAGAL memblokir rilis, juga di server."}</p>
       <Card>
         <table className="t">
           <thead><tr><th>#</th><th>Kontrol</th><th className="n">Nilai</th><th className="n">Pembanding</th><th className="n">Selisih</th><th>Status</th><th>Tindakan kalau GAGAL</th></tr></thead>
@@ -56,9 +66,13 @@ export default async function KontrolPage({ params }: PageProps) {
         </Card>
       ) : null}
       <Card title="Rilis outlook">
-        {!c.releasable ? <Msg kind="err">Ada kontrol GAGAL — perbaiki dulu sebelum rilis.</Msg> : c.overall !== "LULUS" ? <Msg kind="info">Rilis diizinkan dengan peringatan ({c.counts.PERIKSA} PERIKSA, {c.counts["BELUM DIISI"]} BELUM DIISI).</Msg> : <Msg kind="ok">Semua kontrol LULUS.</Msg>}
+        {!verdict.ok ? <Msg kind="err">Rilis ditolak: {verdict.rejections.map((r) => `${r.code} ${r.status}`).join(", ")}.</Msg> : c.overall !== "LULUS" ? <Msg kind="info">Rilis diizinkan dengan peringatan ({c.counts.PERIKSA} PERIKSA, {c.counts["BELUM DIISI"]} BELUM DIISI{rc.overrides.length ? `, ${rc.overrides.length} override` : ""}).</Msg> : <Msg kind="ok">Semua kontrol LULUS.</Msg>}
+        {rc.strict && (verdict.rejections.length || rc.overrides.length) ? (
+          <OverridePanel rejections={verdict.rejections.map((r) => ({ code: r.code, label: label(r.code, r.status), overridable: r.overridable }))} overrides={rc.overrides}
+            policy={rc.policy} role={ctx.viewer.role} action={overrideAction} hidden={{ week }} />
+        ) : null}
         {canRelease ? (
-          <ActionForm action={release} submit="Rilis outlook (simpan snapshot JSON + PDF)" confirm="Rilis outlook minggu ini sekarang?">
+          <ActionForm action={release} submit="Rilis outlook (simpan snapshot JSON + PDF)" confirm="Rilis outlook minggu ini sekarang?" disabled={!verdict.ok}>
             <input type="hidden" name="week" value={week} />
           </ActionForm>
         ) : <p className="muted">Rilis dilakukan oleh Admin atau Finance.</p>}

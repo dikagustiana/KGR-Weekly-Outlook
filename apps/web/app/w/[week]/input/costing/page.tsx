@@ -97,15 +97,16 @@ export default async function InputCostingPage({ params }: PageProps) {
       {pools.length === 0 ? <Card title="Cost pool"><p className="muted">Belum ada cost pool untuk bulan minggu ini. Upload WP potong atau daftar PI untuk membentuknya.</p></Card> : null}
       <Card title="Tarif overhead (mode RPA sendiri)">
         <table className="t compact">
-          <thead><tr><th>Periode</th><th className="n">Rp/kg LB</th><th className="n">Basis kg LB</th><th className="n">Budget overhead</th><th>Catatan</th></tr></thead>
-          <tbody>{d.rates.map((r) => <tr key={r.id}><td>{tgl(r.period_start)} – {tgl(r.period_end)}</td><Td v={r.rate_per_kg_lb} dp={2} /><Td v={r.basis_kg} /><Td v={r.budget_overhead} /><td>{r.note}</td></tr>)}
-            {d.rates.length === 0 ? <tr><td colSpan={5} className="muted">Belum ada — maklon (s.d. Okt 2026) tidak memakai tarif overhead.</td></tr> : null}</tbody>
+          <thead><tr><th>Periode</th><th className="n">Rp/kg LB</th><th className="n">Rp/ekor</th><th className="n">Basis kg LB</th><th className="n">Budget overhead</th><th>Catatan</th></tr></thead>
+          <tbody>{d.rates.map((r) => <tr key={r.id}><td>{tgl(r.period_start)} – {tgl(r.period_end)}</td><Td v={r.rate_per_kg_lb} dp={2} /><Td v={r.rate_per_head} dp={2} /><Td v={r.basis_kg} /><Td v={r.budget_overhead} /><td>{r.note}</td></tr>)}
+            {d.rates.length === 0 ? <tr><td colSpan={6} className="muted">Belum ada — maklon (s.d. Okt 2026) tidak memakai tarif overhead.</td></tr> : null}</tbody>
         </table>
         <ActionForm action={addOverheadRate} submit="Tambah tarif" className="row">
           <input type="hidden" name="week" value={week} />
           <div className="field"><label>Dari</label><input className="in" type="date" name="period_start" required /></div>
           <div className="field"><label>Sampai</label><input className="in" type="date" name="period_end" required /></div>
           <div className="field"><label>Rp/kg LB</label><input className="in" name="rate_per_kg_lb" required /></div>
+          <div className="field"><label>Rp/ekor (opsional)</label><input className="in" name="rate_per_head" /></div>
           <div className="field"><label>Basis kg LB</label><input className="in" name="basis_kg" /></div>
           <div className="field"><label>Budget overhead Rp</label><input className="in" name="budget_overhead" /></div>
           <div className="field"><label>Catatan</label><input className="in" name="note" /></div>

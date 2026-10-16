@@ -22,6 +22,7 @@ import "./v4/week-pl";
 import "./v4/month";
 import "./v4/uploads-month";
 import "./v4/uploads-ppic";
+import "./v4/close";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 

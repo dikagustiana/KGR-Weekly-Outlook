@@ -11,6 +11,8 @@ import { moduleSettings, requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { moduleSettingsGlobal, processRebuildQueue, queueRebuild } from "@/lib/rebuild";
 import { agreeAssumption, lockVersionV4 } from "@/lib/v4/month";
+import { addOverride, withdrawOverride } from "@/lib/v4/release-override";
+import { finalizeMonthV4 } from "@/lib/v4/close";
 import { monthStart } from "@/lib/v3/drivers";
 
 export type ActionState = { ok?: string; error?: string };
@@ -105,5 +107,40 @@ export async function lockV4Action(_: ActionState, form: FormData): Promise<Acti
     const r = await lockVersionV4(sb, v, first, version, moduleSettingsGlobal(await moduleSettings()));
     done(first);
     return { ok: r.message };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/** PRD v4 §7.2: override of one control for a month version ("2026-08-01:V1"), reason and evidence; RLS names the roles. */
+export async function overrideMonthAction(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const v = await requireModuleAction("m4_monthly", ["admin", "finance", "cost_accounting"]);
+    const first = monthOf(form);
+    const version = String(form.get("version"));
+    if (version !== "V1" && version !== "V2" && version !== "FINAL") return { error: "Versi tidak dikenal" };
+    const sb = await supabaseServer();
+    const id = String(form.get("id") ?? "");
+    const msg = id
+      ? await withdrawOverride(sb, v, id)
+      : await addOverride(sb, v, { scopeKind: "month", scope: `${first}:${version}`, code: String(form.get("code") ?? ""), reason: String(form.get("reason") ?? ""), evidence: String(form.get("evidence") ?? "") });
+    done(first);
+    revalidatePath(`/m/${first.slice(0, 7)}/tutup-buku`);
+    return { ok: msg };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/** Tutup buku: lock FINAL (public.release_month), calibration for the next month, then the accuracy mart via the queue. */
+export async function finalV4Action(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const v = await requireModuleAction("m4_monthly", ["admin", "finance"]);
+    const first = monthOf(form);
+    const sb = await supabaseServer();
+    const settings = moduleSettingsGlobal(await moduleSettings());
+    const r = await finalizeMonthV4(sb, v, first, settings);
+    // forecast_accuracy_daily is a mart: written by the queue with the service role (S1)
+    await queueRebuild(sb, [first], "FINAL dikunci (akurasi per hari)");
+    const q = await processRebuildQueue(settings);
+    done(first);
+    revalidatePath(`/m/${first.slice(0, 7)}/tutup-buku`);
+    return { ok: `${r.message}${q.notes.length ? `; ${q.notes.filter((n) => n.includes("akurasi") || n.includes("forecast_accuracy")).join("; ")}` : ""}` };
   } catch (e) { return { error: (e as Error).message }; }
 }

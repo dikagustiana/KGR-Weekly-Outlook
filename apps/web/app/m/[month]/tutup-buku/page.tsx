@@ -10,6 +10,9 @@ import { supabaseServer } from "@/lib/supabase";
 import { monthStart } from "@/lib/v3/drivers";
 import { monthView } from "@/lib/v3/monthly";
 import { adjustmentAction, lockAction } from "../actions";
+import { moduleSettings } from "@/lib/modules";
+import { v4On } from "@/lib/v4/nav";
+import { TutupBukuV4 } from "./v4";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +23,8 @@ export default async function TutupBukuPage({ params }: { params: Promise<{ mont
   const { month } = await params;
   const first = monthStart(month);
   if (!first) notFound();
-  await requireModulePage("m4_monthly", ["admin", "finance"]);
+  const v = await requireModulePage("m4_monthly", ["admin", "finance"]);
+  if (v4On(await moduleSettings(), v.role)) return <TutupBukuV4 first={first} viewer={v} />;
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const mv = await monthView(sb, first);

@@ -6,11 +6,11 @@ import type { Role } from "./roles";
 
 export type ModuleKey =
   | "m1_costing" | "m2_ledger" | "m3_planning" | "m4_monthly" | "m5_drivers" | "m6_cash" | "m7_commercial" | "m7_approval"
-  | "v4_design";
+  | "v4_design" | "v4_release";
 
 export const MODULE_KEYS: ModuleKey[] = [
   "m1_costing", "m2_ledger", "m3_planning", "m4_monthly", "m5_drivers", "m6_cash", "m7_commercial", "m7_approval",
-  "v4_design",
+  "v4_design", "v4_release",
 ];
 
 export const MODULE_LABEL: Record<ModuleKey, string> = {
@@ -23,6 +23,7 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   m7_commercial: "M7 Commercial view",
   m7_approval: "M7 Approval diskon + scorecard",
   v4_design: "v4 Tampilan baru: navigasi per peran, Minggu ini",
+  v4_release: "v4 Rilis ketat (§7.2): kontrol wajib BELUM DIISI / STALE menolak rilis kecuali ada override",
 };
 
 export interface ModuleSetting {
