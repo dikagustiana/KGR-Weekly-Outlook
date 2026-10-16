@@ -1,0 +1,30 @@
+# Irisan 5 gates, 2026-10-16T04:29Z, basis a30af5b + working tree
+
+$ pnpm typecheck
+exit 0
+
+$ pnpm test
+packages/engine test:  Test Files  19 passed (19)
+packages/engine test:       Tests  275 passed | 1 todo (276)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  23 passed (23)
+apps/web test:  Test Files  11 passed (11)
+apps/web test:       Tests  64 passed (64)
+
+$ pnpm parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+docs/parity.md, docs/parity-cells.csv: tidak berubah
+
+$ pnpm snapshot:diff
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+
+$ pnpm build
+ ✓ Compiled successfully in 10.6s
+├ ƒ /komersial                           2.03 kB         108 kB
+
+$ DATABASE_URL=… bash scripts/test-rls.sh   (database sekali pakai)
+test:rls OK, 19 blok (bukti: irisan-5-test-rls.txt)
+
+$ migrasi v4 (20261017* … 20261020*) dua kali pada salinan latihan KGR-OS
+round 1 done
+round 2 done

@@ -80,10 +80,20 @@ export async function floorGuard(sb: Supa, viewer: Viewer, settings: ModuleSetti
   return { covered: g.covered };
 }
 
-/** Mark the approvals a saved order used (one approval, one order). */
+/**
+ * Mark the approvals a saved order used (one approval, one order). Since PRD v4 irisan 5 the database links the
+ * covering approval to the line itself (floor_guard_v4); this only records it where the database did not, and never
+ * unlinks one.
+ */
 export async function consumeApprovals(sb: Supa, approvalIds: string[], salesLineId: string | null): Promise<void> {
+  if (salesLineId) {
+    const { data } = await sb.from("discount_approval").select("id").eq("sales_line_id", salesLineId).limit(1);
+    if ((data ?? []).length) return;
+  }
   for (const id of approvalIds) {
-    const e = await sb.from("discount_approval").update({ sales_line_id: salesLineId, reason: salesLineId ? null : "dipakai (baris tempel / upload)" }).eq("id", id);
+    const e = salesLineId
+      ? await sb.from("discount_approval").update({ sales_line_id: salesLineId, reason: null }).eq("id", id).is("sales_line_id", null)
+      : await sb.from("discount_approval").update({ reason: "dipakai (baris tempel / upload)" }).eq("id", id);
     if (e.error) throw new WriteError(`discount_approval: ${e.error.message}`);
   }
 }
@@ -113,13 +123,15 @@ export async function weekFloorControls(sb: Supa, week: WeekRow): Promise<Contro
 export async function computeScorecard(sb: Supa, weekStart: string): Promise<ReturnType<typeof scorecard>> {
   const we = addDays(weekStart, 6);
   const keyOf = await keyFn(sb);
-  const [targets, sales, fc, blasts, disc, asg] = await Promise.all([
+  const [targets, sales, fc, blasts, disc, asg, spot] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("sales_target").select("*").eq("week_start", weekStart).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, price, sales_rep").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep, kg").eq("week_start", weekStart).is("deleted_at", null).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("blast_event").select("key_from, kg, rp_downgrade").eq("reason", "cutoff").is("deleted_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("discount_approval").select("requested_by, total_below").eq("status", "approved").gte("decided_at", weekStart).lte("decided_at", `${we}T23:59:59`).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).range(a, b)),
+    // spot sales (K8): channel 'spot', any status; a missing column (v4 not migrated) = none
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, sales_rep").eq("channel", "spot").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)).catch(() => [] as Row[]),
   ]);
   // rep of a sale: the line's own rep, else the rep assigned to its customer, else to its key
   const byCustomer = new Map(asg.filter((a) => a.customer).map((a) => [String(a.customer).toLowerCase(), String(a.sales_rep)]));
@@ -132,6 +144,7 @@ export async function computeScorecard(sb: Supa, weekStart: string): Promise<Ret
     forecasts: fc.map((f) => ({ sales_rep: s(f.sales_rep) ?? "", kg: String(f.kg) })),
     blasts: blasts.map((b) => ({ sales_rep: byKey.get(String(b.key_from)) ?? "", kg: String(b.kg), rp_downgrade: s(b.rp_downgrade) ?? "0" })),
     discounts: disc.map((d) => ({ sales_rep: byEmail.get(String(d.requested_by ?? "").toLowerCase()) ?? "", total_below: String(d.total_below) })),
+    spot: spot.map((x) => ({ sales_rep: repOf(x, keyOf(s(x.key_manual), s(x.item_code))), kg: s(x.kg) ?? "0" })),
   }).filter((r) => r.sales_rep !== "");
 }
 
@@ -141,6 +154,7 @@ export async function buildScorecardWeek(sb: Supa, weekStart: string): Promise<s
   const w = await martReplace(sb, "sales_scorecard_weekly", weekStart, rows.map((r) => ({
     week_start: weekStart, sales_rep: r.sales_rep, target_kg: f(r.target_kg, 2), actual_kg: f(r.actual_kg, 2), pct: f(r.pct, 6), target_rp: f(r.target_rp, 2), actual_rp: f(r.actual_rp, 2),
     kg_to_frozen_unsold: f(r.kg_to_frozen_unsold, 2), rp_downgrade: f(r.rp_downgrade, 2), forecast_mape: f(r.forecast_mape, 6), discount_count: r.discount_count, discount_rp: f(r.discount_rp, 2),
+    kg_spot: f(r.kg_spot, 2),
   })));
   return `scorecard ${weekStart}: ${rows.length} sales (${w.written} ditulis)`;
 }

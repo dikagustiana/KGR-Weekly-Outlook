@@ -28,9 +28,9 @@ export default async function ScorecardPage({ searchParams }: { searchParams: Pr
       <div className="row noprint"><Link className="b small sec" href={`?week=${addDays(ws, -7)}`}>← minggu sebelumnya</Link><Link className="b small sec" href={`?week=${addDays(ws, 7)}`}>minggu berikutnya →</Link><Link href="/komersial">Komersial</Link></div>
       <Card>
         <table className="t compact">
-          <thead><tr><th>Sales</th><th className="n">Target kg</th><th className="n">Aktual kg</th><th className="n">Capaian</th><th className="n">Target Rp</th><th className="n">Aktual Rp</th><th className="n">Ke frozen tak terjual kg</th><th className="n">Downgrade Rp</th><th className="n">Error forecast</th><th className="n">Diskon (jumlah)</th><th className="n">Diskon Rp</th></tr></thead>
+          <thead><tr><th>Sales</th><th className="n">Target kg</th><th className="n">Aktual kg</th><th className="n">Spot kg</th><th className="n">Capaian</th><th className="n">Target Rp</th><th className="n">Aktual Rp</th><th className="n">Ke frozen tak terjual kg</th><th className="n">Downgrade Rp</th><th className="n">Error forecast</th><th className="n">Diskon (jumlah)</th><th className="n">Diskon Rp</th></tr></thead>
           <tbody>{rows.map((r) => (
-            <tr key={String(r.sales_rep)}><td>{String(r.sales_rep)}</td><Td v={r.target_kg as string | null} /><Td v={r.actual_kg as string} /><Td v={r.pct as string | null} percent /><Td v={r.target_rp as string | null} /><Td v={r.actual_rp as string} />
+            <tr key={String(r.sales_rep)}><td>{String(r.sales_rep)}</td><Td v={r.target_kg as string | null} /><Td v={r.actual_kg as string} /><Td v={(r.kg_spot ?? null) as string | null} /><Td v={r.pct as string | null} percent /><Td v={r.target_rp as string | null} /><Td v={r.actual_rp as string} />
               <Td v={r.kg_to_frozen_unsold as string} /><Td v={r.rp_downgrade as string} /><Td v={r.forecast_mape as string | null} percent /><Td v={Number(r.discount_count)} /><Td v={r.discount_rp as string} /></tr>
           ))}</tbody>
         </table>
