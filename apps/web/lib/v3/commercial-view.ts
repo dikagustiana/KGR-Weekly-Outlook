@@ -36,11 +36,21 @@ const int = (v: unknown) => (v === null || v === undefined || v === "" ? null : 
 
 export const URGENCY_LABEL: Record<string, string> = { di_atas_umur: "di atas batas umur", jual_hari_ini: "jual hari ini", jual_minggu_ini: "jual minggu ini", aman: "aman" };
 
-export function commercialView(rows: Raw[], opts: { role: Role; salesSeesCost: boolean; assignedKeys: Set<string> | null; keepOrder?: boolean }): CommercialViewRow[] {
+/**
+ * Keys a viewer may see (PRD v4 §8 S2): every key for roles other than sales; for sales only the assigned keys, all of
+ * them when an assignment row has no key. No assignment = no key (default deny; the database view applies the same rule).
+ */
+export function assignedKeysFor(role: Role, own: { key: string | null }[]): Set<string> | "all" {
+  if (role !== "sales") return "all";
+  if (own.some((a) => a.key === null)) return "all";
+  return new Set(own.map((a) => String(a.key)));
+}
+
+export function commercialView(rows: Raw[], opts: { role: Role; salesSeesCost: boolean; assignedKeys: Set<string> | "all"; keepOrder?: boolean }): CommercialViewRow[] {
   const sales = opts.role === "sales";
   const showMa = !sales || opts.salesSeesCost;
   return rows
-    .filter((r) => !sales || opts.assignedKeys === null || opts.assignedKeys.has(String(r.key)))
+    .filter((r) => !sales || opts.assignedKeys === "all" || opts.assignedKeys.has(String(r.key)))
     .map((r) => ({
       date: str(r.date), key: String(r.key), group_code: str(r.group_code), form: str(r.form), free_fresh_kg: str(r.free_fresh_kg) ?? "0", free_frozen_kg: str(r.free_frozen_kg) ?? "0",
       oldest_age_days: int(r.oldest_age_days), hours_to_cutoff: int(r.hours_to_cutoff),

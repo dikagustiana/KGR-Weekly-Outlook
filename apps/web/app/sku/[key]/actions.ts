@@ -8,9 +8,9 @@ import { moduleSettingsGlobal, processRebuildQueue } from "@/lib/rebuild";
 
 export type ActionState = { ok?: string; error?: string };
 
-async function rebuild(sb: Awaited<ReturnType<typeof supabaseServer>>) {
-  const r = await processRebuildQueue(sb, moduleSettingsGlobal(await moduleSettings()));
-  return r.failed ? ` Bangun ulang: ${r.failed} gagal.` : "";
+async function rebuild() {
+  const r = await processRebuildQueue(moduleSettingsGlobal(await moduleSettings()));
+  return r.failed ? ` Bangun ulang: ${r.failed} gagal.` : !r.done && r.notes.length ? ` ${r.notes[0]}` : "";
 }
 
 /** Opname / lot correction (PRD v3 §2 lot_adjust): a manual lot_movement, read by the ledger as an input. */
@@ -26,7 +26,7 @@ export async function adjustLot(_: ActionState, form: FormData): Promise<ActionS
       key, note: String(form.get("note") ?? "") || "opname",
     });
     if (error) return { error: error.message };
-    const msg = await rebuild(sb);
+    const msg = await rebuild();
     revalidatePath("/sku", "layout");
     return { ok: `Penyesuaian ${kg} kg dicatat.${msg}` };
   } catch (e) { return { error: (e as Error).message }; }
@@ -42,7 +42,7 @@ export async function blastLot(_: ActionState, form: FormData): Promise<ActionSt
     const sb = await supabaseServer();
     const { error } = await sb.from("blast_event").insert({ date, lot_ref_from: lot, key_from: key, kg: D(kg).toFixed(2), reason: String(form.get("reason") || "planned"), note: String(form.get("note") ?? "") || null });
     if (error) return { error: error.message };
-    const msg = await rebuild(sb);
+    const msg = await rebuild();
     revalidatePath("/sku", "layout");
     return { ok: `Blast ${kg} kg dicatat.${msg}` };
   } catch (e) { return { error: (e as Error).message }; }

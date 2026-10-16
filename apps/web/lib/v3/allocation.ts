@@ -12,6 +12,7 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { WriteError } from "../write";
+import { stockMartControl } from "./stale";
 import { loadLedgerSources, type LedgerSources } from "./ledger";
 import type { Row } from "./uploads";
 
@@ -40,7 +41,7 @@ export interface DayAllocation {
   current: FefoResult;
   /** What "Alokasikan hari ini" would write for the lines not yet delivered. */
   proposal: FefoResult;
-  futureOrders: { key: string; delivery_date: string; kg: string; fulfilled_kg: string | null }[];
+  futureOrders: { key: string; delivery_date: string; kg: string; fulfilled_kg: string | null; cancelled_kg: string | null }[];
   cutoff: CutoffBlast[];
   cutoffKg: Decimal;
   cutoffDone: Row[];
@@ -66,7 +67,7 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const keyOf = new Map(src.inputs.sales.map((x) => [x.ref, x.key ?? ""]));
   const horizon = addDays(date, 7);
   const [lines, allocations, blasts, param, prices] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, status, date, delivery_date, demand_status, kg, fulfilled_kg, price, customer, po_ref, sales_rep, document_ref, item_code, key_manual")
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("id, status, date, delivery_date, demand_status, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, sales_rep, document_ref, item_code, key_manual")
       .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).range(a, b)),
@@ -76,7 +77,7 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const keyFor = (r: Row) => keyOf.get(String(r.id)) ?? s(r.key_manual) ?? "";
   const toOrder = (r: Row): DayOrder => ({
     id: String(r.id), ref: String(r.id), key: keyFor(r), delivery_date: s(r.delivery_date) ?? s(r.date), demand_status: s(r.demand_status) ?? "Confirmed",
-    kg: s(r.kg) ?? "0", fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), price: s(r.price),
+    kg: s(r.kg) ?? "0", fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg), price: s(r.price),
     status: String(r.status), customer: s(r.customer), po_ref: s(r.po_ref), sales_rep: s(r.sales_rep), document_ref: s(r.document_ref),
   });
   const today = lines.filter((r) => (s(r.delivery_date) ?? s(r.date)) === date).map(toOrder);
@@ -95,7 +96,7 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
     existing: keep.map((a) => ({ sales_ref: String(a.sales_line_id), lot_ref: String(a.lot_ref), kg: String(a.kg) })),
   });
   const futureOrders = lines.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
-    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: s(r.kg) ?? "0", fulfilled_kg: s(r.fulfilled_kg) }));
+    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: s(r.kg) ?? "0", fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
   const p = (param.data ?? {}) as Row;
   const priceMap = new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)]));
   const info = new Map(src.inputs.keys.map((k) => [k.key, k]));
@@ -109,6 +110,9 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
 
 /** "Alokasikan hari ini": write the FEFO allocations of the open PO lines (upsert on line × lot; stale FEFO rows soft-deleted). */
 export async function allocateDay(sb: Supa, viewer: Viewer, date: string): Promise<string> {
+  // C45 (PRD v4 §7.1): no allocation on a stock mart older than its inputs
+  const c45 = await stockMartControl(sb, date);
+  if (c45.status === "STALE") throw new WriteError(`C45 STALE: ${c45.action}`);
   const d = await loadDayAllocation(sb, date);
   if (!d) throw new WriteError("Ledger stok (M2) belum ada — alokasi butuh lot");
   const open = new Set(d.orders.filter((o) => o.status === "Order").map((o) => o.id));

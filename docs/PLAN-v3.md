@@ -1,3 +1,5 @@
+Digantikan oleh docs/PRD-v4.md sejak 16 Okt 2026; lihat §0.2 untuk pasal yang dicabut.
+
 # Plan v3 — eksekusi PRD v3 di repo dan Supabase yang sudah ada
 
 Pasangan dari `docs/PRD-v3-kgr-platform.md`. Setiap fase = satu branch, satu PR, satu set migrasi, satu entri CHANGELOG, satu bukti di `docs/v3/README.md`. Fase berikutnya tidak dimulai sebelum PR fase sebelumnya merge dan deploy preview diverifikasi.

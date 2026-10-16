@@ -5,8 +5,15 @@
 import { D, Decimal, ZERO, max, sum, type Num } from "./decimal";
 import type { ControlStatus } from "./controls";
 import { yieldGap, type AllocationResult, type CostPoolResult } from "./costing";
+import { outstandingKg } from "./delivery";
 
 export type V3Module = "M1" | "M2" | "M3" | "M4" | "M5" | "M6" | "M7";
+
+/**
+ * v1 statuses plus the two of PRD v4 §3.0 / §7.1: STALE (the data mart is older than its inputs) and N/A (module off
+ * and the domain does not feed a released number). The v1 Z_Kontrol list keeps ControlStatus (snapshot unchanged).
+ */
+export type ControlV3Status = ControlStatus | "STALE" | "N/A";
 
 export interface ControlV3 {
   code: string;
@@ -15,7 +22,7 @@ export interface ControlV3 {
   value: Decimal;
   comparator: Decimal | null;
   difference: Decimal | null;
-  status: ControlStatus;
+  status: ControlV3Status;
   action: string;
   /** Rows behind the status (batch, key, date …), for the preparer view. */
   detail: string[];
@@ -23,14 +30,35 @@ export interface ControlV3 {
 
 export interface ControlV3Summary {
   controls: ControlV3[];
-  counts: Record<ControlStatus, number>;
+  counts: Record<ControlV3Status, number>;
   overall: "ADA GAGAL" | "PERIKSA" | "LULUS";
 }
 
 export function summarizeV3(controls: ControlV3[]): ControlV3Summary {
-  const counts: Record<ControlStatus, number> = { LULUS: 0, GAGAL: 0, PERIKSA: 0, "BELUM DIISI": 0 };
+  const counts: Record<ControlV3Status, number> = { LULUS: 0, GAGAL: 0, PERIKSA: 0, "BELUM DIISI": 0, STALE: 0, "N/A": 0 };
   for (const c of controls) counts[c.status]++;
-  return { controls, counts, overall: counts.GAGAL ? "ADA GAGAL" : counts.PERIKSA || counts["BELUM DIISI"] ? "PERIKSA" : "LULUS" };
+  return { controls, counts, overall: counts.GAGAL ? "ADA GAGAL" : counts.PERIKSA || counts["BELUM DIISI"] || counts.STALE ? "PERIKSA" : "LULUS" };
+}
+
+/**
+ * C45 (PRD v4 §7.1): the stock data mart is older than its inputs. An input change queues its date for a rebuild and
+ * balances roll forward, so a queued / running / failed rebuild on or before the date makes the mart STALE for it.
+ * Blocks saving a plan and allocating (§3.1 P3.3, P3.8).
+ */
+export function staleControl(x: { date: string; staleFrom: string | null; built: boolean }): ControlV3 {
+  const stale = x.staleFrom !== null && x.staleFrom <= x.date;
+  return {
+    code: "C45", module: "M2", name: "Data mart stok sudah dibangun ulang setelah input terakhir",
+    value: n(stale ? 1 : 0), comparator: n(0), difference: null,
+    status: !x.built ? "BELUM DIISI" : stale ? "STALE" : "LULUS",
+    action: !x.built ? "Bangun data mart stok (Admin → Modul)" : stale ? `Proses antrian bangun ulang mulai ${x.staleFrom} sebelum menyimpan rencana atau alokasi` : "",
+    detail: stale ? [`antrian bangun ulang mulai ${x.staleFrom}`] : [],
+  };
+}
+
+/** Controls that block an action: the given codes whose status is in the blocking set. */
+export function blocking(controls: ControlV3[], codes: string[], statuses: ControlV3Status[] = ["GAGAL", "STALE"]): ControlV3[] {
+  return controls.filter((c) => codes.includes(c.code) && statuses.includes(c.status));
 }
 
 const n = (x: number) => new Decimal(x);
@@ -146,13 +174,13 @@ export function ledgerControls(x: {
 export function planningControls(x: {
   today: string;
   /** Confirmed PO lines (status Order). */
-  orders: { ref: string; key: string; delivery_date: string | null; demand_status: string | null; kg: Num; fulfilled_kg: Num | null }[];
+  orders: { ref: string; key: string; delivery_date: string | null; demand_status: string | null; kg: Num; fulfilled_kg: Num | null; cancelled_kg?: Num | null }[];
   /** Allocation kg per sales line × lot (M3b); summed per line. */
   allocated?: { sales_ref: string; kg: Num; line_kg: Num }[];
   planDays?: { date: string; head_count: number; capacity: number | null }[];
   blasts?: { ref: string; lot_ref_to: string | null }[];
 }): ControlV3[] {
-  const late = x.orders.filter((o) => o.demand_status !== "Tentative" && o.demand_status !== "Forecast" && o.delivery_date !== null && o.delivery_date < x.today && D(o.fulfilled_kg ?? 0).lt(D(o.kg)));
+  const late = x.orders.filter((o) => o.demand_status !== "Tentative" && o.demand_status !== "Forecast" && o.delivery_date !== null && o.delivery_date < x.today && outstandingKg(o).gt(0));
   // Σ per sales line (one row per line × lot comes in)
   const perLine = new Map<string, { sales_ref: string; kg: Decimal; line_kg: Num }>();
   for (const a of x.allocated ?? []) {
@@ -165,10 +193,10 @@ export function planningControls(x: {
   return [
     {
       code: "C28", module: "M3", name: "PO Confirmed lewat tanggal kirim dan belum terkirim penuh",
-      value: n(late.length), comparator: n(0), difference: sum(late.map((o) => D(o.kg).minus(D(o.fulfilled_kg ?? 0)))),
+      value: n(late.length), comparator: n(0), difference: sum(late.map((o) => outstandingKg(o))),
       status: x.orders.length === 0 ? "BELUM DIISI" : late.length ? "PERIKSA" : "LULUS",
       action: late.length ? "Tandai terkirim, geser tanggal kirim, atau batalkan PO" : "",
-      detail: late.slice(0, 50).map((o) => `${o.key} ${o.delivery_date}: sisa ${D(o.kg).minus(D(o.fulfilled_kg ?? 0)).toFixed(2)} kg`),
+      detail: late.slice(0, 50).map((o) => `${o.key} ${o.delivery_date}: sisa ${outstandingKg(o).toFixed(2)} kg`),
     },
     {
       code: "C29", module: "M3", name: "Σ alokasi per baris PO ≤ kg PO",

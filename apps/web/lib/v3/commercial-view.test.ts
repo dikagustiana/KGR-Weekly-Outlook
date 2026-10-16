@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commercialView } from "./commercial-view";
+import { assignedKeysFor, commercialView } from "./commercial-view";
 
 const row = { date: "2026-08-26", key: "RPA|Karkas|Fresh", group_code: "KARKAS", form: "fresh", free_fresh_kg: "7327", free_frozen_kg: "0", oldest_age_days: 19, hours_to_cutoff: 0,
   cost_per_kg_ma: "37411.0000", cost_per_kg_si: "36123.4567", price_floor: "37761", price_list: "36705", margin_per_kg_list: "-706", realized_price_7d: null, margin_per_kg_realized: null,
@@ -9,7 +9,7 @@ const row = { date: "2026-08-26", key: "RPA|Karkas|Fresh", group_code: "KARKAS",
 
 describe("commercial view model (PRD v3 §8 M7)", () => {
   it("sales: MA cost per kg yes, specific cost per lot / cost pool / batch ref no", () => {
-    const v = commercialView([row], { role: "sales", salesSeesCost: true, assignedKeys: null });
+    const v = commercialView([row], { role: "sales", salesSeesCost: true, assignedKeys: "all" });
     const dom = JSON.stringify(v);
     expect(v[0].cost_per_kg_ma).toBe("37411.0000");
     expect(v[0].cost_per_kg_si).toBeNull();
@@ -22,6 +22,13 @@ describe("commercial view model (PRD v3 §8 M7)", () => {
   it("sales_sees_cost = false hides the MA cost; floor and margin stay; assignment filters the keys", () => {
     const v = commercialView([row, { ...row, key: "X", rank: 2 }], { role: "sales", salesSeesCost: false, assignedKeys: new Set(["RPA|Karkas|Fresh"]) });
     expect(v.map((r) => [r.key, r.cost_per_kg_ma, r.price_floor, r.margin_per_kg_list])).toEqual([["RPA|Karkas|Fresh", null, "37761", "-706"]]);
+  });
+  it("sales without an assignment see no key (PRD v4 S2); a keyless assignment row = every key", () => {
+    expect(assignedKeysFor("sales", [])).toEqual(new Set());
+    expect(commercialView([row], { role: "sales", salesSeesCost: true, assignedKeys: assignedKeysFor("sales", []) })).toEqual([]);
+    expect(assignedKeysFor("sales", [{ key: "RPA|Karkas|Fresh" }, { key: null }])).toBe("all");
+    expect(assignedKeysFor("commercial_lead", [])).toBe("all");
+    expect(assignedKeysFor("sales", [{ key: "RPA|Karkas|Fresh" }])).toEqual(new Set(["RPA|Karkas|Fresh"]));
   });
   it("commercial lead / management see every key and the SI cost", () => {
     const v = commercialView([row], { role: "commercial_lead", salesSeesCost: false, assignedKeys: new Set() });

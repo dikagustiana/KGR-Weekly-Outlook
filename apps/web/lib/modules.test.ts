@@ -33,3 +33,13 @@ describe("module flags (PRD v3 rule 5)", () => {
     expect(navModules(st, "admin", { week: "2026-08-24" }, true).map((n) => n.label)).toEqual(["Costing"]);
   });
 });
+
+describe("rebuild mode (PRD v4 S1: only the server's service role writes the data mart)", () => {
+  it("no module on = skip; module on without the server key = no_key (queue waits); with the key = run", async () => {
+    const { rebuildMode } = await import("./modules-core");
+    expect(rebuildMode({}, false)).toBe("skip");
+    expect(rebuildMode({}, true)).toBe("skip");
+    expect(rebuildMode({ m2_ledger: { enabled: true } }, false)).toBe("no_key");
+    expect(rebuildMode({ m2_ledger: { enabled: true } }, true)).toBe("run");
+  });
+});

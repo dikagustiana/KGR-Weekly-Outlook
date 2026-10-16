@@ -107,3 +107,15 @@ export function navModules(settings: ModuleSettings, role: Role, ctx: NavCtx, ma
   }
   return out;
 }
+
+/**
+ * What a rebuild run does (PRD v4 §8 S1): nothing when no module is on; with a module on it needs the server key,
+ * because only the service role may call mart_replace.
+ */
+export function rebuildMode(settings: ModuleSettings, hasServiceKey: boolean): "skip" | "no_key" | "run" {
+  if (!anyModuleOn(settings)) return "skip";
+  return hasServiceKey ? "run" : "no_key";
+}
+
+export const REBUILD_NO_KEY =
+  "Data harian tidak dibangun: server belum punya SUPABASE_SERVICE_ROLE_KEY (PRD v4 S1). Antrian tetap menunggu sampai kunci dipasang.";

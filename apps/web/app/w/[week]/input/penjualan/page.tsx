@@ -5,7 +5,8 @@ import { InputTable, markDelivered } from "@/components/InputTable";
 import { N } from "@/components/ui";
 import { guardInputs, lists, readOnly } from "@/lib/inputPage";
 import { canWriteRow, TABLES } from "@/lib/tables";
-import { moduleEnabled } from "@/lib/modules";
+import { moduleEnabled, moduleSettings } from "@/lib/modules";
+import { outstandingKg } from "@kgr/engine";
 import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,8 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
   const today = r.week.today;
   // M3 (PRD v3 §4.1): PO columns shown when the module is on; they are written by the "PO lines" upload
   const m3 = await moduleEnabled("m3_planning", ctx.viewer);
+  // K7: Terkirim asks for kg whenever M3 is on for anyone (the server follows the global flag too)
+  const m3Any = (await moduleSettings()).m3_planning?.enabled === true;
   return (
     <WeekShell ctx={ctx} active="input/penjualan">
       <h1>Penjualan — aktual (Accurate) dan order (sales)</h1>
@@ -50,9 +53,13 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
           ];
         }}
         extraActions={(row) => row.status === "Order" && canWriteRow(ctx.viewer.role, TABLES.sales_line, { ...row, status: "Aktual" }) ? (
-          <form action={markDelivered}>
+          <form action={markDelivered} className="row">
             <input type="hidden" name="week" value={week} /><input type="hidden" name="id" value={String(row.id)} />
-            <button className="b sec small" title="Order sudah dikirim → Aktual">Terkirim</button>
+            {m3Any ? <>
+              <input className="in small" name="kg" inputMode="decimal" size={7} aria-label="kg terkirim" defaultValue={outstandingKg({ kg: String(row.kg ?? 0), fulfilled_kg: String(row.fulfilled_kg ?? 0), cancelled_kg: String(row.cancelled_kg ?? 0) }).toFixed(2)} />
+              <input className="in small" name="document_ref" size={9} placeholder="No. DO" aria-label="nomor DO / surat jalan" />
+            </> : null}
+            <button className="b sec small" title={m3Any ? "Catat kg yang terkirim; order tetap terbuka bila masih ada sisa" : "Order sudah dikirim → Aktual"}>Terkirim</button>
           </form>
         ) : null}
       />

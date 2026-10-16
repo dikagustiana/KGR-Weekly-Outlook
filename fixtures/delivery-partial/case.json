@@ -1,0 +1,12 @@
+{
+  "source": "PRD v4 §3.1 P3.8 contoh baru, §9.1 G4, §9.2 fixture delivery-partial",
+  "order": { "kg": "1800.00", "fulfilled_kg": "0.00", "cancelled_kg": "0.00" },
+  "steps": [
+    { "action": "deliver", "kg": "600", "expect": { "ok": true, "outstanding": "1200.00", "closes": false } },
+    { "action": "deliver", "kg": "1300", "expect": { "ok": false, "outstanding": "1200.00" } },
+    { "action": "cancel", "kg": "200", "expect": { "outstanding": "1000.00" } },
+    { "action": "deliver", "kg": "1001", "expect": { "ok": false, "outstanding": "1000.00" } },
+    { "action": "deliver", "kg": "1000", "expect": { "ok": true, "outstanding": "0.00", "closes": true } }
+  ],
+  "database": "supabase/tests/rls_roles.sql blok 'v4 irisan 0 K7/S5/§4.2' menjalankan langkah yang sama di trigger (termasuk koreksi Admin dan minggu tertutup)"
+}

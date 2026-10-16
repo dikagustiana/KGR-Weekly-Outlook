@@ -10,6 +10,7 @@
 import { D, Decimal, ZERO, div, max, min, sum, type Num } from "./decimal";
 import { diffDays, type ISODate } from "./dates";
 import type { LedgerResult } from "./ledger";
+import { outstandingKg } from "./delivery";
 
 export interface AllocOrder {
   ref: string;
@@ -18,6 +19,8 @@ export interface AllocOrder {
   demand_status: string | null;
   kg: Num;
   fulfilled_kg?: Num | null;
+  /** K7: kg cancelled on the line (sales_line.cancelled_kg). */
+  cancelled_kg?: Num | null;
   price?: Num | null;
 }
 
@@ -83,7 +86,7 @@ export function allocateFEFO(x: {
   const allocations: AllocationRow[] = [];
   const unallocated: FefoResult["unallocated"] = [];
   for (const o of orders) {
-    let need = max(ZERO, D(o.kg).minus(D(o.fulfilled_kg ?? 0)).minus(covered.get(o.ref) ?? ZERO));
+    let need = max(ZERO, outstandingKg(o).minus(covered.get(o.ref) ?? ZERO));
     if (!need.gt(0)) continue;
     for (const l of lots) {
       if (!need.gt(0)) break;
@@ -118,7 +121,7 @@ export interface CutoffBlast {
 export function cutoffBlasts(x: {
   date: ISODate;
   lotsLeft: { lot_ref: string; key: string; form: "fresh" | "frozen"; kg: Num; origin_date: ISODate }[];
-  futureOrders: { key: string; delivery_date: ISODate; kg: Num; fulfilled_kg?: Num | null }[];
+  futureOrders: { key: string; delivery_date: ISODate; kg: Num; fulfilled_kg?: Num | null; cancelled_kg?: Num | null }[];
   windows: AllocWindows;
   frozenKeyOf: (key: string) => string;
   price: (key: string) => Num | null;
@@ -127,7 +130,7 @@ export function cutoffBlasts(x: {
   const fresh = x.lotsLeft.filter((l) => l.form === "fresh" && D(l.kg).gt(0)).slice().sort(fefo);
   const left = new Map(fresh.map((l) => [l.lot_ref, D(l.kg)]));
   for (const o of x.futureOrders.filter((q) => q.delivery_date > x.date).slice().sort((a, b) => a.delivery_date.localeCompare(b.delivery_date))) {
-    let need = max(ZERO, D(o.kg).minus(D(o.fulfilled_kg ?? 0)));
+    let need = outstandingKg(o);
     for (const l of fresh) {
       if (!need.gt(0)) break;
       if (l.key !== o.key || !sellableOn(l, o.delivery_date, x.windows)) continue;

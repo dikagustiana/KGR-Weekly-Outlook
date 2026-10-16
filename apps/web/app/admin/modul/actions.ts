@@ -43,7 +43,7 @@ export async function queueDates(_: ActionState, form: FormData): Promise<Action
     for (let d = from; d <= to && dates.length < 400; d = addDays(d, 1)) dates.push(d);
     const sb = await supabaseServer();
     await queueRebuild(sb, dates, "manual (Admin)");
-    const r = await processRebuildQueue(sb, await moduleSettings());
+    const r = await processRebuildQueue(await moduleSettings());
     revalidatePath("/", "layout");
     return { ok: `Bangun ulang ${dates.length} hari: ${r.done} selesai, ${r.failed} gagal. ${r.notes.slice(0, 3).join(" · ")}` };
   } catch (e) {
@@ -54,10 +54,9 @@ export async function queueDates(_: ActionState, form: FormData): Promise<Action
 export async function processQueue(_: ActionState): Promise<ActionState> {
   try {
     await admin();
-    const sb = await supabaseServer();
-    const r = await processRebuildQueue(sb, await moduleSettings());
+    const r = await processRebuildQueue(await moduleSettings());
     revalidatePath("/", "layout");
-    return { ok: `Antrian diproses: ${r.done} selesai, ${r.failed} gagal.` };
+    return { ok: `Antrian diproses: ${r.done} selesai, ${r.failed} gagal. ${r.notes.slice(0, 1).join("")}`.trim() };
   } catch (e) {
     return { error: (e as Error).message };
   }

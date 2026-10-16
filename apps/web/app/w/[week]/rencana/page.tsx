@@ -8,6 +8,7 @@ import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { loadPlanning, proposePlan, weekPlanningControls } from "@/lib/v3/planning";
+import { stockMartControl } from "@/lib/v3/stale";
 import { tgl } from "@/lib/fmt";
 import { approvePlanAction, copyPlanAction, savePlanAction, setCapacityAction } from "./actions";
 
@@ -23,6 +24,7 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
   const ctx = await weekContext(week);
   const sb = await supabaseServer();
   const src = await loadPlanning(sb, ctx.week);
+  const c45 = await stockMartControl(sb, addDays(ctx.week.week_start, -1));
   const p = proposePlan(src, { classCode: q.kelas ?? null });
   const wp = p.proposal.plan;
   const latest = src.plans[0] ?? null;
@@ -107,7 +109,7 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
           </table>
         </Card>
       ) : null}
-      <Card title="Kontrol rencana (C28, C30)"><ControlsV3Table controls={weekPlanningControls(src, ctx.week.update_date)} /></Card>
+      <Card title="Kontrol rencana (C28, C30, C45)"><ControlsV3Table controls={[...weekPlanningControls(src, ctx.week.update_date), c45]} /></Card>
     </WeekShell>
   );
 }

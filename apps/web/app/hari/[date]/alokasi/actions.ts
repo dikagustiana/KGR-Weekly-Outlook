@@ -3,10 +3,9 @@ import { revalidatePath } from "next/cache";
 import { isISODate } from "@kgr/engine";
 import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { applyChanges } from "@/lib/write";
-import { canWriteRow, TABLES } from "@/lib/tables";
-import { queueRebuild } from "@/lib/rebuild";
+import { parseNumber } from "@kgr/parsers";
 import { allocateDay, cutoffDay } from "@/lib/v3/allocation";
+import { recordDelivery } from "@/lib/v3/delivery";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -38,19 +37,15 @@ export async function cutoffAction(_: ActionState, form: FormData): Promise<Acti
   } catch (e) { return { error: (e as Error).message }; }
 }
 
-/** Terkirim (v1 rule: the Order line becomes Aktual) + fulfilled_kg, so the allocated lots become the line's out_sale. */
+/** Terkirim with kg (PRD v4 K7): a delivery row; the line becomes Aktual only when nothing is outstanding. */
 export async function deliverAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const v = await requireModuleAction("m3_planning", ["admin", "sales", "commercial_lead"]);
+    const v = await requireModuleAction("m3_planning", ["admin", "inventory_accounting", "sales", "commercial_lead"]);
     const date = dateOf(form);
-    const id = String(form.get("id"));
     const sb = await supabaseServer();
-    const { data: old } = await sb.from("sales_line").select("*").eq("id", id).maybeSingle();
-    if (!old || !canWriteRow(v.role, TABLES.sales_line, { ...(old as Record<string, unknown>), status: "Aktual" })) return { error: "Tidak berwenang" };
-    const o = old as Record<string, unknown>;
-    await applyChanges(sb, "sales_line", [], [{ id, status: "Aktual", confirmed_by: v.email, fulfilled_kg: o.kg }]);
-    await queueRebuild(sb, [date], "terkirim");
+    const kg = parseNumber(String(form.get("kg") ?? ""));
+    const msg = await recordDelivery(sb, v, { id: String(form.get("id")), date, kg: kg === null ? null : String(kg), documentRef: String(form.get("document_ref") ?? "").trim() || null });
     revalidatePath(`/hari/${date}/alokasi`);
-    return { ok: "PO ditandai terkirim (Aktual)" };
+    return { ok: msg };
   } catch (e) { return { error: (e as Error).message }; }
 }

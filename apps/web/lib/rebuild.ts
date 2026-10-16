@@ -3,11 +3,13 @@ import "server-only";
  * Data mart rebuild (PRD v3 §3): rebuildDay(date) runs every registered builder whose module is on and writes the
  * engine's output into the *_daily tables through the mart_replace RPC (one scope = one date). Idempotent: running a
  * day twice writes nothing the second time. No external cron — the queue is processed after uploads and by the
- * "Bangun ulang" button on /admin/modul.
+ * "Bangun ulang" button on /admin/modul. The run uses the server's service-role client (PRD v4 S1): the caller has
+ * already checked the user's role; the builders read the inputs from the database, never rows sent by the browser.
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
-import { anyModuleOn, type ModuleSettings } from "./modules-core";
+import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
+import { supabaseService } from "./supabase-service";
 import { BUILDERS } from "./rebuild-registry";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
@@ -50,9 +52,14 @@ export async function queueRebuild(sb: Supa, dates: string[], reason: string): P
 /**
  * Process queued dates oldest first (each date once), marking every row done or failed. With every module off the
  * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
+ * Without the server key the queue is left alone too, with a note saying why.
  */
-export async function processRebuildQueue(sb: Supa, settings: ModuleSettings, limit = 62): Promise<{ done: number; failed: number; notes: string[] }> {
-  if (!anyModuleOn(settings)) return { done: 0, failed: 0, notes: [] };
+export async function processRebuildQueue(settings: ModuleSettings, limit = 62): Promise<{ done: number; failed: number; notes: string[] }> {
+  const svc = supabaseService();
+  const mode = rebuildMode(settings, svc !== null);
+  if (mode === "skip") return { done: 0, failed: 0, notes: [] };
+  if (mode === "no_key" || !svc) return { done: 0, failed: 0, notes: [REBUILD_NO_KEY] };
+  const sb = svc;
   const { data, error } = await sb.from("rebuild_queue").select("id, date").eq("status", "queued").order("date").limit(500);
   if (error) throw new WriteError(error.message);
   const rows = (data ?? []) as { id: string; date: string }[];
