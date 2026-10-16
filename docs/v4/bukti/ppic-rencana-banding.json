@@ -1,0 +1,41 @@
+{
+ "diffs": [
+  [
+   "t-demand",
+   "catatan",
+   "(tanpa catatan)",
+   "1 SKU trading dibeli, tidak dipotong. By-product kurang: tulis alasan untuk membuka langkah 2."
+  ],
+  [
+   "t-harian",
+   "judul",
+   "Langkah 3: rencana harian",
+   "Langkah 3: rencana harian (usulan)"
+  ],
+  [
+   "t-varian",
+   "tile",
+   "tidak ada di mockup",
+   "ada di halaman"
+  ],
+  [
+   "link-alokasi",
+   "tile",
+   "tidak ada di mockup",
+   "ada di halaman"
+  ]
+ ],
+ "foldFail": [],
+ "grep": {
+  "I_, O_, T_ (nama lembar teknis)": 0,
+  "alamat e-mail": 0,
+  "\"bersumber Ops\"": 0,
+  "\"→\"": 0,
+  "\"M \" sebagai satuan": 0,
+  "# hex inline (style=)": 0,
+  "fontSize inline": 0
+ },
+ "contrastFail": [],
+ "tilesMockup": 6,
+ "tilesPage": 8
+}

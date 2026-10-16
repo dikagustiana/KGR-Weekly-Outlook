@@ -133,7 +133,9 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       const vr = (varRows ?? []) as Row[];
       demand = {
         confirmed: t.confirmed.toFixed(2), tentative: t.tentative.toFixed(2), forecast: t.forecast.toFixed(2), weighted: t.weighted.toFixed(2), fromStock: t.stock.toFixed(2), net: t.net.toFixed(2),
-        heads: null, planHeads: plan ? Number((plan as Row).head_count) : null,
+        // heads of the binding main product per cut pattern (K1: by-products never bind), as the demand rebuild wrote them
+        heads: rs.some((x) => x.binding === true && x.heads !== null) ? rs.filter((x) => x.binding === true && x.heads !== null).reduce((a, x) => a + Math.ceil(Number(x.heads)), 0) : null,
+        planHeads: plan ? Number((plan as Row).head_count) : null,
         variance: vr.length ? vr.reduce((a, x) => a.plus(D(s(x.variance_kg) ?? 0)), D(0)).toFixed(2) : null,
       };
     }

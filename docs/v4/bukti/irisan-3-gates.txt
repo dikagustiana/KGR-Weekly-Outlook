@@ -1,0 +1,24 @@
+# Irisan 3 gates, 2026-10-16T03:42Z, basis 222db9d + working tree
+
+$ pnpm typecheck
+exit 0
+
+$ pnpm test
+packages/engine test:  Test Files  17 passed (17)
+packages/engine test:       Tests  256 passed | 1 todo (257)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  23 passed (23)
+apps/web test:  Test Files  10 passed (10)
+apps/web test:       Tests  59 passed (59)
+
+$ pnpm parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+docs/parity.md, docs/parity-cells.csv: tidak berubah
+
+$ pnpm snapshot:diff
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+
+$ pnpm build
+ ✓ Compiled successfully in 11.5s
+├ ƒ /hari/[date]/alokasi                 1.52 kB         107 kB
+├ ƒ /w/[week]/rencana                    2.04 kB         108 kB

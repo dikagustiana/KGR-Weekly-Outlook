@@ -1,0 +1,14 @@
+{
+ "placeholder": true,
+ "status": "nilai sementara Lampiran B.3 sampai PPIC mengisi yield dan weight class sebenarnya (C42); dibulatkan PRD dengan kg/ekor 4 desimal, toleransi 1 kg",
+ "tolerance_kg": "1",
+ "unit_net_kg": { "Karkas": "13118", "HJA (Hati/Jantung/Ampela)": "2019", "Kepala": "1674", "Ceker": "1071", "Usus": "1673" },
+ "karkas": { "fresh_kg": "12307", "na_kg": "811", "frozen_order_kg": "4228", "frozen_covered_by_stock": true },
+ "kg_per_head": { "Karkas": "1.4292", "HJA (Hati/Jantung/Ampela)": "0.1086", "Kepala": "0.0906", "Ceker": "0.0570", "Usus": "0.0846" },
+ "heads": 9179,
+ "binding": "Karkas",
+ "kg_lb": "18358",
+ "by_product_output_kg": { "HJA (Hati/Jantung/Ampela)": "997", "Usus": "776", "Kepala": "832", "Ceker": "524" },
+ "by_product_shortfall_kg": { "HJA (Hati/Jantung/Ampela)": "1022", "Usus": "897", "Kepala": "842", "Ceker": "548" },
+ "without_k1": { "heads": 19778, "binding": "Usus", "kg_lb": "39556", "karkas_surplus_kg_approx": "15149" }
+}

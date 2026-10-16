@@ -2,6 +2,23 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-3] PPIC: demand, rencana, alokasi (docs/PRD-v4.md irisan 3)
+
+### Added
+- Engine: K1 in `headsByPattern` / `weekDemand` (`isMain`; by-product output and shortfall), K2 forecast source in `weeklyDemand`, `ppic-v4.ts` (`statForecastWeek`, `shortfallRows`, `ppicControls` C41/C42/C44/C46/C47, `ppicBlockers`, `stepGates`, `planVarianceDaily`, `firstDelivery`, `daysAheadOf`).
+- Fixture `plan-2026-08-24` (Lampiran B.3, placeholder) with tests.
+- Migration `20261018000100_v4_ppic.sql`: `demand_weekly.unit / product_class / source_forecast`, `plan_week.yield_provisional / controls`, table `plan_check_reason`, unique DO per PO line on `delivery`, empty capacity rows for 19 Oct–29 Nov 2026.
+- Web: M3 builder writes `demand_shortfall` and `plan_variance_daily`; pages Rencana (§6.4) and Alokasi hari ini (§6.5) behind `v4_design`; upload `delivery` (CSV); reason action for PERIKSA steps.
+
+### Changed
+- Netting judges stock eligibility on the first delivery date of the week instead of the lead time.
+- Save / approve / copy of a weekly plan follow C45 / C46 / C42–C47; a plan on placeholder yields is labelled.
+- The M2 ledger reads deliveries on open PO lines (K7); an allocation is used once across a line's deliveries.
+- Cut-off is refused before the day's cut-off time (K8).
+
+### Verified
+- Weekly snapshot byte-identical; parity 17.161/17.161; tests engine 256, parsers 23, web 59; RLS 16 blocks without (!); screenshot comparison `ppic-rencana`.
+
 ## [v4-2] Outlook bulanan dan kas (docs/PRD-v4.md irisan 2)
 
 ### Added

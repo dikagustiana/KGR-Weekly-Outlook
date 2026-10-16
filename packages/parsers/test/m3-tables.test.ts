@@ -94,3 +94,11 @@ describe("M5 template 8.3 and budget uploads (PRD v4 §3.3, §4.4)", () => {
     expect(normBudgetMetric("lain")).toBeNull();
   });
 });
+
+describe("delivery CSV (PRD v4 §4.4, K7)", () => {
+  it("no_po, kode_item, tgl, kg, no_dokumen", () => {
+    const r = parseV3Table("delivery", sheet([["no_po", "kode_item", "tgl", "kg", "no_dokumen"], ["PO-001", "JLB0790", "2026-09-03", "600", "DO-0001"], ["PO-001", "JLB0790", "2026-09-04", "1.200,5", ""]]));
+    expect(r.rows[0].values).toMatchObject({ po_ref: "PO-001", item_code: "JLB0790", date: "2026-09-03", kg: "600", document_ref: "DO-0001" });
+    expect(r.rows[1].issues.length).toBeGreaterThan(0);
+  });
+});
