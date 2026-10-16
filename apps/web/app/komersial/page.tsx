@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 /** PRD v3 §6 /komersial: SKUs to sell, ranked by urgency and priority (sales: own SKUs, no lot cost; lead/management: all). */
 export default async function KomersialPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "finance"]);
+  const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "operations_director", "finance"]);
   if (v4On(await moduleSettings(), v.role)) return <KomersialV4 viewer={v} />;
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";

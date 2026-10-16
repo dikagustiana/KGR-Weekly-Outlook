@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /** PRD v3 §6 /komersial/scorecard: per sales rep, the week before (built on Monday). */
 export default async function ScorecardPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const v = await requireModulePage("m7_approval", ["admin", "commercial_lead", "management"]);
+  const v = await requireModulePage("m7_approval", ["admin", "commercial_lead", "management", "operations_director"]);
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";
   const ws = sp.week && isISODate(sp.week) ? mondayOf(sp.week) : addDays(mondayOf(jakartaToday()), -7);

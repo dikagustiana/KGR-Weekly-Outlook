@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-0] Foundation (docs/PRD-v5.md irisan 0)
+
+### Added
+- `docs/PRD-v5.md` (replaces PRD v4 as product authority), mockup v5 in `reference/design/v5/`.
+- Migration `20261021000100_v5_foundation.sql`: §5 columns and tables (empty), weight classes K/S/B without numbers, role `operations_director`, RLS per Bab 8, task registry seeded from §3.1, flags `v5_*` (off).
+- App: role "Direktur Operasional" (reads like management), v5 write areas, v5 flags.
+
+### Changed
+- The v4 planner skips weight classes without an average (K/S/B until PPIC fills them).
+
 ## [v4-5] Komersial (docs/PRD-v4.md irisan 5)
 
 ### Added

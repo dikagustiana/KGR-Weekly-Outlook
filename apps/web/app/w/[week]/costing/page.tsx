@@ -12,7 +12,7 @@ import { tgl } from "@/lib/fmt";
 export const dynamic = "force-dynamic";
 
 /** Every role except sales (cost per batch is finance detail, PRD v3 Q17). */
-const READERS = ["admin", "inventory_accounting", "ppic", "purchasing", "finance", "management", "commercial_lead", "cost_accounting"] as const;
+const READERS = ["admin", "inventory_accounting", "ppic", "purchasing", "finance", "management", "operations_director", "commercial_lead", "cost_accounting"] as const;
 
 export default async function CostingPage({ params }: PageProps) {
   const { week } = await params;

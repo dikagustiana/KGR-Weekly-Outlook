@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /** One SKU: commercial row over the last 14 days and the open orders (sales see no lot cost). */
 export default async function KomersialKeyPage({ params }: { params: Promise<{ key: string }> }) {
   const key = decodeURIComponent((await params).key);
-  const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "finance"]);
+  const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "operations_director", "finance"]);
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const today = jakartaToday();
