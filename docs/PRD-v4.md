@@ -1,3 +1,5 @@
+Digantikan oleh docs/PRD-v5.md sejak 16 Okt 2026; lihat §1.3 untuk pasal yang dicabut. Pasal lain tetap berlaku sebagai rujukan v4 §x.
+
 # PRD v4 — KGR Operations & Finance Platform
 
 Status: Draft untuk review pemilik produk, lalu handoff ke Claude Code · Owner: Dika (Group Project Finance, SAMB) · Tanggal: 16 Okt 2026 (WIB)

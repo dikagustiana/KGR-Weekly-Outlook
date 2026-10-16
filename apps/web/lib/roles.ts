@@ -1,10 +1,10 @@
 /** Roles and what each may write (PRD §2, PRD v3 §2). Server actions check this; RLS enforces it again in the database. */
 export type Role =
   | "admin" | "inventory_accounting" | "sales" | "ppic" | "purchasing" | "finance" | "management"
-  | "commercial_lead" | "cost_accounting";
+  | "commercial_lead" | "cost_accounting" | "operations_director";
 
 export const ROLES: Role[] = [
-  "admin", "inventory_accounting", "sales", "ppic", "purchasing", "finance", "management", "commercial_lead", "cost_accounting",
+  "admin", "inventory_accounting", "sales", "ppic", "purchasing", "finance", "management", "operations_director", "commercial_lead", "cost_accounting",
 ];
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -17,7 +17,12 @@ export const ROLE_LABEL: Record<Role, string> = {
   management: "Management",
   commercial_lead: "Kepala Sales",
   cost_accounting: "Cost Accounting",
+  operations_director: "Direktur Operasional",
 };
+
+/** PRD v5 §5.3, K37: these roles read every screen and write only what Bab 8 names (management: nothing). */
+export const MANAGEMENT_READERS: Role[] = ["management", "operations_director"];
+export const readsLikeManagement = (role: Role | null | undefined): boolean => !!role && MANAGEMENT_READERS.includes(role);
 
 export type Area =
   | "orders" | "sales_actual" | "receipts_production" | "receipts_trading" | "receipts_actual" | "batch" | "cash_plan"
@@ -27,7 +32,9 @@ export type Area =
   | "costing_upload" | "cost_pool" | "overhead_rate" | "allocation_run" | "lot_adjust" | "blast_event" | "po_line"
   | "forecast_line" | "sales_target" | "sales_assignment" | "discount_approval" | "yield_matrix" | "weight_class"
   | "capacity" | "lb_supply" | "plan_week" | "plan_day" | "fixed_cost_schedule" | "cost_driver" | "cash_daily"
-  | "monthly_outlook_version" | "closing_adjustment" | "urgency_rule" | "price_floor_rule" | "rebuild";
+  | "monthly_outlook_version" | "closing_adjustment" | "urgency_rule" | "price_floor_rule" | "rebuild"
+  // v5 (PRD v5 §5.3, Bab 8)
+  | "lb_decision" | "commitment" | "commitment_lock" | "price_list_lock" | "surplus_response" | "size_class_map";
 
 const W: Record<Area, Role[]> = {
   orders: ["admin", "sales", "commercial_lead"],
@@ -78,6 +85,12 @@ const W: Record<Area, Role[]> = {
   urgency_rule: ["admin", "finance", "commercial_lead"],
   price_floor_rule: ["admin", "finance", "commercial_lead"],
   rebuild: ["admin", "inventory_accounting", "sales", "ppic", "purchasing", "finance", "commercial_lead", "cost_accounting"],
+  lb_decision: ["admin", "operations_director"],
+  commitment: ["admin", "sales", "commercial_lead"],
+  commitment_lock: ["admin", "commercial_lead"],
+  price_list_lock: ["admin", "commercial_lead"],
+  surplus_response: ["admin", "sales", "commercial_lead"],
+  size_class_map: ["admin", "ppic"],
 };
 
 export function can(role: Role | null | undefined, area: Area): boolean {
@@ -89,7 +102,7 @@ export function writers(area: Area): Role[] {
   return [...W[area]];
 }
 
-/** Management sees no input pages (PRD §10 role test). */
+/** Management sees no input pages (PRD §10 role test); the operations director neither (v5 §5.3: one decision form only). */
 export function seesInputs(role: Role | null | undefined): boolean {
-  return !!role && role !== "management";
+  return !!role && !readsLikeManagement(role);
 }

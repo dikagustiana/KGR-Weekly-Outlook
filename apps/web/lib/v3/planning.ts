@@ -119,7 +119,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
       product_class: k.product_class === "by_product" ? "by_product" as const : "main" as const, replacement_buy_price: s(k.replacement_buy_price),
     }])),
     prices: new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)])),
-    weightClasses: classes.map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })),
+    // PRD v5 §5.1: K / S / B exist before PPIC gives them an average; a class without one is not a v4 plan class yet
+    weightClasses: classes.filter((c) => c.avg_kg !== null && c.avg_kg !== undefined).map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })),
     yieldRows: [...ym.values()].map((y) => ({ weight_class: String(y.weight_class), cut_pattern: String(y.cut_pattern), key: String(y.key), yield_pct: String(y.yield_pct), note: s(y.note) })),
     history: {
       from: hFrom, to: hTo,

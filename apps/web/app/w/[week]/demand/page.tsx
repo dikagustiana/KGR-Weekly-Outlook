@@ -10,7 +10,7 @@ import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
 
-const READERS = ["admin", "sales", "commercial_lead", "ppic", "management", "finance"] as const;
+const READERS = ["admin", "sales", "commercial_lead", "ppic", "management", "operations_director", "finance"] as const;
 
 /** PRD v3 §6 /w/[week]/demand: PO (berbobot) vs forecast vs stok bebas → net → ekor, SKU penentu. Numbers from demand_weekly. */
 export default async function DemandPage({ params }: PageProps) {

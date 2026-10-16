@@ -53,6 +53,8 @@ const D: Record<string, Def> = {
 /** Workspace per role in nav order (§5.4). Admin: the management workspace, PPIC and sales entries, then Admin. */
 export const WORKSPACE: Record<Role, Def[]> = {
   management: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis],
+  // PRD v5 §5.3: reads like management (the LB price decision form comes with irisan 1 / 6)
+  operations_director: [D.mingguIni, D.outlookBulan, D.kasSolv, D.stok, D.komersial, D.rilis],
   ppic: [D.rencana, D.alokasi, D.stok, D.batch, D.upload],
   sales: [D.komersial, D.pesanan, D.upload],
   commercial_lead: [D.komersial, D.pesanan, D.approval, D.scorecard, D.upload],

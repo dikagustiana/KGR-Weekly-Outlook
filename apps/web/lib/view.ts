@@ -3,7 +3,7 @@
  * view; every other role prepares data (it has input areas) and may preview the management view.
  * Presentation only — what a user may read or write is still decided by the role and RLS.
  */
-import type { Role } from "./roles";
+import { readsLikeManagement, type Role } from "./roles";
 
 export type ViewMode = "management" | "preparer";
 
@@ -11,7 +11,7 @@ export type ViewMode = "management" | "preparer";
 export const VIEW_COOKIE = "kgr_view";
 
 export function canToggleView(role: Role): boolean {
-  return role !== "management";
+  return !readsLikeManagement(role);
 }
 
 export function viewModeFor(role: Role, cookie: string | null | undefined): ViewMode {

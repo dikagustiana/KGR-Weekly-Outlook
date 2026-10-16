@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KGR · Kas dan solvabilitas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#f4f5f7}
+a{color:#0f6cbd}a:hover{color:#0b5394}
+button:focus-visible,a:focus-visible{outline:2px solid #0f6cbd;outline-offset:2px}
+@media (max-width: 900px){
+.kgr-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;padding:12px 16px 24px !important}
+.kgr-tile{grid-column:span 2 !important;grid-row:auto !important}
+.kgr-card{grid-column:span 1 !important}
+.kgr-top{gap:12px !important;padding:0 16px !important}
+}
+</style>
+</helmet>
+<div style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.4; color: #1d2330; background: #f4f5f7; min-height: 100vh">
+
+<header class="kgr-top" style="position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 0 20px; min-height: 52px; background: #ffffff; border-bottom: 1px solid #e3e6eb; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap"><span style="color: #0f6cbd" aria-hidden="true">◆</span><span>KGR</span></div>
+<nav aria-label="Halaman manajemen" style="display: flex; gap: 4px; flex: 1; overflow-x: auto">
+<a href="Main.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Minggu ini</a>
+<a href="Bulanan.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Outlook bulan</a>
+<a href="Kas.dc.html" aria-current="page" style="padding: 15px 12px; color: #1d2330; font-weight: 600; text-decoration: none; border-bottom: 2px solid #0f6cbd; white-space: nowrap">Kas &amp; solvabilitas</a>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Stok</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Komersial</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Laporan</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Rilis</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: #69707d"><span>Direksi · Management</span></div>
+</header>
+
+<main class="kgr-grid" style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(76px, auto); gap: 12px; padding: 16px 20px 32px; max-width: 1440px; margin: 0 auto">
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Bulan (neraca akhir bulan)</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ monthBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 6; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Data kas harian</h3>
+<div style="font-size: 13px">Template kas harian belum diunggah Finance.</div>
+<div style="font-size: 12px; color: #69707d">Saldo per rekening, kas terendah 13 minggu, dan kas 12 bulan tampil setelah upload pertama.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 2 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600">{{ headline }}</h1>
+<div style="font-size: 12px; color: #69707d">{{ headlineSub }}</div>
+</section>
+
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+<section class="kgr-tile kgr-card" style="{{ c.box }}">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>{{ c.title }}</span><button type="button" onClick="{{ c.toggle }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="{{ c.valueStyle }}">{{ c.value }}</span><span style="font-size: 12px; color: #69707d">{{ c.unit }}</span></div>
+<sc-for list="{{ c.lines }}" as="l" hint-placeholder-count="2">
+<div style="font-size: 12px; color: #69707d"><span style="{{ l.style }}">{{ l.lead }}</span> {{ l.text }}</div>
+</sc-for>
+<sc-if value="{{ c.open }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #1d2330; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">{{ c.how }}</div>
+</sc-if>
+</section>
+</sc-for>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 5 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>Utang pihak berelasi dan ekuitas, akhir bulan Mei–Sep (Rp jt)</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #6b7280; margin-right: 4px"></span>utang pihak berelasi</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #0f6cbd; margin-right: 4px"></span>ekuitas</span></span></h3>
+<div style="position: relative; height: 200px; margin: 18px 0 0 44px">
+<sc-for list="{{ fund.grid }}" as="g" hint-placeholder-count="4">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ fund.bars }}" as="b" hint-placeholder-count="10">
+<button type="button" onClick="{{ b.pick }}" aria-label="{{ b.aria }}" style="{{ b.style }}"></button><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 44px">
+<sc-for list="{{ fund.axis }}" as="a" hint-placeholder-count="5">
+<span style="flex: 1; text-align: center; font-size: 11px; color: #69707d; padding-top: 4px">{{ a }}</span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Utang pihak berelasi naik Rp 9.344,8 jt sejak Mei, sementara ekuitas turun ke 14% modal disetor. Klik batang untuk memilih bulan.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 5 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Neraca ringkas · akhir {{ monthLabel }} (Rp jt)</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(140px, 2fr) repeat(3, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Pos</span><span style="padding: 6px 8px; text-align: right">{{ prevLabel }}</span><span style="padding: 6px 8px; text-align: right">{{ monthLabel }}</span><span style="padding: 6px 8px; text-align: right">Δ</span></div>
+<sc-for list="{{ bsRows }}" as="r" hint-placeholder-count="8">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px">{{ r.l }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.p }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.c }}</span><span style="{{ r.dStyle }}">{{ r.d }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ bsNote }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 9 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Siklus kas · {{ monthLabel }}</span><button type="button" onClick="{{ toggleExCcc }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exCcc }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">DIO = persediaan ÷ COGS per hari; DSO = piutang usaha ÷ revenue per hari; DPO = utang usaha ÷ COGS per hari; CCC = DIO + DSO − DPO. Basis bulan berjalan dari laporan keuangan. Modal kerja terikat = persediaan + piutang − utang usaha.</div>
+</sc-if>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{ cccCards }}" as="c" hint-placeholder-count="4">
+<div style="border: 1px solid #e3e6eb; border-radius: 8px; padding: 10px; min-width: 0"><div style="font-size: 12px; color: #69707d">{{ c.l }}</div><div style="font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums">{{ c.v }}</div><div style="font-size: 11px; color: #69707d">{{ c.s }}</div></div>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<span style="font-size: 12px; color: #69707d; margin-right: 4px">Simulasi target hari stok:</span>
+<sc-for list="{{ simBtns }}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(150px, 2fr) repeat(3, minmax(70px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px"></span><span style="padding: 6px 8px; text-align: right">Sekarang</span><span style="padding: 6px 8px; text-align: right">Simulasi</span><span style="padding: 6px 8px; text-align: right">Selisih</span></div>
+<sc-for list="{{ simRows }}" as="r" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: minmax(150px, 2fr) repeat(3, minmax(70px, 1fr)); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px">{{ r.l }}</span><span style="padding: 5px 8px; text-align: right">{{ r.a }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.b }}</span><span style="{{ r.dStyle }}">{{ r.d }}</span></div>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 9 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Arus kas operasi vs pendanaan afiliasi · 24–30 Agu (Rp jt)</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(150px, 2fr) repeat(2, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Arus kas</span><span style="padding: 6px 8px; text-align: right">Minggu lalu</span><span style="padding: 6px 8px; text-align: right">Proyeksi</span></div>
+<sc-for list="{{ cfRows }}" as="r" hint-placeholder-count="8">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px">{{ r.l }}</span><span style="{{ r.aStyle }}">{{ r.a }}</span><span style="{{ r.bStyle }}">{{ r.b }}</span></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div style="border: 1px solid #e3e6eb; border-radius: 8px; padding: 10px"><div style="font-size: 12px; color: #69707d">Saldo terendah Jum 28 Agu</div><div style="font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">289,7</div><div style="font-size: 11px; color: #69707d">termasuk pinjaman afiliasi</div></div>
+<div style="border: 1px solid #e3e6eb; border-radius: 8px; padding: 10px"><div style="font-size: 12px; color: #69707d">Tanpa pinjaman afiliasi</div><div style="font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: #c4314b">−910,3</div><div style="font-size: 11px; color: #69707d">asumsi; pinjaman bulan lalu tetap di saldo awal</div></div>
+</div>
+<div style="font-size: 12px; color: #69707d">Arus operasi minggu ini −761,0 ditutup pinjaman afiliasi 1.200,0. Kas keluar live bird dan trading per termin tercatat 0 di semua hari, tidak cocok dengan bayar pemasok 1.325,0: data termin belum tersambung.</div>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1350}}'>
+const NF1 = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const NF0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
+const RED = '#c4314b';
+const GREEN = '#1a7f4b';
+const f1 = (x) => { const r = Math.round(x * 10) / 10; return (r < 0 ? '−' : '') + NF1.format(Math.abs(r)); };
+const f0 = (x) => { const r = Math.round(x); return (r < 0 ? '−' : '') + NF0.format(Math.abs(r)); };
+const s1 = (x) => (Math.round(x * 10) / 10 > 0 ? '+' : '') + f1(x);
+const negC = (x) => (Math.round(x * 10) / 10 < 0 ? 'color: ' + RED + ';' : '');
+
+const MONTHS = ['Mei', 'Jun', 'Jul', 'Agu', 'Sep'];
+const AFF = [501.1, 2909.1, 4429.9, 5627.1, 9845.9];
+const EQ = [1819.6, 1529.4, 1639.1, 1612.6, 702.6];
+const M = {
+  Agu: { label: 'Agustus', prev: 'Jul', days: 31, kas: 495.4, kasP: 599.8, ar: 512.0, arP: 310.7, inv: 3532.6, invP: 2895.8, adv: 985.1, advP: 1472.0, ap: 56.0, apP: 4.2, aff: 5627.1, affP: 4429.9, eq: 1612.6, eqP: 1639.1, rev: 8361.8, cogs: 8055.1, lbt: -26.5, bunga: 31.9 },
+  Sep: { label: 'September', prev: 'Agu', days: 30, kas: 103.0, kasP: 495.4, ar: 800.2, arP: 512.0, inv: 6652.4, invP: 3532.6, adv: 1413.5, advP: 985.1, ap: 139.1, apP: 56.0, aff: 9845.9, affP: 5627.1, eq: 702.6, eqP: 1612.6, rev: 5039.9, cogs: 5515.3, lbt: -910.1, bunga: 54.0 },
+};
+const BTN_ON = 'font: inherit; font-size: 12.5px; border: 1px solid #0f6cbd; background: #0f6cbd; color: #ffffff; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const BTN_OFF = 'font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const CARD_BOX = 'grid-row: 3 / span 2; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; grid-column: ';
+
+class Component extends DCLogic {
+  toggleEx(id) { const cur = (this.state || {}).ex; this.setState({ ex: cur === id ? null : id }); }
+
+  renderVals() {
+    const st = this.state || {};
+    const mk = st.month || 'Sep';
+    const sim = st.sim || 14;
+    const ex = st.ex || null;
+    const m = M[mk];
+
+    const monthBtns = ['Agu', 'Sep'].map((k) => ({ label: M[k].label + ' 2026', on: k === mk ? 'true' : 'false', style: k === mk ? BTN_ON : BTN_OFF, pick: () => this.setState({ month: k }) }));
+    const runway = m.lbt < 0 ? m.eq / -m.lbt : null;
+    const cardDefs = [
+      { id: 'kas', span: 2, title: 'Saldo kas akhir ' + m.label, value: f1(m.kas), lines: [{ lead: s1(m.kas - m.kasP), text: 'vs akhir ' + m.prev, style: (m.kas < m.kasP ? 'color: ' + RED : 'color: ' + GREEN) + '; font-weight: 600;' }], how: 'Kas dan setara kas di neraca akhir bulan.' },
+      { id: 'low', span: 2, title: 'Terendah 13 minggu', value: 'tidak tersedia', small: true, lines: [{ lead: '', text: 'butuh upload kas harian', style: '' }], how: 'Saldo akhir minggu terendah 13 minggu ke depan dari rencana kas harian; tanpa upload, angka tidak dihitung dan tidak ditampilkan sebagai nol.' },
+      { id: 'aff', span: 3, title: 'Utang pihak berelasi', value: f1(m.aff), lines: [{ lead: s1(m.aff - m.affP), text: 'vs akhir ' + m.prev, style: 'color: ' + RED + '; font-weight: 600;' }, { lead: f1(m.bunga), text: 'bunga bulan ' + m.label, style: 'font-weight: 600; color: #1d2330;' }], how: 'Other payable related parties di neraca; bunga dari laba rugi bulan itu.' },
+      { id: 'eq', span: 3, title: 'Ekuitas', value: f1(m.eq), lines: [{ lead: f0((m.eq / 5000) * 100) + '%', text: 'dari modal disetor 5.000,0', style: 'font-weight: 600; color: #1d2330;' }, { lead: s1(m.eq - m.eqP), text: 'vs akhir ' + m.prev, style: (m.eq < m.eqP ? 'color: ' + RED : 'color: ' + GREEN) + '; font-weight: 600;' }], how: 'Total ekuitas neraca.' },
+      { id: 'run', span: 2, title: 'Bulan sampai ekuitas negatif', value: runway === null ? '—' : f1(runway), unit: 'bulan', lines: [{ lead: f1(m.lbt), text: 'laba sebelum pajak ' + m.label, style: negC(m.lbt) + ' font-weight: 600;' }], how: 'Ekuitas ÷ rugi sebelum pajak bulan itu, hanya bila rugi.' },
+    ];
+    let col = 1;
+    const cards = cardDefs.map((c) => {
+      const box = CARD_BOX + col + ' / span ' + c.span + ';';
+      col += c.span;
+      return { title: c.title, value: c.value, unit: c.unit || (c.small ? '' : 'Rp jt'), lines: c.lines, how: c.how, open: ex === c.id, toggle: () => this.toggleEx(c.id), box,
+        valueStyle: c.small ? 'font-size: 20px; font-weight: 600; color: #69707d;' : 'font-size: 30px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums;' + (c.id === 'run' && runway !== null && runway < 3 ? ' color: ' + RED + ';' : '') };
+    });
+
+    const headline = mk === 'Sep'
+      ? 'Kas Rp 103,0 jt per 30 Sep; ekuitas Rp 702,6 jt habis dalam 0,8 bulan bila rugi September berulang.'
+      : 'Kas Rp 495,4 jt per 31 Agu; utang pihak berelasi naik Rp 1.197,2 jt ke Rp 5.627,1 jt untuk membiayai persediaan.';
+    const headlineSub = mk === 'Sep'
+      ? 'Utang pihak berelasi naik Rp 4.218,8 jt dalam sebulan, persediaan naik Rp 3.119,8 jt. Sumber: neraca dan laba rugi September.'
+      : 'Rugi sebelum pajak Agustus Rp 26,5 jt. Sumber: neraca dan laba rugi Agustus.';
+
+    const hi = 10000;
+    const y = (v) => ((hi - v) / hi) * 100;
+    const slot = 100 / MONTHS.length;
+    const bars = [];
+    MONTHS.forEach((mm, i) => {
+      const on = mm === mk;
+      [[AFF[i], '#6b7280', '#c9ccd2', 'Utang pihak berelasi'], [EQ[i], '#0f6cbd', '#b9d3ee', 'Ekuitas']].forEach(([v, c1, c2, nm], j) => {
+        const left = slot * i + slot * 0.16 + j * slot * 0.34;
+        const clickable = mm === 'Agu' || mm === 'Sep';
+        bars.push({
+          style: 'position: absolute; left: ' + left + '%; width: ' + slot * 0.32 + '%; top: ' + y(v) + '%; bottom: 0; border: 0; padding: 0; border-radius: 2px 2px 0 0; background: ' + (on || !(mk) ? c1 : c2) + '; cursor: ' + (clickable ? 'pointer' : 'default') + ';',
+          labelStyle: 'position: absolute; left: ' + (left - slot * 0.06) + '%; width: ' + slot * 0.44 + '%; text-align: center; top: calc(' + y(v) + '% - 16px); font-size: 10px; font-variant-numeric: tabular-nums; color: #4b5563; white-space: nowrap;',
+          label: f1(v), aria: nm + ' ' + mm + ': ' + f1(v) + ' jt', pick: () => (clickable ? this.setState({ month: mm }) : null),
+        });
+      });
+    });
+    const fund = { bars, axis: MONTHS, grid: [0, 2500, 5000, 7500, 10000].map((t) => ({ line: 'position: absolute; left: 0; right: 0; top: ' + y(t) + '%; border-top: 1px solid ' + (t === 0 ? '#c9ced6' : '#eef0f3') + ';', labelStyle: 'position: absolute; left: -44px; width: 38px; text-align: right; top: calc(' + y(t) + '% - 8px); font-size: 11px; color: #69707d;', label: f0(t) })) };
+
+    const bs = [
+      ['Kas', m.kasP, m.kas, 0, 1], ['Piutang usaha', m.arP, m.ar, 0, 1], ['Persediaan', m.invP, m.inv, 0, 1], ['Uang muka', m.advP, m.adv, 0, 1],
+      ['Utang usaha', m.apP, m.ap, 0, -1], ['Utang pihak berelasi', m.affP, m.aff, 1, -1], ['Ekuitas', m.eqP, m.eq, 1, 1],
+    ];
+    const bsRows = bs.map((r) => { const d = r[2] - r[1]; const good = r[4] > 0 ? d >= 0 : d <= 0; return { l: r[0], p: f1(r[1]), c: f1(r[2]), d: s1(d), dStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; color: ' + (Math.abs(d) < 0.05 ? '#69707d' : good ? GREEN : RED) + ';', rowStyle: 'display: grid; grid-template-columns: minmax(140px, 2fr) repeat(3, minmax(64px, 1fr)); border-bottom: 1px solid ' + (r[3] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[3] ? ' background: #f6f7f9;' : '') }; });
+    const bsNote = mk === 'Sep' ? 'Persediaan naik 3.119,8 dan utang pihak berelasi naik 4.218,8: stok dibiayai afiliasi.' : 'Uang muka turun 486,9 menjadi persediaan dan piutang.';
+
+    const cogsDay = m.cogs / m.days, revDay = m.rev / m.days;
+    const dio = m.inv / cogsDay, dso = m.ar / revDay, dpo = m.ap / cogsDay;
+    const ccc = dio + dso - dpo;
+    const wc = m.inv + m.ar - m.ap;
+    const cccCards = [
+      { l: 'DIO', v: f1(dio), s: 'hari persediaan' }, { l: 'DSO', v: f1(dso), s: 'hari piutang' }, { l: 'DPO', v: f1(dpo), s: 'hari utang usaha' }, { l: 'CCC', v: f1(ccc), s: 'hari · modal kerja ' + f1(wc) + ' jt' },
+    ];
+    const simBtns = [7, 14, 21, 30].map((d) => ({ label: d + ' hari', on: d === sim ? 'true' : 'false', style: d === sim ? BTN_ON : BTN_OFF, pick: () => this.setState({ sim: d }) }));
+    const invSim = sim * cogsDay;
+    const cccSim = sim + dso - dpo;
+    const wcSim = invSim + m.ar - m.ap;
+    const simRows = [
+      ['Hari persediaan (DIO)', dio, sim, 1], ['CCC (hari)', ccc, cccSim, 1], ['Persediaan (Rp jt)', m.inv, invSim, 1], ['Modal kerja terikat (Rp jt)', wc, wcSim, 1],
+    ].map((r) => { const d = r[2] - r[1]; return { l: r[0], a: f1(r[1]), b: f1(r[2]), d: s1(d), dStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; color: ' + (d < 0 ? GREEN : d > 0 ? RED : '#69707d') + ';' }; });
+
+    const cf = [
+      ['Penerimaan pelanggan', 1602.9, 1872.9, 0], ['Bayar pemasok', -2131.3, -1325.0, 0], ['Bayar jasa', -231.0, -1229.0, 0], ['Karyawan dan lain-lain', -25.9, -79.9, 0],
+      ['Arus kas operasi', -785.3, -761.0, 1], ['Pinjaman afiliasi (net)', 0, 1200.0, 0], ['Arus kas bersih', -785.3, 439.1, 1], ['Saldo kas akhir minggu', 379.1, 818.2, 1],
+    ];
+    const cfRows = cf.map((r) => ({ l: r[0], a: f1(r[1]), b: f1(r[2]), rowStyle: 'display: grid; grid-template-columns: minmax(150px, 2fr) repeat(2, minmax(64px, 1fr)); border-bottom: 1px solid ' + (r[3] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[3] ? ' font-weight: 600;' : ''), aStyle: 'padding: 5px 8px; text-align: right; color: ' + (r[1] < 0 ? RED : '#69707d') + ';', bStyle: 'padding: 5px 8px; text-align: right; ' + negC(r[2]) }));
+
+    return {
+      monthBtns, cards, headline, headlineSub, fund, bsRows, bsNote, cccCards, simBtns, simRows, cfRows,
+      monthLabel: m.label, prevLabel: m.prev,
+      exCcc: ex === 'ccc', toggleExCcc: () => this.toggleEx('ccc'),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1314,3 +1314,138 @@ begin
   out := out || 'scorecard kg_spot column=' || n || case when n = 1 then '' else '(!)' end || '; ';
   raise exception 'RLS-RESULTS v4 irisan 5 (rolled back): %', out;
 end $$;
+
+-- v5/0 (PRD v5 §5, §5.3, Bab 8): role operations_director, the LB price decision, commitments and their lock, the
+-- locked price list, answers to a surplus, size → class map, marts without client writes, seeds and defaults.
+do $$
+declare out text := ''; n int; c1 uuid; c2 uuid; pw uuid; r text; t date := (now() at time zone 'Asia/Jakarta')::date;
+  ws date := (t - (extract(isodow from t)::int - 1)) + 7;
+begin
+  insert into public.app_user(email, role) values ('t30-od@x.test','operations_director'),('t30-sales@x.test','sales'),('t30-lead@x.test','commercial_lead'),
+    ('t30-ppic@x.test','ppic'),('t30-mgmt@x.test','management'),('t30-fin@x.test','finance');
+  insert into public.sales_assignment (sales_rep, email, key) values ('T30', 't30-sales@x.test', 'T30-A');
+  insert into public.cash_position_daily (date, total_closing) values ('2031-01-01', 1);
+  insert into public.lot_revaluation (date, lot_ref, amount) values ('2031-01-01', 'T30-LOT', 1);
+  insert into public.plan_week (week_start, head_count) values (ws, 1000) returning id into pw;
+
+  -- the operations director decides the LB price; nobody else does, and a decision is never edited
+  perform set_config('request.jwt.claims', '{"email":"t30-od@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.lb_price_decision (date, price, volume_kg_lb, decided_by) values (t, 24600, 18358, 'someone@else'); out := out || 'opsdir decides LB price: OK; ';
+  exception when others then out := out || 'opsdir decides LB price: DENIED(!) ' || sqlerrm || '; '; end;
+  select decided_by into r from public.lb_price_decision where date = t order by decided_at desc limit 1;
+  out := out || 'decider stamped=' || coalesce(r, 'null') || case when r = 't30-od@x.test' then '' else '(!)' end || '; ';
+  begin update public.lb_price_decision set price = 1 where date = t; get diagnostics n = row_count; out := out || 'edit decision rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'edit decision: rejected; '; end;
+  select count(*) into n from public.cash_position_daily where date = '2031-01-01'; out := out || 'opsdir reads cash=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg) values (ws, 'T30-A', 1); out := out || 'opsdir writes commitment: ALLOWED(!); ';
+  exception when others then out := out || 'opsdir writes commitment: denied; '; end;
+  execute 'reset role';
+  foreach r in array array['t30-sales@x.test','t30-mgmt@x.test','t30-ppic@x.test'] loop
+    perform set_config('request.jwt.claims', json_build_object('email', r, 'role', 'authenticated')::text, true);
+    execute 'set local role authenticated';
+    begin insert into public.lb_price_decision (date, price) values (t, 20000); out := out || split_part(r, '@', 1) || ' decides LB price: ALLOWED(!); ';
+    exception when others then out := out || split_part(r, '@', 1) || ' decides LB price: denied; '; end;
+    execute 'reset role';
+  end loop;
+
+  -- K26: Sales drafts for the assigned key only; the commercial lead locks; a locked row is fixed; a new version needs a reason
+  perform set_config('request.jwt.claims', '{"email":"t30-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lb_price_decision; out := out || 'sales reads LB decisions=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, frozen_kg, price) values (ws, 'T30-A', 500, 100, 36000) returning id into c1; out := out || 'sales drafts assigned key: OK; ';
+  exception when others then out := out || 'sales drafts assigned key: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg) values (ws, 'T30-B', 1); out := out || 'sales drafts unassigned key: ALLOWED(!); ';
+  exception when others then out := out || 'sales drafts unassigned key: rejected; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, status) values (ws, 'T30-A', 1, 'locked'); out := out || 'sales inserts locked: ALLOWED(!); ';
+  exception when others then out := out || 'sales inserts locked: rejected; '; end;
+  begin update public.sales_commitment set status = 'locked' where id = c1; out := out || 'sales locks: ALLOWED(!); ';
+  exception when others then out := out || 'sales locks: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t30-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.sales_commitment set status = 'locked' where id = c1; out := out || 'lead locks: OK; ';
+  exception when others then out := out || 'lead locks: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_commitment set fresh_kg = 900 where id = c1; out := out || 'change locked commitment: ALLOWED(!); ';
+  exception when others then out := out || 'change locked commitment: rejected; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg) values (ws, 'T30-B', 50); out := out || 'lead drafts any key: OK; ';
+  exception when others then out := out || 'lead drafts any key: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select locked_by into r from public.sales_commitment where id = c1; out := out || 'locked_by=' || coalesce(r, 'null') || case when r = 't30-lead@x.test' then '' else '(!)' end || '; ';
+  perform set_config('request.jwt.claims', '{"email":"t30-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg) values (ws, 'T30-A', 600); out := out || 'new version without reason: ALLOWED(!); ';
+  exception when others then out := out || 'new version without reason: rejected; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, reason) values (ws, 'T30-A', 600, 'pelanggan menambah order') returning id into c2; out := out || 'new version with reason: OK; ';
+  exception when others then out := out || 'new version with reason: DENIED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.sales_commitment where key = 'T30-B'; out := out || 'sales sees unassigned commitments=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t30-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.sales_commitment set status = 'locked' where id = c2; out := out || 'lead locks version 2: OK; ';
+  exception when others then out := out || 'lead locks version 2: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select string_agg(version || ':' || status, ',' order by version) into r from public.sales_commitment where key = 'T30-A' and week_start = ws;
+  out := out || 'versions=' || coalesce(r, 'none') || case when r = '1:superseded,2:locked' then '' else '(!)' end || '; ';
+
+  -- K24: price list by the commercial lead, fixed once locked
+  perform set_config('request.jwt.claims', '{"email":"t30-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.price_list_week (week_start, key, price_fresh, price_frozen) values (ws, 'T30-A', 36705, 31658); out := out || 'lead writes price list: OK; ';
+  exception when others then out := out || 'lead writes price list: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set locked_at = now() where week_start = ws and key = 'T30-A'; out := out || 'lead locks price list: OK; ';
+  exception when others then out := out || 'lead locks price list: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set price_fresh = 1 where week_start = ws and key = 'T30-A'; out := out || 'change locked price list: ALLOWED(!); ';
+  exception when others then out := out || 'change locked price list: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t30-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.price_list_week (week_start, key, price_fresh) values (ws, 'T30-C', 1); out := out || 'sales writes price list: ALLOWED(!); ';
+  exception when others then out := out || 'sales writes price list: denied; '; end;
+  -- §4.6: Sales answer a surplus for their keys
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response, absorb_kg, price) values (pw, 'T30-A', 600, 'absorb', 600, 31000); out := out || 'sales answers surplus: OK; ';
+  exception when others then out := out || 'sales answers surplus: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'T30-B', 600, 'reduce'); out := out || 'sales answers unassigned key: ALLOWED(!); ';
+  exception when others then out := out || 'sales answers unassigned key: rejected; '; end;
+  begin insert into public.size_class_map (size_kg, weight_class, effective_from) values (1.3, 'S', '2026-10-01'); out := out || 'sales maps size: ALLOWED(!); ';
+  exception when others then out := out || 'sales maps size: denied; '; end;
+  select count(*) into n from public.lot_revaluation; out := out || 'sales reads lot_revaluation=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  -- PPIC maps sizes; marts are not written by clients
+  perform set_config('request.jwt.claims', '{"email":"t30-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.size_class_map (size_kg, weight_class, effective_from) values (1.3, 'S', '2026-10-01'); out := out || 'ppic maps size: OK; ';
+  exception when others then out := out || 'ppic maps size: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.demand_class_weekly (week_start, ship_date, size_code, weight_class) values (ws, ws, 'Uk 1.3', 'S'); out := out || 'ppic writes demand_class_weekly: ALLOWED(!); ';
+  exception when others then out := out || 'ppic writes demand_class_weekly: denied; '; end;
+  begin insert into public.plan_week_class (plan_week_id, weight_class, kg_lb) values (pw, 'S', 1000); out := out || 'ppic writes plan_week_class: OK; ';
+  exception when others then out := out || 'ppic writes plan_week_class: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t30-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lot_revaluation; out := out || 'finance reads lot_revaluation=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.input_completeness_daily (date, kind, owner_role, status) values (t, 'costing_wp', 'cost_accounting', 'late'); out := out || 'finance writes completeness: ALLOWED(!); ';
+  exception when others then out := out || 'finance writes completeness: denied; '; end;
+  begin insert into public.input_task (due_date, rule_kind, ref, status) values (t, 'costing_wp', 'B1', 'passed'); out := out || 'finance ticks a task: ALLOWED(!); ';
+  exception when others then out := out || 'finance ticks a task: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- seeds and defaults
+  select count(*) into n from public.weight_class where code in ('K','S','B') and avg_kg is null and min_kg is null and note is not null;
+  out := out || 'K/S/B seeded empty=' || n || case when n = 3 then '' else '(!)' end || '; ';
+  select count(*) into n from public.input_task_rule; out := out || 'task rules=' || n || case when n = 13 then '' else '(!)' end || '; ';
+  select count(*) into n from public.app_setting where key like 'v5\_%' and (value ->> 'enabled')::boolean = false; out := out || 'v5 flags off=' || n || case when n = 6 then '' else '(!)' end || '; ';
+  select count(*) into n from public.parameter where commitment_lock_dow = 5 and commitment_lock_time = '17:00' and wp_due_time = '12:00' and revaluation_sold_mode = 'cogs_line' and cost_anomaly_ratio = 3;
+  out := out || 'parameter defaults on existing weeks=' || case when n > 0 then 'yes' else 'no(!)' end || '; ';
+  begin insert into public.pl_daily_v4 (date, segment, pl_line, basis, forecast) values ('2031-01-01', 'Umum', 'Beban tetap belum dijurnal', 'fixed_estimate', -1); out := out || 'basis fixed_estimate: OK; ';
+  exception when others then out := out || 'basis fixed_estimate: REJECTED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from information_schema.columns where table_schema = 'public' and (
+    (table_name = 'item_map' and column_name = 'size_kg') or (table_name = 'sales_line' and column_name in ('size_kg','commitment_id'))
+    or (table_name = 'batch' and column_name in ('wp_due_at','wp_received_at','invoice_status')) or (table_name = 'upload' and column_name in ('checks','ok_count','preview_fingerprint'))
+    or (table_name in ('lot','sku_balance_daily') and column_name = 'cost_status'));
+  out := out || 'v5 columns=' || n || case when n = 11 then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5/0 (rolled back): %', out;
+end $$;

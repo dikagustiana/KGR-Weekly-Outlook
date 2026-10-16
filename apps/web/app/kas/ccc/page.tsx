@@ -15,7 +15,7 @@ const num = (v: string | undefined, d: string) => (v !== undefined && /^-?\d+(\.
 /** PRD v3 §6 /kas/ccc: DIO / DSO / DPO / CCC, working capital and a what-if on terms and stock days. */
 export default async function CccPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const v = await requireModulePage("m6_cash", ["admin", "finance", "management"]);
+  const v = await requireModulePage("m6_cash", ["admin", "finance", "management", "operations_director"]);
   const { viewer, weeks, week } = await plainContext();
   const date = jakartaToday();
   const sb = await supabaseServer();

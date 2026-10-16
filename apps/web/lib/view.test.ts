@@ -10,6 +10,10 @@ describe("view mode (Management View v2 R1)", () => {
     expect(viewModeFor("management", undefined)).toBe("management");
     expect(viewModeFor("management", "preparer")).toBe("management");
   });
+  it("PRD v5 §5.3: the operations director reads like management (no preparer view)", () => {
+    expect(canToggleView("operations_director")).toBe(false);
+    expect(viewModeFor("operations_director", "preparer")).toBe("management");
+  });
   it("preparer roles default to the preparer view and can switch to the management view and back", () => {
     for (const r of PREPARERS) {
       expect(canToggleView(r)).toBe(true);

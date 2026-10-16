@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KGR · Minggu ini</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#f4f5f7}
+a{color:#0f6cbd}a:hover{color:#0b5394}
+button:focus-visible,a:focus-visible{outline:2px solid #0f6cbd;outline-offset:2px}
+@media (max-width: 900px){
+.kgr-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;padding:12px 16px 24px !important}
+.kgr-tile{grid-column:span 2 !important;grid-row:auto !important}
+.kgr-card{grid-column:span 1 !important}
+.kgr-top{gap:12px !important;padding:0 16px !important}
+}
+</style>
+</helmet>
+<div style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.4; color: #1d2330; background: #f4f5f7; min-height: 100vh">
+
+<header class="kgr-top" style="position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 0 20px; min-height: 52px; background: #ffffff; border-bottom: 1px solid #e3e6eb; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap"><span style="color: #0f6cbd" aria-hidden="true">◆</span><span>KGR</span></div>
+<nav aria-label="Halaman manajemen" style="display: flex; gap: 4px; flex: 1; overflow-x: auto">
+<a href="Main.dc.html" aria-current="page" style="padding: 15px 12px; color: #1d2330; font-weight: 600; text-decoration: none; border-bottom: 2px solid #0f6cbd; white-space: nowrap">Minggu ini</a>
+<a href="Bulanan.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Outlook bulan</a>
+<a href="Kas.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Kas &amp; solvabilitas</a>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Stok</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Komersial</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Laporan</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Rilis</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 4px; font-size: 13px; color: #69707d; flex-wrap: wrap"><span style="margin-right: 4px">Lihat sebagai</span><a href="Main.dc.html" aria-current="page" style="padding: 6px 10px; border-radius: 6px; background: #e6f0fa; color: #0f6cbd; font-weight: 600; text-decoration: none">Manajemen</a><a href="Commercial.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">Commercial</a><a href="PPIC.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">PPIC</a><a href="Input.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">Input</a></div>
+</header>
+
+<sc-if value="{{ hasFilter }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 20px 0; max-width: 1440px; margin: 0 auto">
+<span style="display: inline-flex; gap: 6px; align-items: center; background: #e6f0fa; color: #0f6cbd; border-radius: 999px; padding: 3px 4px 3px 10px; font-size: 12px">Segmen: {{ seg }}<button type="button" onClick="{{ clearSeg }}" aria-label="Hapus filter segmen" style="border: 0; background: none; color: inherit; cursor: pointer; padding: 0 6px; font-size: 13px">✕</button></span>
+<button type="button" onClick="{{ clearSeg }}" style="font: inherit; font-size: 12px; color: #69707d; background: none; border: 0; cursor: pointer; text-decoration: underline">Hapus semua filter</button>
+</div>
+</sc-if>
+
+<main class="kgr-grid" style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(76px, auto); gap: 12px; padding: 16px 20px 32px; max-width: 1440px; margin: 0 auto">
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Minggu</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ weekBtns }}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 3; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Tampilan</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ modeBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 10 / span 3; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Rilis</h3>
+<div style="font-size: 13px">{{ releaseLine }}</div>
+<div style="font-size: 12px; color: #69707d">{{ releaseSub }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 2 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600">{{ headline }}</h1>
+<div style="font-size: 12px; color: #69707d">{{ headlineSub }}</div>
+</section>
+
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+<section class="kgr-tile kgr-card" style="{{ c.box }}">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>{{ c.title }}</span><button type="button" onClick="{{ c.toggle }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="{{ c.valueStyle }}">{{ c.value }}</span><span style="font-size: 12px; color: #69707d">{{ c.unit }}</span></div>
+<sc-for list="{{ c.lines }}" as="l" hint-placeholder-count="3">
+<div style="font-size: 12px; color: #69707d"><span style="{{ l.style }}">{{ l.lead }}</span> {{ l.text }}</div>
+</sc-for>
+<sc-if value="{{ c.open }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #1d2330; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">{{ c.how }}</div>
+</sc-if>
+</section>
+</sc-for>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 5 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Laba rugi Agustus 2026 (Rp jt)</h3>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<sc-for list="{{ plBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+<button type="button" onClick="{{ toggleExPl }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0 0 0 6px; white-space: nowrap">cara hitung</button>
+</div>
+</div>
+<sc-if value="{{ exPl }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">Actual = jurnal Accurate per tanggal posting, 1–26 Agu. 27–29 Agu = PO × harga, COGS dari biaya stok yang dialokasikan. 31 Agu = run-rate 7 hari kalender tanpa hari anomali, margin acuan 5,4%. Beban operasi sisa bulan = rata-rata harian actual (± 7,0 jt/hari). Beban tetap (gaji 52,2 + penyusutan 10,4 + bunga 24,4 = 87,0 jt/bulan, estimasi dari Juli) belum dijurnal sebelum tutup buku, jadi dibagi rata per hari kalender (2,8 jt/hari). Angka dibulatkan; total bisa selisih 0,1.</div>
+</sc-if>
+<div style="overflow-x: auto">
+<div style="min-width: 860px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="{{ plHeadStyle }}">
+<sc-for list="{{ plHead }}" as="h" hint-placeholder-count="8">
+<span style="{{ h.s }}">{{ h.v }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ plRows }}" as="r" hint-placeholder-count="9">
+<div style="{{ r.style }}">
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8">
+<span style="{{ c.s }}">{{ c.v }}</span>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ plNote }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 9 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Simulasi harga live bird · untuk Direktur Operasional</span><button type="button" onClick="{{ toggleExSim }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exSim }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">Costing rencana: biaya rencana = kg LB × (harga LB + angkut dan maklon 2.552/kg LB). Biaya dibagi ke SKU menurut nilai jual pada price list minggu lalu (joint, termasuk by-product), sehingga setiap SKU menanggung persentase biaya yang sama terhadap harganya. Yield masih sementara sampai PPIC mengisi yield per pola.</div>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<span style="font-size: 12px; color: #69707d; margin-right: 2px">Rencana</span>
+<sc-for list="{{ simPlanBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<span style="font-size: 12px; color: #69707d; margin-right: 2px">Harga LB (Rp/kg)</span>
+<sc-for list="{{ simPriceBtns }}" as="b" hint-placeholder-count="8">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{ simCards }}" as="c" hint-placeholder-count="4">
+<div style="border: 1px solid #e3e6eb; border-radius: 8px; padding: 10px; min-width: 0"><div style="font-size: 12px; color: #69707d">{{ c.l }}</div><div style="{{ c.vStyle }}">{{ c.v }}</div><div style="font-size: 11px; color: #69707d">{{ c.s }}</div></div>
+</sc-for>
+</div>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(4, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Output</span><span style="padding: 6px 8px; text-align: right">kg</span><span style="padding: 6px 8px; text-align: right">Harga list</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">COGS/kg</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">Margin/kg</span></div>
+<sc-for list="{{ simRows }}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(4, minmax(64px, 1fr)); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px">{{ r.n }}</span><span style="padding: 5px 8px; text-align: right">{{ r.kg }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.p }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.c }}</span><span style="{{ r.mStyle }}">{{ r.m }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ simNote }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 9 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Perlu keputusan minggu ini</h3>
+<sc-for list="{{ decisions }}" as="d" hint-placeholder-count="4">
+<div style="border-bottom: 1px solid #f0f1f4; padding-bottom: 6px"><div style="font-size: 13px; font-weight: 600">{{ d.t }}</div><div style="font-size: 12px; color: #69707d">{{ d.s }}</div><div style="font-size: 11px; color: #0f6cbd">{{ d.o }}</div></div>
+</sc-for>
+<h3 style="margin: 6px 0 0; font-size: 13px; font-weight: 600; color: #69707d">Status putaran</h3>
+<sc-for list="{{ loop }}" as="l" hint-placeholder-count="4">
+<div style="display: grid; grid-template-columns: minmax(120px, 1.3fr) minmax(0, 2fr); gap: 8px; font-size: 12.5px"><span style="color: #69707d">{{ l.k }}</span><span style="{{ l.style }}">{{ l.v }}</span></div>
+</sc-for>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 12 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>Revenue dan GP P&amp;L per hari · {{ weekLabel }} (Rp jt)</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #0f6cbd; margin-right: 4px"></span>aktual (jurnal)</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #5798d1; margin-right: 4px"></span>order (PO)</span></span></h3>
+<div style="position: relative; height: 170px; margin: 18px 0 0 40px">
+<sc-for list="{{ daily.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ daily.bars }}" as="b" hint-placeholder-count="7">
+<div aria-hidden="true" style="{{ b.style }}"></div><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ daily.bars }}" as="b" hint-placeholder-count="7">
+<span style="{{ b.axisStyle }}">{{ b.axis }}<br><span style="{{ b.gpStyle }}">GP {{ b.gp }}</span></span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ dailyNote }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 12 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Dari GP produk ke GP P&amp;L · 24–30 Agu (Rp jt)</span><button type="button" onClick="{{ toggleExBridge }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exBridge }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">GP produk = revenue DO dan order dikurangi HPP per key. Timing faktur = revenue jurnal − revenue DO. Ekspedisi dan blasting adalah akun COGS yang tidak ada di HPP per key.</div>
+</sc-if>
+<div style="position: relative; height: 170px; margin: 18px 0 0 40px">
+<sc-for list="{{ bridge.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ bridge.bars }}" as="b" hint-placeholder-count="6">
+<div aria-hidden="true" style="{{ b.style }}"></div><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ bridge.bars }}" as="b" hint-placeholder-count="6">
+<span style="{{ b.axisStyle }}">{{ b.axis }}</span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Ekspedisi dan blasting Rp 37,0 jt tidak ada di HPP per key; timing faktur menambah 17,8 jt.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 16 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Revenue per minggu, Agustus (Rp jt)</h3>
+<div style="position: relative; height: 140px; margin: 14px 0 0 40px">
+<sc-for list="{{ trendRev.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ trendRev.bars }}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{ b.pick }}" aria-label="{{ b.aria }}" style="{{ b.style }}"></button><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ trendRev.bars }}" as="b" hint-placeholder-count="4">
+<span style="{{ b.axisStyle }}">{{ b.axis }}</span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Klik batang untuk memilih minggu. Sumber: jurnal per minggu dan snapshot rilis.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 6; grid-row: 16 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">GP P&amp;L per minggu, Agustus (Rp jt)</h3>
+<div style="position: relative; height: 140px; margin: 14px 0 0 40px">
+<sc-for list="{{ trendGp.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ trendGp.bars }}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{ b.pick }}" aria-label="{{ b.aria }}" style="{{ b.style }}"></button><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ trendGp.bars }}" as="b" hint-placeholder-count="4">
+<span style="{{ b.axisStyle }}">{{ b.axis }}</span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">10–16 Agu termasuk koreksi ekspedisi +42,0 jt.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 19 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">GP produk per segmen, proyeksi · 24–30 Agu (Rp jt) · klik segmen untuk menyaring</h3>
+<div style="overflow-x: auto">
+<div style="min-width: 640px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(90px, 1.2fr) repeat(8, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">Segmen</span><span style="padding: 6px 8px; text-align: right">kg</span><span style="padding: 6px 8px; text-align: right">Revenue</span><span style="padding: 6px 8px; text-align: right">GP aktual</span><span style="padding: 6px 8px; text-align: right">GP order</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">GP produk</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">GP %</span><span style="padding: 6px 8px; text-align: right">GP/kg lalu</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">Δ GP/kg</span>
+</div>
+<sc-for list="{{ segRows }}" as="r" hint-placeholder-count="3">
+<button type="button" onClick="{{ r.pick }}" aria-pressed="{{ r.on }}" style="{{ r.rowStyle }}">
+<span style="padding: 6px 8px; text-align: left; font-weight: 600">{{ r.seg }}</span><span style="padding: 6px 8px; text-align: right; color: #69707d">{{ r.kg }}</span><span style="padding: 6px 8px; text-align: right; color: #69707d">{{ r.rev }}</span><span style="{{ r.gpaStyle }}">{{ r.gpa }}</span><span style="{{ r.gpoStyle }}">{{ r.gpo }}</span><span style="{{ r.gpStyle }}">{{ r.gp }}</span><span style="{{ r.pctStyle }}">{{ r.pct }}</span><span style="{{ r.lwStyle }}">{{ r.lw }}</span><span style="{{ r.dStyle }}">{{ r.d }}</span>
+</button>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">RPA menanggung GP produk −62,6 jt; GP order sisa minggu −52,3 jt.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 19 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>COGS/kg vs revenue/kg · 24–30 Agu (Rp/kg)</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #0f6cbd; margin-right: 4px"></span>revenue/kg</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #6b7280; margin-right: 4px"></span>COGS/kg</span></span></h3>
+<div style="position: relative; height: 140px; margin-top: 18px">
+<sc-for list="{{ perKg }}" as="b" hint-placeholder-count="4">
+<div aria-hidden="true" style="{{ b.style }}"></div><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex"><span style="flex: 1; text-align: center; font-size: 11px; color: #69707d">RPA</span><span style="flex: 1; text-align: center; font-size: 11px; color: #69707d">Trading</span></div>
+<div style="font-size: 12px; color: #69707d">RPA menjual 1.807/kg di bawah COGS/kg; Trading masih untung 829/kg.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 22 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Input minggu ini · 24–30 Agu{{ segSuffix }}</h3>
+<div style="overflow-x: auto">
+<div style="min-width: 520px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(3, minmax(64px, 0.8fr)) minmax(150px, 2fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">Input</span><span style="padding: 6px 8px; text-align: right">kg</span><span style="padding: 6px 8px; text-align: right">Rp/kg</span><span style="padding: 6px 8px; text-align: right">Rp jt</span><span style="padding: 6px 8px">Catatan</span>
+</div>
+<sc-for list="{{ inputRows }}" as="r" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(3, minmax(64px, 0.8fr)) minmax(150px, 2fr); border-bottom: 1px solid #f0f1f4">
+<span style="padding: 5px 8px"><span style="font-weight: 600">{{ r.name }}</span><br><span style="font-size: 11px; color: #69707d">{{ r.status }}</span></span><span style="padding: 5px 8px; text-align: right">{{ r.kg }}</span><span style="{{ r.priceStyle }}">{{ r.price }}</span><span style="{{ r.valStyle }}">{{ r.val }}</span><span style="padding: 5px 8px; color: #69707d">{{ r.note }}</span>
+</div>
+</sc-for>
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(3, minmax(64px, 0.8fr)) minmax(150px, 2fr); font-weight: 600; border-top: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">Total</span><span style="padding: 6px 8px"></span><span style="padding: 6px 8px"></span><span style="padding: 6px 8px; text-align: right">{{ inputTotal }}</span><span style="padding: 6px 8px; font-weight: 400; color: #69707d">overhead pabrik belum diisi</span>
+</div>
+</div>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 6; grid-row: 22 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">COGS dan mutasi persediaan · 24–30 Agu (Rp jt){{ segSuffix }}</h3>
+<div style="overflow-x: auto">
+<div style="min-width: 560px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(120px, 1.6fr) repeat(5, minmax(58px, 1fr)) minmax(110px, 1.4fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Baris</span><span style="padding: 6px 8px; text-align: right">Minggu lalu</span><span style="padding: 6px 8px; text-align: right">Aktual</span><span style="padding: 6px 8px; text-align: right">Sisa</span><span style="padding: 6px 8px; text-align: right">Proyeksi</span><span style="padding: 6px 8px; text-align: right">Δ</span><span style="padding: 6px 8px">Basis sisa</span></div>
+<sc-for list="{{ cogsRows }}" as="r" hint-placeholder-count="5">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px">{{ r.name }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.lw }}</span><span style="padding: 5px 8px; text-align: right">{{ r.a }}</span><span style="padding: 5px 8px; text-align: right">{{ r.s }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.p }}</span><span style="{{ r.dStyle }}">{{ r.d }}</span><span style="padding: 5px 8px; color: #69707d">{{ r.b }}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 560px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(150px, 2fr) repeat(6, minmax(58px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">Mutasi persediaan</span><span style="padding: 6px 8px; text-align: right">Awal kg</span><span style="padding: 6px 8px; text-align: right">+ Masuk</span><span style="padding: 6px 8px; text-align: right">− Keluar</span><span style="padding: 6px 8px; text-align: right">Akhir kg</span><span style="padding: 6px 8px; text-align: right">Nilai awal</span><span style="padding: 6px 8px; text-align: right">COGS</span>
+</div>
+<sc-for list="{{ mutRows }}" as="r" hint-placeholder-count="10">
+<div style="{{ r.rowStyle }}">
+<span style="{{ r.labelStyle }}">{{ r.name }}</span><span style="padding: 5px 8px; text-align: right">{{ r.a }}</span><span style="padding: 5px 8px; text-align: right">{{ r.i }}</span><span style="padding: 5px 8px; text-align: right">{{ r.o }}</span><span style="padding: 5px 8px; text-align: right">{{ r.e }}</span><span style="padding: 5px 8px; text-align: right">{{ r.v }}</span><span style="{{ r.cStyle }}">{{ r.c }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">Nilai stok awal Rp 3.955,0 jt, Rp 174,4 jt di atas persediaan neraca (3.780,6). COGS/kg per grup SKU tampil begitu costing minggu ini diposting.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 26 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Keputusan trading hari ini · 24–30 Agu{{ segSuffix }}</span><button type="button" onClick="{{ toggleExTrade }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exTrade }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">Spread beli ulang = harga jual − harga beli pengganti hari ini (untuk keputusan beli). Margin atas biaya stok = harga jual − biaya rata-rata stok (untuk keputusan jual). Harga jual dari order bila ada, selain itu harga acuan.</div>
+</sc-if>
+<sc-if value="{{ tradingEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 13px; color: #69707d; padding: 8px 0">Tidak ada baris untuk segmen RPA. Hapus filter untuk melihat Trading.</div>
+</sc-if>
+<sc-if value="{{ tradingShow }}" hint-placeholder-val="{{ true }}">
+<div style="overflow-x: auto">
+<div style="min-width: 980px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(120px, 1.3fr) repeat(9, minmax(64px, 0.8fr)) minmax(200px, 2.2fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">SKU</span><span style="padding: 6px 8px; text-align: right">Stok kg</span><span style="padding: 6px 8px; text-align: right">Order sisa</span><span style="padding: 6px 8px; text-align: right">Rencana terima</span><span style="padding: 6px 8px; text-align: right">Harga jual</span><span style="padding: 6px 8px; text-align: right">Beli ulang</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">Spread beli ulang</span><span style="padding: 6px 8px; text-align: right">Biaya stok</span><span style="padding: 6px 8px; text-align: right; color: #1d2330">Margin atas biaya</span><span style="padding: 6px 8px; text-align: right">GP order Rp jt</span><span style="padding: 6px 8px">Rekomendasi</span></div>
+<sc-for list="{{ tradeRows }}" as="r" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: minmax(120px, 1.3fr) repeat(9, minmax(64px, 0.8fr)) minmax(200px, 2.2fr); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px; font-weight: 600">{{ r.sku }}</span><span style="padding: 5px 8px; text-align: right">{{ r.st }}</span><span style="padding: 5px 8px; text-align: right">{{ r.o }}</span><span style="padding: 5px 8px; text-align: right">{{ r.t }}</span><span style="padding: 5px 8px; text-align: right">{{ r.sell }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.buy }}</span><span style="{{ r.spStyle }}">{{ r.sp }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.cost }}</span><span style="{{ r.mStyle }}">{{ r.m }}</span><span style="{{ r.gpStyle }}">{{ r.gp }}</span><span style="padding: 5px 8px">{{ r.rek }}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">BLP Frozen: order 43.086/kg di bawah biaya stok 47.199/kg dan di bawah harga beli ulang 49.577/kg. 23 SKU tanpa order minggu ini, stok Rp 333,3 jt.</div>
+</sc-if>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 30 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Stok di atas batas umur · 24–30 Agu{{ segSuffix }}</span><button type="button" onClick="{{ toggleExStok }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exStok }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">Status per SKU: seluruh kg SKU ditandai bila ada stok di atas batas umur 30 hari. Nilai pada biaya rata-rata. Definisi per lot (ledger) menghasilkan Rp 685,4 jt di 30 SKU.</div>
+</sc-if>
+<div style="overflow-x: auto">
+<div style="min-width: 640px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(150px, 1.8fr) minmax(110px, 1.3fr) repeat(5, minmax(60px, 0.8fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">SKU</span><span style="padding: 6px 8px">Nilai (Rp jt)</span><span style="padding: 6px 8px; text-align: right">kg</span><span style="padding: 6px 8px; text-align: right">Umur</span><span style="padding: 6px 8px; text-align: right">Order sisa</span><span style="padding: 6px 8px; text-align: right">Biaya/kg</span><span style="padding: 6px 8px; text-align: right">Acuan/kg</span>
+</div>
+<sc-for list="{{ stokRows }}" as="r" hint-placeholder-count="7">
+<div style="display: grid; grid-template-columns: minmax(150px, 1.8fr) minmax(110px, 1.3fr) repeat(5, minmax(60px, 0.8fr)); border-bottom: 1px solid #f0f1f4; align-items: center">
+<span style="padding: 5px 8px"><span style="font-weight: 600">{{ r.sku }}</span> <span style="font-size: 11px; color: #69707d">{{ r.seg }}</span></span>
+<span style="padding: 5px 8px; display: flex; align-items: center; gap: 6px"><span style="{{ r.bar }}"></span><span>{{ r.val }}</span></span>
+<span style="padding: 5px 8px; text-align: right">{{ r.kg }}</span><span style="padding: 5px 8px; text-align: right">{{ r.age }}</span><span style="padding: 5px 8px; text-align: right">{{ r.order }}</span><span style="padding: 5px 8px; text-align: right">{{ r.cost }}</span><span style="{{ r.refStyle }}">{{ r.ref }}</span>
+</div>
+</sc-for>
+<div style="display: grid; grid-template-columns: minmax(150px, 1.8fr) minmax(110px, 1.3fr) repeat(5, minmax(60px, 0.8fr)); font-weight: 600; border-top: 1px solid #e3e6eb">
+<span style="padding: 6px 8px">Total</span><span style="padding: 6px 8px">{{ stokTotal.val }}</span><span style="padding: 6px 8px; text-align: right">{{ stokTotal.kg }}</span><span style="padding: 6px 8px"></span><span style="padding: 6px 8px; text-align: right">{{ stokTotal.order }}</span><span style="padding: 6px 8px"></span><span style="padding: 6px 8px"></span>
+</div>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">Acuan/kg merah: harga acuan di bawah biaya, stok rugi walau terjual. Order sisa minggu menyerap 19% dari kg ini.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 30 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Demand dan rencana potong · 24–30 Agu</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<sc-for list="{{ demandRows }}" as="r" hint-placeholder-count="7">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px">{{ r.k }}</span><span style="padding: 5px 8px; text-align: right">{{ r.v }}</span><span style="padding: 5px 8px; color: #69707d">{{ r.u }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Ekor ditentukan karkas (produk utama). By-product kurang: HJA 1.022, Usus 897, Kepala 842, Ceker 548 kg; saran beli trading. Batch rencana di input 27.219 kg LB, 8.861 kg di atas kebutuhan. Yield masih sementara.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 34 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>Kas harian aktual dan rencana · 24–30 Agu (Rp jt)</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #0f6cbd; margin-right: 4px"></span>aktual</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #5798d1; margin-right: 4px"></span>rencana</span></span></h3>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 300px; min-width: 0">
+<div style="position: relative; height: 150px; margin: 18px 0 0 40px">
+<sc-for list="{{ kas.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<sc-for list="{{ kas.bars }}" as="b" hint-placeholder-count="7">
+<div aria-hidden="true" style="{{ b.style }}"></div><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ kas.bars }}" as="b" hint-placeholder-count="7">
+<span style="{{ b.axisStyle }}">{{ b.axis }}</span>
+</sc-for>
+</div>
+</div>
+<div style="flex: 1 1 260px; min-width: 0; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(130px, 2fr) repeat(2, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Arus kas</span><span style="padding: 6px 8px; text-align: right">Minggu lalu</span><span style="padding: 6px 8px; text-align: right">Proyeksi</span></div>
+<sc-for list="{{ cfRows }}" as="r" hint-placeholder-count="6">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px">{{ r.name }}</span><span style="{{ r.lwStyle }}">{{ r.lw }}</span><span style="{{ r.pStyle }}">{{ r.p }}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">Saldo awal 379,1. Tanpa pinjaman afiliasi 1.200,0 saldo Jumat <span style="color: #c4314b; font-weight: 600">−910,3</span>. Kas keluar live bird dan trading per termin tercatat 0 di semua hari, padahal arus kas memuat bayar pemasok 1.325,0: data termin belum tersambung.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 34 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Peringatan · 24–30 Agu</h3>
+<ul style="margin: 0; padding-left: 18px; font-size: 13px; display: flex; flex-direction: column; gap: 6px">
+<li>Peringatan: shrink aktual minggu ini 6,3%, di atas target 3,0%.</li>
+<li>Peringatan: Karkas Frozen dan Usus fresh punya harga acuan di bawah biaya per kg.</li>
+<li>Peringatan: bayar jasa proyeksi Rp 1.229,0 jt, lima kali minggu lalu.</li>
+<li>Peringatan: gaji di laba rugi mingguan Rp 6,7 jt; FS Agustus Rp 85,6 jt per bulan.</li>
+<li>Kontrol: 2 belum diisi, kg penjualan aktual vs laporan Accurate dan nilai stok awal vs Inventory Valuation.</li>
+</ul>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 38 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Catatan</h3>
+<ol style="margin: 0; padding-left: 18px; font-size: 12px; color: #69707d; display: flex; flex-direction: column; gap: 2px">
+<li>GP P&amp;L = revenue jurnal dikurangi semua akun COGS, termasuk ekspedisi dan blasting. GP produk = revenue DO dan order dikurangi HPP per key.</li>
+<li>Stok di atas batas umur memakai status per SKU; nilai pada biaya rata-rata. Kas terendah di halaman ini = 7 hari minggu terpilih; Kas &amp; solvabilitas memakai 13 minggu.</li>
+<li>Tile yang judulnya menyebut 24–30 Agu adalah snapshot minggu berjalan dan tidak ikut slicer minggu.</li>
+</ol>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3950}}'>
+const NF1 = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const NF0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
+const RED = '#c4314b';
+const GREEN = '#1a7f4b';
+const f1 = (x) => { if (x === null || x === undefined) return ''; const r = Math.round(x * 10) / 10; return (r < 0 ? '−' : '') + NF1.format(Math.abs(r)); };
+const f0 = (x) => { if (x === null || x === undefined) return '—'; const r = Math.round(x); return (r < 0 ? '−' : '') + NF0.format(Math.abs(r)); };
+const s1 = (x) => (Math.round(x * 10) / 10 > 0 ? '+' : '') + f1(x);
+const s0 = (x) => (x === null || x === undefined ? '—' : (Math.round(x) > 0 ? '+' : '') + f0(x));
+const p1 = (x) => f1(x * 100) + '%';
+const negC = (x) => (x !== null && x !== undefined && Math.round(x * 10) / 10 < 0 ? 'color: ' + RED + ';' : '');
+const delC = (x) => { const r = Math.round(x * 10) / 10; return r > 0 ? 'color: ' + GREEN + '; font-weight: 600;' : r < 0 ? 'color: ' + RED + '; font-weight: 600;' : 'color: #69707d;'; };
+
+const WEEKS = [
+  { id: 'w1', label: '3–9 Agu', prevLabel: '1–2 Agu' },
+  { id: 'w2', label: '10–16 Agu', prevLabel: '3–9 Agu' },
+  { id: 'w3', label: '17–23 Agu', prevLabel: '10–16 Agu' },
+  { id: 'w4', label: '24–30 Agu', prevLabel: '17–23 Agu' },
+];
+const WK = {
+  w1: { rev: 1278.9, gp: 2.9, prevGp: null },
+  w2: { rev: 2136.7, gp: 188.4, prevGp: 2.9 },
+  w3: { rev: 1572.3, gp: -4.2, prevGp: 188.4 },
+  w4a: { rev: 589.0, gp: 0.4, prevGp: -4.2 },
+  w4p: { rev: 1656.8, gp: -67.5, prevGp: -4.2 },
+};
+const DAYS = {
+  w1: [['Sen 3', 233.9, 31.7, 'a'], ['Sel 4', 273.6, -0.6, 'a'], ['Rab 5', 251.5, -27.7, 'a'], ['Kam 6', 245.4, 30.2, 'a'], ['Jum 7', 177.4, 9.3, 'a'], ['Sab 8', 97.0, -14.5, 'a'], ['Min 9', 0, -25.5, 'a']],
+  w2: [['Sen 10', 658.2, 82.2, 'a'], ['Sel 11', 216.0, 16.1, 'a'], ['Rab 12', 280.5, -4.9, 'a'], ['Kam 13', 211.6, 14.7, 'a'], ['Jum 14', 623.1, 30.9, 'a'], ['Sab 15', 147.2, 60.3, 'a'], ['Min 16', 0, -11.0, 'a']],
+  w3: [['Sen 17', 0, 0, 'a'], ['Sel 18', 203.0, -32.8, 'a'], ['Rab 19', 406.3, 17.8, 'a'], ['Kam 20', 301.4, 32.1, 'a'], ['Jum 21', 579.3, -23.8, 'a'], ['Sab 22', 82.3, 3.0, 'a'], ['Min 23', 0, -0.4, 'a']],
+  w4: [['Sen 24', 226.7, 7.7, 'a'], ['Sel 25', 0, -30.4, 'a'], ['Rab 26', 362.3, 23.1, 'a'], ['Kam 27', 457.7, -7.6, 'p'], ['Jum 28', 232.1, -0.4, 'p'], ['Sab 29', 378.0, -56.1, 'p'], ['Min 30', 0, -3.9, 'p']],
+};
+const DAILY_NOTE = {
+  w1: 'Minggu 9 Agu tanpa penjualan.',
+  w2: 'Sen 10 dan Jum 14 Agu menyumbang 60% revenue minggu ini.',
+  w3: 'Sen 17 Agu libur nasional, tanpa jurnal.',
+  w4: 'Selasa 25 Agu tanpa jurnal penjualan; dibaca sebagai data hilang, bukan nol, sampai Sales dan Finance memastikan.',
+};
+const HEADLINE = {
+  w1: ['GP P&L 3–9 Agu Rp 2,9 jt (0,2%) dari revenue Rp 1.278,9 jt; ekspedisi Rp 72,8 jt menghapus margin trading.', 'Minggu tertutup, aktual final dari jurnal. Tile bertanda 24–30 Agu tetap snapshot minggu berjalan.'],
+  w2: ['GP P&L 10–16 Agu Rp 188,4 jt (8,8%), minggu terbaik Agustus.', 'Termasuk koreksi ekspedisi +42,0 jt. Minggu tertutup, aktual final dari jurnal.'],
+  w3: ['GP P&L 17–23 Agu Rp −4,2 jt (−0,3%); cold storage Rp 81,1 jt membuat laba sebelum pajak Rp −111,0 jt.', 'Minggu tertutup, aktual final dari jurnal.'],
+  w4a: ['Aktual 24–26 Agu: revenue Rp 589,0 jt, GP P&L Rp 0,4 jt; Selasa 25 Agu tanpa jurnal penjualan.', 'Tiga hari pertama minggu berjalan. Pilih Proyeksi minggu untuk sisa minggu.'],
+  w4p: ['GP P&L minggu ini diproyeksikan Rp −67,5 jt (−4,1%); RPA menyumbang Rp −62,6 jt. Live bird hari ini Rp 24.600, di atas breakeven; stok di atas batas umur Rp 2.782,2 jt.', 'Aktual 24–26 Agu dari jurnal, order 27–29 Agu, biaya lain run-rate. Draft, belum dirilis.'],
+};
+
+function ticks(lo, hi) {
+  const span = hi - lo || 1;
+  const raw = span / 3;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || raw;
+  const t0 = Math.floor(lo / step) * step;
+  const out = [];
+  for (let t = t0; t <= hi + step * 0.01; t += step) out.push(Math.round(t * 10) / 10);
+  return out;
+}
+function chart(values, opt) {
+  const o = opt || {};
+  const lo0 = Math.min(0, ...values);
+  const hi0 = Math.max(0, ...values);
+  const tk = ticks(lo0, hi0 * 1.08 || 1);
+  const lo = Math.min(lo0, tk[0]);
+  const hi = Math.max(hi0 * 1.08, tk[tk.length - 1]);
+  const y = (v) => ((hi - v) / (hi - lo)) * 100;
+  const n = values.length;
+  const slot = 100 / n;
+  const bw = slot * (o.bw || 0.56);
+  const grid = tk.map((t) => ({
+    line: 'position: absolute; left: 0; right: 0; top: ' + y(t) + '%; border-top: 1px solid ' + (t === 0 ? '#c9ced6' : '#eef0f3') + ';',
+    labelStyle: 'position: absolute; left: -40px; width: 34px; text-align: right; top: calc(' + y(t) + '% - 8px); font-size: 11px; color: #69707d;',
+    label: f0(t),
+  }));
+  const bars = values.map((v, i) => {
+    const top = y(Math.max(v, 0));
+    const h = Math.abs(y(v) - y(0));
+    const left = slot * i + (slot - bw) / 2;
+    const col = o.color ? o.color(v, i) : '#0f6cbd';
+    const lab = v >= 0 ? 'top: calc(' + top + '% - 16px);' : 'top: calc(' + (top + h) + '% + 2px);';
+    return {
+      style: 'position: absolute; left: ' + left + '%; width: ' + bw + '%; top: ' + top + '%; height: max(' + h + '%, 1px); background: ' + col + '; border: 0; border-radius: 2px 2px 0 0; padding: 0; cursor: ' + (o.click ? 'pointer' : 'default') + ';',
+      labelStyle: 'position: absolute; left: ' + (slot * i) + '%; width: ' + slot + '%; text-align: center; ' + lab + ' font-size: 11px; font-variant-numeric: tabular-nums; color: ' + (v < 0 ? RED : '#4b5563') + ';',
+      label: o.label ? o.label(v, i) : f1(v),
+      axisStyle: 'flex: 1; text-align: center; font-size: 11px; color: #69707d; padding-top: 4px; line-height: 1.3;',
+    };
+  });
+  return { grid, bars };
+}
+
+const RPA = [
+  ['Harga live bird hari ini', 24600, 'Rp/kg LB', 'Parameter harian, diisi Purchasing'],
+  ['Order karkas fresh 27–29 Agu', 12307, 'kg', 'Order fresh dalam horizon 3 hari'],
+  ['Stok karkas fresh hari ini', 18768, 'kg', 'Stok proyeksi per key'],
+  ['Kebutuhan bersih', 0, 'kg', 'Order − stok, minimal 0'],
+  ['LB maksimum tanpa menambah frozen', 0, 'kg LB', 'Kebutuhan bersih ÷ yield karkas ÷ (1 − shrink)'],
+  ['LB direncanakan potong', 27219, 'kg LB', 'Batch rencana 27–29 Agu'],
+  ['Karkas berpotensi frozen', 19475, 'kg', 'Output karkas rencana − kebutuhan bersih'],
+  ['Porsi karkas fresh dari potong rencana', 0, '%', 'Kebutuhan bersih ÷ output karkas rencana'],
+  ['Nilai output per kg LB', 23278, 'Rp/kg LB', 'Nilai output pada porsi fresh rencana'],
+  ['Breakeven porsi fresh rencana', 20726, 'Rp/kg LB', 'Nilai output − angkut − maklon per kg LB'],
+  ['Breakeven 100% fresh', 24337, 'Rp/kg LB', 'Bila semua karkas laku fresh'],
+  ['Margin per kg LB di harga hari ini', -3874, 'Rp/kg LB', 'Breakeven porsi fresh − harga hari ini'],
+  ['Perkiraan margin potong rencana', -105.5, 'Rp jt', 'Margin per kg LB × LB direncanakan'],
+  ['Potensi selisih harga frozen', 98.3, 'Rp jt', '(harga fresh − frozen) × karkas berpotensi frozen'],
+];
+const BATCH = [
+  ['Aktual', 24301, 23903, 0.063, 0.738, 0.666, 21539],
+  ['Rencana', 27219, 25064, 0.059, 0.744, 0.530, 22079],
+  ['Target', null, null, 0.030, 0.737, null, 24337],
+];
+const SEG = [
+  { seg: 'RPA', kg: 31726, rev: 855.6, gpa: -10.3, gpo: -52.3, gp: -62.6, pct: -0.073, lw: -155, d: -1818 },
+  { seg: 'Trading', kg: 32299, rev: 783.3, gpa: 15.2, gpo: -0.2, gp: 15.0, pct: 0.019, lw: 1973, d: -1508 },
+  { seg: 'Total', kg: 64025, rev: 1639.0, gpa: 5.0, gpo: -52.5, gp: -47.6, pct: -0.029, lw: 883, d: -1626 },
+];
+const INPUT = [
+  ['RPA', 'Live bird', 'aktual · 2 batch', 24301, 23903, 580.9, 'di atas breakeven aktual 21.539', false],
+  ['RPA', 'Live bird', 'rencana · 2 batch', 27219, 25064, 682.2, 'penawaran hari ini 24.600', false],
+  ['RPA', 'Ekspedisi live bird', 'aktual + rencana', null, null, 39.0, '', false],
+  ['RPA', 'Maklon / TKL', 'aktual + rencana', null, null, 40.4, '', false],
+  ['Trading', 'Sayap', 'penerimaan', 6985, 28633, 200.0, 'order minggu ini baru 300 kg', false],
+  ['Trading', 'BLP Frozen', 'penerimaan', 4002, 49577, 198.4, 'di atas harga jual order 43.086', true],
+  ['Trading', 'Kulit Frozen', 'penerimaan', 2973, 29577, 87.9, 'stok lama sudah 51 hari', false],
+];
+const COGS = [
+  ['RPA', 'COGS live bird', -710.7, -354.2, -683.9, -1038.1, -327.4, 'order × biaya rata-rata', 0],
+  ['Trading', 'COGS trading', -825.9, -212.8, -436.5, -649.2, 176.7, 'order × biaya rata-rata', 0],
+  [null, 'Ekspedisi', -29.0, -17.0, -3.6, -20.6, 8.4, 'run-rate', 0],
+  [null, 'Blasting', -10.9, -4.5, -11.8, -16.4, -5.5, 'run-rate', 0],
+  [null, 'Total COGS', -1576.5, -588.5, -1135.8, -1724.3, -147.8, '', 1],
+];
+const MUT = [
+  ['RPA', 'Karkas fresh', 12669, 21294, 17399, 16564, 476.5, null, 0],
+  ['RPA', 'Karkas frozen', 21860, 14555, 5201, 31213, 746.7, null, 0],
+  ['RPA', 'By-product', 17764, 8485, 8315, 17935, 104.0, null, 0],
+  ['RPA', 'Karkas mix, boneless', 4564, 0, 811, 3753, 90.2, null, 0],
+  ['RPA', 'RPA', 56857, 44334, 31726, 69465, 1417.4, -1038.1, 1],
+  ['Trading', 'Karkas', 53696, 0, 14131, 39565, 1614.4, null, 0],
+  ['Trading', 'Kerangka', 33330, 0, 13526, 19804, 343.7, null, 0],
+  ['Trading', 'BLD, BLP, sayap, kulit, HJA', 18804, 13960, 4642, 28122, 579.5, null, 0],
+  ['Trading', 'Trading', 105830, 13960, 32299, 87491, 2537.6, -649.2, 1],
+  [null, 'Total KGR', 162687, 58294, 64025, 156956, 3955.0, -1687.3, 2],
+];
+const TRADE = [
+  ['BLP Frozen', 10141, 3229, 0, 43086, 49577, -6491, 47199, -4113, -13.3, 'Cek harga: order di bawah biaya stok'],
+  ['Karkas', 46573, 7008, 0, 31277, 30050, 1227, 30065, 1212, 8.5, 'Cukup: sisa 39.565 kg setelah order'],
+  ['Kerangka (KRK)', 25815, 6011, 0, 10903, 11169, -266, 10311, 592, 3.6, 'Cukup: sisa 19.804 kg setelah order'],
+  ['Kulit Frozen', 4067, 105, 0, 29000, 29577, -577, 26381, 2619, 0.3, 'Cukup: sisa 3.962 kg setelah order'],
+  ['BLD Frozen', 4848, 0, 0, 42083, 38169, 3914, 39097, 2986, null, 'Jual stok: 4.848 kg tanpa order'],
+  ['HJA', 4300, 0, 0, 15500, null, null, 4860, 10640, null, 'Jual stok: 4.300 kg tanpa order'],
+  ['Kulit', 1396, 0, 0, 26261, null, null, 21000, 5261, null, 'Jual stok: 1.396 kg tanpa order'],
+  ['Sayap', 0, 300, 6985, 31000, null, null, 28633, 2367, 0.7, 'Penerimaan 6.985 kg untuk order 300 kg'],
+];
+const STOK = [
+  ['Trading', 'Karkas', 46572, 1400.2, 13.4, 7008, 30065, 31277],
+  ['RPA', 'Karkas Frozen', 26490, 931.2, 18.7, 4228, 35153, 31658],
+  ['Trading', 'Kerangka (KRK)', 25815, 266.2, 10.0, 6011, 10311, 10903],
+  ['Trading', 'Kulit Frozen', 4067, 107.3, 51.1, 105, 26381, 29000],
+  ['RPA', 'Karkas tanpa kondisi', 1213, 32.9, 54.0, 811, 27098, 30000],
+  ['RPA', 'Hati, jantung, ampela fresh', 6702, 25.5, 26.4, 2019, 3806, 4515],
+  ['RPA', 'Usus fresh', 5430, 18.9, 27.2, 1673, 3476, 1500],
+];
+const DEMAND = [
+  ['PO pasti', 40437, 'kg', 0], ['PO tentatif', 0, 'kg', 0], ['Forecast', 0, 'kg', 0],
+  ['Kebutuhan potong (karkas)', 13118, 'kg', 0], ['Rencana potong', 9871, 'ekor', 1], ['Live bird untuk rencana', 18358, 'kg LB', 0],
+];
+const CF = [
+  ['Penerimaan pelanggan', 1602.9, 1872.9, 0], ['Bayar pemasok', -2131.3, -1325.0, 0], ['Bayar jasa', -231.0, -1229.0, 0],
+  ['Karyawan dan lain-lain', -25.9, -79.9, 0], ['Pinjaman afiliasi (net)', 0, 1200.0, 0], ['Arus kas bersih', -785.3, 439.1, 1],
+];
+const KAS = [['Sen', 555.0, 'a'], ['Sel', 652.0, 'a'], ['Rab', 1289.3, 'a'], ['Kam', 1348.9, 'r'], ['Jum', 289.7, 'r'], ['Sab', 818.2, 'r'], ['Min', 818.2, 'r']];
+
+const BTN_ON = 'font: inherit; font-size: 12.5px; border: 1px solid #0f6cbd; background: #0f6cbd; color: #ffffff; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const BTN_OFF = 'font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const CARD_BOX = 'grid-row: 3 / span 2; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; grid-column: ';
+
+const PL_ACCR_DAY = 87.0 / 31;
+const PL_COLS = {
+  c0: { l: '1–2 Agu', rev: 809.005, cogs: -649.111, opex: -2.015, days: 2, kind: 'a' },
+  c1: { l: '3–9 Agu', rev: 1278.927, cogs: -1276.044, opex: -27.821, days: 7, kind: 'a' },
+  c2: { l: '10–16 Agu', rev: 2136.665, cogs: -1948.298, opex: -35.047, days: 7, kind: 'a' },
+  c3: { l: '17–23 Agu', rev: 1572.306, cogs: -1576.489, opex: -106.785, days: 7, kind: 'a' },
+  c4a: { l: '24–26 Agu', rev: 588.973, cogs: -588.531, opex: -10.484, days: 3, kind: 'a' },
+  c4p: { l: '27–30 Agu', rev: 1067.8, cogs: -1135.74, opex: -28.03, days: 4, kind: 'f' },
+  c5: { l: '31 Agu', rev: 310.4, cogs: -293.5, opex: -7.01, days: 1, kind: 'f' },
+};
+const plSum = (keys, l, kind) => keys.reduce((a, k) => { const c = PL_COLS[k]; return { l, kind, rev: a.rev + c.rev, cogs: a.cogs + c.cogs, opex: a.opex + c.opex, days: a.days + c.days }; }, { l, kind, rev: 0, cogs: 0, opex: 0, days: 0 });
+const plFmt = (x) => { const r = Math.round(x * 10) / 10; return (r < 0 ? '−' : '') + new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Math.abs(r)); };
+const plPct = (x) => plFmt(x * 100) + '%';
+
+function buildPL(view, opt) {
+  const o = opt || {};
+  let cols;
+  if (view === 'wk') {
+    const w4 = o.w4Actual ? Object.assign({}, PL_COLS.c4a, { l: '24–26 Agu', sub: 'actual' }) : Object.assign(plSum(['c4a', 'c4p'], '24–30 Agu', 'm'), { sub: 'actual + PO' });
+    cols = [
+      Object.assign({}, PL_COLS.c0, { sub: 'actual', id: 'w0' }), Object.assign({}, PL_COLS.c1, { sub: 'actual', id: 'w1' }), Object.assign({}, PL_COLS.c2, { sub: 'actual', id: 'w2' }), Object.assign({}, PL_COLS.c3, { sub: 'actual', id: 'w3' }),
+      Object.assign(w4, { id: 'w4' }), o.w4Actual ? Object.assign(plSum(['c4p', 'c5'], '27–31 Agu', 'f'), { sub: 'PO + run-rate', id: 'w5' }) : Object.assign({}, PL_COLS.c5, { sub: 'run-rate', id: 'w5' }),
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a', 'c4p', 'c5'], 'Agustus', 't'), { sub: 'outlook', id: 'm' }),
+    ];
+  } else {
+    cols = [
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a'], 'Actual', 'a'), { sub: '1–26 Agu · jurnal', id: 'a' }),
+      Object.assign(plSum(['c4p', 'c5'], 'PO + run-rate', 'f'), { sub: '27–31 Agu', id: 'f' }),
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a', 'c4p', 'c5'], 'Outlook', 't'), { sub: 'Agustus', id: 'm' }),
+    ];
+  }
+  const calc = cols.map((c) => { const gp = c.rev + c.cogs; const nj = gp + c.opex; const ac = -PL_ACCR_DAY * c.days; return Object.assign({}, c, { gp, nj, ac, n: nj + ac }); });
+  const out = calc.find((c) => c.id === 'm');
+  const extra = view === 'wk' ? [] : [{ l: '% revenue', sub: 'outlook', pct: true }, { l: 'Budget', sub: 'belum diisi', budget: true }];
+  const n = calc.length + extra.length;
+  const grid = 'display: grid; grid-template-columns: minmax(230px, 2.2fr) repeat(' + n + ', minmax(84px, 1fr));';
+  const hiId = o.highlight || null;
+  const cellBg = (c) => (c.id && c.id === hiId ? ' background: #e6f0fa;' : '') + (c.kind === 't' ? ' background: #f6f7f9;' : '');
+  const head = [{ v: '', s: 'padding: 6px 8px;' }].concat(calc.map((c) => ({ v: c.l + ' · ' + c.sub, s: 'padding: 6px 8px; text-align: right; line-height: 1.25;' + (c.kind === 'f' ? ' color: #9a6200;' : '') + cellBg(c) }))).concat(extra.map((e) => ({ v: e.l + ' · ' + e.sub, s: 'padding: 6px 8px; text-align: right; line-height: 1.25;' })));
+  const ROWS = [
+    ['Revenue', 'rev', 0, 'v'], ['COGS', 'cogs', 0, 'v'], ['Gross profit', 'gp', 1, 'v'], ['GP %', 'gp', 0, 'p'],
+    ['Beban operasi (jurnal)', 'opex', 0, 'v'], ['NIBT menurut jurnal', 'nj', 1, 'v'],
+    ['Beban tetap belum dijurnal (estimasi)', 'ac', 0, 'v'], ['NIBT setelah beban tetap', 'n', 2, 'v'], ['NIBT %', 'n', 0, 'p'],
+  ];
+  const rows = ROWS.map(([label, k, strong, fmt]) => {
+    const cells = [{ v: label, s: 'padding: 5px 8px;' + (strong ? ' font-weight: 600;' : '') + (fmt === 'p' || k === 'ac' ? ' color: #69707d;' : '') }].concat(calc.map((c) => {
+      const x = fmt === 'p' ? c[k] / c.rev : c[k];
+      const neg = Math.round(x * (fmt === 'p' ? 1000 : 10)) < 0;
+      return { v: fmt === 'p' ? plPct(x) : plFmt(x), s: 'padding: 5px 8px; text-align: right;' + (strong ? ' font-weight: 600;' : '') + (neg && (strong || fmt === 'p') ? ' color: #c4314b;' : (fmt === 'p' ? ' color: #69707d;' : '')) + (c.kind === 'f' ? ' font-style: italic;' : '') + cellBg(c) };
+    })).concat(extra.map((e) => (e.pct ? { v: fmt === 'p' ? '' : plPct(out[k] / out.rev), s: 'padding: 5px 8px; text-align: right; color: #69707d;' } : { v: '—', s: 'padding: 5px 8px; text-align: right; color: #9aa0aa;' })));
+    return { cells, style: grid + ' border-bottom: 1px solid ' + (strong === 2 ? '#e3e6eb' : '#f0f1f4') + ';' + (strong === 2 ? ' background: #fbfbfc;' : '') };
+  });
+  const note = view === 'wk'
+    ? 'Minggu tertutup dari jurnal; kolom miring berisi PO dan run-rate. Minggu 17–23 Agu rugi karena cold storage 81,1 jt. Gaji, penyusutan dan bunga baru dijurnal saat tutup buku, jadi NIBT per minggu menurut jurnal terlalu tinggi ± 19,6 jt per minggu.'
+    : 'Sisa bulan diproyeksikan rugi: GP −51,0 jt karena stok dijual di bawah biaya. NIBT menurut jurnal 79,2 jt belum memuat gaji, penyusutan dan bunga; setelah estimasi 87,0 jt, Agustus diproyeksikan rugi ' + plFmt(out.n) + ' jt.';
+  return { plHead: head, plRows: rows, plHeadStyle: grid + ' color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb; font-size: 12px;', plNote: note };
+}
+
+class Component extends DCLogic {
+  put(k, v) { const s = {}; s[k] = v; this.setState(s); }
+  toggleEx(id) { const cur = (this.state || {}).ex; this.setState({ ex: cur === id ? null : id }); }
+
+  renderVals() {
+    const st = this.state || {};
+    const wk = st.week || 'w4';
+    const mode = st.mode || 'proj';
+    const seg = st.seg || null;
+    const ex = st.ex || null;
+    const W = WEEKS.find((w) => w.id === wk);
+    const isCur = wk === 'w4';
+    const k = isCur ? (mode === 'proj' ? 'w4p' : 'w4a') : wk;
+    const cw = WK[k];
+
+    const weekBtns = WEEKS.map((w) => ({ label: w.label + (w.id === 'w4' ? ' · draft' : ''), on: w.id === wk ? 'true' : 'false', style: w.id === wk ? BTN_ON : BTN_OFF, pick: () => this.put('week', w.id) }));
+    const modeBtns = [['act', 'Aktual s.d. kemarin'], ['proj', 'Proyeksi minggu']].map(([id, label]) => ({ label, on: id === mode ? 'true' : 'false', style: id === mode ? BTN_ON : BTN_OFF, pick: () => this.put('mode', id) }));
+
+    const dGp = cw.prevGp === null ? null : cw.gp - cw.prevGp;
+    const cardDefs = [
+      { id: 'out', span: 3, title: (isCur ? 'Outlook minggu' : 'Minggu ' + W.label), value: f1(cw.rev), lines: [
+        { lead: f1(cw.gp) + ' (' + p1(cw.gp / cw.rev) + ')', text: 'GP P&L', style: negC(cw.gp) + ' font-weight: 600;' },
+        { lead: '', text: isCur ? (mode === 'proj' ? 'sisa minggu 100% ber-PO' : 'aktual 24–26 Agu, 3 dari 7 hari') : 'aktual final', style: '' },
+        dGp === null ? { lead: '', text: 'pembanding 1–2 Agu parsial', style: '' } : { lead: s1(dGp), text: 'GP vs ' + W.prevLabel, style: delC(dGp) },
+      ], how: 'Revenue dan GP P&L dari laba rugi harian: jurnal sampai kemarin, order × harga PO untuk sisa minggu. GP P&L memuat ekspedisi dan blasting.' },
+      { id: 'stok', span: 2, title: 'Stok di atas batas umur', value: '2.782,2', lines: [{ lead: '', text: '116.290 kg · 7 SKU', style: '' }, { lead: '685,4', text: 'bila per lot (ledger)', style: 'font-weight: 600; color: #1d2330;' }], how: 'Status per SKU (blok 4) pada biaya rata-rata. Snapshot 24–30 Agu.' },
+      { id: 'kas', span: 2, title: 'Kas terendah 7 hari', value: '289,7', lines: [{ lead: '', text: 'Jum 28 Agu', style: '' }, { lead: '−910,3', text: 'tanpa pinjaman afiliasi', style: 'color: ' + RED + '; font-weight: 600;' }], how: 'Saldo kas akhir hari minggu terpilih: aktual Sen–Rab, rencana kas Kam–Min. Snapshot 24–30 Agu.' },
+      { id: 'bulan', span: 2, title: 'Outlook Agustus', value: '7.764,1', lines: [{ lead: '296,4 (3,8%)', text: 'GP P&L', style: 'font-weight: 600; color: #1d2330;' }, { lead: '−7,8', text: 'NIBT setelah beban tetap · 79,2 menurut jurnal', style: 'color: ' + RED + '; font-weight: 600;' }], how: 'Actual s.d. 26 Agu + PO 27–29 Agu + run-rate 7 hari untuk 31 Agu. Lihat Outlook bulan.' },
+      { id: 'solv', span: 3, title: 'Solvabilitas · akhir Agu', value: '1.612,6', lines: [{ lead: '32%', text: 'ekuitas / modal disetor', style: 'font-weight: 600; color: #1d2330;' }, { lead: '5.627,1', text: 'utang pihak berelasi', style: 'font-weight: 600; color: #1d2330;' }, { lead: '60,8', text: 'bulan sampai ekuitas negatif', style: 'font-weight: 600; color: #1d2330;' }], how: 'Neraca akhir Agustus. Bulan sampai ekuitas negatif = ekuitas ÷ rugi bulan itu (Agustus −26,5 jt).' },
+    ];
+    let col = 1;
+    const cards = cardDefs.map((c) => {
+      const box = CARD_BOX + col + ' / span ' + c.span + ';';
+      col += c.span;
+      return { title: c.title, value: c.value, unit: 'Rp jt', lines: c.lines, how: c.how, open: ex === c.id, toggle: () => this.toggleEx(c.id), box,
+        valueStyle: 'font-size: 30px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums;' };
+    });
+
+    const rpaRows = RPA.map((r) => ({ label: r[0], u: r[2], how: r[3], v: r[2] === 'Rp jt' ? f1(r[1]) : r[2] === '%' ? f0(r[1]) + '%' : f0(r[1]), vStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; ' + negC(r[1]) }));
+    const batchRows = BATCH.map((b) => ({ s: b[0], kg: b[1] === null ? '' : f0(b[1]), p: b[2] === null ? '' : f0(b[2]), sh: p1(b[3]), y: p1(b[4]), f: b[5] === null ? '' : p1(b[5]), be: f0(b[6]), shStyle: 'padding: 5px 8px; text-align: right;' + (b[0] !== 'Target' && b[3] > 0.03 ? ' color: ' + RED + '; font-weight: 600;' : '') }));
+
+    const tr = ['w1', 'w2', 'w3', 'w4'];
+    const trRev = [WK.w1.rev, WK.w2.rev, WK.w3.rev, mode === 'proj' ? WK.w4p.rev : WK.w4a.rev];
+    const trGp = [WK.w1.gp, WK.w2.gp, WK.w3.gp, mode === 'proj' ? WK.w4p.gp : WK.w4a.gp];
+    const mk = (vals, name) => {
+      const c = chart(vals, { click: true, color: (v, i) => (tr[i] === wk ? (v < 0 ? RED : '#0f6cbd') : (v < 0 ? '#efb7c2' : '#b9d3ee')) });
+      c.bars = c.bars.map((b, i) => ({ ...b, axis: WEEKS[i].label + (i === 3 ? (mode === 'proj' ? ' proyeksi' : ' 3 hari') : ''), aria: name + ' ' + WEEKS[i].label + ': ' + f1(vals[i]) + ' jt. Pilih minggu ini.', pick: () => this.put('week', tr[i]) }));
+      return c;
+    };
+    const trendRev = mk(trRev, 'Revenue');
+    const trendGp = mk(trGp, 'GP P&L');
+
+    const days = DAYS[wk];
+    const hideDay = (d) => isCur && mode === 'act' && d[3] === 'p';
+    const daily = chart(days.map((d) => (hideDay(d) ? 0 : d[1])), { color: (v, i) => (days[i][3] === 'p' ? '#5798d1' : '#0f6cbd'), label: (v, i) => (hideDay(days[i]) ? '—' : f1(v)) });
+    daily.bars = daily.bars.map((b, i) => ({ ...b, axis: days[i][0], gp: hideDay(days[i]) ? '—' : f1(days[i][2]), gpStyle: 'font-size: 11px; ' + (hideDay(days[i]) ? 'color: #8a8f98;' : days[i][2] < 0 ? 'color: ' + RED + ';' : 'color: #4b5563;') }));
+
+    const steps = [['GP produk', -47.6, 't'], ['Timing faktur', 17.8, 'd'], ['COGS vs HPP', -0.8, 'd'], ['Ekspedisi', -20.6, 'd'], ['Blasting', -16.4, 'd'], ['GP P&L', -67.5, 't']];
+    let run = 0;
+    const lohi = steps.map(([, v, kk]) => { let a, b; if (kk === 't') { a = 0; b = v; run = v; } else { a = run; b = run + v; run += v; } return [Math.min(a, b), Math.max(a, b), v, kk]; });
+    const bLo = Math.min(0, ...lohi.map((x) => x[0])), bHi = Math.max(0, ...lohi.map((x) => x[1]));
+    const btk = ticks(bLo * 1.1, bHi + 5);
+    const blo = Math.min(bLo * 1.1, btk[0]), bhi = Math.max(bHi + 5, btk[btk.length - 1]);
+    const by = (v) => ((bhi - v) / (bhi - blo)) * 100;
+    const bslot = 100 / steps.length;
+    const bridge = {
+      grid: btk.map((t) => ({ line: 'position: absolute; left: 0; right: 0; top: ' + by(t) + '%; border-top: 1px solid ' + (t === 0 ? '#c9ced6' : '#eef0f3') + ';', labelStyle: 'position: absolute; left: -40px; width: 34px; text-align: right; top: calc(' + by(t) + '% - 8px); font-size: 11px; color: #69707d;', label: f0(t) })),
+      bars: lohi.map(([a, b, v, kk], i) => ({
+        style: 'position: absolute; left: ' + (bslot * i + bslot * 0.2) + '%; width: ' + bslot * 0.6 + '%; top: ' + by(b) + '%; height: max(' + (by(a) - by(b)) + '%, 1px); border-radius: 2px; background: ' + (kk === 't' ? '#6b7280' : v < 0 ? RED : GREEN) + ';',
+        labelStyle: 'position: absolute; left: ' + bslot * i + '%; width: ' + bslot + '%; text-align: center; top: calc(' + by(b) + '% - 16px); font-size: 11px; font-variant-numeric: tabular-nums; color: ' + (v < 0 ? RED : '#4b5563') + ';',
+        label: kk === 't' ? f1(v) : s1(v),
+        axis: steps[i][0],
+        axisStyle: 'flex: 1; text-align: center; font-size: 11px; color: #69707d; padding-top: 4px; line-height: 1.3;',
+      })),
+    };
+
+    const segRows = SEG.map((r) => {
+      const on = seg && r.seg === seg;
+      const dim = seg && r.seg !== seg && r.seg !== 'Total';
+      const num = (x, strong) => 'padding: 6px 8px; text-align: right;' + (strong ? ' font-weight: 600;' : ' color: #69707d;') + (x < 0 ? ' color: ' + RED + ';' : '');
+      return {
+        seg: r.seg, kg: f0(r.kg), rev: f1(r.rev), gpa: f1(r.gpa), gpo: f1(r.gpo), gp: f1(r.gp), pct: p1(r.pct), lw: f0(r.lw), d: s0(r.d),
+        gpaStyle: num(r.gpa), gpoStyle: num(r.gpo), gpStyle: num(r.gp, true), pctStyle: num(r.pct, true), lwStyle: num(r.lw), dStyle: num(r.d, true),
+        on: on ? 'true' : 'false',
+        rowStyle: 'display: grid; grid-template-columns: minmax(90px, 1.2fr) repeat(8, minmax(64px, 1fr)); width: 100%; font: inherit; font-size: 12.5px; color: #1d2330; text-align: left; border: 0; border-bottom: 1px solid ' + (r.seg === 'Total' ? '#e3e6eb' : '#f0f1f4') + '; padding: 0; cursor: ' + (r.seg === 'Total' ? 'default' : 'pointer') + '; background: ' + (on ? '#e6f0fa' : '#ffffff') + '; opacity: ' + (dim ? '0.45' : '1') + ';' + (r.seg === 'Total' ? ' font-weight: 600;' : ''),
+        pick: () => (r.seg === 'Total' ? this.setState({ seg: null }) : this.setState({ seg: seg === r.seg ? null : r.seg })),
+      };
+    });
+
+    const perKg = [];
+    [['RPA', 30914, 32721], ['Trading', 20930, 20101]].forEach(([s, r, c], gi) => {
+      const dim = seg && seg !== s ? ' opacity: 0.3;' : '';
+      [[r, '#0f6cbd'], [c, '#6b7280']].forEach(([v, colr], j) => {
+        const left = gi * 50 + 12 + j * 14;
+        const top = 100 - (v / 36000) * 100;
+        perKg.push({ style: 'position: absolute; left: ' + left + '%; width: 12%; top: ' + top + '%; bottom: 0; background: ' + colr + '; border-radius: 2px 2px 0 0;' + dim, labelStyle: 'position: absolute; left: ' + (left - 4) + '%; width: 20%; text-align: center; top: calc(' + top + '% - 16px); font-size: 11px; font-variant-numeric: tabular-nums; color: #4b5563;' + dim, label: f0(v) });
+      });
+    });
+
+    const fSeg = (s) => !seg || s === seg;
+    const inp = INPUT.filter((r) => fSeg(r[0]));
+    const inputRows = inp.map((r) => ({ name: r[1], status: r[2] + (seg ? '' : ' · ' + r[0]), kg: r[3] === null ? '' : f0(r[3]), price: r[4] === null ? '' : f0(r[4]), val: f1(r[5]), note: r[6], priceStyle: 'padding: 5px 8px; text-align: right;' + (r[7] ? ' color: ' + RED + '; font-weight: 600;' : ''), valStyle: 'padding: 5px 8px; text-align: right; font-weight: 600;' }));
+    const inputTotal = f1(inp.reduce((a, r) => a + r[5], 0));
+
+    const cogsRows = COGS.filter((r) => !seg || r[0] === seg || r[8] === 1 && !seg).map((r) => ({ name: r[1], lw: f1(r[2]), a: f1(r[3]), s: f1(r[4]), p: f1(r[5]), d: s1(r[6]), b: r[7], dStyle: 'padding: 5px 8px; text-align: right; ' + delC(r[6]), rowStyle: 'display: grid; grid-template-columns: minmax(120px, 1.6fr) repeat(5, minmax(58px, 1fr)) minmax(110px, 1.4fr); border-bottom: 1px solid ' + (r[8] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[8] ? ' font-weight: 600; background: #f6f7f9;' : '') }));
+    const mutRows = MUT.filter((r) => (seg ? r[0] === seg : true)).map((r) => ({
+      name: r[8] === 1 ? 'Subtotal ' + r[1] : r[1], a: f0(r[2]), i: f0(r[3]), o: f0(r[4]), e: f0(r[5]), v: f1(r[6]), c: r[7] === null ? '' : f1(r[7]),
+      rowStyle: 'display: grid; grid-template-columns: minmax(150px, 2fr) repeat(6, minmax(58px, 1fr)); border-bottom: 1px solid ' + (r[8] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[8] ? ' font-weight: 600;' : '') + (r[8] === 2 ? ' background: #f6f7f9;' : ''),
+      labelStyle: 'padding: 5px 8px;' + (r[8] ? '' : ' padding-left: 20px;'),
+      cStyle: 'padding: 5px 8px; text-align: right; ' + (r[7] !== null && r[7] < 0 ? 'color: ' + RED + ';' : ''),
+    }));
+
+    const tradingShow = !seg || seg === 'Trading';
+    const tradeRows = TRADE.map((r) => ({
+      sku: r[0], st: f0(r[1]), o: f0(r[2]), t: f0(r[3]), sell: f0(r[4]), buy: f0(r[5]), sp: s0(r[6]), cost: f0(r[7]), m: s0(r[8]), gp: r[9] === null ? '—' : f1(r[9]), rek: r[10],
+      spStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; ' + negC(r[6]),
+      mStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; ' + negC(r[8]),
+      gpStyle: 'padding: 5px 8px; text-align: right; ' + negC(r[9]),
+    }));
+
+    const stok = STOK.filter((r) => fSeg(r[0]));
+    const stokRows = stok.map((r) => ({
+      seg: r[0], sku: r[1], kg: f0(r[2]), val: f1(r[3]), age: f1(r[4]), order: f0(r[5]), cost: f0(r[6]), ref: f0(r[7]),
+      bar: 'display: inline-block; height: 10px; border-radius: 2px; background: #0f6cbd; width: ' + Math.max(2, (r[3] / 1400.2) * 60) + 'px;',
+      refStyle: 'padding: 5px 8px; text-align: right;' + (r[7] < r[6] ? ' color: ' + RED + '; font-weight: 600;' : ''),
+    }));
+    const stokTotal = { val: f1(stok.reduce((a, r) => a + r[3], 0)), kg: f0(stok.reduce((a, r) => a + r[2], 0)), order: f0(stok.reduce((a, r) => a + r[5], 0)) };
+
+    const demandRows = DEMAND.map((r) => ({ k: r[0], v: f0(r[1]), u: r[2], rowStyle: 'display: grid; grid-template-columns: minmax(150px, 2fr) minmax(70px, 1fr) minmax(50px, 0.6fr); border-bottom: 1px solid #f0f1f4;' + (r[3] ? ' font-weight: 600; background: #f6f7f9;' : '') }));
+
+    const kas = chart(KAS.map((x) => x[1]), { color: (v, i) => (KAS[i][2] === 'a' ? '#0f6cbd' : '#5798d1') });
+    kas.bars = kas.bars.map((b, i) => ({ ...b, axis: KAS[i][0], labelStyle: b.labelStyle + (i === 4 ? ' font-weight: 700; color: #1d2330;' : '') }));
+    const cfRows = CF.map((r) => ({ name: r[0], lw: f1(r[1]), p: f1(r[2]), rowStyle: 'display: grid; grid-template-columns: minmax(130px, 2fr) repeat(2, minmax(64px, 1fr)); border-bottom: 1px solid ' + (r[3] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[3] ? ' font-weight: 600;' : ''), lwStyle: 'padding: 5px 8px; text-align: right; color: ' + (r[1] < 0 ? RED : '#69707d') + ';', pStyle: 'padding: 5px 8px; text-align: right; ' + negC(r[2]) + (r[0] === 'Bayar jasa' ? ' font-weight: 600;' : '') }));
+
+    const plan = st.plan || 'need';
+    const price = st.price || 24600;
+    const SIM = {
+      need: { label: 'Kebutuhan PO: 18.358 kg LB (3 kelas)', kgLb: 18358, rows: [['Karkas fresh', 12307, 36705], ['Karkas n/a', 811, 30000], ['HJA', 997, 4515], ['Usus', 776, 1500], ['Kepala', 832, 4029], ['Ceker', 524, 3101]], extra: 0 },
+      batch: { label: 'Batch rencana di input: 27.219 kg LB', kgLb: 27219, rows: [['Karkas frozen (surplus)', 19475, 31658]], extra: 17.1 },
+    };
+    const sp = SIM[plan];
+    const ANGKUT_MAKLON = 2552;
+    const value = sp.rows.reduce((a, r) => a + r[1] * r[2], 0) / 1e6 + sp.extra;
+    const cost = (sp.kgLb * (price + ANGKUT_MAKLON)) / 1e6;
+    const kRatio = cost / value;
+    const gpSim = value - cost;
+    const be = (value * 1e6) / sp.kgLb - ANGKUT_MAKLON;
+    const simPlanBtns = Object.keys(SIM).map((id) => ({ label: SIM[id].label, on: id === plan ? 'true' : 'false', style: id === plan ? BTN_ON : BTN_OFF, pick: () => this.setState({ plan: id }) }));
+    const simPriceBtns = [20000, 21000, 22000, 23000, 24000, 24600, 25000, 26000].map((p) => ({ label: f0(p) + (p === 24600 ? ' · hari ini' : ''), on: p === price ? 'true' : 'false', style: p === price ? BTN_ON : BTN_OFF, pick: () => this.setState({ price: p }) }));
+    const big = 'font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;';
+    const simCards = [
+      { l: 'COGS rencana', v: f1(cost), s: 'Rp jt · ' + f0(sp.kgLb) + ' kg LB', vStyle: big },
+      { l: 'GP rencana', v: f1(gpSim), s: 'Rp jt · ' + p1(gpSim / value) + ' dari nilai jual', vStyle: big + (gpSim < 0 ? ' color: ' + RED + ';' : '') },
+      { l: 'Breakeven live bird', v: f0(be), s: 'Rp/kg LB pada rencana ini', vStyle: big },
+      { l: 'Margin per kg LB', v: s0(be - price), s: 'breakeven − harga dipilih', vStyle: big + (be - price < 0 ? ' color: ' + RED + ';' : '') },
+    ];
+    const simRows = sp.rows.map((r) => { const c = kRatio * r[2]; return { n: r[0], kg: f0(r[1]), p: f0(r[2]), c: f0(c), m: s0(r[2] - c), mStyle: 'padding: 5px 8px; text-align: right; font-weight: 600; ' + negC(r[2] - c) }; });
+    if (sp.extra) simRows.push({ n: 'By-product lain (nilai)', kg: '', p: f1(sp.extra) + ' jt', c: '', m: '', mStyle: 'padding: 5px 8px;' });
+    const simNote = 'Di harga ' + f0(price) + ' setiap SKU menanggung COGS ' + f0(kRatio * 100) + '% dari harga list' + (kRatio > 1 ? ', jadi semua output rugi pada harga list.' : '.') + (plan === 'batch' ? ' Batch rencana 8.861 kg LB di atas kebutuhan; stok fresh lama tidak layak kirim fresh.' : ' Yield sementara (STD 2,0 kg).');
+
+    const decisions = [
+      { t: 'Harga live bird untuk potong 27–28 Agu', s: 'Penawaran 24.600; breakeven rencana kebutuhan 23.960 Rp/kg LB.', o: 'Direktur Operasional · hari ini' },
+      { t: 'Batch rencana 27.219 kg LB, 8.861 kg di atas kebutuhan', s: '± 6.332 kg karkas jadi frozen, downgrade Rp 32,0 jt (di atas batas 25 jt).', o: 'Direktur Operasional + PPIC · sebelum potong' },
+      { t: 'BLP Frozen dijual di bawah biaya', s: '3.229 kg order di 43.086 vs biaya 47.199; GP −13,3 jt.', o: 'Kepala Sales · minggu ini' },
+      { t: 'Pinjaman afiliasi 1.200,0 jt', s: 'Tanpa itu kas Jumat −910,3 jt.', o: 'Direksi · sebelum Jum 28 Agu' },
+    ];
+    const loop = [
+      { k: 'Komitmen Commercial minggu depan', v: 'belum dikunci · tenggat Jum 28 Agu', style: 'font-weight: 600; color: ' + RED + ';' },
+      { k: 'Rencana PPIC minggu depan', v: 'menunggu komitmen', style: 'color: #69707d;' },
+      { k: 'Costing batch minggu ini', v: '2 batch sementara, 0 final · WP 26 Agu masuk besok', style: 'color: #1d2330;' },
+      { k: 'Stok bebas belum ke PO', v: '126.434 kg · Rp 3.233,3 jt', style: 'font-weight: 600; color: #1d2330;' },
+    ];
+
+    const plView = st.plView || 'wk';
+    const plBtns = [['rr', 'Actual vs run-rate'], ['wk', 'Per minggu']].map(([id, label]) => ({ label, on: id === plView ? 'true' : 'false', style: id === plView ? BTN_ON : BTN_OFF, pick: () => this.setState({ plView: id }) }));
+    const pl = buildPL(plView, { highlight: wk, w4Actual: wk === 'w4' && mode === 'act' });
+
+    return {
+      ...pl, plBtns, exPl: ex === 'pl', toggleExPl: () => this.toggleEx('pl'),
+      simPlanBtns, simPriceBtns, simCards, simRows, simNote, decisions, loop,
+      exSim: ex === 'sim', toggleExSim: () => this.toggleEx('sim'),
+      weekBtns, modeBtns, cards, rpaRows, batchRows, trendRev, trendGp, daily, bridge, segRows, perKg,
+      inputRows, inputTotal, cogsRows, mutRows, tradeRows, stokRows, stokTotal, demandRows, kas, cfRows,
+      tradingShow, tradingEmpty: !tradingShow,
+      weekLabel: W.label + (isCur ? (mode === 'proj' ? ' proyeksi' : ' aktual') : ''),
+      headline: HEADLINE[k][0], headlineSub: HEADLINE[k][1], dailyNote: DAILY_NOTE[wk],
+      releaseLine: isCur ? 'Belum dirilis · 18/20 kontrol lulus · 2 belum diisi' : 'Minggu tertutup · aktual final',
+      releaseSub: isCur ? 'Update Kam 27 Agu 2026, angka draft' : 'Sumber: jurnal Accurate',
+      hasFilter: !!seg, seg: seg || '', segSuffix: seg ? ' · segmen ' + seg : '',
+      clearSeg: () => this.setState({ seg: null }),
+      exRpa: ex === 'rpa', exRpaAria: ex === 'rpa' ? 'true' : 'false', rpaToggleLabel: ex === 'rpa' ? 'tutup perhitungan' : 'lihat perhitungan', toggleExRpa: () => this.toggleEx('rpa'),
+      exBridge: ex === 'bridge', toggleExBridge: () => this.toggleEx('bridge'),
+      exStok: ex === 'stok', toggleExStok: () => this.toggleEx('stok'),
+      exTrade: ex === 'trade', toggleExTrade: () => this.toggleEx('trade'),
+    };
+  }
+}
+</script>
+</body>
+</html>

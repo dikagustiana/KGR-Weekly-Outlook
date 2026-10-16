@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 /** PRD v3 §6 /kas: position per account, plans, 13 weeks, 12 months, solvency (finance, management). */
 export default async function KasPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
-  const v = await requireModulePage("m6_cash", ["admin", "finance", "management"]);
+  const v = await requireModulePage("m6_cash", ["admin", "finance", "management", "operations_director"]);
   const { viewer, weeks, week } = await plainContext();
   // PRD v4 §6.3 (flag v4_design): tiles read from the cash marts; the v3 page below stays for everyone else
   if (v4On(await moduleSettings(), v.role)) {
