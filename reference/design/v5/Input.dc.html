@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KGR · Input</title>
+<script src="./support.js"></script>
+<script src="/_blob/d86ba60ac49ecb7b0d308d34033e0336"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#f4f5f7}
+a{color:#0f6cbd}a:hover{color:#0b5394}
+button:focus-visible,a:focus-visible{outline:2px solid #0f6cbd;outline-offset:2px}
+@media (max-width: 900px){
+.kgr-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;padding:12px 16px 24px !important}
+.kgr-tile{grid-column:span 2 !important;grid-row:auto !important}
+.kgr-card{grid-column:span 1 !important}
+.kgr-top{gap:12px !important;padding:0 16px !important}
+}
+</style>
+</helmet>
+<div style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.4; color: #1d2330; background: #f4f5f7; min-height: 100vh">
+
+<header class="kgr-top" style="position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 0 20px; min-height: 52px; background: #ffffff; border-bottom: 1px solid #e3e6eb; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap"><span style="color: #0f6cbd" aria-hidden="true">◆</span><span>KGR</span></div>
+<nav aria-label="Halaman input" style="display: flex; gap: 4px; flex: 1; overflow-x: auto">
+<a href="Input.dc.html" aria-current="page" style="padding: 15px 12px; color: #1d2330; font-weight: 600; text-decoration: none; border-bottom: 2px solid #0f6cbd; white-space: nowrap">Tugas input</a>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Riwayat upload</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Master data</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 4px; font-size: 13px; color: #69707d; flex-wrap: wrap"><span style="margin-right: 4px">Lihat sebagai</span><a href="Main.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">Manajemen</a><a href="Commercial.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">Commercial</a><a href="PPIC.dc.html" style="padding: 6px 10px; border-radius: 6px; color: #1d2330; text-decoration: none">PPIC</a><a href="Input.dc.html" aria-current="page" style="padding: 6px 10px; border-radius: 6px; background: #e6f0fa; color: #0f6cbd; font-weight: 600; text-decoration: none">Input</a></div>
+</header>
+
+<main class="kgr-grid" style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(76px, auto); gap: 12px; padding: 16px 20px 32px; max-width: 1440px; margin: 0 auto">
+
+<section class="kgr-tile" style="grid-column: 1 / span 9; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Role</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ roleBtns }}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }} <span style="{{ b.badgeStyle }}">{{ b.badge }}</span></button>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 10 / span 3; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Hari ini</h3>
+<div style="font-size: 15px; font-weight: 600">Kam 27 Agu 2026 · 09.30</div>
+<div style="font-size: 12px; color: #69707d">Cut-off pembelian LB 12.00 · cut-off fresh 14.00</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 2 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600">{{ R.headline }}</h1>
+<div style="font-size: 12px; color: #69707d">{{ R.sub }}</div>
+</section>
+
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="4">
+<section class="kgr-tile kgr-card" style="{{ c.box }}">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">{{ c.t }}</h3>
+<div style="{{ c.vStyle }}">{{ c.v }}</div>
+<div style="font-size: 12px; color: #69707d">{{ c.s }}</div>
+</section>
+</sc-for>
+
+<section class="kgr-tile" style="grid-column: 1 / span 5; grid-row: 5 / span 5; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Tugas saya · pilih untuk dikerjakan</h3>
+<sc-for list="{{ tasks }}" as="t" hint-placeholder-count="4">
+<button type="button" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}" style="{{ t.style }}">
+<span style="display: flex; justify-content: space-between; gap: 8px; align-items: baseline"><span style="font-weight: 600; font-size: 13px">{{ t.t }}</span><span style="{{ t.stStyle }}">{{ t.st }}</span></span>
+<span style="display: block; font-size: 12px; color: #69707d">{{ t.due }}</span>
+<span style="display: block; font-size: 12px; color: #1d2330; margin-top: 2px">{{ t.impact }}</span>
+</button>
+</sc-for>
+</section>
+
+<section class="kgr-tile" style="grid-column: 6 / span 7; grid-row: 5 / span 5; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">{{ P.title }}</h3>
+<span style="font-size: 12px; color: #69707d">{{ P.file }}</span>
+</div>
+<sc-if value="{{ P.isGrid }}" hint-placeholder-val="{{ false }}">
+<div style="overflow-x: auto">
+<div style="min-width: 600px; font-size: 12px">
+<div style="{{ gridHead.style }}">
+<sc-for list="{{ gridHead.cells }}" as="h" hint-placeholder-count="7">
+<span style="{{ h.s }}">{{ h.v }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ gridRows }}" as="r" hint-placeholder-count="8">
+<div style="{{ r.style }}">
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="7">
+<span style="{{ c.s }}">{{ c.v }}</span>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #69707d"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #dff3e8; margin-right: 4px"></span>masuk dan lolos cek</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #fff3d6; margin-right: 4px"></span>masuk, ada catatan</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #fbe3e7; margin-right: 4px"></span>belum masuk lewat tenggat</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #f0f1f4; margin-right: 4px"></span>belum jatuh tempo</span></div>
+</sc-if>
+<sc-if value="{{ P.isUpload }}" hint-placeholder-val="{{ true }}">
+<div style="border: 1px dashed #9aa0aa; border-radius: 8px; padding: 10px 12px; background: #fbfbfc; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center">
+<label for="kgr-upload" style="font-size: 12.5px; font-weight: 600">Pilih file Excel atau CSV</label>
+<input id="kgr-upload" type="file" accept=".xlsx,.xls,.csv" onChange="{{ onFile }}" style="font: inherit; font-size: 12px; max-width: 260px">
+<button type="button" onClick="{{ useSample }}" style="font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer">Pakai file contoh</button>
+<button type="button" onClick="{{ makeTpl }}" style="font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer">Buat template</button>
+<sc-if value="{{ tplReady }}" hint-placeholder-val="{{ false }}">
+<a href="{{ tplUrl }}" download="{{ tplName }}" style="font-size: 12.5px; font-weight: 600">Unduh {{ tplName }}</a>
+</sc-if>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ tplHint }}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end">
+<label style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 320px; font-size: 12px; color: #69707d">Atau salin sel dari Excel lalu tempel di sini (baris pertama = judul kolom)
+<textarea rows="2" onChange="{{ onPasteText }}" style="font: inherit; font-size: 12px; border: 1px solid #c9ced6; border-radius: 6px; padding: 6px 8px; resize: vertical; color: #1d2330"></textarea>
+</label>
+<button type="button" onClick="{{ checkPaste }}" style="font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer">Cek tempelan</button>
+</div>
+<div style="{{ upStatusStyle }}">{{ upStatus }}</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{ checks }}" as="k" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; align-items: baseline; font-size: 12.5px; border-bottom: 1px solid #f0f1f4; padding: 4px 0"><span style="{{ k.iStyle }}" aria-hidden="true">{{ k.icon }}</span><span><span style="font-weight: 600">{{ k.t }}</span> <span style="color: #69707d">{{ k.d }}</span></span><span style="{{ k.rStyle }}">{{ k.r }}</span></div>
+</sc-for>
+</div>
+<div style="overflow-x: auto">
+<div style="min-width: 560px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="{{ rowHead.style }}">
+<sc-for list="{{ rowHead.cells }}" as="h" hint-placeholder-count="5">
+<span style="{{ h.s }}">{{ h.v }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+<div style="{{ r.style }}">
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="5">
+<span style="{{ c.s }}">{{ c.v }}</span>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center">
+<sc-for list="{{ actions }}" as="a" hint-placeholder-count="2">
+<button type="button" onClick="{{ a.pick }}" style="{{ a.style }}">{{ a.label }}</button>
+</sc-for>
+<span style="font-size: 12px; color: #1a7f4b; font-weight: 600">{{ savedMsg }}</span>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ P.note }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 7; grid-row: 10 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">{{ F.title }}</h3>
+<div style="overflow-x: auto">
+<div style="min-width: 560px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(150px, 1.6fr) repeat(2, minmax(80px, 1fr)) minmax(170px, 2fr) minmax(90px, 1fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Parameter</span><span style="padding: 6px 8px; text-align: right">Berlaku</span><span style="padding: 6px 8px; text-align: right">Usulan</span><span style="padding: 6px 8px">Dampak ke angka</span><span style="padding: 6px 8px">Persetujuan</span></div>
+<sc-for list="{{ fields }}" as="f" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: minmax(150px, 1.6fr) repeat(2, minmax(80px, 1fr)) minmax(170px, 2fr) minmax(90px, 1fr); border-bottom: 1px solid #f0f1f4; align-items: center"><span style="padding: 5px 8px"><span style="font-weight: 600">{{ f.l }}</span><span style="display: block; font-size: 11px; color: #69707d">{{ f.u }}</span></span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ f.old }}</span><span style="padding: 5px 8px; text-align: right"><span style="display: inline-block; border: 1px solid #c9ced6; border-radius: 6px; padding: 4px 8px; min-width: 64px; background: #ffffff; font-weight: 600">{{ f.nu }}</span></span><span style="{{ f.eStyle }}">{{ f.e }}</span><span style="{{ f.aStyle }}">{{ f.a }}</span></div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ F.note }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 8 / span 5; grid-row: 10 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Riwayat dan siapa yang menunggu</h3>
+<sc-for list="{{ history }}" as="h" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 12.5px; border-bottom: 1px solid #f0f1f4; padding: 4px 0"><span style="color: #69707d; font-variant-numeric: tabular-nums">{{ h.w }}</span><span><span style="{{ h.tStyle }}">{{ h.t }}</span> <span style="color: #69707d">{{ h.d }}</span></span></div>
+</sc-for>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 13 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0">
+<div style="font-size: 12px; color: #69707d"><span style="font-weight: 600; color: #1d2330">Di layar lain:</span> setiap angka utama membawa label sumber, misalnya <span style="display: inline-block; border: 1px solid #e3e6eb; border-radius: 999px; padding: 1px 8px; background: #ffffff; color: #1d2330">WP sementara · Cost Accounting · 26 Agu 09.12</span>. Data yang terlambat membuat label berwarna merah dan menahan tombol Rilis di layar Manajemen.</div>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1800}}'>
+const RED = '#c4314b';
+const GREEN = '#1a7f4b';
+const AMBER = '#9a6200';
+const MUTED = '#69707d';
+const BTN_ON = 'font: inherit; font-size: 12.5px; border: 1px solid #0f6cbd; background: #0f6cbd; color: #ffffff; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const BTN_OFF = 'font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const CARD_BOX = 'grid-row: 3 / span 2; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; grid-column: ';
+const ST = { late: ['terlambat', RED], fail: ['gagal cek', RED], warn: ['ada catatan', AMBER], wait: ['menunggu', AMBER], todo: ['belum', MUTED], ok: ['lolos cek', GREEN], done: ['tersimpan', GREEN] };
+const ICON = { ok: ['✓', GREEN], warn: ['!', AMBER], fail: ['✕', RED], info: ['i', MUTED] };
+
+const ROLES = {
+  cost: {
+    label: 'Cost Accounting', headline: 'WP potong batch 26 Agu masuk dengan 2 kode SKU tidak dikenal dan selisih hasil potong 6,9%; lot 26 Agu masih estimasi.',
+    sub: 'Tenggat WP H+1 jam 12.00. Output batch AGRO28–30 belum ada sejak 22 Agu, jadi biaya tiga batch itu belum bisa dialokasikan.',
+    cards: [['Tugas hari ini', '4', '1 terlambat', RED], ['Status batch minggu ini', '2 / 0', 'sementara / final', '#1d2330'], ['Faktur LB masuk', '1 dari 3', 'costing belum bisa final', AMBER], ['Yang tertahan', 'GP RPA', '−62,6 jt belum bisa dirilis', RED]],
+    tasks: [
+      { id: 'wp', t: 'WP potong · batch 26 Agu', due: 'Tenggat Kam 27 Agu 12.00 · diunggah 08.47', st: 'fail', impact: 'Lot 26 Agu 5.332 kg karkas masih estimasi; biaya/kg untuk Commercial belum update.' },
+      { id: 'agro', t: 'Output batch AGRO28–30', due: 'Terlambat sejak Sab 22 Agu', st: 'late', impact: 'Biaya 3 batch belum teralokasi ke SKU; stok dari batch itu memakai biaya penerimaan.' },
+      { id: 'fak', t: 'Faktur supplier LB 24–30 Agu', due: 'Saat faktur masuk · 1 dari 3', st: 'wait', impact: 'Biaya tetap sementara sampai faktur tie ke GL.' },
+      { id: 'oh', t: 'Tarif overhead Agustus', due: 'Tutup buku · Sen 31 Agu', st: 'todo', impact: 'Dipakai untuk biaya final dan revaluasi stok.' },
+    ],
+    panel: { wp: { title: 'Upload WP potong · batch 26 Agu', file: 'WP_potong_260826.xlsx · 16 baris', checks: [
+      ['ok', 'kg LB sesuai batch', '7.512 di WP vs 7.461 rencana (+0,7%)', 'lolos'],
+      ['ok', 'Ekor', '3.902 di WP vs 3.870 rencana', 'lolos'],
+      ['warn', 'Susut', '6,1% vs target 3,0%', 'ditandai ke PPIC'],
+      ['fail', 'Σ SKU vs hasil potong', '5.071 vs 5.512 kg, selisih 8,0% (batas 3%)', 'perlu penjelasan'],
+      ['fail', 'Kode SKU terpetakan', '14 dari 16 baris', '2 baris'],
+      ['info', 'Harga LB', 'faktur belum masuk; dipakai harga keputusan 24.600', 'status sementara'],
+    ], head: ['Kode', 'Nama di WP', 'kg', 'Cek', 'Tindakan'], rows: [
+      ['JLB0763', 'Karkas Uk 1.2 Fresh', '612,4', 'ok', ''], ['JLB0829', 'Karkas Uk 1.3 Fresh', '2.081,0', 'ok', ''], ['JLB0897', 'Karkas Uk 1.4 Fresh', '1.108,7', 'ok', ''],
+      ['X-HATI', 'Hati ampela', '401,2', 'fail', 'petakan ke HJA (Hati/Jantung/Ampela)'], ['KPL-01', 'Kepala ayam', '338,0', 'fail', 'petakan ke Kepala'], ['JLB0078', 'Ceker', '213,9', 'ok', ''],
+    ], save: 'Simpan 14 baris yang lolos', saved: '14 baris tersimpan · lot 26 Agu → sementara · PPIC dan Commercial diberi tahu', alt: 'Petakan 2 kode', note: 'Selisih hasil potong di atas 3% tetap harus diberi alasan (susut, timbangan, by-product tidak tercatat) sebelum batch bisa final. Baris gagal tidak ikut dihitung sampai dipetakan.' } },
+    form: { title: 'Tarif biaya per kg LB · Agustus', note: 'Perubahan di atas 5% atau di atas Rp 5 jt per minggu butuh persetujuan Finance. Tarif berlaku mulai tanggal yang dipilih; batch yang sudah final tidak dihitung ulang.', fields: [
+      ['Angkut + maklon', 'Rp/kg LB', '2.552', '2.552', 'tidak berubah', '—', MUTED],
+      ['Tarif overhead', 'Rp/kg LB · estimasi', '1.850', '2.010', 'COGS/kg karkas +Rp 224; COGS minggu ini +4,4 jt', 'Finance', AMBER],
+      ['Upah langsung', 'Rp/kg LB', '702', '702', 'tidak berubah', '—', MUTED],
+    ] },
+    history: [['26 Agu 09.12', 'WP batch 25 Agu', 'disimpan · sementara', GREEN], ['25 Agu 16.40', 'Faktur LB AGRO27', 'tie ke GL ✓ · batch 24 Agu final', GREEN], ['Menunggu Anda', 'Commercial', 'biaya/kg karkas fresh untuk harga lantai', RED], ['Menunggu Anda', 'Manajemen', 'GP RPA minggu ini untuk rilis', RED]],
+  },
+  sales: {
+    label: 'Sales', headline: 'PO kirim 27 Agu punya 811 kg karkas tanpa ukuran; PPIC akan membeli 568 ekor di kelas STD kalau tidak dilengkapi sebelum 12.00.',
+    sub: 'Satu PO BLP Frozen di bawah harga lantai menunggu persetujuan Kepala Sales. Komitmen minggu depan ditutup Jumat 17.00 di layar Commercial.',
+    cards: [['PO masuk minggu ini', '132', 'baris · 40.437 kg', '#1d2330'], ['Gagal cek', '2', 'baris perlu dilengkapi', RED], ['Karkas tanpa ukuran', '811 kg', 'kirim 27 Agu', RED], ['Menunggu approval', '1 PO', 'BLP Frozen −13,3 jt di bawah biaya', AMBER]],
+    tasks: [
+      { id: 'po', t: 'Upload PO · kirim 27–31 Agu', due: 'Tenggat Kam 27 Agu 12.00 · diunggah 09.05', st: 'fail', impact: 'Ukuran karkas menentukan kelas LB yang dibeli PPIC.' },
+      { id: 'appr', t: 'PO BLP Frozen di bawah lantai', due: 'Menunggu Kepala Sales', st: 'wait', impact: '3.229 kg @ 43.086 vs biaya 47.199; rugi 13,3 jt bila disetujui.' },
+      { id: 'kom', t: 'Usulan komitmen minggu depan', due: 'Jum 28 Agu 17.00 · di layar Commercial', st: 'todo', impact: 'Rencana PPIC Senin 31 Agu menunggu.' },
+    ],
+    panel: { po: { title: 'Upload PO · kirim 27–31 Agu', file: 'PO_270826.xlsx · 32 baris', checks: [
+      ['ok', 'Kode item terpetakan', '32 dari 32', 'lolos'],
+      ['fail', 'Ukuran karkas terisi', '30 dari 31 baris karkas', '1 baris'],
+      ['ok', 'Tanggal kirim ≥ besok', 'semua baris', 'lolos'],
+      ['warn', 'Harga ≥ lantai (biaya)', '31 dari 32', 'butuh approval'],
+      ['ok', 'Pelanggan sesuai assignment', 'semua baris', 'lolos'],
+    ], head: ['PO', 'Item', 'kg', 'Cek', 'Tindakan'], rows: [
+      ['KGR26.00341', 'Karkas (tanpa ukuran), kirim 27 Agu', '811,3', 'fail', 'pilih ukuran: 0.8 / 0.9 / 1.0 / 1.2 / 1.3 / 1.4 / 1.5'], ['KGR26.00349', 'Karkas Uk 1.3 Fresh, kirim 29 Agu', '1.755,0', 'ok', ''],
+      ['KGR26.00350', 'Karkas Uk 1.4 Fresh, kirim 29 Agu', '1.496,6', 'ok', ''], ['KGR26.00353', 'BLP Frozen, kirim 27 Agu', '3.229,2', 'warn', 'harga 43.086 < lantai 47.199 → approval'],
+      ['KGR26.00357', 'Karkas Uk 1.2, kirim 29 Agu', '302,8', 'ok', ''],
+    ], save: 'Simpan 30 baris yang lolos', saved: '30 baris tersimpan · demand PPIC diperbarui · baris di bawah lantai ke approval Kepala Sales', alt: 'Lengkapi ukuran', note: 'Baris tanpa ukuran tetap tersimpan sebagai order, tetapi PPIC menghitungnya dengan STD 2,0 kg dan menandainya merah di layar PPIC.' } },
+    form: { title: 'Lengkapi baris gagal', note: 'Ukuran per pelanggan bisa dijadikan default supaya PO berikutnya terisi otomatis.', fields: [
+      ['KGR26.00341 · ukuran', 'karkas kg/ekor', 'kosong', 'Uk 1.3', 'masuk kelas S; 601 ekor, bukan 568 di STD', 'Sales', GREEN],
+      ['Default ukuran pelanggan ini', 'untuk PO berikutnya', '—', 'Uk 1.3', 'PO baru terisi otomatis', 'Kepala Sales', AMBER],
+    ] },
+    history: [['27 Agu 09.05', 'Upload PO', '30 lolos · 2 perlu tindakan', AMBER], ['26 Agu 15.20', 'PO KGR26.00349–350', 'tersimpan', GREEN], ['Menunggu Anda', 'PPIC', 'ukuran KGR26.00341 untuk beli LB 12.00', RED]],
+  },
+  ppic: {
+    label: 'PPIC', headline: 'Yield per kelas berat masih placeholder dan kapasitas harian belum diisi; tombol "Salin ke batch" untuk potong 28 Agu tetap terkunci.',
+    sub: 'Tabel kelas berat baru berisi STD 2,0 kg. Kelas K, S dan B harus didaftarkan dulu sebelum yield per kelas bisa diunggah.',
+    cards: [['Tugas hari ini', '4', '1 terlambat', RED], ['Kelas berat terdaftar', '1 dari 3', 'baru STD 2,0 kg', RED], ['Yield', 'placeholder', 'sejak 20 Agu (C42)', AMBER], ['Yang tertahan', 'Rencana harian', 'potong 28 Agu', RED]],
+    tasks: [
+      { id: 'yield', t: 'Yield per kelas berat K / S / B', due: 'Terlambat sejak 20 Agu', st: 'late', impact: 'kg LB per kelas dan biaya rencana memakai satu yield untuk semua kelas.' },
+      { id: 'cap', t: 'Kapasitas harian line potong', due: 'Sebelum Jum 28 Agu', st: 'todo', impact: 'Rencana harian tidak bisa dicek apakah muat.' },
+      { id: 'sup', t: 'Supply LB per kelas (dari Purchasing)', due: 'Harian 12.00', st: 'wait', impact: 'Rencana kelas tidak bisa dicocokkan dengan pasokan.' },
+      { id: 'batch', t: 'Batch rencana potong 28 Agu', due: 'Hari ini 14.00', st: 'todo', impact: 'Menunggu tiga input di atas.' },
+    ],
+    panel: { yield: { title: 'Upload yield per kelas berat', file: 'yield_kelas_KSB.xlsx · 18 baris', checks: [
+      ['fail', 'Kelas terdaftar', 'K, S, B belum ada di tabel kelas berat', 'daftarkan dulu'],
+      ['ok', 'Σ yield per kelas ≤ 100%', 'K 96,8% · S 97,1% · B 97,4%', 'lolos'],
+      ['ok', 'Yield karkas di 68–76%', 'K 70,2% · S 71,5% · B 72,4%', 'lolos'],
+      ['warn', 'vs actual 4 minggu', 'karkas actual 73,8% (semua kelas)', 'selisih 1,4–3,6 pp'],
+    ], head: ['Kelas', 'Isi', 'Yield karkas', 'Cek', 'Tindakan'], rows: [
+      ['K', '1,3–1,5 kg', '70,2%', 'fail', 'daftarkan kelas K'], ['S', '1,7–1,9 kg', '71,5%', 'fail', 'daftarkan kelas S'], ['B', '2,0–2,2 kg', '72,4%', 'fail', 'daftarkan kelas B'],
+    ], save: 'Daftarkan K, S, B lalu simpan', saved: '3 kelas terdaftar · 18 baris yield tersimpan · kg LB per kelas dihitung ulang', alt: 'Lihat actual per batch', note: 'Yield per kelas menggantikan placeholder C42. Setelah tersimpan, layar PPIC menghitung ulang kg LB per kelas dan biaya rencana.' } },
+    form: { title: 'Kapasitas dan pasokan · potong 28 Agu', note: 'Kapasitas diisi PPIC; supply LB per kelas diisi Purchasing setelah harga diputuskan Direktur Operasional.', fields: [
+      ['Kapasitas line', 'ekor per hari', 'belum diisi', '4.200', 'potong 26 Agu (3.870) dan 28 Agu (3.465) muat', 'PPIC', GREEN],
+      ['Supply LB kelas S', 'kg LB · 28 Agu', 'belum diisi', '2.400', 'kebutuhan 2.456 kg; kurang 56 kg', 'Purchasing', AMBER],
+      ['Supply LB kelas B', 'kg LB · 28 Agu', 'belum diisi', '2.200', 'kebutuhan 2.178 kg; cukup', 'Purchasing', GREEN],
+    ] },
+    history: [['26 Agu 10.02', 'Batch rencana 27 Agu', 'disimpan · 27.219 kg LB', GREEN], ['Menunggu Anda', 'Commercial', 'jawaban surplus karkas 6.332 kg', AMBER], ['Menunggu Anda', 'Cost Accounting', 'penjelasan susut 6,1%', AMBER]],
+  },
+  fin: {
+    label: 'Finance', headline: 'Rilis minggu 24–30 Agu tertahan: WP 26 Agu belum lolos, jurnal 25 Agu kosong, dan beban tetap Agustus belum dijadwalkan.',
+    sub: 'Kelengkapan data dicek sebelum rilis. Merah = lewat tenggat, kuning = masuk dengan catatan.',
+    cards: [['Siap rilis', 'belum', '3 dari 9 input bermasalah', RED], ['Jurnal Accurate', 's.d. 26 Agu', '25 Agu kosong (anomali)', AMBER], ['Beban tetap Agustus', 'estimasi', '87,0 jt dari Juli', AMBER], ['Register asumsi', '0 dari 6', 'disepakati', RED]],
+    tasks: [
+      { id: 'grid', t: 'Kelengkapan data minggu ini', due: 'Sebelum rilis Jum 28 Agu', st: 'warn', impact: '3 input bermasalah menahan rilis.' },
+      { id: 'fix', t: 'Jadwal beban tetap Agustus', due: 'Sebelum outlook bulan', st: 'todo', impact: 'NIBT outlook −7,8 jt memakai estimasi Juli.' },
+      { id: 'bud', t: 'Budget Agustus', due: 'Belum ada tenggat', st: 'todo', impact: 'Baris vs budget kosong di semua layar.' },
+    ],
+    panel: { grid: { title: 'Kelengkapan data · 21–27 Agu', file: 'diperbarui 09.30', grid: true, note: 'Rilis aktif bila tidak ada sel merah untuk minggu yang dirilis, atau sel merah sudah diberi alasan dan disetujui Finance.' } },
+    form: { title: 'Jadwal beban tetap · Agustus', note: 'Jurnal gaji, penyusutan dan bunga baru masuk saat tutup buku. Jadwal ini dipakai di baris "Beban tetap belum dijurnal" pada laba rugi, dibagi per hari kalender.', fields: [
+      ['Gaji dan tunjangan', 'Rp jt · payroll', '52,2 (Juli)', '85,6', 'NIBT outlook −7,8 → −41,2', 'Finance', RED],
+      ['Penyusutan', 'Rp jt · jadwal aset', '10,4', '10,4', 'tidak berubah', '—', MUTED],
+      ['Bunga pinjaman', 'Rp jt · jadwal pinjaman', '24,4 (Juli)', '31,9', 'NIBT outlook turun 7,5 jt lagi', 'Finance', AMBER],
+    ] },
+    history: [['27 Agu 09.30', 'Kelengkapan data', '3 merah', RED], ['26 Agu 17.00', 'Rencana kas', 'disimpan', GREEN], ['Menunggu Anda', 'Manajemen', 'rilis minggu 24–30 Agu', RED]],
+  },
+};
+
+const GRID_DAYS = ['Jum 21', 'Sab 22', 'Sen 24', 'Sel 25', 'Rab 26', 'Kam 27'];
+const GRID = [
+  ['Jurnal Accurate', 'Inventory Acc', ['g', 'g', 'g', 'y', 'g', 'n']],
+  ['WP potong', 'Cost Acc', ['g', 'r', 'g', 'g', 'r', 'n']],
+  ['Faktur LB', 'Cost Acc', ['g', 'g', 'y', 'n', 'n', 'n']],
+  ['PO', 'Sales', ['g', 'g', 'g', 'g', 'g', 'y']],
+  ['Harga LB', 'Purchasing', ['g', 'g', 'g', 'g', 'g', 'g']],
+  ['Supply LB per kelas', 'Purchasing', ['r', 'r', 'r', 'r', 'r', 'n']],
+  ['Batch rencana', 'PPIC', ['g', 'g', 'g', 'g', 'g', 'n']],
+  ['Rencana kas', 'Finance', ['g', 'n', 'g', 'g', 'g', 'n']],
+];
+const CELL = { g: ['#dff3e8', '✓'], y: ['#fff3d6', '!'], r: ['#fbe3e7', '✕'], n: ['#f0f1f4', ''] };
+
+const ITEMS = {"JLB0055":["Parting Parting 10 Fresh Premium","RPA|Paha (parting)|Fresh"],"JLB0078":["Boneless BL Fresh Ceker","RPA|Ceker|Fresh"],"JLB0080":["Boneless BL Fresh HJA","RPA|HJA|Fresh"],"JLB0081":["Boneless BL Fresh HJA - Ampela","RPA|HJA|Fresh"],"JLB0084":["Boneless BL Fresh HJA - Hati","RPA|HJA|Fresh"],"JLB0087":["Boneless BL Fresh HJA - Jantung","RPA|HJA|Fresh"],"JLB0092":["Boneless BL Fresh Kepala","RPA|Kepala|Fresh"],"JLB0104":["Boneless BL Fresh KRK","RPA|Kerangka|Fresh"],"JLB0113":["Boneless BL Fresh KRK - Tungir KRK","RPA|Kerangka|Fresh"],"JLB0116":["Boneless BL Fresh Kulit","RPA|Kulit|Fresh"],"JLB0118":["Boneless BL Fresh Lemak","RPA|Lemak|Fresh"],"JLB0120":["Boneless BL Fresh Sayap Grade A","RPA|Sayap|Fresh"],"JLB0122":["Boneless BL Fresh Sayap Grade C","RPA|Sayap|Fresh"],"JLB0124":["Boneless BL Fresh Sayap Premium","RPA|Sayap|Fresh"],"JLB0125":["Boneless BL Fresh TLP","RPA|TLP|Fresh"],"JLB0135":["Boneless BL Fresh Usus Kotor","RPA|Usus|Fresh"],"JLB0138":["Boneless BL Frozen Ceker","RPA|Ceker|Frozen"],"JLB0140":["Boneless BL Frozen HJA","RPA|HJA|Frozen"],"JLB0141":["Boneless BL Frozen HJA - Ampela","RPA|HJA|Frozen"],"JLB0144":["Boneless BL Frozen HJA - Hati","RPA|HJA|Frozen"],"JLB0147":["Boneless BL Frozen HJA - Jantung","RPA|HJA|Frozen"],"JLB0152":["Boneless BL Frozen Kepala","RPA|Kepala|Frozen"],"JLB0164":["Boneless BL Frozen KRK","RPA|Kerangka|Frozen"],"JLB0170":["Boneless BL Frozen KRK - Tulang Muda","RPA|Kerangka|Frozen"],"JLB0172":["Boneless BL Frozen KRK - Tungir KRK","RPA|Kerangka|Frozen"],"JLB0175":["Boneless BL Frozen Kulit","RPA|Kulit|Frozen"],"JLB0177":["Boneless BL Frozen Lemak","RPA|Lemak|Frozen"],"JLB0179":["Boneless BL Frozen Sayap Grade A","RPA|Sayap|Frozen"],"JLB0181":["Boneless BL Frozen Sayap Grade C","RPA|Sayap|Frozen"],"JLB0183":["Boneless BL Frozen Sayap Premium","RPA|Sayap|Frozen"],"JLB0184":["Boneless BL Frozen TLP","RPA|TLP|Frozen"],"JLB0194":["Boneless BL Frozen Usus Kotor","RPA|Usus|Frozen"],"JLB0198":["Boneless BLD Fresh Premium","RPA|BLD|Fresh"],"JLB0200":["Boneless BLD Frozen Grade B","RPA|BLD|Frozen"],"JLB0201":["Boneless BLD Frozen Premium","RPA|BLD|Frozen"],"JLB0204":["Boneless BLDK Fresh Premium","RPA|BLDK|Fresh"],"JLB0210":["Boneless BLP Fresh Premium","RPA|BLP|Fresh"],"JLB0211":["Boneless BLP Frozen Grade A","RPA|BLP|Frozen"],"JLB0212":["Boneless BLP Frozen Grade D","RPA|BLP|Frozen"],"JLB0213":["Boneless BLP Frozen Premium","RPA|BLP|Frozen"],"JLB0216":["Boneless BLPK Fresh Premium","RPA|BLPK|Fresh"],"JLB0219":["Boneless BLPK Frozen Premium","RPA|BLPK|Frozen"],"JLB0272":["Karkas Uk 0.4 Karkas Uk 0.4 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0338":["Karkas Uk 0.5 Karkas Uk 0.5 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0403":["Karkas Uk 0.6 Karkas Uk 0.6 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0468":["Karkas Uk 0.7 Karkas Uk 0.7 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0533":["Karkas Uk 0.8 Karkas Uk 0.8 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0593":["Karkas Uk 0.9 Karkas Uk 0.9 Fresh Premium","RPA|Karkas|Fresh"],"JLB0598":["Karkas Uk 0.9 Karkas Uk 0.9 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0599":["Karkas Uk 0.9 Karkas Uk 0.9 Frozen Grade B","RPA|Karkas|Frozen"],"JLB0658":["Karkas Uk 1.0 Karkas Uk 1.0 Fresh Premium","RPA|Karkas|Fresh"],"JLB0663":["Karkas Uk 1.0 Karkas Uk 1.0 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0690":["Karkas Uk 1.0 Karkas Uk 1.0 Frozen Premium","RPA|Karkas|Frozen"],"JLB0697":["Karkas Uk 1.1 Karkas Uk 1.1 Fresh Grade A","RPA|Karkas|Fresh"],"JLB0724":["Karkas Uk 1.1 Karkas Uk 1.1 Fresh Premium","RPA|Karkas|Fresh"],"JLB0729":["Karkas Uk 1.1 Karkas Uk 1.1 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0756":["Karkas Uk 1.1 Karkas Uk 1.1 Frozen Premium","RPA|Karkas|Frozen"],"JLB0763":["Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A","RPA|Karkas|Fresh"],"JLB0790":["Karkas Uk 1.2 Karkas Uk 1.2 Fresh Premium","RPA|Karkas|Fresh"],"JLB0795":["Karkas Uk 1.2 Karkas Uk 1.2 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0822":["Karkas Uk 1.2 Karkas Uk 1.2 Frozen Premium","RPA|Karkas|Frozen"],"JLB0829":["Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A","RPA|Karkas|Fresh"],"JLB0856":["Karkas Uk 1.3 Karkas Uk 1.3 Fresh Premium","RPA|Karkas|Fresh"],"JLB0861":["Karkas Uk 1.3 Karkas Uk 1.3 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0888":["Karkas Uk 1.3 Karkas Uk 1.3 Frozen Premium","RPA|Karkas|Frozen"],"JLB0922":["Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium","RPA|Karkas|Fresh"],"JLB0927":["Karkas Uk 1.4 Karkas Uk 1.4 Frozen Grade A","RPA|Karkas|Frozen"],"JLB0954":["Karkas Uk 1.4 Karkas Uk 1.4 Frozen Premium","RPA|Karkas|Frozen"],"JLB0988":["Karkas Uk 1.5 Karkas Uk 1.5 Fresh Premium","RPA|Karkas|Fresh"],"JLB0993":["Karkas Uk 1.5 Karkas Uk 1.5 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1020":["Karkas Uk 1.5 Karkas Uk 1.5 Frozen Premium","RPA|Karkas|Frozen"],"JLB1054":["Karkas Uk 1.6 Karkas Uk 1.6 Fresh Premium","RPA|Karkas|Fresh"],"JLB1059":["Karkas Uk 1.6 Karkas Uk 1.6 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1086":["Karkas Uk 1.6 Karkas Uk 1.6 Frozen Premium","RPA|Karkas|Frozen"],"JLB1120":["Karkas Uk 1.7 Karkas Uk 1.7 Fresh Premium","RPA|Karkas|Fresh"],"JLB1125":["Karkas Uk 1.7 Karkas Uk 1.7 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1152":["Karkas Uk 1.7 Karkas Uk 1.7 Frozen Premium","RPA|Karkas|Frozen"],"JLB1192":["Karkas Uk 1.8 Karkas Uk 1.8 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1218":["Karkas Uk 1.8 Karkas Uk 1.8 Frozen Premium","RPA|Karkas|Frozen"],"JLB1257":["Karkas Uk 1.9 Karkas Uk 1.9 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1284":["Karkas Uk 1.9 Karkas Uk 1.9 Frozen Premium","RPA|Karkas|Frozen"],"JLB1323":["Karkas Uk 2.0 Karkas Uk 2.0 Frozen Grade A","RPA|Karkas|Frozen"],"JLB1350":["Karkas Uk 2.0 Karkas Uk 2.0 Frozen Premium","RPA|Karkas|Frozen"],"JLB1795":["usus bersih Usus bersih Fresh","RPA|Usus|Fresh"],"JLB1847-FRS":["Paha Utuh Fresh","RPA|Paha (parting)|Fresh"],"JLB1848":["Paha Bawah Fresh","RPA|Paha (parting)|Fresh"],"JLB1850":["Paha Bawah Frozen","RPA|Paha (parting)|Frozen"],"JLB1855":["Boneless BL Frozen Ceker Grade B","RPA|Ceker|Frozen"],"JLB1857":["Ayam Karkas Mix","RPA|Karkas|n/a"],"JLB1858":["Karkas Uk 0.9 Frozen Premium","RPA|Karkas|Frozen"],"JLB1859":["Karkas Uk 0.8 Frozen Premium","RPA|Karkas|Frozen"],"JLB1862":["Paha Atas Frozen","RPA|Paha (parting)|Frozen"],"JLB1864":["Karkas Uk 0.4 Karkas Uk 0.4 Frozen Premium","RPA|Karkas|Frozen"],"JLB1865":["Karkas Uk 0.5 Karkas Uk 0.5 Frozen Premium","RPA|Karkas|Frozen"],"JLB1866":["Karkas Uk 0.6 Karkas Uk 0.6 Frozen Premium","RPA|Karkas|Frozen"],"JLB1867":["Karkas Uk 0.7 Karkas Uk 0.7 Frozen Premium","RPA|Karkas|Frozen"],"TRD0001":["Kulit Leher","Trading|Kulit|n/a"],"TRD0003":["Kulit Body Frozen","Trading|Kulit|Frozen"],"TRD0004":["Hati Bersih","Trading|HJA|n/a"],"TRD0005":["Ampela Bersih","Trading|HJA|n/a"],"TRD0006":["Boneless Dada","Trading|BLD|n/a"],"TRD0007":["Usus Bersih Fresh","Trading|Usus|Fresh"],"TRD0008":["BLD Frozen","Trading|BLD|Frozen"],"TRD0010":["BLP Frozen","Trading|BLP|Frozen"],"TRD0012":["BLPK Frozen","Trading|BLPK|Frozen"],"TRD0018":["Jantung Bersih","Trading|HJA|n/a"],"TRD0019":["Karkas Uk 0.6","Trading|Karkas|n/a"],"TRD0020":["Karkas Uk 0.7","Trading|Karkas|n/a"],"TRD0021":["Karkas Uk 0.8","Trading|Karkas|n/a"],"TRD0022":["Karkas Uk 0.9","Trading|Karkas|n/a"],"TRD0023":["Karkas Uk 1.0","Trading|Karkas|n/a"],"TRD0024":["Karkas Uk 1.1","Trading|Karkas|n/a"],"TRD0025":["Karkas Uk 1.2","Trading|Karkas|n/a"],"TRD0026":["Karkas Uk 1.3","Trading|Karkas|n/a"],"TRD0027":["Karkas Uk 1.4","Trading|Karkas|n/a"],"TRD0028":["Karkas Uk 1.5","Trading|Karkas|n/a"],"TRD0029":["Karkas Uk 1.6","Trading|Karkas|n/a"],"TRD0030":["Karkas Uk 1.7","Trading|Karkas|n/a"],"TRD0031":["Karkas Uk 1.8","Trading|Karkas|n/a"],"TRD0032":["Karkas Uk 1.9","Trading|Karkas|n/a"],"TRD0034":["KRK","Trading|Kerangka|n/a"],"TRD0036":["Karkas Uk 0.5","Trading|Karkas|n/a"],"TRD0037":["Karkas Uk 0.3","Trading|Karkas|n/a"],"TRD0038":["Karkas Uk 0.4","Trading|Karkas|n/a"],"TRD0039":["Sayap","Trading|Sayap|n/a"]};
+const FLOOR = {"Trading|Karkas|n/a":30066,"RPA|Karkas|Frozen":35153,"Trading|Kerangka|n/a":10311,"Trading|BLP|Frozen":47199,"RPA|Karkas|Fresh":37400,"Trading|BLD|Frozen":39097,"RPA|HJA|Fresh":3806,"Trading|HJA|n/a":4860,"Trading|Kulit|Frozen":26381,"RPA|Usus|Fresh":3476,"RPA|Kepala|Frozen":7797,"Trading|Kulit|n/a":21000,"RPA|Ceker|Frozen":8269,"RPA|Kulit|Frozen":24255,"RPA|Ceker|Fresh":15996,"RPA|Sayap|Frozen":26299,"RPA|TLP|Frozen":1928,"RPA|Karkas|n/a":27098,"RPA|Sayap|Fresh":11875,"RPA|Kerangka|Fresh":4338,"RPA|Lemak|Frozen":25478,"RPA|Kulit|Fresh":3829,"RPA|Lemak|Fresh":10375,"RPA|HJA|Frozen":358,"RPA|Kepala|Fresh":13368,"RPA|Kerangka|Frozen":21170};
+const TODAY = '2026-08-27';
+const KELAS_TERDAFTAR = ['STD'];
+const KELAS_RANGE = [['K', 1.3, 1.6], ['S', 1.6, 2.0], ['B', 2.0, 2.3]];
+const TPL = {
+  po: { name: 'template_PO.xlsx', cols: [['no_po', true], ['tanggal_kirim', true], ['kode_item', true], ['kg', true], ['harga', true], ['pelanggan', false]],
+    hint: 'Kolom: no_po, tanggal_kirim (YYYY-MM-DD), kode_item (kode Accurate), kg, harga (Rp/kg), pelanggan. Baris 1 = judul kolom.',
+    sample: [['no_po', 'tanggal_kirim', 'kode_item', 'kg', 'harga', 'pelanggan'], ['KGR26.00341', '2026-08-27', 'JLB1857', 811.3, 30000, 'Pelanggan A'], ['KGR26.00349', '2026-08-29', 'JLB0829', 1755.0, 36705, 'Pelanggan B'], ['KGR26.00350', '2026-08-29', 'JLB0922', 1496.6, 36705, 'Pelanggan B'], ['KGR26.00353', '2026-08-27', 'TRD0010', 3229.2, 43086, 'Pelanggan C'], ['KGR26.00357', '2026-08-29', 'JLB0763', 302.8, 36705, 'Pelanggan D'], ['KGR26.00360', '2026-08-26', 'JLB0763', 120.0, 36705, 'Pelanggan E'], ['KGR26.00361', '2026-08-31', 'X-999', 50.0, 0, 'Pelanggan F']] },
+  wp: { name: 'template_WP_potong.xlsx', cols: [['batch', true], ['kg_lb', true], ['ekor', true], ['kode_item', true], ['kg', true]],
+    hint: 'Kolom: batch, kg_lb dan ekor (cukup di baris pertama tiap batch), kode_item, kg hasil per SKU. Baris 1 = judul kolom.',
+    sample: [['batch', 'kg_lb', 'ekor', 'kode_item', 'kg'], ['B260826', 7512, 3902, 'JLB0763', 612.4], ['B260826', '', '', 'JLB0829', 2081.0], ['B260826', '', '', 'JLB0922', 1108.7], ['B260826', '', '', 'JLB0856', 1710.0], ['B260826', '', '', 'X-HATI', 401.2], ['B260826', '', '', 'KPL-01', 338.0], ['B260826', '', '', 'JLB0078', 213.9], ['B260826', '', '', 'JLB0135', 317.6]] },
+  yield: { name: 'template_yield_kelas.xlsx', cols: [['kelas', true], ['kunci', true], ['yield_pct', true]],
+    hint: 'Kolom: kelas (K/S/B), kunci (Karkas, Kepala, Ceker, Usus, HJA, Lemak), yield_pct (0,715 atau 71,5). Baris 1 = judul kolom.',
+    sample: [['kelas', 'kunci', 'yield_pct'], ['K', 'Karkas', 70.2], ['K', 'Kepala', 4.8], ['K', 'Ceker', 3.1], ['K', 'Usus', 4.3], ['K', 'HJA', 5.6], ['K', 'Lemak', 1.2], ['S', 'Karkas', 71.5], ['S', 'Kepala', 4.5], ['S', 'Ceker', 2.9], ['S', 'Usus', 4.2], ['S', 'HJA', 5.4], ['S', 'Lemak', 1.4], ['B', 'Karkas', 72.4], ['B', 'Kepala', 4.3], ['B', 'Ceker', 2.8], ['B', 'Usus', 4.1], ['B', 'HJA', 5.3], ['B', 'Lemak', 1.5]] },
+};
+const UP_NF1 = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const UP_NF0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
+const u1 = (x) => UP_NF1.format(x);
+const u0 = (x) => UP_NF0.format(Math.round(x));
+function upNum(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v == null ? '' : v).trim().replace(/\s|Rp/gi, '');
+  if (!s) return NaN;
+  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  else if (s.indexOf(',') >= 0) s = s.replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  return Number(s);
+}
+function upDate(v) {
+  if (v instanceof Date) { const d = new Date(v.getTime() + 12 * 3600 * 1000); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0'); }
+  if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+  const s = String(v == null ? '' : v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+  m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/); if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  return '';
+}
+function upHeader(aoa, kind) {
+  const head = (aoa[0] || []).map((h) => String(h).trim().toLowerCase().replace(/\s+/g, '_'));
+  const idx = {}; const missing = [];
+  TPL[kind].cols.forEach(([c, req]) => { const i = head.indexOf(c); idx[c] = i; if (i < 0 && req) missing.push(c); });
+  const body = aoa.slice(1).filter((r) => r.some((c) => String(c).trim() !== ''));
+  return { idx, missing, body };
+}
+const chk = (k, t, d, r) => [k, t, d, r];
+
+function validate(kind, aoa) {
+  const { idx, missing, body } = upHeader(aoa, kind);
+  if (missing.length) return { checks: [chk('fail', 'Kolom wajib', 'tidak ditemukan: ' + missing.join(', '), 'perbaiki judul kolom')], rows: [], ok: 0, total: body.length, summary: 'File tidak bisa dicek: judul kolom tidak sesuai template.' };
+  const g = (r, c) => (idx[c] >= 0 ? r[idx[c]] : '');
+  if (kind === 'po') {
+    let mapped = 0, needSize = 0, sized = 0, dateOk = 0, numOk = 0, floorOk = 0, okRows = 0, kgOk = 0, kgAll = 0;
+    const rows = body.map((r) => {
+      const code = String(g(r, 'kode_item')).trim(); const it = ITEMS[code]; const kg = upNum(g(r, 'kg')); const price = upNum(g(r, 'harga')); const date = upDate(g(r, 'tanggal_kirim'));
+      const issues = []; let level = 'ok';
+      if (it) mapped++; else { issues.push('kode tidak dikenal: petakan di master item'); level = 'fail'; }
+      if (it && it[1] === 'RPA|Karkas|Fresh' || it && it[1] === 'RPA|Karkas|n/a') { needSize++; if (/Uk \d\.\d/.test(it[0])) sized++; else { issues.push('ukuran karkas kosong: pilih Uk 0.8–1.5'); level = 'fail'; } }
+      if (date && date >= TODAY) dateOk++; else { issues.push(date ? 'tanggal kirim ' + date + ' sudah lewat' : 'tanggal kirim tidak terbaca'); level = 'fail'; }
+      if (kg > 0 && price > 0) numOk++; else { issues.push(!(kg > 0) ? 'kg kosong' : 'harga kosong'); level = 'fail'; }
+      const fl = it ? FLOOR[it[1]] : null;
+      if (it && fl && price > 0 && price < fl) { issues.push('harga ' + u0(price) + ' < lantai ' + u0(fl) + ': approval Kepala Sales'); if (level === 'ok') level = 'warn'; } else floorOk++;
+      if (kg > 0) kgAll += kg;
+      if (level !== 'fail') { okRows++; kgOk += kg > 0 ? kg : 0; }
+      return [String(g(r, 'no_po')), it ? it[0] + ' · kirim ' + (date || '?') : code + ' (tidak dikenal)', kg > 0 ? u1(kg) : '—', level, issues.join('; ')];
+    });
+    const n = body.length;
+    return { total: n, ok: okRows, rows, checks: [
+      chk('ok', 'Kolom wajib', 'lengkap', 'lolos'),
+      chk(mapped === n ? 'ok' : 'fail', 'Kode item terpetakan', mapped + ' dari ' + n, mapped === n ? 'lolos' : (n - mapped) + ' baris'),
+      chk(sized === needSize ? 'ok' : 'fail', 'Ukuran karkas RPA terisi', sized + ' dari ' + needSize + ' baris karkas', sized === needSize ? 'lolos' : (needSize - sized) + ' baris'),
+      chk(dateOk === n ? 'ok' : 'fail', 'Tanggal kirim ≥ hari ini', dateOk + ' dari ' + n, dateOk === n ? 'lolos' : (n - dateOk) + ' baris'),
+      chk(numOk === n ? 'ok' : 'fail', 'kg dan harga terisi', numOk + ' dari ' + n, numOk === n ? 'lolos' : (n - numOk) + ' baris'),
+      chk(floorOk === n ? 'ok' : 'warn', 'Harga ≥ lantai (biaya)', floorOk + ' dari ' + n, floorOk === n ? 'lolos' : 'butuh approval'),
+    ], summary: okRows + ' dari ' + n + ' baris bisa disimpan (' + u1(kgOk) + ' kg dari ' + u1(kgAll) + ' kg). Baris gagal ditahan sampai diperbaiki.' };
+  }
+  if (kind === 'wp') {
+    const batches = {}; let mapped = 0;
+    const rows = body.map((r) => {
+      const b = String(g(r, 'batch')).trim() || '?'; const code = String(g(r, 'kode_item')).trim(); const it = ITEMS[code]; const kg = upNum(g(r, 'kg'));
+      const B = batches[b] || (batches[b] = { kgLb: NaN, ekor: NaN, out: 0, karkas: 0, okKg: 0 });
+      const lb = upNum(g(r, 'kg_lb')); const ek = upNum(g(r, 'ekor')); if (lb > 0) B.kgLb = lb; if (ek > 0) B.ekor = ek;
+      const issues = []; let level = 'ok';
+      if (it) mapped++; else { issues.push('kode tidak dikenal: petakan di master item'); level = 'fail'; }
+      if (!(kg > 0)) { issues.push('kg kosong'); level = 'fail'; }
+      if (kg > 0) { B.out += kg; if (it && it[1].indexOf('|Karkas|') > 0) B.karkas += kg; if (level === 'ok') B.okKg += kg; }
+      return [code, it ? it[0] : '(tidak dikenal)', kg > 0 ? u1(kg) : '—', level, issues.join('; ')];
+    });
+    const checks = [chk('ok', 'Kolom wajib', 'lengkap', 'lolos'), chk(mapped === body.length ? 'ok' : 'fail', 'Kode SKU terpetakan', mapped + ' dari ' + body.length + ' baris', mapped === body.length ? 'lolos' : (body.length - mapped) + ' baris')];
+    let okRows = rows.filter((r) => r[3] !== 'fail').length;
+    Object.keys(batches).forEach((b) => {
+      const B = batches[b];
+      if (!(B.kgLb > 0) || !(B.ekor > 0)) { checks.push(chk('fail', 'Batch ' + b, 'kg_lb atau ekor kosong', 'isi di baris pertama')); return; }
+      const avg = B.kgLb / B.ekor; const cls = (KELAS_RANGE.find((k) => avg >= k[1] && avg < k[2]) || ['di luar K/S/B'])[0];
+      checks.push(chk('info', 'Batch ' + b + ' · rata-rata LB', u1(B.kgLb) + ' kg / ' + u0(B.ekor) + ' ekor = ' + avg.toFixed(2).replace('.', ',') + ' kg/ekor', 'kelas ' + cls));
+      const expect = B.kgLb * 0.97; const gap = 1 - B.out / expect;
+      checks.push(chk(Math.abs(gap) <= 0.03 ? 'ok' : 'fail', 'Σ SKU vs hasil potong', u1(B.out) + ' vs ' + u1(expect) + ' kg (LB − susut 3%), selisih ' + u1(gap * 100) + '%', Math.abs(gap) <= 0.03 ? 'lolos' : 'perlu penjelasan'));
+      const ky = B.karkas / B.kgLb;
+      checks.push(chk(ky >= 0.68 && ky <= 0.76 ? 'ok' : 'warn', 'Yield karkas', u1(ky * 100) + '% (batas 68–76%)', ky >= 0.68 && ky <= 0.76 ? 'lolos' : 'cek timbangan'));
+    });
+    return { total: body.length, ok: okRows, rows, checks, summary: okRows + ' dari ' + body.length + ' baris bisa disimpan. Batch dengan selisih di atas 3% tetap berstatus sementara sampai diberi alasan.' };
+  }
+  const per = {}; const rowsY = [];
+  body.forEach((r) => { const k = String(g(r, 'kelas')).trim().toUpperCase(); let y = upNum(g(r, 'yield_pct')); if (y > 1) y = y / 100; const key = String(g(r, 'kunci')).trim(); const P = per[k] || (per[k] = { sum: 0, karkas: null, n: 0, bad: 0 }); P.n++; if (y >= 0) P.sum += y; else P.bad++; if (/^karkas$/i.test(key)) P.karkas = y; });
+  let okRows = 0;
+  const checks = [chk('ok', 'Kolom wajib', 'lengkap', 'lolos')];
+  const unreg = Object.keys(per).filter((k) => KELAS_TERDAFTAR.indexOf(k) < 0);
+  checks.push(chk(unreg.length ? 'fail' : 'ok', 'Kelas terdaftar', unreg.length ? unreg.join(', ') + ' belum ada di tabel kelas berat (baru STD)' : 'semua terdaftar', unreg.length ? 'daftarkan dulu' : 'lolos'));
+  Object.keys(per).forEach((k) => {
+    const P = per[k]; const sumOk = P.sum <= 1.0001 && !P.bad; const kOk = P.karkas !== null && P.karkas >= 0.68 && P.karkas <= 0.76; const reg = KELAS_TERDAFTAR.indexOf(k) >= 0;
+    const level = !sumOk || !reg ? 'fail' : kOk ? 'ok' : 'warn'; if (level !== 'fail') okRows += P.n;
+    const acts = []; if (!reg) acts.push('daftarkan kelas ' + k); if (!sumOk) acts.push('Σ yield > 100% atau ada angka kosong'); if (!kOk) acts.push('yield karkas di luar 68–76%');
+    rowsY.push([k, P.n + ' kunci', P.karkas === null ? '—' : u1(P.karkas * 100) + '%', level, acts.join('; ') || 'Σ ' + u1(P.sum * 100) + '%']);
+  });
+  const sums = Object.keys(per).map((k) => k + ' ' + u1(per[k].sum * 100) + '%').join(' · ');
+  checks.push(chk(Object.keys(per).every((k) => per[k].sum <= 1.0001) ? 'ok' : 'fail', 'Σ yield per kelas ≤ 100%', sums, 'per kelas'));
+  return { total: body.length, ok: okRows, rows: rowsY, checks, summary: okRows + ' dari ' + body.length + ' baris bisa disimpan. Yield menggantikan placeholder C42 setelah kelas terdaftar.' };
+}
+
+const KIND_OF = { cost: 'wp', sales: 'po', ppic: 'yield' };
+
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const role = st.role || 'cost';
+    const R = ROLES[role];
+    const task = st.task && R.tasks.some((t) => t.id === st.task) ? st.task : R.tasks[0].id;
+    const panelId = R.panel[task] ? task : Object.keys(R.panel)[0];
+    const P0 = R.panel[panelId];
+
+    const roleBtns = Object.keys(ROLES).map((id) => {
+      const n = ROLES[id].tasks.filter((t) => t.st === 'late' || t.st === 'fail').length;
+      return { label: ROLES[id].label, on: id === role ? 'true' : 'false', style: id === role ? BTN_ON : BTN_OFF, pick: () => this.setState({ role: id, task: null, saved: null }), badge: n ? String(n) : '', badgeStyle: n ? 'display: inline-block; min-width: 18px; border-radius: 999px; padding: 0 5px; margin-left: 4px; font-size: 11px; font-weight: 600; background: ' + (id === role ? '#ffffff' : RED) + '; color: ' + (id === role ? RED : '#ffffff') + ';' : 'display: none;' };
+    });
+
+    let col = 1;
+    const cards = R.cards.map(([t, v, s, c]) => { const box = CARD_BOX + col + ' / span 3;'; col += 3; return { t, v, s, box, vStyle: 'font-size: 26px; font-weight: 600; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; color: ' + c + ';' }; });
+
+    const tasks = R.tasks.map((t) => {
+      const on = t.id === task;
+      const [stl, stc] = ST[t.st];
+      return { t: t.t, due: t.due, impact: t.impact, st: stl, on: on ? 'true' : 'false', pick: () => this.setState({ task: t.id, saved: null }),
+        stStyle: 'font-size: 12px; font-weight: 600; white-space: nowrap; color: ' + stc + ';',
+        style: 'font: inherit; text-align: left; width: 100%; cursor: pointer; border-radius: 8px; padding: 8px 10px; background: ' + (on ? '#e6f0fa' : '#ffffff') + '; border: 1px solid ' + (on ? '#0f6cbd' : '#e3e6eb') + '; border-left: 4px solid ' + stc + '; color: #1d2330;' };
+    });
+
+    const hasPanel = !!R.panel[task];
+    const P = { title: hasPanel ? P0.title : P0.title, file: P0.file, note: hasPanel ? P0.note : 'Tugas ini dikerjakan di form di bawah atau di layar lain. Panel menampilkan upload terakhir yang terkait.', isGrid: !!P0.grid, isUpload: !P0.grid };
+
+    const kind = P0.grid ? null : KIND_OF[role];
+    const up = st.up && kind && st.up.kind === kind ? st.up : null;
+    const V = kind ? validate(kind, up ? up.aoa : TPL[kind].sample) : { checks: [], rows: [], ok: 0, total: 0, summary: '' };
+    if (kind) P.file = up ? up.name + ' · ' + V.total + ' baris dibaca' : 'contoh · ' + TPL[kind].name.replace('template_', '') + ' · ' + V.total + ' baris';
+    const err = st.upErr && st.upErr.kind === kind ? st.upErr.msg : '';
+    const upStatus = err || (kind ? V.summary : '');
+    const upStatusStyle = 'font-size: 12.5px; font-weight: 600; color: ' + (err ? RED : V.ok === V.total ? GREEN : '#1d2330') + ';';
+    const onFile = (e) => {
+      const file = e && e.target && e.target.files && e.target.files[0];
+      if (!file || !kind) return;
+      if (typeof XLSX === 'undefined') { this.setState({ upErr: { kind, msg: 'Pembaca Excel belum termuat. Salin sel dari Excel lalu tempel di kotak di bawah.' } }); return; }
+      file.arrayBuffer().then((buf) => {
+        const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+        this.setState({ up: { kind, name: file.name + ' (sheet ' + wb.SheetNames[0] + ')', aoa }, upErr: null, saved: null });
+      }).catch(() => this.setState({ upErr: { kind, msg: 'File tidak bisa dibaca. Simpan ulang sebagai .xlsx atau .csv.' } }));
+    };
+    const useSample = () => this.setState({ up: null, upErr: null, saved: null });
+    const onPasteText = (e) => { this._paste = e && e.target ? e.target.value : ''; };
+    const checkPaste = () => {
+      const txt = (this._paste || '').replace(/\r/g, '');
+      const aoa = txt.split('\n').filter((l) => l.trim() !== '').map((l) => l.split('\t'));
+      if (aoa.length < 2) { this.setState({ upErr: { kind, msg: 'Tempelan kosong atau hanya judul kolom.' } }); return; }
+      this.setState({ up: { kind, name: 'tempelan dari Excel', aoa }, upErr: null, saved: null });
+    };
+    const makeTpl = () => {
+      if (!kind) return;
+      if (typeof XLSX === 'undefined') { this.setState({ upErr: { kind, msg: 'Pembaca Excel belum termuat; template belum bisa dibuat.' } }); return; }
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(TPL[kind].sample.slice(0, 3)), 'data');
+      const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const url = URL.createObjectURL(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      this.setState({ tpl: { kind, url } });
+    };
+    const tplReady = !!(st.tpl && st.tpl.kind === kind);
+    const tplUrl = tplReady ? st.tpl.url : '';
+    const tplName = kind ? TPL[kind].name : '';
+    const tplHint = kind ? TPL[kind].hint : '';
+    const checks = (kind ? V.checks : (P0.checks || [])).map(([k, t, d, r]) => ({ icon: ICON[k][0], t, d, r, iStyle: 'display: inline-flex; width: 18px; height: 18px; border-radius: 999px; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #ffffff; background: ' + ICON[k][1] + ';', rStyle: 'font-size: 12px; font-weight: 600; white-space: nowrap; color: ' + ICON[k][1] + ';' }));
+    const RGRID = 'display: grid; grid-template-columns: minmax(90px, 1fr) minmax(170px, 2fr) minmax(70px, 0.8fr) minmax(60px, 0.6fr) minmax(170px, 2fr);';
+    const rowHead = { style: RGRID + ' color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb;', cells: (P0.head || []).map((h, i) => ({ v: h, s: 'padding: 6px 8px;' + (i === 2 ? ' text-align: right;' : '') })) };
+    const rows = (kind ? V.rows : (P0.rows || [])).map((r) => {
+      const ic = ICON[r[3]];
+      const bg = r[3] === 'fail' ? ' background: #fdf1f3;' : r[3] === 'warn' ? ' background: #fffaf0;' : '';
+      return { style: RGRID + ' border-bottom: 1px solid #f0f1f4;' + bg, cells: [
+        { v: r[0], s: 'padding: 5px 8px; font-weight: 600;' }, { v: r[1], s: 'padding: 5px 8px;' }, { v: r[2], s: 'padding: 5px 8px; text-align: right;' },
+        { v: ic[0], s: 'padding: 5px 8px; font-weight: 700; color: ' + ic[1] + ';' }, { v: r[4], s: 'padding: 5px 8px; font-size: 12px; color: ' + (r[3] === 'ok' ? MUTED : '#1d2330') + ';' },
+      ] };
+    });
+
+    const GG = 'display: grid; grid-template-columns: minmax(150px, 1.6fr) minmax(100px, 1fr) repeat(' + GRID_DAYS.length + ', minmax(50px, 0.6fr));';
+    const gridHead = { style: GG + ' color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb;', cells: [{ v: 'Input', s: 'padding: 6px 8px;' }, { v: 'Pemilik', s: 'padding: 6px 8px;' }].concat(GRID_DAYS.map((d) => ({ v: d, s: 'padding: 6px 4px; text-align: center;' }))) };
+    const gridRows = GRID.map(([l, o, cs]) => ({ style: GG + ' border-bottom: 1px solid #f0f1f4; align-items: center;', cells: [{ v: l, s: 'padding: 5px 8px; font-weight: 600;' }, { v: o, s: 'padding: 5px 8px; color: #69707d;' }].concat(cs.map((c) => ({ v: CELL[c][1], s: 'margin: 3px; padding: 4px 0; text-align: center; border-radius: 4px; font-weight: 700; background: ' + CELL[c][0] + '; color: ' + (c === 'r' ? RED : c === 'y' ? AMBER : GREEN) + ';' }))) }));
+
+    const saved = st.saved === role + ':' + panelId;
+    const actions = P0.grid
+      ? [{ label: 'Kirim pengingat ke 3 pemilik', style: BTN_ON, pick: () => this.setState({ saved: role + ':' + panelId }) }, { label: 'Rilis dengan alasan', style: BTN_OFF, pick: () => {} }]
+      : [{ label: saved ? 'Tersimpan' : (V.ok ? 'Simpan ' + V.ok + ' baris yang lolos' : 'Tidak ada baris yang lolos'), style: saved || !V.ok ? BTN_OFF : BTN_ON, pick: () => { if (V.ok) this.setState({ saved: role + ':' + panelId }); } }, { label: P0.alt, style: BTN_OFF, pick: () => {} }];
+    const savedMsg = saved ? (P0.grid ? 'Pengingat terkirim ke Cost Accounting, Inventory Accounting dan Purchasing' : V.ok + ' baris tersimpan · ' + P0.saved.replace(/^[^·]*· /, '')) : '';
+
+    const F = R.form;
+    const fields = F.fields.map(([l, u, old, nu, e, a, c]) => ({ l, u, old, nu, e, a, eStyle: 'padding: 5px 8px; font-size: 12px; color: ' + c + ';' + (c === MUTED ? '' : ' font-weight: 600;'), aStyle: 'padding: 5px 8px; font-size: 12px; color: #69707d;' }));
+    const history = R.history.map(([w, t, d, c]) => ({ w, t, d, tStyle: 'font-weight: 600; color: ' + (w === 'Menunggu Anda' ? c : '#1d2330') + ';' }));
+
+    return { roleBtns, R, cards, tasks, P, checks, rowHead, rows, gridHead, gridRows, actions, savedMsg, F, fields, history, onFile, useSample, onPasteText, checkPaste, makeTpl, tplReady, tplUrl, tplName, tplHint, upStatus, upStatusStyle };
+  }
+}
+</script>
+</body>
+</html>

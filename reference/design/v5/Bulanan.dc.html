@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KGR · Outlook bulan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#f4f5f7}
+a{color:#0f6cbd}a:hover{color:#0b5394}
+button:focus-visible,a:focus-visible{outline:2px solid #0f6cbd;outline-offset:2px}
+@media (max-width: 900px){
+.kgr-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;padding:12px 16px 24px !important}
+.kgr-tile{grid-column:span 2 !important;grid-row:auto !important}
+.kgr-card{grid-column:span 1 !important}
+.kgr-top{gap:12px !important;padding:0 16px !important}
+}
+</style>
+</helmet>
+<div style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.4; color: #1d2330; background: #f4f5f7; min-height: 100vh">
+
+<header class="kgr-top" style="position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 24px; padding: 0 20px; min-height: 52px; background: #ffffff; border-bottom: 1px solid #e3e6eb; flex-wrap: wrap">
+<div style="display: flex; align-items: center; gap: 8px; font-weight: 600; white-space: nowrap"><span style="color: #0f6cbd" aria-hidden="true">◆</span><span>KGR</span></div>
+<nav aria-label="Halaman manajemen" style="display: flex; gap: 4px; flex: 1; overflow-x: auto">
+<a href="Main.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Minggu ini</a>
+<a href="Bulanan.dc.html" aria-current="page" style="padding: 15px 12px; color: #1d2330; font-weight: 600; text-decoration: none; border-bottom: 2px solid #0f6cbd; white-space: nowrap">Outlook bulan</a>
+<a href="Kas.dc.html" style="padding: 15px 12px; color: #69707d; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap">Kas &amp; solvabilitas</a>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Stok</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Komersial</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Laporan</span>
+<span title="belum dimockup" style="padding: 15px 12px; color: #9aa0aa; white-space: nowrap">Rilis</span>
+</nav>
+<div style="display: flex; align-items: center; gap: 12px; font-size: 13px; color: #69707d"><span>Direksi · Management</span><button type="button" style="font: inherit; font-size: 13px; color: #1d2330; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer">Unduh PDF</button></div>
+</header>
+
+<main class="kgr-grid" style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(76px, auto); gap: 12px; padding: 16px 20px 32px; max-width: 1440px; margin: 0 auto">
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Bulan</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+<button type="button" aria-pressed="true" style="font: inherit; font-size: 12.5px; border: 1px solid #0f6cbd; background: #0f6cbd; color: #ffffff; border-radius: 6px; padding: 6px 12px; min-height: 36px">Agustus 2026</button>
+<button type="button" disabled title="cut-off September belum disimpan" style="font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #f6f7f9; color: #9aa0aa; border-radius: 6px; padding: 6px 12px; min-height: 36px">September 2026</button>
+<span style="font-size: 12px; color: #69707d">cut-off 26 Agu · belum ada versi terkunci</span>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 3; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Grafik harian</h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ rangeBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 10 / span 3; grid-row: 1 / span 1; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Versi</h3>
+<div style="font-size: 13px">Versi aktif: draft</div>
+<div style="font-size: 12px; color: #69707d">V1 dikunci Finance di rapat outlook Kamis minggu ke-3.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 2 / span 1; background: #fbfbfc; border: 1px solid #e3e6eb; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600">Outlook Agustus: revenue Rp 7.764,1 jt, GP Rp 296,4 jt (3,8%), NIBT Rp 79,2 jt menurut jurnal atau Rp −7,8 jt setelah gaji, penyusutan dan bunga.</h1>
+<div style="font-size: 12px; color: #69707d">Actual 1–26 Agu dari jurnal; PO 27–29 Agu; 31 Agu run-rate 7 hari tanpa 25 Agu. Margin turun dari 5,4% MTD karena GP sisa bulan negatif.</div>
+</section>
+
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+<section class="kgr-tile kgr-card" style="{{ c.box }}">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>{{ c.title }}</span><button type="button" onClick="{{ c.toggle }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<div style="display: flex; align-items: baseline; gap: 6px"><span style="{{ c.valueStyle }}">{{ c.value }}</span><span style="font-size: 12px; color: #69707d">{{ c.unit }}</span></div>
+<sc-for list="{{ c.lines }}" as="l" hint-placeholder-count="3">
+<div style="font-size: 12px; color: #69707d"><span style="{{ l.style }}">{{ l.lead }}</span> {{ l.text }}</div>
+</sc-for>
+<sc-if value="{{ c.open }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #1d2330; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">{{ c.how }}</div>
+</sc-if>
+</section>
+</sc-for>
+
+<section class="kgr-tile" style="grid-column: 1 / span 12; grid-row: 5 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Laba rugi Agustus 2026 (Rp jt)</h3>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px">
+<sc-for list="{{ plBtns }}" as="b" hint-placeholder-count="2">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+<button type="button" onClick="{{ toggleExPl }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0 0 0 6px; white-space: nowrap">cara hitung</button>
+</div>
+</div>
+<sc-if value="{{ exPl }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">Actual = jurnal Accurate per tanggal posting, 1–26 Agu. 27–29 Agu = PO × harga, COGS dari biaya stok yang dialokasikan. 31 Agu = run-rate 7 hari kalender tanpa hari anomali, margin acuan 5,4%. Beban operasi sisa bulan = rata-rata harian actual (± 7,0 jt/hari). Beban tetap (gaji 52,2 + penyusutan 10,4 + bunga 24,4 = 87,0 jt/bulan, estimasi dari Juli) belum dijurnal sebelum tutup buku, jadi dibagi rata per hari kalender (2,8 jt/hari). Angka dibulatkan; total bisa selisih 0,1.</div>
+</sc-if>
+<div style="overflow-x: auto">
+<div style="min-width: 860px; font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="{{ plHeadStyle }}">
+<sc-for list="{{ plHead }}" as="h" hint-placeholder-count="8">
+<span style="{{ h.s }}">{{ h.v }}</span>
+</sc-for>
+</div>
+<sc-for list="{{ plRows }}" as="r" hint-placeholder-count="9">
+<div style="{{ r.style }}">
+<sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="8">
+<span style="{{ c.s }}">{{ c.v }}</span>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="font-size: 12px; color: #69707d">{{ plNote }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 8; grid-row: 9 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>Revenue per hari, Agustus (Rp jt)</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #0f6cbd; margin-right: 4px"></span>aktual (jurnal)</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #5798d1; margin-right: 4px"></span>PO</span><span><span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: #6b7280; margin-right: 4px"></span>run-rate</span></span></h3>
+<div style="position: relative; height: 190px; margin: 18px 0 0 40px">
+<sc-for list="{{ daily.grid }}" as="g" hint-placeholder-count="3">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<div style="{{ cutStyle }}"></div><span style="{{ cutLabelStyle }}">cut-off</span>
+<sc-for list="{{ daily.bars }}" as="b" hint-placeholder-count="12">
+<div aria-hidden="true" style="{{ b.style }}"></div><span style="{{ b.labelStyle }}">{{ b.label }}</span>
+</sc-for>
+</div>
+<div style="display: flex; margin-left: 40px">
+<sc-for list="{{ daily.bars }}" as="b" hint-placeholder-count="12">
+<span style="{{ b.axisStyle }}">{{ b.axis }}</span>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">25 Agu tanpa jurnal dan tanpa baris penjualan; dikeluarkan dari run-rate sebagai hari anomali. 1 Agu memuat jurnal Rp 809,0 jt dalam satu hari.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 9 / span 4; grid-row: 9 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Hari sisa bulan (Rp jt)</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(70px, 1fr) minmax(80px, 1.2fr) minmax(56px, 0.8fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Tanggal</span><span style="padding: 6px 8px">Dasar</span><span style="padding: 6px 8px; text-align: right">Revenue</span></div>
+<sc-for list="{{ restRows }}" as="r" hint-placeholder-count="6">
+<div style="{{ r.rowStyle }}"><span style="padding: 5px 8px; font-weight: 600">{{ r.d }}</span><span style="padding: 5px 8px">{{ r.b }}<br><span style="font-size: 11px; color: #69707d">{{ r.seg }}</span></span><span style="padding: 5px 8px; text-align: right">{{ r.v }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Porsi run-rate 23% dari forecast sisa bulan.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 8; grid-row: 13 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap"><span>{{ cum.title }}</span><span style="display: flex; gap: 12px; font-weight: 400; font-size: 11px"><span><span style="display: inline-block; width: 14px; height: 2px; background: #0f6cbd; vertical-align: middle; margin-right: 4px"></span>actual</span><span><span style="display: inline-block; width: 14px; height: 0; border-top: 2px dashed #5798d1; vertical-align: middle; margin-right: 4px"></span>outlook</span><span><span style="display: inline-block; width: 12px; height: 10px; background: #e6f0fa; margin-right: 4px"></span>±10% porsi forecast</span></span></h3>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{ cumBtns }}" as="b" hint-placeholder-count="5">
+<button type="button" onClick="{{ b.pick }}" aria-pressed="{{ b.on }}" style="{{ b.style }}">{{ b.label }}</button>
+</sc-for>
+</div>
+<div style="position: relative; height: 200px; margin: 18px 64px 0 48px">
+<sc-for list="{{ cum.grid }}" as="g" hint-placeholder-count="4">
+<div style="{{ g.line }}"></div><span style="{{ g.labelStyle }}">{{ g.label }}</span>
+</sc-for>
+<svg viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible">
+<path d="{{ cum.band }}" fill="#e6f0fa" stroke="none"></path>
+<path d="{{ cum.actual }}" fill="none" stroke="#0f6cbd" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<path d="{{ cum.fc }}" fill="none" stroke="#5798d1" stroke-width="2" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div style="{{ cum.cutStyle }}"></div>
+<sc-for list="{{ cum.labels }}" as="l" hint-placeholder-count="4">
+<span style="{{ l.style }}">{{ l.text }}</span>
+</sc-for>
+</div>
+<div style="display: flex; justify-content: space-between; margin: 0 64px 0 48px; font-size: 11px; color: #69707d"><span>1</span><span>8</span><span>15</span><span>22</span><span>31</span></div>
+<div style="font-size: 12px; color: #69707d">{{ cum.note }}</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 9 / span 4; grid-row: 13 / span 4; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Register asumsi</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(110px, 1.6fr) minmax(56px, 0.8fr) minmax(70px, 1fr); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Asumsi</span><span style="padding: 6px 8px; text-align: right">Nilai</span><span style="padding: 6px 8px">Status</span></div>
+<sc-for list="{{ regRows }}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(110px, 1.6fr) minmax(56px, 0.8fr) minmax(70px, 1fr); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px">{{ r.a }}<br><span style="font-size: 11px; color: #69707d">{{ r.o }}</span></span><span style="padding: 5px 8px; text-align: right">{{ r.v }}</span><span style="{{ r.sStyle }}">{{ r.s }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">6 dari 6 belum disepakati; versi tidak bisa dikunci sebelum pemilik menyepakati.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 1 / span 6; grid-row: 17 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d; display: flex; justify-content: space-between; gap: 8px"><span>Akurasi bulan terakhir yang FINAL · Agustus 2026 (Rp jt)</span><button type="button" onClick="{{ toggleExAcc }}" style="border: 0; background: none; color: #8a8f98; cursor: pointer; font-size: 11px; padding: 0; white-space: nowrap">cara hitung</button></h3>
+<sc-if value="{{ exAcc }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; background: #f6f7f9; border-radius: 6px; padding: 6px 8px">FINAL = laporan keuangan Agustus setelah penyesuaian tutup buku. Selisih % terhadap versi; MAPE terhadap FINAL. V1 = outlook 27 Agu dengan run-rate lama (6 hari termasuk 25 Agu).</div>
+</sc-if>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(4, minmax(64px, 1fr)); color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb"><span style="padding: 6px 8px">Baris</span><span style="padding: 6px 8px; text-align: right">Versi</span><span style="padding: 6px 8px; text-align: right">FINAL</span><span style="padding: 6px 8px; text-align: right">Selisih</span><span style="padding: 6px 8px; text-align: right">MAPE</span></div>
+<sc-for list="{{ accRows }}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(130px, 1.6fr) repeat(4, minmax(64px, 1fr)); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px">{{ r.l }}</span><span style="padding: 5px 8px; text-align: right">{{ r.v }}</span><span style="padding: 5px 8px; text-align: right">{{ r.f }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.d }}</span><span style="padding: 5px 8px; text-align: right; color: #69707d">{{ r.m }}</span></div>
+</sc-for>
+</div>
+<div style="font-size: 12px; color: #69707d">Porsi forecast meleset paling besar: actual 27–31 Agu setelah tutup buku Rp 1.975,9 jt, forecast V1 Rp 1.326,5 jt (+49%). Penyebab utama penyesuaian tutup buku: revenue belum difaktur dan revaluasi COGS unbilled. NIBT meleset paling jauh karena gaji (85,6), penyusutan (10,4) dan bunga (31,9) baru dijurnal saat tutup buku; estimasi dari Juli (87,0) menutup sebagian besar selisih.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 7 / span 3; grid-row: 17 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Versi dan bridge</h3>
+<div style="font-size: 13px">Belum ada versi terkunci untuk Agustus.</div>
+<div style="font-size: 12px; color: #69707d">Setelah V1 dikunci, perubahan disimpan sebagai V2 dengan waterfall GP: Δ actual, Δ volume, Δ harga, Δ cost, Δ event. Bridge harus menutup ke Rp 0.</div>
+<div style="font-size: 12px; color: #69707d">Kunci versi ada di workspace Finance.</div>
+</section>
+
+<section class="kgr-tile" style="grid-column: 10 / span 3; grid-row: 17 / span 3; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h3 style="margin: 0; font-size: 13px; font-weight: 600; color: #69707d">Solvabilitas Agustus 2026 (Rp jt)</h3>
+<div style="font-size: 12.5px; font-variant-numeric: tabular-nums">
+<sc-for list="{{ solvRows }}" as="r" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: minmax(120px, 2fr) minmax(64px, 1fr); border-bottom: 1px solid #f0f1f4"><span style="padding: 5px 8px">{{ r.l }}</span><span style="padding: 5px 8px; text-align: right; font-weight: 600">{{ r.v }}</span></div>
+</sc-for>
+</div>
+<a href="Kas.dc.html" style="font-size: 12px">detail kas dan solvabilitas</a>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1850}}'>
+const NF1 = new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const NF0 = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 });
+const RED = '#c4314b';
+const f1 = (x) => { const r = Math.round(x * 10) / 10; return (r < 0 ? '−' : '') + NF1.format(Math.abs(r)); };
+const f0 = (x) => { const r = Math.round(x); return (r < 0 ? '−' : '') + NF0.format(Math.abs(r)); };
+
+const DAY = [809.0, 0, 233.9, 273.6, 251.5, 245.4, 177.4, 97.0, 0, 658.2, 216.0, 280.5, 211.6, 623.1, 147.2, 0, 0, 203.0, 406.3, 301.4, 579.3, 82.3, 0, 226.7, 0, 362.3, 457.7, 232.1, 378.0, 0, 310.4];
+const KIND = DAY.map((_, i) => (i < 26 ? 'a' : i === 30 ? 'r' : 'p'));
+const CUT = 26;
+const D_REV = [809.01, 0.0, 233.94, 273.63, 251.54, 245.39, 177.43, 97.01, 0.0, 658.24, 215.96, 280.53, 211.65, 623.06, 147.23, 0.0, 0.0, 203.0, 406.32, 301.35, 579.3, 82.32, 0.0, 226.66, 0.0, 362.31, 457.7, 232.1, 378.0, 0, 310.4];
+const D_GP = [159.89, 0.0, 31.68, -0.58, -27.67, 30.18, 9.34, -14.54, -25.53, 82.18, 16.12, -4.91, 14.74, 30.91, 60.33, -11.0, 0.0, -32.81, 17.76, 32.14, -23.81, 2.95, -0.42, 7.73, -30.44, 23.15, -7.6, -0.4, -56.1, -3.83, 16.9];
+const D_OPEX = [-1.99, -0.03, -13.92, -9.73, 0.09, 0.0, -1.91, -1.72, -0.62, 1.33, -8.75, 0.42, 0.02, -20.24, -7.83, 0.0, 0.0, -93.36, -1.86, 0.03, -11.59, -0.0, 0.0, -1.4, -0.72, -8.36, -7.0075, -7.0075, -7.0075, -7.0075, -7.01];
+const D_FIX = 87.0 / 31;
+function cumTicks(lo, hi) {
+  const raw = (hi - lo || 1) / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((x) => x >= raw);
+  const out = [];
+  for (let t = Math.floor(lo / step) * step; t < hi + step - 1e-9; t += step) out.push(Math.round(t * 10) / 10);
+  return out;
+}
+const CUM_METRICS = {
+  rev: { b: 'Revenue', t: 'Revenue kumulatif Agustus: actual dan outlook (Rp jt)', d: D_REV, n: 'Actual dari jurnal 1–26 Agu; 27–29 PO, 31 run-rate 7 hari.' },
+  cogs: { b: 'COGS', t: 'COGS kumulatif Agustus (Rp jt, ditampilkan positif)', d: D_REV.map((v, i) => v - D_GP[i]), n: 'COGS sisa bulan = biaya stok yang dialokasikan ke PO 27–29 Agu; 31 Agu dari margin acuan 5,4%.' },
+  gp: { b: 'Gross profit', t: 'Gross profit kumulatif Agustus (Rp jt)', d: D_GP, n: 'GP turun di 27–30 Agu karena stok dijual di bawah biaya (Sab 29 −56,1). Sen 31 dari margin acuan 5,4%.' },
+  nj: { b: 'NIBT jurnal', t: 'NIBT kumulatif menurut jurnal (Rp jt)', d: D_GP.map((v, i) => v + D_OPEX[i]), n: 'Belum memuat gaji, penyusutan dan bunga; tiga akun ini baru dijurnal saat tutup buku. Lonjakan 18 Agu = cold storage.' },
+  n: { b: 'NIBT + beban tetap', t: 'NIBT kumulatif setelah beban tetap (Rp jt)', d: D_GP.map((v, i) => v + D_OPEX[i] - D_FIX), n: 'Beban tetap 87,0 jt/bulan (gaji, penyusutan, bunga; estimasi Juli) dibagi rata 2,8 jt per hari kalender.' },
+};
+
+function ticks(lo, hi) {
+  const span = hi - lo || 1;
+  const raw = span / 3;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || raw;
+  const out = [];
+  for (let t = Math.floor(lo / step) * step; t <= hi + step * 0.01; t += step) out.push(Math.round(t * 10) / 10);
+  return out;
+}
+
+const BTN_ON = 'font: inherit; font-size: 12.5px; border: 1px solid #0f6cbd; background: #0f6cbd; color: #ffffff; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const BTN_OFF = 'font: inherit; font-size: 12.5px; border: 1px solid #e3e6eb; background: #ffffff; color: #1d2330; border-radius: 6px; padding: 6px 12px; min-height: 36px; cursor: pointer;';
+const CARD_BOX = 'grid-row: 3 / span 2; background: #ffffff; border: 1px solid #e3e6eb; border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; grid-column: ';
+
+const PL_ACCR_DAY = 87.0 / 31;
+const PL_COLS = {
+  c0: { l: '1–2 Agu', rev: 809.005, cogs: -649.111, opex: -2.015, days: 2, kind: 'a' },
+  c1: { l: '3–9 Agu', rev: 1278.927, cogs: -1276.044, opex: -27.821, days: 7, kind: 'a' },
+  c2: { l: '10–16 Agu', rev: 2136.665, cogs: -1948.298, opex: -35.047, days: 7, kind: 'a' },
+  c3: { l: '17–23 Agu', rev: 1572.306, cogs: -1576.489, opex: -106.785, days: 7, kind: 'a' },
+  c4a: { l: '24–26 Agu', rev: 588.973, cogs: -588.531, opex: -10.484, days: 3, kind: 'a' },
+  c4p: { l: '27–30 Agu', rev: 1067.8, cogs: -1135.74, opex: -28.03, days: 4, kind: 'f' },
+  c5: { l: '31 Agu', rev: 310.4, cogs: -293.5, opex: -7.01, days: 1, kind: 'f' },
+};
+const plSum = (keys, l, kind) => keys.reduce((a, k) => { const c = PL_COLS[k]; return { l, kind, rev: a.rev + c.rev, cogs: a.cogs + c.cogs, opex: a.opex + c.opex, days: a.days + c.days }; }, { l, kind, rev: 0, cogs: 0, opex: 0, days: 0 });
+const plFmt = (x) => { const r = Math.round(x * 10) / 10; return (r < 0 ? '−' : '') + new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(Math.abs(r)); };
+const plPct = (x) => plFmt(x * 100) + '%';
+
+function buildPL(view, opt) {
+  const o = opt || {};
+  let cols;
+  if (view === 'wk') {
+    const w4 = o.w4Actual ? Object.assign({}, PL_COLS.c4a, { l: '24–26 Agu', sub: 'actual' }) : Object.assign(plSum(['c4a', 'c4p'], '24–30 Agu', 'm'), { sub: 'actual + PO' });
+    cols = [
+      Object.assign({}, PL_COLS.c0, { sub: 'actual', id: 'w0' }), Object.assign({}, PL_COLS.c1, { sub: 'actual', id: 'w1' }), Object.assign({}, PL_COLS.c2, { sub: 'actual', id: 'w2' }), Object.assign({}, PL_COLS.c3, { sub: 'actual', id: 'w3' }),
+      Object.assign(w4, { id: 'w4' }), o.w4Actual ? Object.assign(plSum(['c4p', 'c5'], '27–31 Agu', 'f'), { sub: 'PO + run-rate', id: 'w5' }) : Object.assign({}, PL_COLS.c5, { sub: 'run-rate', id: 'w5' }),
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a', 'c4p', 'c5'], 'Agustus', 't'), { sub: 'outlook', id: 'm' }),
+    ];
+  } else {
+    cols = [
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a'], 'Actual', 'a'), { sub: '1–26 Agu · jurnal', id: 'a' }),
+      Object.assign(plSum(['c4p', 'c5'], 'PO + run-rate', 'f'), { sub: '27–31 Agu', id: 'f' }),
+      Object.assign(plSum(['c0', 'c1', 'c2', 'c3', 'c4a', 'c4p', 'c5'], 'Outlook', 't'), { sub: 'Agustus', id: 'm' }),
+    ];
+  }
+  const calc = cols.map((c) => { const gp = c.rev + c.cogs; const nj = gp + c.opex; const ac = -PL_ACCR_DAY * c.days; return Object.assign({}, c, { gp, nj, ac, n: nj + ac }); });
+  const out = calc.find((c) => c.id === 'm');
+  const extra = view === 'wk' ? [] : [{ l: '% revenue', sub: 'outlook', pct: true }, { l: 'Budget', sub: 'belum diisi', budget: true }];
+  const n = calc.length + extra.length;
+  const grid = 'display: grid; grid-template-columns: minmax(230px, 2.2fr) repeat(' + n + ', minmax(84px, 1fr));';
+  const hiId = o.highlight || null;
+  const cellBg = (c) => (c.id && c.id === hiId ? ' background: #e6f0fa;' : '') + (c.kind === 't' ? ' background: #f6f7f9;' : '');
+  const head = [{ v: '', s: 'padding: 6px 8px;' }].concat(calc.map((c) => ({ v: c.l + ' · ' + c.sub, s: 'padding: 6px 8px; text-align: right; line-height: 1.25;' + (c.kind === 'f' ? ' color: #9a6200;' : '') + cellBg(c) }))).concat(extra.map((e) => ({ v: e.l + ' · ' + e.sub, s: 'padding: 6px 8px; text-align: right; line-height: 1.25;' })));
+  const ROWS = [
+    ['Revenue', 'rev', 0, 'v'], ['COGS', 'cogs', 0, 'v'], ['Gross profit', 'gp', 1, 'v'], ['GP %', 'gp', 0, 'p'],
+    ['Beban operasi (jurnal)', 'opex', 0, 'v'], ['NIBT menurut jurnal', 'nj', 1, 'v'],
+    ['Beban tetap belum dijurnal (estimasi)', 'ac', 0, 'v'], ['NIBT setelah beban tetap', 'n', 2, 'v'], ['NIBT %', 'n', 0, 'p'],
+  ];
+  const rows = ROWS.map(([label, k, strong, fmt]) => {
+    const cells = [{ v: label, s: 'padding: 5px 8px;' + (strong ? ' font-weight: 600;' : '') + (fmt === 'p' || k === 'ac' ? ' color: #69707d;' : '') }].concat(calc.map((c) => {
+      const x = fmt === 'p' ? c[k] / c.rev : c[k];
+      const neg = Math.round(x * (fmt === 'p' ? 1000 : 10)) < 0;
+      return { v: fmt === 'p' ? plPct(x) : plFmt(x), s: 'padding: 5px 8px; text-align: right;' + (strong ? ' font-weight: 600;' : '') + (neg && (strong || fmt === 'p') ? ' color: #c4314b;' : (fmt === 'p' ? ' color: #69707d;' : '')) + (c.kind === 'f' ? ' font-style: italic;' : '') + cellBg(c) };
+    })).concat(extra.map((e) => (e.pct ? { v: fmt === 'p' ? '' : plPct(out[k] / out.rev), s: 'padding: 5px 8px; text-align: right; color: #69707d;' } : { v: '—', s: 'padding: 5px 8px; text-align: right; color: #9aa0aa;' })));
+    return { cells, style: grid + ' border-bottom: 1px solid ' + (strong === 2 ? '#e3e6eb' : '#f0f1f4') + ';' + (strong === 2 ? ' background: #fbfbfc;' : '') };
+  });
+  const note = view === 'wk'
+    ? 'Minggu tertutup dari jurnal; kolom miring berisi PO dan run-rate. Minggu 17–23 Agu rugi karena cold storage 81,1 jt. Gaji, penyusutan dan bunga baru dijurnal saat tutup buku, jadi NIBT per minggu menurut jurnal terlalu tinggi ± 19,6 jt per minggu.'
+    : 'Sisa bulan diproyeksikan rugi: GP −51,0 jt karena stok dijual di bawah biaya. NIBT menurut jurnal 79,2 jt belum memuat gaji, penyusutan dan bunga; setelah estimasi 87,0 jt, Agustus diproyeksikan rugi ' + plFmt(out.n) + ' jt.';
+  return { plHead: head, plRows: rows, plHeadStyle: grid + ' color: #69707d; font-weight: 600; border-bottom: 1px solid #e3e6eb; font-size: 12px;', plNote: note };
+}
+
+class Component extends DCLogic {
+  toggleEx(id) { const cur = (this.state || {}).ex; this.setState({ ex: cur === id ? null : id }); }
+
+  renderVals() {
+    const st = this.state || {};
+    const range = st.range || 'all';
+    const ex = st.ex || null;
+
+    const rangeBtns = [['all', '1–31 Agu'], ['tail', '20–31 Agu']].map(([id, label]) => ({ label, on: id === range ? 'true' : 'false', style: id === range ? BTN_ON : BTN_OFF, pick: () => this.setState({ range: id }) }));
+
+    const cardDefs = [
+      { id: 'act', span: 2, title: 'Actual s.d. 26 Agu', value: '6.385,9', lines: [{ lead: '347,4 (5,4%)', text: 'GP P&L', style: 'font-weight: 600; color: #1d2330;' }, { lead: '165,2', text: 'NIBT jurnal', style: 'font-weight: 600; color: #1d2330;' }], how: 'Jurnal Accurate per tanggal posting 1–26 Agu, ditambah DO terkirim belum difaktur bila ada.' },
+      { id: 'fc', span: 2, title: 'Forecast sisa bulan', value: '1.378,2', lines: [{ lead: '−51,0', text: 'GP P&L', style: 'color: ' + RED + '; font-weight: 600;' }, { lead: '−86,1', text: 'NIBT jurnal', style: 'color: ' + RED + '; font-weight: 600;' }, { lead: '23%', text: 'porsi run-rate', style: 'font-weight: 600; color: #1d2330;' }], how: 'PO Confirmed per tanggal kirim; hari kerja tanpa PO memakai run-rate 7 hari kalender terakhir tanpa hari anomali.' },
+      { id: 'out', span: 3, title: 'Outlook Agustus', value: '7.764,1', lines: [{ lead: '7.626,3–7.901,9', text: 'rentang', style: 'font-weight: 600; color: #1d2330;' }, { lead: '296,4 (3,8%)', text: 'GP P&L', style: 'font-weight: 600; color: #1d2330;' }, { lead: '79,2', text: 'NIBT jurnal', style: 'font-weight: 600; color: #1d2330;' }, { lead: '−7,8', text: 'NIBT setelah beban tetap', style: 'color: ' + RED + '; font-weight: 600;' }], how: 'Actual MTD + forecast sisa bulan. Rentang ±10% hanya pada porsi forecast.' },
+      { id: 'po', span: 2, title: 'Sisa bulan ber-PO', value: '77%', unit: ' ', lines: [{ lead: '40.437', text: 'kg · Rp 1.067,8 jt', style: 'font-weight: 600; color: #1d2330;' }], how: 'Revenue PO 27–29 Agu ÷ forecast sisa bulan.' },
+      { id: 'bud', span: 3, title: 'vs Budget', value: 'belum diisi', unit: ' ', small: true, lines: [{ lead: '', text: 'butuh per hari dan selisih tampil setelah Finance mengisi budget Agustus', style: '' }], how: 'Selisih = outlook − budget; butuh per hari = (budget − actual MTD) ÷ hari kerja tersisa.' },
+    ];
+    let col = 1;
+    const cards = cardDefs.map((c) => {
+      const box = CARD_BOX + col + ' / span ' + c.span + ';';
+      col += c.span;
+      return { title: c.title, value: c.value, unit: c.unit || 'Rp jt', lines: c.lines, how: c.how, open: ex === c.id, toggle: () => this.toggleEx(c.id), box,
+        valueStyle: c.small ? 'font-size: 20px; font-weight: 600; color: #69707d;' : 'font-size: 30px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums;' };
+    });
+
+    const from = range === 'all' ? 0 : 19;
+    const vals = DAY.slice(from);
+    const hi = Math.max(...vals) * 1.1;
+    const tk = ticks(0, hi);
+    const top = tk[tk.length - 1] > hi ? tk[tk.length - 1] : hi;
+    const y = (v) => ((top - v) / top) * 100;
+    const n = vals.length, slot = 100 / n, bw = slot * 0.62;
+    const daily = {
+      grid: tk.map((t) => ({ line: 'position: absolute; left: 0; right: 0; top: ' + y(t) + '%; border-top: 1px solid ' + (t === 0 ? '#c9ced6' : '#eef0f3') + ';', labelStyle: 'position: absolute; left: -40px; width: 34px; text-align: right; top: calc(' + y(t) + '% - 8px); font-size: 11px; color: #69707d;', label: f0(t) })),
+      bars: vals.map((v, j) => {
+        const i = j + from;
+        const col = KIND[i] === 'a' ? '#0f6cbd' : KIND[i] === 'p' ? '#5798d1' : '#6b7280';
+        const showLabel = n <= 12 || i >= 19;
+        return {
+          style: 'position: absolute; left: ' + (slot * j + (slot - bw) / 2) + '%; width: ' + bw + '%; top: ' + y(v) + '%; bottom: 0; min-height: 1px; background: ' + col + '; border-radius: 2px 2px 0 0;',
+          labelStyle: 'position: absolute; left: ' + slot * j + '%; width: ' + slot + '%; text-align: center; top: calc(' + y(v) + '% - 16px); font-size: ' + (n > 12 ? '10px' : '11px') + '; font-variant-numeric: tabular-nums; color: #4b5563; white-space: nowrap;',
+          label: showLabel ? (i === 24 ? 'anomali' : f1(v)) : '',
+          axis: String(i + 1),
+          axisStyle: 'flex: 1; text-align: center; font-size: 11px; color: ' + (i === 24 ? RED : '#69707d') + '; padding-top: 4px;',
+        };
+      }),
+    };
+    const cutX = ((CUT - from) / n) * 100;
+    const cutStyle = 'position: absolute; top: -10px; bottom: 0; left: ' + cutX + '%; border-left: 1px dashed #8a8f98;';
+    const cutLabelStyle = 'position: absolute; top: -18px; left: calc(' + cutX + '% + 4px); font-size: 11px; color: #69707d;';
+
+    const cm = st.cm || 'rev';
+    const M = CUM_METRICS[cm];
+    const cumBtns = Object.keys(CUM_METRICS).map((id) => ({ label: CUM_METRICS[id].b, on: id === cm ? 'true' : 'false', style: id === cm ? BTN_ON : BTN_OFF, pick: () => this.setState({ cm: id }) }));
+    let acc = 0;
+    const cumv = M.d.map((v) => (acc += v));
+    const total = cumv[30];
+    const base = cumv[CUT - 1];
+    const fcPart = total - base;
+    const hiB = base + fcPart + Math.abs(fcPart) * 0.1, loB = base + fcPart - Math.abs(fcPart) * 0.1;
+    const ctk = cumTicks(Math.min(0, ...cumv, loB), Math.max(...cumv, hiB));
+    const cTop = ctk[ctk.length - 1], cLo = ctk[0];
+    const cy = (v) => ((cTop - v) / (cTop - cLo || 1)) * 100;
+    const cx = (i) => (i / 30) * 300;
+    const actual = cumv.slice(0, CUT).map((v, i) => (i ? 'L' : 'M') + cx(i).toFixed(1) + ' ' + cy(v).toFixed(2)).join(' ');
+    const fc = cumv.slice(CUT - 1).map((v, j) => (j ? 'L' : 'M') + cx(j + CUT - 1).toFixed(1) + ' ' + cy(v).toFixed(2)).join(' ');
+    const up = [], dn = [];
+    for (let i = CUT - 1; i <= 30; i++) { const f = cumv[i] - base; const w = Math.abs(f) * 0.1; up.push(cx(i).toFixed(1) + ' ' + cy(base + f + w).toFixed(2)); dn.unshift(cx(i).toFixed(1) + ' ' + cy(base + f - w).toFixed(2)); }
+    const band = 'M' + up.join(' L') + ' L' + dn.join(' L') + ' Z';
+    const negL = (x) => (Math.round(x * 10) < 0 ? ' color: ' + RED + ';' : '');
+    const cum = {
+      actual, fc, band, title: M.t,
+      note: M.n + ' Band ±10% hanya pada porsi forecast: ' + f1(loB) + ' s.d. ' + f1(hiB) + ' jt.' + (cm === 'rev' ? ' Garis budget tampil setelah budget Agustus diisi.' : ''),
+      grid: ctk.map((t) => ({ line: 'position: absolute; left: 0; right: 0; top: ' + cy(t) + '%; border-top: 1px solid ' + (t === 0 ? '#c9ced6' : '#eef0f3') + ';', labelStyle: 'position: absolute; left: -48px; width: 42px; text-align: right; top: calc(' + cy(t) + '% - 8px); font-size: 11px; color: #69707d;', label: f0(t) })),
+      cutStyle: 'position: absolute; top: 0; bottom: 0; left: ' + ((CUT - 1) / 30) * 100 + '%; border-left: 1px dashed #8a8f98;',
+      labels: [
+        { text: 'MTD ' + f1(base), style: 'position: absolute; right: calc(' + (100 - ((CUT - 1) / 30) * 100) + '% + 6px); top: calc(' + cy(base) + '% - 18px); font-size: 11px; font-weight: 600; white-space: nowrap;' + negL(base) },
+        { text: 'Outlook ' + f1(total), style: 'position: absolute; left: calc(100% + 4px); top: calc(' + cy(total) + '% - 8px); font-size: 11px; font-weight: 600; white-space: nowrap;' + negL(total) },
+        { text: f1(hiB), style: 'position: absolute; left: calc(100% + 4px); top: calc(' + cy(total) + '% - 22px); font-size: 10px; color: #69707d;' },
+        { text: f1(loB), style: 'position: absolute; left: calc(100% + 4px); top: calc(' + cy(total) + '% + 6px); font-size: 10px; color: #69707d;' },
+      ],
+    };
+
+    const restRows = [
+      ['Kam 27', 'PO', 'RPA 271,8 · Trading 186,0', 457.7, 0], ['Jum 28', 'PO', 'RPA 122,3 · Trading 109,8', 232.1, 0], ['Sab 29', 'PO', 'RPA 237,5 · Trading 140,5', 378.0, 0],
+      ['Min 30', 'tidak ada pengiriman', '', 0, 0], ['Sen 31', 'run-rate 7 hari', 'RPA 173,6 · Trading 136,8', 310.4, 0], ['Total', '', '', 1378.2, 1],
+    ].map((r) => ({ d: r[0], b: r[1], seg: r[2], v: f1(r[3]), rowStyle: 'display: grid; grid-template-columns: minmax(70px, 1fr) minmax(80px, 1.2fr) minmax(56px, 0.8fr); border-bottom: 1px solid ' + (r[4] ? '#e3e6eb' : '#f0f1f4') + ';' + (r[4] ? ' font-weight: 600;' : '') }));
+
+    const regRows = [
+      ['Cut-off', 'Finance', '26 Agu'], ['Run-rate 31 Agu, 7 hari', 'Group Project Finance', '310,4 jt'], ['25 Agu revenue 0 = anomali', 'Finance + Sales', 'anomali'],
+      ['Faktor hari Minggu', 'Group Project Finance', '0%'], ['Margin acuan hari run-rate', 'Finance', '5,4%'], ['Toleransi forecast', 'Group Project Finance', '±10%'],
+    ].map((r) => ({ a: r[0], o: r[1], v: r[2], s: 'belum disepakati', sStyle: 'padding: 5px 8px; color: #69707d;' }));
+
+    const accRows = [
+      ['Revenue V1 (27 Agu)', '7.712,4', '8.361,8', '+649,4 (8,4%)', '7,8%'],
+      ['GP P&L V1', '293,4', '306,7', '+13,3 (4,5%)', '—'],
+      ['Revenue draft (aturan K3)', '7.764,1', '8.361,8', '+597,7 (7,7%)', '7,1%'],
+      ['GP P&L draft', '296,4', '306,7', '+10,3 (3,5%)', '—'],
+      ['NIBT draft, jurnal', '79,2', '−26,5', '−105,7', '—'],
+      ['NIBT draft + beban tetap', '−7,8', '−26,5', '−18,7', '—'],
+    ].map((r) => ({ l: r[0], v: r[1], f: r[2], d: r[3], m: r[4] }));
+
+    const solvRows = [['Ekuitas (32% modal disetor)', '1.612,6'], ['Utang pihak berelasi', '5.627,1'], ['Bunga s.d. cut-off', 'belum dibukukan'], ['Kas akhir bulan', '495,4'], ['Bulan sampai ekuitas negatif', '60,8']].map((r) => ({ l: r[0], v: r[1] }));
+
+    const plView = st.plView || 'rr';
+    const plBtns = [['rr', 'Actual vs run-rate'], ['wk', 'Per minggu']].map(([id, label]) => ({ label, on: id === plView ? 'true' : 'false', style: id === plView ? BTN_ON : BTN_OFF, pick: () => this.setState({ plView: id }) }));
+    const pl = buildPL(plView, {});
+
+    return {
+      ...pl, plBtns, exPl: ex === 'pl', toggleExPl: () => this.toggleEx('pl'),
+      rangeBtns, cumBtns, cards, daily, cutStyle, cutLabelStyle, cum, restRows, regRows, accRows, solvRows,
+      exAcc: ex === 'acc', toggleExAcc: () => this.toggleEx('acc'),
+    };
+  }
+}
+</script>
+</body>
+</html>
