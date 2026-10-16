@@ -8,6 +8,7 @@ import { addDays, computeWeek, mondayOf, plRowsToMart, weekPlDaily } from "@kgr/
 import type { Supa } from "../supabase";
 import { loadWeek } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
+import { v5CostingPlRows } from "../v5/costing-pl";
 
 let built = new Set<string>();
 
@@ -17,7 +18,8 @@ export async function buildWeekPl(sb: Supa, date: string): Promise<string> {
   built.add(ws);
   const loaded = await loadWeek(sb, ws);
   if (!loaded) return `minggu ${ws} belum ada`;
-  const rows = plRowsToMart(weekPlDaily(computeWeek(loaded.inputs)));
+  const v5 = await v5CostingPlRows(sb, ws, addDays(ws, 6), addDays(loaded.week.update_date, -1));
+  const rows = plRowsToMart([...weekPlDaily(computeWeek(loaded.inputs)), ...v5]);
   let written = 0, deleted = 0;
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i);

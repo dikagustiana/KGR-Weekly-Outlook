@@ -27,6 +27,8 @@ export interface RencanaInput {
   gates: { step: number; open: boolean; blockedBy: string[] }[];
   reasons: { code: string; reason: string }[];
   block2: RpaDecision | null;
+  /** PRD v5 K25 (flag v5_costing): no action label in "Ekonomi rencana" — simulation figures only. */
+  k25?: boolean;
   variance: { date: string; key: string; planned_kg: string | null; actual_kg: string | null; variance_kg: string | null; planned_heads: number | null; actual_heads: number | null }[];
   blockers: { save: string[]; approve: string[]; copy: string[] };
   alokasiHref: string;
@@ -170,7 +172,7 @@ export function rencanaModel(x: RencanaInput): RencanaModel {
           { id: "lb", cells: { k: "Harga LB hari ini", v: n0(b.lbPriceToday) } },
           { id: "be", cells: { k: "Breakeven porsi fresh rencana", v: n0(b.breakevenAtPlanShare) } },
           { id: "m", cells: { k: "Margin per kg LB", v: n0(b.marginPerKgLb) } },
-          { id: "a", cells: { k: "Aksi", v: sentenceCase(b.action.text) } },
+          ...(x.k25 ? [] : [{ id: "a", cells: { k: "Aksi", v: sentenceCase(b.action.text) } }]),
         ],
       },
     });

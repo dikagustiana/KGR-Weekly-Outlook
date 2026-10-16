@@ -23,6 +23,8 @@ export default async function OutlookPage({ params }: PageProps) {
   if (ctx.view === "management" && v4On(all, ctx.viewer.role)) redirect(`/minggu-ini/${week}`);
   const mine: ModuleSettings = Object.fromEntries(MODULE_KEYS.map((k) => [k, { enabled: isModuleOn(all[k], ctx.viewer.role) }]));
   const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r) : null;
+  // PRD v5 K25 (flag v5_costing): the live-bird block shows the simulation, no recommendation
+  const k25 = mine.v5_costing?.enabled === true;
   return (
     <WeekShell ctx={ctx} active="outlook">
       {ctx.view === "management" ? (
@@ -48,8 +50,8 @@ export default async function OutlookPage({ params }: PageProps) {
           </div>
         </div>
       )}
-      {ctx.view === "management" ? <Headline r={r} week={week} extra={m3 ? <HeadlineV3 m={m3} month={ctx.week.update_date.slice(0, 7)} /> : null} /> : null}
-      <OutlookBody r={r} week={week} view={ctx.view} v3={m3 ? managementSlots(m3) : null} />
+      {ctx.view === "management" ? <Headline r={r} week={week} k25={k25} extra={m3 ? <HeadlineV3 m={m3} month={ctx.week.update_date.slice(0, 7)} /> : null} /> : null}
+      <OutlookBody r={r} week={week} view={ctx.view} v3={m3 ? managementSlots(m3) : null} k25={k25} />
       {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p> : null}
     </WeekShell>
   );

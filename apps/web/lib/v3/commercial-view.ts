@@ -29,6 +29,10 @@ export interface CommercialViewRow {
   priority_score: string | null;
   rank: number | null;
   ordered_today_kg: string;
+  /** v5 (flag v5_costing): the costing engine's cost per kg, its status and C54; null/false while the flag is off. */
+  cost_per_kg: string | null;
+  cost_status: string | null;
+  cost_check: boolean;
 }
 
 const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
@@ -58,6 +62,7 @@ export function commercialView(rows: Raw[], opts: { role: Role; salesSeesCost: b
       price_floor: str(r.price_floor), price_list: str(r.price_list), margin_per_kg_list: str(r.margin_per_kg_list), realized_price_7d: str(r.realized_price_7d),
       margin_per_kg_realized: str(r.margin_per_kg_realized), holding_loss_per_day: str(r.holding_loss_per_day), downgrade_risk_rp: str(r.downgrade_risk_rp),
       urgency: str(r.urgency), priority_score: str(r.priority_score), rank: int(r.rank), ordered_today_kg: str(r.ordered_today_kg) ?? "0",
+      cost_per_kg: showMa ? str(r.cost_per_kg) : null, cost_status: str(r.cost_status), cost_check: r.cost_check === true,
     }))
     .sort((a, b) => (opts.keepOrder ? 0 : (a.rank ?? 9e9) - (b.rank ?? 9e9)));
 }

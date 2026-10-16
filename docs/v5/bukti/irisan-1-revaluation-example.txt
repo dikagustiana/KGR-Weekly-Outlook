@@ -1,0 +1,22 @@
+cogs_line
+  rows 28 stock revaluation 18103015 sold part 1213469
+  RPA|Ceker|Fresh from 3260 to 3465 kg_rem 325.60 kg_sold 0.00 amount 66760 amount_sold 0
+  RPA|HJA (Hati/Jantung/Ampela)|Fresh from 4746 to 5045 kg_rem 622.30 kg_sold 0.00 amount 185777 amount_sold 0
+  RPA|Kepala|Fresh from 4235 to 4502 kg_rem 518.40 kg_sold 0.00 amount 138101 amount_sold 0
+  RPA|Usus|Fresh from 1577 to 1676 kg_rem 514.90 kg_sold 0.00 amount 51068 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1072.10 kg_sold 500.00 amount 2601919 amount_sold 1213469
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1621.40 kg_sold 0.00 amount 3935036 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1182.40 kg_sold 0.00 amount 2869611 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 628.80 kg_sold 0.00 amount 1526058 amount_sold 0
+  PL 2026-08-27 Selisih costing -1213469
+restate_sale_date
+  rows 28 stock revaluation 18103015 sold part 1213469
+  RPA|Ceker|Fresh from 3260 to 3465 kg_rem 325.60 kg_sold 0.00 amount 66760 amount_sold 0
+  RPA|HJA (Hati/Jantung/Ampela)|Fresh from 4746 to 5045 kg_rem 622.30 kg_sold 0.00 amount 185777 amount_sold 0
+  RPA|Kepala|Fresh from 4235 to 4502 kg_rem 518.40 kg_sold 0.00 amount 138101 amount_sold 0
+  RPA|Usus|Fresh from 1577 to 1676 kg_rem 514.90 kg_sold 0.00 amount 51068 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1072.10 kg_sold 500.00 amount 2601919 amount_sold 1213469
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1621.40 kg_sold 0.00 amount 3935036 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 1182.40 kg_sold 0.00 amount 2869611 amount_sold 0
+  RPA|Karkas|Fresh from 38586 to 41013 kg_rem 628.80 kg_sold 0.00 amount 1526058 amount_sold 0
+  PL 2026-08-26 Selisih costing -1213469

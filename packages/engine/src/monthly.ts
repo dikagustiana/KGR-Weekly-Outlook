@@ -25,7 +25,9 @@ export interface PlDailyRow {
 }
 
 export const isRevenueLine = (l: string) => l.startsWith("Revenue");
-export const isCogsLine = (l: string) => l.startsWith("COGS") || l.startsWith("Other COGS");
+/** v5 K22 / Q63: the costing revaluation of sold kg and the idle capacity are cost of sales, not opex. */
+export const V5_COGS_LINES = ["Selisih costing", "Biaya kapasitas idle"] as const;
+export const isCogsLine = (l: string) => l.startsWith("COGS") || l.startsWith("Other COGS") || (V5_COGS_LINES as readonly string[]).includes(l);
 
 export const monthEnd = (d: ISODate): ISODate => addDays(firstOfMonth(d), daysInMonth(d) - 1);
 

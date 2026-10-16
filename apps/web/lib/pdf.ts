@@ -3,6 +3,7 @@ import PdfPrinter from "pdfmake";
 import vfs from "pdfmake/build/vfs_fonts.js";
 import type { Decimal, WeekResult } from "@kgr/engine";
 import { num, pct, tgl } from "./fmt";
+import { K25_DECIDER, lbSimulationText } from "./v5/k25";
 
 type V = Decimal | null | undefined;
 
@@ -39,7 +40,7 @@ export function table(widths: (string | number)[], header: string[], body: unkno
 export const h = (text: string) => ({ text, bold: true, fontSize: 9.5, color: "#12355b", margin: [0, 4, 0, 3] });
 
 /** A4 landscape outlook: page 1 blocks 1–2, page 2 blocks 3–7, page 3 statement summary (PRD §6). */
-export async function outlookPdf(r: WeekResult, meta: { releasedBy?: string; generatedAt: string }): Promise<Buffer> {
+export async function outlookPdf(r: WeekResult, meta: { releasedBy?: string; generatedAt: string; k25?: boolean }): Promise<Buffer> {
   const b2 = r.block2;
   const title = `KGR — Weekly Outlook · Minggu ${tgl(r.week.weekStart)} – ${tgl(r.week.weekEnd)} · Update ${tgl(r.week.today, true)}`;
   const def = {
@@ -81,7 +82,10 @@ export async function outlookPdf(r: WeekResult, meta: { releasedBy?: string; gen
         ["Perkiraan margin potong rencana", cellN(b2.expectedMarginOfPlan), "Rp", "margin/kg × kg LB rencana"],
         ["Potensi selisih harga karkas yang jadi frozen", cellN(b2.frozenPriceGap), "Rp", "kg frozen × (harga fresh − frozen)"],
       ], 8),
-      { text: `REKOMENDASI RPA: ${b2.recommendationText}`, bold: true, fontSize: 10, color: b2.recommendation === "LANJUT" ? "#187a3a" : "#c62828", margin: [0, 2, 0, 0] },
+      // PRD v5 K25 (flag v5_costing): simulation only, no recommendation label
+      meta.k25
+        ? { text: `Simulasi, bukan rekomendasi: ${lbSimulationText(b2)}. ${K25_DECIDER}`, fontSize: 9, margin: [0, 2, 0, 0] }
+        : { text: `REKOMENDASI RPA: ${b2.recommendationText}`, bold: true, fontSize: 10, color: b2.recommendation === "LANJUT" ? "#187a3a" : "#c62828", margin: [0, 2, 0, 0] },
 
       { text: "", pageBreak: "before" },
       h("3. Keputusan Trading — beli apa, berapa, di spread berapa"),

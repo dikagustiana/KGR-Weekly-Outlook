@@ -6,6 +6,7 @@ import { num, tgl, tglShort } from "@/lib/fmt";
 import type { ViewMode } from "@/lib/view";
 import { humanize } from "@/lib/sources";
 import { RpaDecisionManagement } from "@/components/outlook/RpaDecisionManagement";
+import { K25_DECIDER, lbSimulationText } from "@/lib/v5/k25";
 
 const T = {
   b1kgA: "T_Penjualan: Σ kg baris Aktual yang dihitung (tanggal di minggu ini)",
@@ -29,7 +30,7 @@ export interface V3Slots {
   accuracy?: ReactNode;
 }
 
-export function OutlookBody({ r, week, print = false, view = "preparer", v3 }: { r: WeekResult; week: string; print?: boolean; view?: ViewMode; v3?: V3Slots | null }) {
+export function OutlookBody({ r, week, print = false, view = "preparer", v3, k25 = false }: { r: WeekResult; week: string; print?: boolean; view?: ViewMode; v3?: V3Slots | null; k25?: boolean }) {
   const b2 = r.block2;
   const p = r.prepared.params;
   const mgmt = view === "management";
@@ -77,7 +78,7 @@ export function OutlookBody({ r, week, print = false, view = "preparer", v3 }: {
   );
   const partRpa = (
         <Card id="keputusan-rpa" title={title("2. Keputusan RPA — potong berapa, beli live bird di harga berapa", <>Keputusan RPA hari ini<Ref n={3} /></>)}>
-          {mgmt ? <RpaDecisionManagement r={r} /> : (
+          {mgmt ? <RpaDecisionManagement r={r} k25={k25} /> : (
             <>
             <table className="t compact">
               <thead><tr><th>Indikator</th><th className="n">Nilai</th><th>Satuan</th><th>Cara hitung</th></tr></thead>
@@ -98,7 +99,10 @@ export function OutlookBody({ r, week, print = false, view = "preparer", v3 }: {
                 <Row l="Potensi selisih harga karkas yang jadi frozen" v={b2.frozenPriceGap} u="Rp" h="kg frozen × (harga fresh − frozen)" />
               </tbody>
             </table>
-            <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>
+            {k25
+              // PRD v5 K25: the figures above are a simulation; no recommendation label
+              ? <p className="muted">Simulasi, bukan rekomendasi: {lbSimulationText(b2)}. {K25_DECIDER}</p>
+              : <div className={`reco ${statusClass(b2.recommendationText)}`}>REKOMENDASI RPA: {b2.recommendationText}</div>}
             <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
               Yield dipakai: {b2.yieldsUsed === "aktual" ? "aktual batch minggu ini" : "default parameter (rata-rata Agustus)"} — karkas {num(r.prepared.yields.karkas.times(100), 2)}%; shrink target {num(p.shrink.times(100), 1)}%; angkut Rp {num(p.freight)}/kg LB; maklon Rp {num(p.maklon)}/kg diproses.
             </p>

@@ -23,6 +23,7 @@ import type { ModuleSettings } from "../modules-core";
 import { loadMonthDrivers, type MonthDrivers } from "../v3/drivers";
 import { isWorkingDay } from "../v3/monthly";
 import type { Row } from "../v3/uploads";
+import { v5CostingPlRows } from "../v5/costing-pl";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: { toFixed(n: number): string } | null) => (x === null ? null : x.toFixed(2));
@@ -139,6 +140,8 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
     events: events.filter((e) => e.date > cutOff),
   };
   const plan = monthPlanV4({ month: first, cutOff, actualRows, orders, opex, isWorkingDay, holidays, windowDays });
+  // v5 (flag v5_costing): Selisih costing (K22) and idle capacity (Q63) are COGS rows of the month
+  plan.rows.push(...(await v5CostingPlRows(sb, first, last, cutOff)));
   const summary = monthSummaryV4(plan.rows, first, tolerance, isWorkingDay);
 
   const [saved, budgetRows] = await Promise.all([

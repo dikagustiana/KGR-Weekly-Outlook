@@ -8,6 +8,7 @@ import type { Supa } from "../supabase";
 import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
+import { v5CostingControls } from "../v5/costing";
 import { ledgerForWeek } from "./ledger";
 import { demandWeekly, loadPlanning, weekPlanningControls } from "./planning";
 import { dayControls, loadDayAllocation } from "./allocation";
@@ -44,6 +45,8 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       })).sort((a, b) => String(a.batch_ref).localeCompare(String(b.batch_ref))),
       groups: groupsOfWeek(d),
     };
+    // v5 §4.1: C53 (WP late), C54 (cost above ratio × reference price), C57 (cut date without an LB price decision)
+    if (settings.v5_costing?.enabled) controls.push(...await v5CostingControls(sb, week, week.update_date, new Date().toISOString()));
   }
   if (settings.m2_ledger?.enabled) {
     const l = await ledgerForWeek(sb, week, bsInventoryYesterday(v1));

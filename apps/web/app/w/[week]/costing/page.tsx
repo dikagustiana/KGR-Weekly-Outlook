@@ -4,7 +4,9 @@ import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
-import { requireModulePage } from "@/lib/modules";
+import { moduleEnabled, requireModulePage } from "@/lib/modules";
+import { CostingV5 } from "@/components/v5/CostingV5";
+import { loadV5BatchCosts, v5CostingControls } from "@/lib/v5/costing";
 import { supabaseServer } from "@/lib/supabase";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "@/lib/v3/costing";
 import { tgl } from "@/lib/fmt";
@@ -16,10 +18,17 @@ const READERS = ["admin", "inventory_accounting", "ppic", "purchasing", "finance
 
 export default async function CostingPage({ params }: PageProps) {
   const { week } = await params;
-  await requireModulePage("m1_costing", [...READERS]);
+  const viewer = await requireModulePage("m1_costing", [...READERS]);
   const ctx = await weekContext(week);
   const mgmt = ctx.view === "management";
   const sb = await supabaseServer();
+  // v5 §4.1 (flag v5_costing): status and planCost of every batch of the week, C53 / C54 / C57
+  const v5 = (await moduleEnabled("v5_costing", viewer))
+    ? await (async () => {
+      const all = await loadV5BatchCosts(sb, ctx.week.week_start, ctx.week.update_date);
+      return { batches: all.filter((b) => b.date && b.date <= ctx.week.week_end), controls: await v5CostingControls(sb, ctx.week, ctx.week.update_date, new Date().toISOString()) };
+    })()
+    : null;
   const d = await loadCostingWeek(sb, ctx.week);
   const runs = [...d.latestRun.values()];
   const lines = runs.flatMap((r) => (d.lines.get(r.id) ?? []).map((l) => ({ ...l, batch_id: r.batch_id })));
@@ -84,6 +93,7 @@ export default async function CostingPage({ params }: PageProps) {
           </table>
         </Card>
       </div>
+      {v5 ? <CostingV5 batches={v5.batches} controls={v5.controls} showControls={!mgmt} /> : null}
       {!mgmt ? <Card title="Kontrol costing"><ControlsV3Table controls={weekCostingControls(d)} /></Card> : null}
     </WeekShell>
   );

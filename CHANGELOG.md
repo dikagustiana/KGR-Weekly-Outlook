@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-1] Costing (docs/PRD-v5.md irisan 1)
+
+### Added
+- Engine: cost status (rencana / estimasi / sementara / final), `planCost`, `simulateLivebird` (K25), `revalueLots` + `finalLots` (K22), `idleCostDaily` and `costingPlRows` (Q63), C53, C54, C57; `priceFloorV5`. Fixture `costing-sim-2026-08-24` (Lampiran B.1).
+- Migration `20261022000100_v5_costing.sql`: cost per kg, status and C54 on `commercial_daily`, view `commercial_daily_sales_v5`, `lot_revaluation.sold_by_date`, trigger `wp_received`.
+- Web (flag `v5_costing`): ledger lots of unposted RPA batches carry the costing cost and status; Commercial reads cost + status from the mart; P&L rows "Selisih costing" and "Biaya kapasitas idle"; costing page status per batch with C53/C54/C57.
+
+### Changed
+- With `v5_costing` on, no live-bird recommendation on any screen or PDF (K25); flag off unchanged.
+
 ## [v5-0] Foundation (docs/PRD-v5.md irisan 0)
 
 ### Added

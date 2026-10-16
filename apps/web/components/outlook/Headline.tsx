@@ -2,12 +2,13 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { WeekResult } from "@kgr/engine";
 import { isNeg, jt, mrd, num, pct } from "@/lib/fmt";
+import { K25_DECIDER, lbSimulationText } from "@/lib/v5/k25";
 
 /**
  * Management View v2 R2: three figures above the fold, read from the same fields as the tables below
  * (block 1 TOTAL KGR, block 2 action, block 4 "di atas batas umur") — nothing is recomputed here.
  */
-export function Headline({ r, week, extra }: { r: WeekResult; week: string; extra?: ReactNode }) {
+export function Headline({ r, week, extra, k25 = false }: { r: WeekResult; week: string; extra?: ReactNode; k25?: boolean }) {
   const total = r.block1.find((s) => s.segment === "TOTAL KGR")!;
   const aged = r.block4.find((s) => s.status === "PERHATIAN")!;
   const neg = (v: Parameters<typeof isNeg>[0]) => (isNeg(v) ? "neg" : undefined);
@@ -22,8 +23,19 @@ export function Headline({ r, week, extra }: { r: WeekResult; week: string; extr
         <div className="hl-sub">Δ vs minggu lalu <span className={neg(total.deltaGpPerKg)}>{num(total.deltaGpPerKg)}/kg</span></div>
       </div>
       <div className="hl">
-        <div className="hl-label">Keputusan RPA hari ini</div>
-        <div className="hl-value hl-reco" data-reco>{r.block2.action.text}</div>
+        {k25 ? (
+          // PRD v5 K25: simulation figures only, no recommendation
+          <>
+            <div className="hl-label">Simulasi live bird hari ini</div>
+            <div className="hl-value">{lbSimulationText(r.block2)}</div>
+            <div className="hl-sub">{K25_DECIDER}</div>
+          </>
+        ) : (
+          <>
+            <div className="hl-label">Keputusan RPA hari ini</div>
+            <div className="hl-value hl-reco" data-reco>{r.block2.action.text}</div>
+          </>
+        )}
       </div>
       <div className="hl">
         <div className="hl-label">Stok di atas batas umur</div>

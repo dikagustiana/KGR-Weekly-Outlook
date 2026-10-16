@@ -1449,3 +1449,69 @@ begin
   out := out || 'v5 columns=' || n || case when n = 11 then '' else '(!)' end || '; ';
   raise exception 'RLS-RESULTS v5/0 (rolled back): %', out;
 end $$;
+
+-- v5/1 (PRD v5 §4.1, K20–K22, §4.6): the costing columns of the commercial mart and its sales view (a cost per SKU,
+-- never per lot), no client writes to them, the WP stamp on a batch, lot_revaluation.sold_by_date.
+do $$
+declare out text := ''; n int; wk uuid; b1 uuid; b2 uuid; r text; ts timestamptz;
+begin
+  insert into public.app_user(email, role) values ('t31-ca@x.test','cost_accounting'),('t31-sales@x.test','sales'),('t31-lead@x.test','commercial_lead'),('t31-mgmt@x.test','management');
+  insert into public.sales_assignment (sales_rep, email, key) values ('T31', 't31-sales@x.test', 'T31-A');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2031-06-02', '2031-06-05', '2031-05-31') returning id into wk;
+  insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (wk, '2031-06-03', 'Aktual', 'T31-B1', 1000) returning id into b1;
+  insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (wk, '2031-06-04', 'Aktual', 'T31-B2', 1000) returning id into b2;
+  insert into public.commercial_daily (date, key, cost_per_kg, cost_status, cost_check) values ('2031-06-03', 'T31-A', 3176, 'estimasi', false), ('2031-06-03', 'T31-Z', 15299, 'final', true);
+
+  select count(*) into n from information_schema.columns where table_schema = 'public'
+    and ((table_name in ('commercial_daily','commercial_daily_sales_v5') and column_name in ('cost_per_kg','cost_status','cost_check')) or (table_name = 'lot_revaluation' and column_name = 'sold_by_date'));
+  out := out || 'v5/1 columns=' || n || case when n = 7 then '' else '(!)' end || '; ';
+  begin insert into public.commercial_daily (date, key, cost_status) values ('2031-06-03', 'T31-X', 'kira-kira'); out := out || 'unknown cost status: ALLOWED(!); ';
+  exception when others then out := out || 'unknown cost status: rejected; '; end;
+  out := out || 'clients execute tg_wp_received=' || has_function_privilege('authenticated', 'public.tg_wp_received()', 'execute')::text
+    || case when has_function_privilege('authenticated', 'public.tg_wp_received()', 'execute') then '(!)' else '' end || '; ';
+
+  -- sales: the assigned SKU through the view, with its cost status; never the mart itself
+  perform set_config('request.jwt.claims', '{"email":"t31-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*), max(cost_status) into n, r from public.commercial_daily_sales_v5 where date = '2031-06-03';
+  out := out || 'sales view rows=' || n || ' status=' || coalesce(r, 'null') || case when n = 1 and r = 'estimasi' then '' else '(!)' end || '; ';
+  select count(*) into n from public.commercial_daily where date = '2031-06-03'; out := out || 'sales reads mart=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  begin insert into public.batch_output_sku (batch_id, item_code, kg) values (b1, 'T31-ITEM', 10); out := out || 'sales uploads WP: ALLOWED(!); ';
+  exception when others then out := out || 'sales uploads WP: denied; '; end;
+  execute 'reset role';
+
+  -- the commercial lead reads every SKU with its C54 flag and cannot write the mart
+  perform set_config('request.jwt.claims', '{"email":"t31-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily where date = '2031-06-03' and cost_check; out := out || 'lead sees C54 rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin update public.commercial_daily set cost_status = 'final' where date = '2031-06-03'; get diagnostics n = row_count; out := out || 'lead edits cost status rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lead edits cost status: rejected; '; end;
+  begin insert into public.commercial_daily (date, key, cost_per_kg) values ('2031-06-04', 'T31-A', 1); out := out || 'lead writes mart: ALLOWED(!); ';
+  exception when others then out := out || 'lead writes mart: denied; '; end;
+  execute 'reset role';
+
+  -- K21: the WP upload stamps the batch (sementara); a deleted row does not
+  perform set_config('request.jwt.claims', '{"email":"t31-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.batch_output_sku (batch_id, item_code, kg) values (b1, 'T31-ITEM', 10); out := out || 'cost accounting uploads WP: OK; ';
+  exception when others then out := out || 'cost accounting uploads WP: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.batch_output_sku (batch_id, item_code, kg, deleted_at) values (b2, 'T31-ITEM', 10, now()); out := out || 'deleted WP row: inserted; ';
+  exception when others then out := out || 'deleted WP row: rejected; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select wp_received_at into ts from public.batch where id = b1; out := out || 'B1 wp_received_at ' || case when ts is null then 'null(!)' else 'set' end || '; ';
+  select wp_received_at into ts from public.batch where id = b2; out := out || 'B2 wp_received_at ' || case when ts is null then 'null' else 'set(!)' end || '; ';
+
+  -- management reads lot_revaluation with sold_by_date; sales do not
+  insert into public.lot_revaluation (date, lot_ref, key, amount_sold, sold_by_date) values ('2031-06-05', 'T31-LOT', 'T31-A', 1213469, '[{"date":"2031-06-04","kg":"500.00","amount":"1213469.00"}]');
+  perform set_config('request.jwt.claims', '{"email":"t31-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lot_revaluation where lot_ref = 'T31-LOT' and jsonb_array_length(sold_by_date) = 1; out := out || 'management reads revaluation=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"t31-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.lot_revaluation where lot_ref = 'T31-LOT'; out := out || 'sales reads revaluation=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5/1 (rolled back): %', out;
+end $$;
