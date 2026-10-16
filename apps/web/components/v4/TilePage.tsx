@@ -30,7 +30,7 @@ function body(t: TileModel): ReactNode {
     case "mode": return <ModeToggle label={c.label} options={c.options} current={c.current} />;
     case "release": return <ReleaseLine text={c.text} action={c.pdfHref ? <a className="v4b" href={c.pdfHref}>Unduh PDF</a> : null} />;
     case "headline": return <p className="headline" data-headline="" data-tile-value="">{c.text}</p>;
-    case "card": return <CardBody value={c.value} unit={c.unit} compare={c.compare} href={c.href} missing={c.missing} negative={c.negative} />;
+    case "card": return <CardBody value={c.value} unit={c.unit} compare={c.compare} href={c.href} missing={c.missing} negative={c.negative} maxCompare={c.maxCompare} />;
     case "combo": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
       return <ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} labelMax={c.labelMax} />;
@@ -83,7 +83,7 @@ export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: 
     <TileGrid label={label}>
       {tiles.map((t) => (
         <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.note}
-          extra={legendOf(t) || t.cara ? <span className="tile-x">{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
+          extra={legendOf(t) || t.cara || t.views ? <span className="tile-x">{(t.views ?? []).map((v) => <Slicer key={v.label} label={v.label} options={v.options} current={v.current} hideLabel />)}{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {body(t)}
           {extras?.[t.id] ?? null}
         </Tile>

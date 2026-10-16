@@ -14,6 +14,7 @@ import type { ChartPoint, LinePlot, WaterfallStep } from "@/components/v4/Chart"
 import type { Col, TRow } from "@/components/v4/Table";
 import type { TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
+import { outlookBulanV5, type OutlookBulanV5 } from "../v5/pl-tiles";
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 export const monthName = (first: string) => `${MONTHS[Number(first.slice(5, 7)) - 1]} ${first.slice(0, 4)}`;
@@ -58,6 +59,8 @@ export interface OutlookBulanInput {
   solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; cash: string | null } | null;
   on: { m6: boolean };
   pdfHref: string | null;
+  /** PRD v5 §4.7 (flag v5_pl): rows with the fixed-cost estimate and the chosen views; absent = the v4 page. */
+  v5?: OutlookBulanV5 | null;
 }
 
 export interface OutlookBulanModel { title: string; tiles: TileModel[]; hidden: string[] }
@@ -380,5 +383,5 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
     tiles.push({ id: "solvabilitas", pos: P(6, 16, 6, 3), title: `Solvabilitas ${s.label}`, content: { type: "table", cols: sCols, rows: sRows } });
   } else hidden.push("solvabilitas");
 
-  return { title: `Outlook ${name}`, tiles, hidden };
+  return { title: `Outlook ${name}`, tiles: x.v5 ? outlookBulanV5(tiles, { first, cutOff, tolerance: x.tolerance, budget: x.budget, status, v5: x.v5 }) : tiles, hidden };
 }

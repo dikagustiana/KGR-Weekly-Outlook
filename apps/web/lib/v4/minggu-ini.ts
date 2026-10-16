@@ -16,13 +16,14 @@ import type { Col, TRow } from "@/components/v4/Table";
 import type { SlicerOption, StepDef } from "@/components/v4/Controls";
 import type { CaraHitungContent } from "@/components/v4/CaraHitung";
 import type { TilePos } from "@/components/v4/Tile";
+import { mingguIniV5, type MingguIniV5Pl } from "../v5/pl-tiles";
 
 export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
   | { type: "mode"; label: string; options: [SlicerOption, SlicerOption]; current: string }
   | { type: "release"; text: string; pdfHref: string | null }
   | { type: "headline"; text: string }
-  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string }
+  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string; maxCompare?: number }
   | { type: "combo"; points: ChartPoint[]; labelMax?: number; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "line"; plot: LinePlot; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "waterfall"; steps: WaterfallStep[] }
@@ -43,6 +44,8 @@ export interface TileModel {
   note?: string;
   kind?: "card" | "tall" | "bare";
   cara?: CaraHitungContent;
+  /** Choices in the tile header (links; the page reads the query string), e.g. "Actual vs run-rate / Per minggu". */
+  views?: { label: string; options: SlicerOption[]; current: string }[];
   content: TileContent;
 }
 
@@ -86,6 +89,8 @@ export interface MingguIniInput {
   roll: RollForward | null;
   controlsV3: ControlV3[];
   pdfHref: string | null;
+  /** PRD v5 §4.7 (flag v5_pl): the month's rows with the fixed-cost estimate for the P&L tile; absent = v4. */
+  v5Pl?: MingguIniV5Pl | null;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
@@ -421,7 +426,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     },
   });
 
-  return { title: "Minggu ini", week: x.week.start, tiles, hidden };
+  return { title: "Minggu ini", week: x.week.start, tiles: x.v5Pl ? mingguIniV5(tiles, { v5: x.v5Pl, weekStart: x.week.start, split: x.mode === "aktual" }) : tiles, hidden };
 }
 
 function lowestOf(days: { date: string; closing: string | null }[]): { date: string; balance: Decimal; average: Decimal } | null {

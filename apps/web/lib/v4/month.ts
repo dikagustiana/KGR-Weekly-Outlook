@@ -24,6 +24,7 @@ import { loadMonthDrivers, type MonthDrivers } from "../v3/drivers";
 import { isWorkingDay } from "../v3/monthly";
 import type { Row } from "../v3/uploads";
 import { v5CostingPlRows } from "../v5/costing-pl";
+import { fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: { toFixed(n: number): string } | null) => (x === null ? null : x.toFixed(2));
@@ -47,6 +48,8 @@ export interface MonthStateV4 {
   drivers: MonthDrivers | null;
   budget: BudgetRow[];
   events: CostEventRow[];
+  /** PRD v5 K29 (flag v5_pl): fixed costs not journaled yet (rows basis fixed_estimate, nominals, C55); null = off. */
+  v5Fixed: V5Fixed | null;
 }
 
 /** Cut-off: the month_outlook override, else yesterday for the running month, else the month end (as the v3 rule). */
@@ -154,9 +157,10 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const register = mergeRegister(engineAssumptions({ month: first, cutOff, plan, tolerance, windowDays, lockWeek }), saved);
   const reasons = register.filter((r) => r.code.startsWith("anomaly_") && r.status === "agreed" && r.deviation_note).map((r) => r.code.slice("anomaly_".length));
   const test = runrateTest({ plan, tolerance, reasons });
-  const controls: ControlV3[] = [c49({ rows: plan.rows, pnlMtd }), ...(drivers?.controls ?? [])];
+  const v5Fixed = settings.v5_pl?.enabled ? await v5FixedForMonth(sb, first, cutOff, plan.rows, isWorkingDay) : null;
+  const controls: ControlV3[] = [c49({ rows: plan.rows, pnlMtd }), ...(drivers?.controls ?? []), ...(v5Fixed ? [v5Fixed.control] : [])];
   const blockers = lockBlockers({ month: first, today, lockWeek, plan, register, test, controls });
-  return { first, last, cutOff, today, tolerance, lockWeek, lockDate: v1LockDate(first, lockWeek), windowDays, plan, summary, register, test, controls, blockers, holidays, drivers, budget, events };
+  return { first, last, cutOff, today, tolerance, lockWeek, lockDate: v1LockDate(first, lockWeek), windowDays, plan, summary, register, test, controls, blockers, holidays, drivers, budget, events, v5Fixed };
 }
 
 // ------------------------------------------------------------------------------------------------ mart writes (service role)
@@ -195,7 +199,7 @@ export async function syncRegister(sb: Supa, first: string, register: RegisterRo
 
 export async function writeMonthV4(sb: Supa, st: MonthStateV4): Promise<{ written: number; deleted: number }> {
   let written = 0, deleted = 0;
-  const rows = plRowsToMart(st.plan.rows);
+  const rows = plRowsToMart([...st.plan.rows, ...(st.v5Fixed?.rows ?? [])]);
   for (let d = st.first; d <= st.last; d = addDays(d, 1)) {
     const r = await martReplace(sb, "pl_daily_v4", d, rows.filter((x) => x.date === d));
     written += r.written; deleted += r.deleted;
@@ -204,7 +208,7 @@ export async function writeMonthV4(sb: Supa, st: MonthStateV4): Promise<{ writte
   // lock pre-flight for the Finance page (the lock action recomputes it)
   const { error } = await sb.from("data_status").upsert({
     table_name: "month_lock", scope: st.first, status: st.blockers.length ? "draft" : "validated", built_at: new Date().toISOString(),
-    note: JSON.stringify({ blockers: st.blockers, controls: st.controls.map((c) => ({ code: c.code, status: c.status })), cutOff: st.cutOff, lockDate: st.lockDate, today: st.today }),
+    note: JSON.stringify({ blockers: st.blockers, controls: st.controls.map((c) => ({ code: c.code, status: c.status })), cutOff: st.cutOff, lockDate: st.lockDate, today: st.today, ...(st.v5Fixed ? { fixed: fixedSourcesOf(st.v5Fixed.nominals) } : {}) }),
   }, { onConflict: "table_name,scope" });
   if (error) throw new WriteError(`data_status: ${error.message}`);
   return { written, deleted };
@@ -217,9 +221,9 @@ registerBuilder({
   module: "m4_monthly", name: "monthly v4",
   begin: async (sb) => {
     builtMonths = new Set();
-    const { data } = await sb.from("app_setting").select("key, value").in("key", ["m5_drivers"]);
+    const { data } = await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl"]);
     builderSettings = {};
-    for (const r of (data ?? []) as Row[]) builderSettings[r.key as "m5_drivers"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
+    for (const r of (data ?? []) as Row[]) builderSettings[r.key as "m5_drivers" | "v5_pl"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
   },
   build: async (sb, date) => {
     const m = firstOfMonth(date);
@@ -273,7 +277,10 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
     month: first, version, rule_version: RULE_VERSION, cut_off: st.cutOff, time_zone: "Asia/Jakarta",
     runrate: { revenue_per_day: f2(st.plan.runrate.revenue), window_days: st.windowDays, window_from: st.plan.runrate.windowFrom, days: st.plan.runrate.days, anomalies: st.plan.runrate.anomalies, off_day_factor: st.plan.runrate.offDayFactor.toFixed(6) },
     margin_ref: st.plan.margin.toFixed(6), po_share: st.summary.poShare?.toFixed(6) ?? null, tolerance: st.tolerance,
-    days, rows: plRowsToMart(st.plan.rows), register: st.register, controls, bridge: bridge && {
+    days, rows: plRowsToMart(st.plan.rows), register: st.register, controls,
+    // PRD v5 K29: the fixed-cost estimate travels with the version (outside rows: the v4 totals stay on the journal)
+    ...(st.v5Fixed ? { fixed_estimate: plRowsToMart(st.v5Fixed.rows), fixed: fixedSourcesOf(st.v5Fixed.nominals) } : {}),
+    bridge: bridge && {
       revenue: Object.fromEntries(Object.entries(bridge.revenue).map(([k, v]) => [k, f2(v)])), gp: Object.fromEntries(Object.entries(bridge.gp).map(([k, v]) => [k, f2(v)])), nibt: Object.fromEntries(Object.entries(bridge.nibt).map(([k, v]) => [k, f2(v)])),
     },
     totals: Object.fromEntries(Object.entries(tot).map(([k, v]) => [k, f2(v)])),

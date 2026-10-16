@@ -28,7 +28,10 @@ export default async function MonthPage({ params, searchParams }: { params: Prom
   const first = monthStart(month);
   if (!first) notFound();
   const v = await requireModulePage("m4_monthly");
-  if (v4On(await moduleSettings(), v.role)) return <OutlookBulanV4 first={first} viewer={v} versi={(await searchParams).versi ?? null} />;
+  if (v4On(await moduleSettings(), v.role)) {
+    const sp = await searchParams;
+    return <OutlookBulanV4 first={first} viewer={v} versi={sp.versi ?? null} pl={sp.pl ?? null} cm={sp.cm ?? null} />;
+  }
   const { viewer, weeks, week } = await plainContext();
   const mgmt = (await currentView(viewer)) === "management";
   const sb = await supabaseServer();

@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5-2] Laba rugi (docs/PRD-v5.md irisan 2)
+
+### Added
+- Engine `pl-v5.ts`: `fixedNominals`, `fixedEstimateRows` (K29, basis `fixed_estimate`), `c55`, `plWeeks`, `plTable('rr' | 'wk')` (K30), `cumulativeSeries` for five measures (K31), `plTotalsV5`, `plBudgetOf`, `lineTotals`.
+- Month builder (flag `v5_pl`): fixed-cost estimate rows into `pl_daily_v4`, C55 in the controls and the V1 pre-flight, nominal sources with the lock note and the version snapshot.
+- Outlook bulan and Minggu ini (flag `v5_pl`): P&L tile with two views, cumulative chart with five measures, cards and headline with NIBT according to the journal and after fixed costs.
+
+### Changed
+- `totalsV4` and `plRowsFromMart` leave the `fixed_estimate` rows out, so every v4 number stays on the journal.
+
 ## [v5-1] Costing (docs/PRD-v5.md irisan 1)
 
 ### Added
