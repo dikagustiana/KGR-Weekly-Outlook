@@ -214,12 +214,13 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
   };
   const json = canonical(snapshot);
   const sha = createHash("sha256").update(json).digest("hex");
-  const { error } = await sb.from("month_outlook_version").insert({
-    month_outlook_id: mo.id, version, cut_off_date: st.cutOff, locked_by: viewer.email, snapshot: JSON.parse(json), snapshot_sha256: sha,
-    revenue: f2(t.revenue), cogs: f2(t.cogs), gp: f2(t.gp), opex: f2(t.opex), nibt: f2(t.nibt),
+  // PRD v4 §7.2: written only by public.release_month (version order, FINAL after month end, C48, controls)
+  const { error } = await sb.rpc("release_month", {
+    p_month: first, p_version: version, p_json: json, p_sha: sha, p_cut_off: st.cutOff,
+    p_totals: Object.fromEntries(Object.entries(t).map(([k, v]) => [k, f2(v)])), p_rule_version: null, p_anomaly_days: null, p_po_share: null,
   });
   if (error) throw new WriteError(`month_outlook_version: ${error.message}`);
-  await sb.from("month_outlook").update({ status: version === "V1" ? "v1_locked" : version === "V2" ? "v2" : "final", cut_off_date: s(mo.cut_off_date) }).eq("id", String(mo.id));
+  void viewer;
   if (version === "FINAL") await afterFinal(sb, mo, first, t, st);
   return `${version} dikunci (SHA ${sha.slice(0, 12)}…)`;
 }

@@ -1,4 +1,4 @@
-import { jakartaToday } from "@kgr/engine";
+import { jakartaToday, monthEnd } from "@kgr/engine";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
@@ -9,7 +9,9 @@ import { currentView } from "@/lib/view-server";
 import { loadOutlookBulan, type OutlookBulanExtra } from "@/lib/v4/outlook-bulan-data";
 import { monthName, outlookBulanModel } from "@/lib/v4/outlook-bulan";
 import { tglShort } from "@/lib/fmt";
-import { agreeV4Action, budgetV4Action, cutOffV4Action, lockV4Action, rebuildMonthV4Action } from "./actions-v4";
+import { agreeV4Action, budgetV4Action, cutOffV4Action, lockV4Action, overrideMonthAction, rebuildMonthV4Action } from "./actions-v4";
+import { OverridePanel } from "@/components/v4/OverridePanel";
+import { releaseContext } from "@/lib/release";
 import type { Viewer } from "@/lib/session";
 
 /** PRD v4 §6.2 Manajemen · Outlook bulan (flag v4_design): tiles for everyone, the Finance panel only for Finance and Admin. */
@@ -22,18 +24,25 @@ export async function OutlookBulanV4({ first, viewer, versi }: { first: string; 
   const { input, extra } = await loadOutlookBulan(sb, { first, today, role: viewer.role, settings, selected: versi });
   const model = outlookBulanModel(input);
   const canAct = (viewer.role === "admin" || viewer.role === "finance") && view !== "management";
+  const rc = canAct ? await releaseContext(sb, "month", `${first}:V1`, first, monthEnd(first)) : null;
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/m">
       <h1 className="sr-only">{model.title}</h1>
       <TilePage tiles={model.tiles} label={model.title} />
-      {canAct ? <FinancePanel first={first} extra={extra} cutOff={input.cutOff} hasRows={!!input.rows} /> : null}
+      {canAct && rc ? <FinancePanel first={first} extra={extra} cutOff={input.cutOff} hasRows={!!input.rows} rc={rc} role={viewer.role} /> : null}
     </Shell>
   );
 }
 
-function FinancePanel({ first, extra, cutOff, hasRows }: { first: string; extra: OutlookBulanExtra; cutOff: string; hasRows: boolean }) {
+type ReleaseCtx = Awaited<ReturnType<typeof releaseContext>>;
+
+function FinancePanel({ first, extra, cutOff, hasRows, rc, role }: { first: string; extra: OutlookBulanExtra; cutOff: string; hasRows: boolean; rc: ReleaseCtx; role: string }) {
   const open = extra.registerIds.filter((r) => r.status !== "agreed");
-  const reasonV1 = extra.hasV1 ? "V1 sudah dikunci" : !hasRows ? "bulan belum dibangun" : extra.blockers.length ? `${extra.blockers.length} hal menahan kunci V1` : null;
+  // a control blocker (C33, C34, C49) can be lifted by an override of the role the policy names (§7.2)
+  const lifted = new Set(rc.overrides.map((o) => o.code));
+  const blockers = extra.blockers.filter((b) => !lifted.has(b.code));
+  const ctl = blockers.filter((b) => /^C[0-9]+$/.test(b.code));
+  const reasonV1 = extra.hasV1 ? "V1 sudah dikunci" : !hasRows ? "bulan belum dibangun" : blockers.length ? `${blockers.length} hal menahan kunci V1` : null;
   const reasonV2 = extra.hasV2 ? "V2 sudah dikunci" : !extra.hasV1 ? "kunci V1 dulu" : null;
   const tot = new Map(extra.budgetRows.map((b) => [b.metric, String(b.value)]));
   return (
@@ -41,7 +50,11 @@ function FinancePanel({ first, extra, cutOff, hasRows }: { first: string; extra:
       <h2>Finance · {monthName(first)}</h2>
       <div>
         <p className="muted">Kunci V1 pada Kamis {extra.lockDate ? tglShort(extra.lockDate) : "minggu yang ditetapkan"}; dasar rebuild terakhir {extra.builtAt ? tglShort(extra.builtAt.slice(0, 10)) : "belum ada"}.</p>
-        {extra.blockers.length ? <ul>{extra.blockers.map((b) => <li key={b.code}>{b.text}</li>)}</ul> : <p className="muted">Tidak ada yang menahan kunci V1.</p>}
+        {blockers.length > ctl.length ? <ul>{blockers.filter((b) => !ctl.includes(b)).map((b) => <li key={b.code}>{b.text}</li>)}</ul> : !blockers.length ? <p className="muted">Tidak ada yang menahan kunci V1.</p> : null}
+        {!extra.hasV1 && (ctl.length || rc.overrides.length) ? (
+          <OverridePanel v4 rejections={ctl.map((b) => ({ code: b.code, label: b.text, overridable: (rc.policy[b.code] ?? []).length > 0 }))} overrides={rc.overrides}
+            policy={rc.policy} role={role} action={overrideMonthAction} hidden={{ month: first, version: "V1" }} />
+        ) : null}
       </div>
       <div className="actionbar">
         <ActionForm v4="primary" action={lockV4Action} submit="Kunci V1" confirm="Kunci V1? Versi yang dikunci tidak bisa diubah." disabled={reasonV1 !== null}>

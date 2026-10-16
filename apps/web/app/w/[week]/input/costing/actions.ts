@@ -73,7 +73,8 @@ export async function addOverheadRate(_: ActionState, form: FormData): Promise<A
     const num = (k: string) => { const x = parseNumber(String(form.get(k) ?? "")); return x === null ? null : D(x).toFixed(4); };
     const rate = num("rate_per_kg_lb");
     if (rate === null) return { error: "Isi tarif Rp/kg LB" };
-    const { error } = await sb.from("overhead_rate").insert({ period_start: from, period_end: to, rate_per_kg_lb: rate, basis_kg: num("basis_kg"), budget_overhead: num("budget_overhead"), note: String(form.get("note") ?? "") || null });
+    // PRD v4 §3.5: per head as well; a batch with a head count then takes overhead = heads × rate per head
+    const { error } = await sb.from("overhead_rate").insert({ period_start: from, period_end: to, rate_per_kg_lb: rate, rate_per_head: num("rate_per_head"), basis_kg: num("basis_kg"), budget_overhead: num("budget_overhead"), note: String(form.get("note") ?? "") || null });
     if (error) return { error: error.message };
     done(week.week_start);
     return { ok: "Tarif overhead disimpan" };

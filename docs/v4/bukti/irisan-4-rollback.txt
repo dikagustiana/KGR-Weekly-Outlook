@@ -1,0 +1,12 @@
+# Irisan 4: rollback satu migrasi pada salinan latihan KGR-OS (kgr_os_rehearsal → kgr_os_v4), 2026-10-16T04:12Z
+# kolom: fungsi release_week/release_month | tabel override | cek kebijakan release_ins | trigger C48 + mode biaya | baris release | baris versi
+
+== before rollback
+2|2|false|2|0|0
+== after rollback
+0|0|( SELECT has_role(VARIADIC ARRAY['admin'::text, 'finance'::text]) AS has_role)|0|0|0
+psql:supabase/migrations/20261019000100_v4_release.sql:271: NOTICE:  column "rate_per_head" of relation "overhead_rate" already exists, skipping
+psql:supabase/migrations/20261019000100_v4_release.sql:306: NOTICE:  column "revenue_date" of relation "lot_movement" already exists, skipping
+psql:supabase/migrations/20261019000100_v4_release.sql:307: NOTICE:  column "cost_ma_revenue" of relation "lot_movement" already exists, skipping
+== re-applied
+2|2|false|2|0|0

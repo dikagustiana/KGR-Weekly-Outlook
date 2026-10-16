@@ -6,7 +6,7 @@ import "server-only";
  * formatting of engine results.
  */
 import {
-  ENGINE_VERSION, allocateBatch, computeCostPool, costComponentOf, costingControls, groupCostPerKg, toFixedString,
+  ENGINE_VERSION, allocateBatch, c48, computeCostPool, costComponentOf, costingControls, groupCostPerKg, toFixedString,
   type AllocateInput, type AllocationResult, type ControlV3, type CostComponent, type CostLine, D,
 } from "@kgr/engine";
 import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@kgr/parsers";
@@ -28,7 +28,7 @@ export interface RunRow { id: string; batch_id: string; status: "draft" | "poste
 export interface LineRow { id: string; allocation_run_id: string; key: string | null; item_code: string | null; kg: string; price_ref: string | null; sales_value: string; share: string; allocated_cost: string; cost_per_kg: string; by_product_method: string; nrv_floor: string | null; nrv_writedown: string }
 export interface PoolRow { id: string; period_start: string; period_end: string; mode: string; description: string | null; total_pi: string; total_gl: string | null; status: string }
 export interface PoolLineRow { id: string; cost_pool_id: string; component: CostComponent; date: string | null; supplier: string | null; account: string | null; document_ref: string | null; amount: string; batch_id: string | null; note: string | null; line_key: string | null; source: string }
-export interface RateRow { id: string; period_start: string; period_end: string; rate_per_kg_lb: string; basis_kg: string | null; budget_overhead: string | null; note: string | null }
+export interface RateRow { id: string; period_start: string; period_end: string; rate_per_kg_lb: string; rate_per_head: string | null; basis_kg: string | null; budget_overhead: string | null; note: string | null }
 export interface KeyInfo { key: string; group_code: string | null; decision_group: string; cut_component: string | null; segment: string }
 
 export interface CostingParams { by_product_method: "joint" | "nrv"; yield_gap_tolerance: string; avg_lb_kg_default: string; selling_cost_per_kg: string }
@@ -72,7 +72,7 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
   const mEnd = monthBounds(week.week_end).end;
   const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").range(f, t))) as unknown as PoolRow[];
   const poolLines = pools.length ? ((await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", pools.map((p) => p.id)).is("deleted_at", null).order("date").range(f, t))) as unknown as PoolLineRow[]) : [];
-  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).range(f, t))) as unknown as RateRow[];
+  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).range(f, t))) as unknown as RateRow[];
   const group = <T,>(xs: T[], k: (x: T) => string) => {
     const g = new Map<string, T[]>();
     for (const x of xs) g.set(k(x), [...(g.get(k(x)) ?? []), x]);
@@ -118,7 +118,7 @@ export function allocationInput(d: CostingWeek, b: BatchRow): AllocateInput {
       pools: /boneless/i.test(o.item_name ?? "") ? ["boneless"] : [],
     })),
     costLines: batchCostLines(d, b),
-    overheadRate: rate ? { rate_per_kg_lb: rate.rate_per_kg_lb, basis_kg: rate.basis_kg } : null,
+    overheadRate: rate ? { rate_per_kg_lb: rate.rate_per_kg_lb, rate_per_head: rate.rate_per_head, basis_kg: rate.basis_kg } : null,
     options: { byProductMethod: d.params.by_product_method, sellingCostPerKg: d.params.selling_cost_per_kg },
   };
 }
@@ -126,7 +126,7 @@ export function allocationInput(d: CostingWeek, b: BatchRow): AllocateInput {
 /** C21–C24 for the week, from the stored allocation runs and the pools of its month(s). */
 export function weekCostingControls(d: CostingWeek): ControlV3[] {
   const runs = [...d.latestRun.values()];
-  return costingControls({
+  return [...costingControls({
     allocations: runs.map((r) => ({ batchRef: d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id, diff: D(r.diff) })),
     batches: d.batches.map((b) => ({
       ref: b.batch_ref ?? b.id, status: b.status, processed_kg: b.processed_kg,
@@ -135,6 +135,14 @@ export function weekCostingControls(d: CostingWeek): ControlV3[] {
     })),
     pools: d.pools.map((p) => computeCostPool({ lines: d.poolLines.filter((l) => l.cost_pool_id === p.id).map((l) => ({ component: l.component, amount: l.amount, batch_ref: l.batch_id })), glTotal: p.total_gl })),
     yieldGapTolerance: d.params.yield_gap_tolerance,
+  }), weekC48(d)];
+}
+
+/** C48 (PRD v4 §3.5): Aktual batches of the week without SKU output; their costing cannot be posted. */
+export function weekC48(d: CostingWeek): ControlV3 {
+  return c48({
+    batches: d.batches.map((b) => ({ ref: b.batch_ref ?? b.id, status: b.status ?? "", date: b.date })),
+    outputs: d.batches.flatMap((b) => (d.outputs.get(b.id) ?? []).map((o) => ({ batch_ref: b.batch_ref ?? b.id, kg: o.kg }))),
   });
 }
 
@@ -193,6 +201,9 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
   const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft");
   const bad = drafts.filter((r) => D(r.diff).abs().gt(1));
   if (bad.length) throw new WriteError(`${bad.length} alokasi belum seimbang (C21) — perbaiki output/harga lalu alokasikan ulang`);
+  // C48: a batch whose SKU output is gone cannot be posted (the database trigger allocation_run_c48 refuses it too)
+  const empty = drafts.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
+  if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id).join(", ")}`);
   for (const r of drafts) {
     const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
     if (e.error) throw new WriteError(e.error.message);

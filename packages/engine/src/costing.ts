@@ -53,6 +53,8 @@ export interface CostLine {
 export interface OverheadRate {
   rate_per_kg_lb: Num;
   basis_kg?: Num | null;
+  /** PRD v4 §3.5: overhead per head instead of per kg LB (used when the batch has a head count). */
+  rate_per_head?: Num | null;
 }
 
 export interface AllocationOptions {
@@ -139,7 +141,10 @@ export function overheadBasisKg(b: CostingBatch): Decimal {
 export function allocateBatch(x: AllocateInput): AllocationResult {
   const issues: string[] = [];
   const sellCost = D(x.options.sellingCostPerKg ?? 0);
-  const overheadCost = x.batch.mode === "own" && x.overheadRate ? overheadBasisKg(x.batch).times(D(x.overheadRate.rate_per_kg_lb)) : ZERO;
+  const perHead = x.overheadRate?.rate_per_head !== null && x.overheadRate?.rate_per_head !== undefined && x.overheadRate.rate_per_head !== "" && x.batch.head_count !== null && x.batch.head_count !== undefined;
+  const overheadCost = x.batch.mode === "own" && x.overheadRate
+    ? perHead ? D(x.batch.head_count!).times(D(x.overheadRate.rate_per_head!)) : overheadBasisKg(x.batch).times(D(x.overheadRate.rate_per_kg_lb))
+    : ZERO;
   if (x.batch.mode === "own" && !x.overheadRate) issues.push("Mode RPA sendiri tanpa tarif overhead: overhead = 0");
 
   // pools

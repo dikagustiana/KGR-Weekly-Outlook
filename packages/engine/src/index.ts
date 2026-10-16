@@ -26,3 +26,4 @@ export * from "./management";
 export * from "./week-outlook";
 export * from "./month-v4";
 export * from "./ppic-v4";
+export * from "./close-v4";

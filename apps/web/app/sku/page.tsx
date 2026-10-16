@@ -5,7 +5,9 @@ import { Shell } from "@/components/Shell";
 import { Card, N, Td } from "@/components/ui";
 import { SKU_READERS, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { skuBalances } from "@/lib/v3/ledger";
+import { rekonSplitForWeek, skuBalances } from "@/lib/v3/ledger";
+import { computeForWeek } from "@/lib/data";
+import { bsInventoryYesterday } from "@/lib/v3/week";
 import { tgl } from "@/lib/fmt";
 import { currentView } from "@/lib/view-server";
 
@@ -27,6 +29,9 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   const shown = rows.filter((r) => (!group || r.group_code === group) && (!form || r.form === form) && (sp.all === "1" || !D(String(r.kg)).isZero()));
   const groups = [...new Set(rows.map((r) => String(r.group_code ?? "")))].filter(Boolean).sort();
   const tot = (k: string) => shown.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0));
+  // PRD v4 §3.6: the five reconciliations, kg and Rp apart (computed on request: it runs the whole ledger)
+  const canRekon = !mgmt && ["admin", "finance", "inventory_accounting"].includes(viewer.role) && !!week;
+  const rekon = canRekon && sp.rekon === "1" && week ? await rekonSplitForWeek(sb, week, bsInventoryYesterday((await computeForWeek(week.week_start))?.result)) : null;
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/sku">
       <h1>Stok per SKU {date ? `— ${tgl(date)}` : ""}</h1>
@@ -62,6 +67,25 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
           </tbody>
         </table>
       </div>
+      {canRekon ? (
+        <Card title="Rekon persediaan, lima bagian">
+          {rekon ? (
+            <>
+              <p className="muted">Per {tgl(rekon.date)}{rekon.cardDate ? `; kartu stok ${tgl(rekon.cardDate)}` : ""}. Selisih kg dan Rp terpisah; selisih tidak ditutup tanpa voucher dan persetujuan Finance.</p>
+              <table className="t compact">
+                <thead><tr><th>Bagian</th><th>Rekon</th><th className="n">Selisih kg</th><th className="n">Selisih Rp</th><th>Keterangan</th></tr></thead>
+                <tbody>{rekon.parts.map((x) => (
+                  <tr key={x.part}><td>{x.part}</td><td>{x.label}</td>
+                    {x.missing ? <><td className="n muted">belum diisi</td><td className="n muted">belum diisi</td><td className="muted">{x.missing}</td></> : (
+                      <><Td v={x.kg === null ? null : x.kg.toFixed(2)} dp={2} /><Td v={x.rp === null ? null : x.rp.toFixed(2)} /><td className="muted">{x.detail.slice(0, 4).join("; ")}</td></>
+                    )}
+                  </tr>
+                ))}</tbody>
+              </table>
+            </>
+          ) : <p><Link href={`/sku?${new URLSearchParams({ ...Object.fromEntries(Object.entries(sp).filter(([, v]) => v !== undefined)) as Record<string, string>, rekon: "1" })}`}>Hitung rekon (a) kg ledger vs kartu stok, (b) MA vs HPP aktual, (c) nilai vs neraca, (d) SI per lot, (e) saldo awal</Link></p>}
+        </Card>
+      ) : null}
       {!mgmt ? <p className="muted">Sumber: data harian <code>sku_balance_daily</code> (dibangun ulang setelah upload). Batas umur: fresh {">"} jendela fresh (48 jam), frozen {">"} batas umur (30 hari).</p> : null}
     </Shell>
   );

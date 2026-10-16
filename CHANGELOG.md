@@ -2,6 +2,19 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v4-4] Tutup buku dan rilis server-side (docs/PRD-v4.md irisan 4)
+
+### Added
+- Migration `20261019000100_v4_release.sql`: `release_week` / `release_month` (§7.2), `release_override` and `release_override_policy`, flag `v4_release` (off), `overhead_rate.rate_per_head`, trigger `batch_cost_mode` (own RPA from 1 Nov 2026), trigger `allocation_run_c48`, `lot_movement.revenue_date / cost_ma_revenue` (DI-01). Rollback script in `supabase/rollback/`.
+- Engine `close-v4.ts`: `releaseVerdict`, `monthMandatory`, `v1Codes`, `c48`, `reconcileSplit`, `finalTotalsV4`, `worstByCode`, `calibrationV4`, `unbilledRevaluation`; overhead per head in `allocateBatch`.
+- Web: override forms on Kontrol (weekly), the Outlook bulan Finance panel (V1) and Tutup buku (FINAL); Tutup buku v4 behind `v4_design` (FINAL, accuracy, calibration, DI-01); builder "accuracy v4" for `forecast_accuracy_daily`; five-part stock reconciliation on `/sku`; Rp/ekor on the overhead rate form; C48 in the weekly costing controls.
+
+### Changed
+- A weekly release and a monthly version are written only through the database functions; direct inserts are refused. With `v4_release` off the weekly rule is unchanged (only GAGAL rejects).
+- A FINAL (v3 and v4) is refused while an Aktual batch of the month has no SKU output (C48).
+- The week guard skips the generated `week_end`, so a release by Finance now marks the week released.
+- `computeMonthV4` reads the parameters and run-rate table of the month's last week; the engine's register includes manual and calibration rows.
+
 ## [v4-3] PPIC: demand, rencana, alokasi (docs/PRD-v4.md irisan 3)
 
 ### Added

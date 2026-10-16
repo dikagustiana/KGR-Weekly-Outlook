@@ -125,3 +125,35 @@ Q55. Spot lalu blast (K8). Halaman Alokasi menampilkan sisa fresh sebagai calon 
 Q56. Seed kapasitas. Baris per tanggal 19 Okt–29 Nov 2026 tanpa angka, dengan keterangan periode: maklon sampai 31 Okt, RPA Rawa Terate mulai 1 Nov. C47 memperlakukan nilai kosong sebagai belum diisi. Tanggal sesudah 29 Nov tidak di-seed.
 
 Q57. Syarat selesai irisan 3 di §10 ("paralel 2–4 minggu dengan rencana PPIC sebelum flag on") adalah langkah operasional PPIC dan pemilik produk. Pekerjaan ini menyiapkan halaman dan angka; perbandingannya belum dijalankan.
+
+## Irisan 4
+
+Q58. Aturan rilis mingguan. §7.1 menulis C1–C20 wajib untuk rilis mingguan "seperti sekarang", yaitu hanya GAGAL yang memblokir. §7.2 menulis rilis ditolak bila kontrol wajib GAGAL, BELUM DIISI, atau STALE. Minggu contoh punya C8 dan C9 BELUM DIISI, jadi dengan §7.2 minggu itu tidak bisa dirilis tanpa override. Kedua pasal ini bertentangan. Sementara ini ada flag baru `v4_release` (default mati). Mati: aturan v1, hanya GAGAL menolak, tanpa override. Hidup: aturan §7.2 dengan override per kontrol. Versi bulanan v4 (snapshot dengan `rule_version`) selalu memakai §7.2. Perlu dipilih.
+
+Q59. Peran yang boleh override. §7.2 meminta "role yang diizinkan per kontrol" tanpa menyebut perannya. Isi awal `release_override_policy`: C1–C20 Finance; C21–C24 Cost Accounting dan Finance; C33, C34, C43, C35–C37, C49 Finance; C32, C45, C48 tanpa peran (tidak bisa di-override). Admin tidak ada di daftar mana pun. Admin boleh mengubah tabel kebijakan itu sendiri, jadi Admin bisa menambahkan dirinya. Perlu dipilih: biarkan begitu, atau kebijakan hanya bisa diubah lewat migrasi.
+
+Q60. C48 pada versi bulanan. §7.1 menulis C48 memblokir posting costing dan rilis bulanan. `release_month` memeriksa C48 untuk semua versi v4 (V1, V2, FINAL) dan untuk FINAL jalur v3. Akibatnya FINAL jalur v3, yang dipakai production selama `v4_design` mati, ikut ditolak setelah migrasi ini diterapkan bila ada batch Aktual tanpa output di bulan itu. Untuk September 2026 itu AGRO28–30 (DI-03). Perlu dipilih apakah jalur v3 ikut aturan ini.
+
+Q61. Rilis server-side dan penyimpanan file. `release_week` dan `release_month` berjalan di sesi pengguna sebagai SECURITY DEFINER, bukan lewat service key. JSON dan PDF mingguan tetap diunggah ke storage oleh server action sebelum fungsi dipanggil. Halaman memeriksa aturan yang sama lebih dulu, jadi file jarang tertinggal; kalau fungsi menolak setelah unggah (misalnya ada rebuild baru masuk antrean di antaranya), file itu tetap ada tanpa baris rilis.
+
+Q62. Penjaga minggu. `tg_week_guard` membaca `week_end` (kolom generated) sebagai berubah, karena di trigger BEFORE nilainya masih null. Akibatnya setiap perubahan minggu oleh peran selain Admin ditolak, termasuk Finance yang menandai minggu `released`. Rilis v1 tidak memeriksa galat langkah itu, jadi minggu yang dirilis Finance selama ini tetap `open`. Migrasi irisan 4 melewati kolom generated itu. Status `released` hanya dipakai untuk badge di Admin → Minggu; hak tulis tidak berubah.
+
+Q63. Biaya kapasitas idle (§3.5) sudah dihitung engine (`idleCapacity`) dan tampil di halaman Costing. Biaya itu belum masuk `pl_daily_v4` sebagai baris "Biaya kapasitas idle". Perlu dipilih jalurnya: `cost_event` yang ditulis builder, atau baris mart tersendiri.
+
+Q64. Overhead per ekor. §3.5 menulis "per kg LB atau per ekor". Bila tarif punya Rp/ekor dan batch punya jumlah ekor, overhead = ekor × Rp/ekor; selain itu kg LB × Rp/kg. Batch yang dibuat bertanggal 1 Nov 2026 atau sesudahnya otomatis bermode RPA sendiri bila dikirim dengan mode bawaan (maklon). Mode bisa diubah sesudahnya; batch lama tidak disentuh.
+
+Q65. DI-01 di ledger. Untuk baris faktur Accurate yang menggantikan baris DO Ops (nomor dokumen sama), `lot_movement` kini menyimpan `revenue_date` (tanggal DO, K11) dan `cost_ma_revenue` (MA pada tanggal itu) di samping `cost_ma` (MA pada tanggal faktur). Tanggal mutasi keluar tetap tanggal baris faktur, jadi saldo ledger dan roll-forward G3 tidak berubah, tetapi stok di ledger antara tanggal DO dan tanggal faktur masih terlalu tinggi. Revaluasi ditampilkan di Tutup buku dan dicatat Finance sebagai penyesuaian; tidak diposting otomatis. Perlu dipilih apakah mutasi keluar dipindah ke tanggal DO.
+
+Q66. Kontrol FINAL. C21–C24 (bila M1 hidup) diambil dari status terburuk per kode atas minggu-minggu yang beririsan dengan bulan itu. C35–C37 (bila M6 hidup) diambil dari posisi kas tanggal 1 bulan berikutnya. C49 diambil dari P&L minggu yang tanggal update-nya tanggal 1 bulan berikutnya. C48 diambil dari batch bertanggal di bulan itu. Modul yang mati dan tidak memengaruhi angka FINAL dianggap N/A dan tidak dicek.
+
+Q67. Kalibrasi. Saat FINAL dikunci, register bulan berikut mendapat baris `kal_runrate_revenue`, `kal_margin_ref`, `kal_runrate_offday`, dan bias V1 (revenue, GP), dengan sumber kalibrasi dan status diusulkan. P10 dan `release_month` menghitung semua baris register yang hidup, jadi V1 bulan berikut menunggu Finance menyepakati baris ini. Pra-cek kunci di engine kini juga menghitung baris manual dan kalibrasi, supaya halaman dan server memakai daftar yang sama.
+
+Q68. Akurasi per hari. `forecast_accuracy_daily` ditulis untuk V1 dan V2 terhadap hari FINAL, segmen "Total" saja. Pemecahan kg kirim lawan harga butuh kg per hari di snapshot FINAL; hari actual belum menyimpan kg, jadi kolom itu kosong (bukan 0). Tabel `outlook_accuracy` jalur v3 tidak ditulis di jalur v4; halaman menghitung akurasi dari versi yang terkunci.
+
+Q69. G3 meminta MA = HPP aktual ±Rp 1/kg pada ≥ 95% baris, atau pengecualian tertulis. Fixture masih 88,2% (30 dari 34). Pengecualian tertulis adalah keputusan pemilik produk dan Finance; belum ada.
+
+Q70. G8 meminta backup/restore terverifikasi. Lingkungan ini tidak punya akses ke Supabase production, jadi yang diuji hanya rollback satu migrasi (`supabase/rollback/20261019000100_v4_release.down.sql`) pada salinan latihan, lalu migrasinya diterapkan lagi. Backup dan restore harus dijalankan manusia.
+
+Q71. PDF bulanan A4 dua halaman dari snapshot v4 (§3.9) belum dibuat. Rilis bulanan v4 menyimpan snapshot dan SHA; PDF bulanan masih jalur v3 (lanjutan Q38).
+
+Q72. STALE pada rilis dibaca dari `rebuild_queue` (antrean berstatus queued atau running untuk tanggal periode itu). `data_status.stale_from` belum dipakai karena belum diisi semua builder.
