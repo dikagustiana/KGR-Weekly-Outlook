@@ -6,6 +6,7 @@ All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones 
 
 ### Added
 - Engine `batchBasisInputs` (batch basis of the LB simulation; the fixture script uses it, fixture unchanged).
+- Golden fixture `pl-2026-08` (PRD §9.2, Lampiran B.2): both P&L views and the five cumulative series.
 - Web (flag `v5_management`): Minggu ini gets the live-bird simulation for the operations director (two bases, price buttons, COGS/GP/breakeven/margin, COGS per kg per SKU, K25 wording) with the decision form (journey M), "Perlu keputusan minggu ini" with owners and "Status putaran"; K36 source labels on the main numbers of Manajemen, Commercial and PPIC; K37 "Lihat sebagai" in the header per role; the PPIC screen readable by management and the operations director.
 
 ## [v5-5] Input (docs/PRD-v5.md irisan 5)

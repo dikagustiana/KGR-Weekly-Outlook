@@ -8,6 +8,7 @@ Branch `v5/6-management` di atas `v5/5-input`. Rancangan: `docs/v5/irisan-6-desi
 - Manajemen · Minggu ini: tile **Simulasi harga live bird · untuk Direktur Operasional** (basis kebutuhan PO / batch rencana; harga 20.000–26.000 + harga hari ini; COGS rencana, GP rencana, breakeven LB, margin/kg LB; COGS/kg per SKU vs harga list; kalimat K25 "diputuskan Direktur Operasional, simulasi bukan rekomendasi") dan tile **Perlu keputusan minggu ini** + **Status putaran**; label sumber K36 di kartu utama dan simulasi; form keputusan harga LB untuk Direktur Operasional (journey M).
 - Header: "Lihat sebagai" (Manajemen · Commercial · PPIC · Input) hanya item yang boleh dibaca role (K37); layar PPIC baca-saja untuk management dan Direktur Operasional.
 - Commercial v5 dan PPIC v5: label sumber K36 di tile angka utama.
+- Fixture golden `fixtures/pl-2026-08` (PRD §9.2, Lampiran B.2) yang belum dibuat di v5/2: dua tampilan tabel laba rugi dan seri kumulatif lima ukuran dari input tes B.2 yang sama (`packages/engine/test/pl-golden.ts`, ditulis `scripts/pl-golden.ts`, dibandingkan di `pl-v5.test.ts`); input B.2 dipindah ke `test/pl-v5-inputs.ts` tanpa perubahan nilai.
 
 ## Persyaratan → bukti
 
@@ -32,7 +33,7 @@ packages/parsers typecheck: Done
 apps/web typecheck: Done
 == test
 packages/engine test:  Test Files  25 passed (25)
-packages/engine test:       Tests  346 passed | 1 todo (347)
+packages/engine test:       Tests  347 passed | 1 todo (348)
 packages/parsers test:  Test Files  3 passed (3)
 packages/parsers test:       Tests  23 passed (23)
 apps/web test:  Test Files  18 passed (18)
