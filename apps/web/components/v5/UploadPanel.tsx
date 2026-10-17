@@ -65,7 +65,7 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
   return (
     <div className="upl" data-upload={kind}>
       <div className="actionbar">
-        <label className="v4b">Pilih file Excel atau CSV<input type="file" accept=".xlsx,.xls,.csv" onChange={onFile} className="sr-only" /></label>
+        <label className="v4b">Pilih file Excel atau CSV<input type="file" accept=".xlsx,.csv" onChange={onFile} className="sr-only" /></label>
         {sample ? <button type="button" className="v4b" onClick={() => setSrc({ name: "contoh", grid: sample, sample: true })}>Pakai file contoh</button> : null}
         <button type="button" className="v4b" onClick={makeTemplate}>Buat template</button>
         {tplUrl ? <a className="v4b link" href={tplUrl} download={tplUrl.startsWith("blob:") ? tpl.fileName : undefined}>Unduh {tpl.fileName}</a> : null}
