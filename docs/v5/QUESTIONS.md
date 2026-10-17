@@ -263,3 +263,56 @@ Q-v5.1-31. O15 (R33) dibangun dengan default `warn`. Golden `fixtures/upload-sam
 Q-v5.1-32. R31: kode ukuran sekarang memakai dua desimal bila perlu ("Uk 1.25"). Ukuran satu desimal tetap "Uk 1.3", sehingga golden B.3 tidak berubah. Kunci mart `demand_class_weekly (week_start, ship_date, size_code)` tetap unik per ukuran.
 
 Q-v5.1-33. T11: tes `flags-matrix` dan matriks PostgREST memeriksa kata rekomendasi live bird (TUNDA, NEGOSIASI, REKOMENDASI RPA). "BELI" di blok keputusan trading (blok 4) bukan keputusan live bird. K25 tidak menyentuhnya, sehingga blok itu dikecualikan dari pemeriksaan.
+
+## Keputusan v5.2 (diputuskan agen atas delegasi Dika, 17 Okt 2026)
+
+Dasar: brief "selesaikan PRD v5.2" Bab 3 dan Bab 7. Keputusan di bawah menggantikan status "usulan/terbuka" di tabel O15–O33 di atas dan PRD v5.2-B Bab 6.
+
+| # | Keputusan | Akibat di kode / DB |
+|---|---|---|
+| O13 | Tulis pengecualian 88,2% dan tutup tes `todo` | A3 |
+| O15 | `warn` (default `parameter.po_unsized_mode`) | tidak berubah |
+| O16 | Stok bebas di Commercial dikurangi komitmen terkunci yang belum tertutup PO (§4.6) | A2/A6 |
+| O17 | Laba rugi Manajemen collapsed di ≤ 768 px | A6 |
+| O18 | `minmax(76px, auto)` diterima; amandemen PRD v4 §5.3 | tidak berubah |
+| O19 | Kumulatif; catatan tile menjelaskan angka positif | A6 |
+| O20 | Supply tanpa kelas diabaikan, C58 menyebut "n kg tanpa kelas" | R50 |
+| O21 | (b) persis: `base_key` hanya untuk assignment tanpa akhiran bentuk (`assignment_covers`) | B-R83, R58 |
+| O22 | (b) C53 BELUM DIISI selalu menahan rilis saat `v5_costing` hidup | B-R84 |
+| O23 | (b) Upload Finance masuk panel Input; nav Finance 7 item | R77 |
+| O24 | (b) baris memo: production `v5_pl.costing_rows_mode = 'memo'`; golden tetap `'cogs'` | R66; data KGR-OS sesudah A3 di production |
+| O25 | (c) impor FS sebagai acuan, app menghitung, C59 membandingkan | B-R86, R68, R69 |
+| O26 | ±Rp 1 | C59 |
+| O27 | (a) baris Management Report dulu, lalu (b) per akun TB; sebelum Agustus di luar cakupan, saldo awal = TB 31 Jul | R68 |
+| O28 | (b) wajib sel K35 s.d. `min(ws+6, wall−1)`; lebih awal butuh override | B-R84 |
+| O29 | (b) `v5_*` `roles:["admin"]` sampai T19 lulus, lalu dibuka untuk semua role | KGR-OS (log 17 Okt) |
+| O30 | Harian 05.00 WIB (`0 22 * * *`) | R46 |
+| O31 | (a) tolak (`23514`) bila harga per ukuran berbeda pada key yang sama | B-R83 |
+| O32 | (b) C55 ditegakkan di `release_month` V1 (DB), override Finance | B-R84 |
+| O33 | (b) K27 tahap 2 ke PRD berikutnya | tidak dikerjakan |
+| O34 | (b) project terpisah `KGR-OS-staging`, compute terkecil | B-R92 |
+| O35 | (b) promosi production manual | lihat Q-v5.2-3 |
+| O36 | Production `v5_costing.since` = 2026-09-01 (Agustus FINAL dengan biaya M1); staging 2026-08-24 untuk T7 | KGR-OS (log 17 Okt) |
+| O37 | Ukur latensi; pindah `icn1` bila halaman > 3 dtk | lihat BUTUH-DIKA |
+| O38 | (b) `release_override_policy` hanya lewat migrasi | B-R83 |
+| O39 | Tidak menyalin data production ke staging | B-R92 |
+| Q-v5-42 | SheetJS 0.20.3 disetujui, versi di-pin, cache pnpm di CI; `.xls` Accurate diterima di UploadPanel (balikkan default R78) | A6 |
+| K62, K63 | Ditetapkan (bukan usulan lagi) | R66, R68, R69 |
+
+## Pelaksanaan PRD v5.2 (Q-v5.2-n, diputuskan agen atas delegasi Dika)
+
+Q-v5.2-1. **Backup KGR-OS tanpa `pg_dump`.** Dari container agen, port database KGR-OS dan `api.supabase.com` diblokir (hanya SQL lewat connector Supabase), dan repo ini **publik**, sehingga dump tidak boleh lewat artifact/input GitHub Actions (artifact repo publik bisa diunduh siapa pun). Pengganti: snapshot logis di dalam DB, skema `bak_<UTC>` (salinan semua tabel `public` + `auth.users` + katalog DDL `_ddl` + manifest jumlah baris dan md5 per tabel), tanpa grant ke `anon`/`authenticated`. Perintah: `docs/v5.2/kgr-os-backup.sql`; catatan per backup: `docs/v5.2/kgr-os-log.md`. Ini melindungi dari kesalahan logis bundel/data; kehilangan project tetap bergantung pada backup harian Supabase (plan Pro). **Catatan:** `.github/workflows/backup.yml` mengunggah dump sebagai artifact; di repo publik itu membocorkan data production. Jangan isi `SUPABASE_DB_URL` sebelum workflow itu diubah (artifact dihapus, hanya bucket privat).
+
+Q-v5.2-2. **Lint K41/K42 di `scripts/lint.py`.** `catch {` tanpa binding yang tidak melempar ulang = hit K41 (pola PRD `catch () {` bukan sintaks TS yang sah). Pengecualian per baris dengan penanda `// k41-ok: <alasan>` / `// k42-ok: <alasan>`; penanda tanpa alasan = hit. K42: builder `fetchAll` wajib `.order()` yang mencakup satu kunci unik tabelnya (PK / unique / unique index non-parsial, dibaca dari `supabase/migrations`; kolom yang dikunci `.eq()` dihitung tetap; dua view Commercial memakai kunci `commercial_daily`). `.limit(n>1)` hanya boleh sebagai top-n berurutan (ada `.order(` di builder yang sama) dan tidak pernah di dalam `fetchAll`.
+
+Q-v5.2-3. **O35(b) belum bisa dijalankan agen.** Connector Vercel di sesi ini tidak punya izin project/env/deployment (404/403), dan `*.vercel.app` diblokir dari container. Sampai Dika mematikan auto-assign domain production (BUTUH-DIKA), berlaku aturan urutan merge PRD A Bab 4 secara ketat: kode yang memakai objek DB baru di-merge **sesudah** bundelnya diterapkan di KGR-OS dan tabel ceknya true.
+
+Q-v5.2-4. **"Staging dulu" berlaku juga untuk bundel v5.1 (B0-3).** Bundel v5.1 belum pernah diuji di PG17/Supabase (CI PG16). Bundel v5.1 masuk KGR-OS sesudah lulus di `KGR-OS-staging`. Langkah B0 yang hanya mengubah data (flag O29, `since` O36, antrean B0-6) dijalankan lebih dulu, sesudah backup.
+
+Q-v5.2-5. **`costing_rows_mode = 'memo'` (O24) diisi di KGR-OS sesudah kode A3 di production**, dan `setFlag` (Admin → Modul) mempertahankan field selain `enabled/roles/since`; tanpa itu, menyimpan flag `v5_pl` dari layar Admin menghapus mode.
+
+Q-v5.2-6. **Data production lewat SQL yang meniru upload.** Jalur upload app (template 8.3, upload v4/v5) tidak terjangkau dari lingkungan agen (`*.vercel.app` diblokir, tanpa sesi pengguna). Data yang punya jalur upload dimasukkan dengan SQL berkolom sama dengan hasil upload (`source` sesuai, `upload_id` null), satu berkas per jenis di `docs/v5.2/kgr-os-*.sql`, dengan sumber per angka (berkas + sheet + sel) di kolom `note` atau komentar. Bila Dika ingin jejak upload, berkas yang sama bisa diunggah ulang lewat app (idempoten).
+
+Q-v5.2-7. **Uji bundel DATA = uji kering di KGR-OS.** Staging tidak memuat data production (O39), jadi bundel data (bukan DDL) diuji dengan menjalankannya di KGR-OS dalam `begin … rollback` lalu memeriksa tabel ceknya, sesudah backup. Bundel skema/migrasi tetap wajib lulus di staging dulu.
+
+Q-v5.2-8. **Data master PPIC tidak diisi dari fixture.** PRD v5 (baris 280, 491, 621) menyatakan rentang kelas K/S/B, yield per kelas, dan kapasitas di mockup/fixture adalah ilustrasi yang tidak boleh menjadi seed. Hanya `weight_class` STD (sudah terisi) yang bersumber. `size_class_map`, rentang/rata-rata K/S/B, yield per kelas, dan `capacity` menunggu data PPIC (BUTUH-DIKA D8). Tanpa itu kebutuhan kelas memakai STD (fallback berlabel, O20/R63).
