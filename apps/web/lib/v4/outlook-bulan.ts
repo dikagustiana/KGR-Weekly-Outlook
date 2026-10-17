@@ -58,7 +58,7 @@ export interface OutlookBulanInput {
   /** Selected version (?versi=); null = the live draft. */
   selected: string | null;
   accuracy: AccuracyInput | null;
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; cash: string | null } | null;
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; cash: string | null } | null;
   on: { m6: boolean };
   pdfHref: string | null;
   /** PRD v5 §4.7 (flag v5_pl): rows with the fixed-cost estimate and the chosen views; absent = the v4 page. */
@@ -386,7 +386,7 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
     const sCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: "Rp jt", num: true }];
     const sRows: TRow[] = [
       { id: "eq", cells: { k: `Ekuitas (${pctV4(D(s.equity).div(D(s.paidIn)), 0)} modal disetor)`, v: jtV4(s.equity) } },
-      { id: "af", cells: { k: "Utang pihak berelasi", v: jtV4(s.affiliate) } },
+      { id: "af", cells: { k: "Utang pihak berelasi", v: s.affiliate === null ? "belum ada" : jtV4(s.affiliate) } },
       { id: "bg", cells: { k: `Bunga ${monthWord}`, v: hasInterest ? jtV4(interest.neg()) : "belum diisi" } },
       { id: "kas", cells: { k: "Kas", v: s.cash === null ? "belum diisi" : jtV4(s.cash) } },
       { id: "bn", cells: { k: "Bulan sampai ekuitas negatif", v: monthsToNegative(s.months, s.basis) } },

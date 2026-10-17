@@ -62,7 +62,7 @@ export interface KasInput {
   today: string;
   /** The latest cash_position_daily row; null = nothing built yet. */
   row: { date: string; totalClosing: string | null; lowest: string | null; lowestDate: string | null; lowestWithout: string | null; lowestWithoutDate: string | null; assumption: string | null; horizon: KasHorizon | null } | null;
-  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
+  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
   ccc: { date: string; dio: string | null; dso: string | null; dpo: string | null; ccc: string | null; workingCapital: string | null; cogsPerDay: string | null; revenuePerDay: string | null; windowDays: number | null } | null;
   /** What-if from the query string: termin LB, termin trading, porsi LB, target hari stok. */
   sim: { lb: string; tr: string; share: string; stock: string };
@@ -121,7 +121,7 @@ export function kasModel(x: KasInput): KasModel {
       id: "c-afiliasi", pos: P(5, 1, 3, 2), kind: "card", title: "Utang pihak berelasi",
       cara: { title: "Utang pihak berelasi", fn: "solvency", rule: "Other Payable – Related Parties + Trade Payables – Affiliates dari neraca mingguan terakhir; bunga = Interest Expense outlook bulan ini.", period: sv.label, basis: "neraca mingguan", status: "draft", sources: [{ label: "Tabel", value: "solvency_monthly, pl_daily_v4" }] },
       content: {
-        type: "card", value: jtV4(aff), unit: "Rp jt",
+        type: "card", value: sv.affiliate === null ? null : jtV4(aff), unit: "Rp jt", missing: sv.affiliate === null ? "belum ada" : undefined,
         compare: [
           ...(prev ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
           { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: interest === null ? "belum diisi" : `${jtV4(interest)} jt` },

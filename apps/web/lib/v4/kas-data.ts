@@ -42,7 +42,7 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
     const ir = intr;
     solvency = {
       label: `${MONTH[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`, month, equity: String(cur.equity), paidIn: String(cur.paid_in_capital),
-      affiliate: s(cur.affiliate_payable) ?? "0", months: s(cur.months_to_negative_equity), basis: s(cur.basis_nibt), interestRows: ir.length ? ir.map((r) => ({ actual: s(r.actual), forecast: s(r.forecast) })) : null,
+      affiliate: s(cur.affiliate_payable), months: s(cur.months_to_negative_equity), basis: s(cur.basis_nibt), interestRows: ir.length ? ir.map((r) => ({ actual: s(r.actual), forecast: s(r.forecast) })) : null,
       prevAffiliate: prev && String(prev.month) === firstOfMonth(addDays(month, -1)) ? s(prev.affiliate_payable) : null,
     };
   }
