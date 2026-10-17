@@ -32,6 +32,17 @@ jobs:
       - name: Web app builds
         run: pnpm build
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint scripts fail on a violating file and pass on a clean one
+        run: bash scripts/test-lint.sh
+      - name: K41 fail-closed reads
+        run: bash scripts/lint-k41.sh
+      - name: K42 pagination and chunking
+        run: bash scripts/lint-k42.sh
+
   rls:
     # Migrations (run twice: idempotent), seed and role tests on a disposable PostgreSQL with a Supabase shim.
     runs-on: ubuntu-latest

@@ -14,7 +14,7 @@ export default async function ItemMaster({ searchParams }: { searchParams: Promi
   const { viewer, weeks, week } = await plainContext(sp.week);
   const sb = await supabaseServer();
   const items = await fetchAll<Record<string, string | null>>((f, t) => sb.from("item_map").select("*").is("deleted_at", null).order("item_code").range(f, t));
-  const keys = await fetchAll<{ key: string; decision_group: string }>((f, t) => sb.from("sku_key").select("key, decision_group").eq("active", true).order("sort_order").range(f, t));
+  const keys = await fetchAll<{ key: string; decision_group: string }>((f, t) => sb.from("sku_key").select("key, decision_group").eq("active", true).order("sort_order").order("key").range(f, t));
   const group = new Map(keys.map((k) => [k.key, k.decision_group]));
   const admin = viewer.role === "admin";
   const q = (sp.q ?? "").toLowerCase();

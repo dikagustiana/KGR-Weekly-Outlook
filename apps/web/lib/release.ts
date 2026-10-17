@@ -5,24 +5,31 @@ import type { Supa } from "./supabase";
 import { loadWeek } from "./data";
 import { outlookPdf } from "./pdf";
 import { WriteError } from "./write";
+import { must, mustRows } from "./loader";
 import { moduleSettings } from "./modules";
 import { moduleSettingsGlobal } from "./rebuild";
 import { v3ForWeek } from "./v3/week";
 import { wallNow } from "./clock";
 import { v5InputOn } from "./v5/input-data";
+import { assertSchemaCurrent } from "./schema";
 
 /** Overrides and pending rebuilds of a scope, and whether the §7.2 rule is on (flag v4_release). */
 export async function releaseContext(sb: Supa, scopeKind: "week" | "month", scope: string, from: string, to: string) {
-  const [{ data: ov }, { data: q }, { data: pol }, { data: flag }] = await Promise.all([
+  const [ovRes, qRes, polRes, flagRes] = await Promise.all([
     sb.from("release_override").select("id, code, reason, evidence, created_by, created_role, created_at").eq("scope_kind", scopeKind).eq("scope", scope).is("deleted_at", null),
     sb.from("rebuild_queue").select("date").in("status", ["queued", "running"]).gte("date", from).lte("date", to),
     sb.from("release_override_policy").select("code, allowed_roles"),
     sb.from("app_setting").select("value").eq("key", "v4_release").maybeSingle(),
   ]);
+  // R42 (K56): a failing read must not read as "no overrides / not stale / not strict".
+  const ov = mustRows(ovRes, "releaseContext.release_override");
+  const q = mustRows(qRes, "releaseContext.rebuild_queue");
+  const pol = mustRows(polRes, "releaseContext.release_override_policy");
+  const flag = must(flagRes, "releaseContext.app_setting");
   return {
-    overrides: (ov ?? []) as { id: string; code: string; reason: string; evidence: string; created_by: string | null; created_role: string | null; created_at: string }[],
-    staleDates: [...new Set(((q ?? []) as { date: string }[]).map((r) => r.date))].sort(),
-    policy: Object.fromEntries(((pol ?? []) as { code: string; allowed_roles: string[] }[]).map((p) => [p.code, p.allowed_roles])),
+    overrides: ov as { id: string; code: string; reason: string; evidence: string; created_by: string | null; created_role: string | null; created_at: string }[],
+    staleDates: [...new Set((q as { date: string }[]).map((r) => r.date))].sort(),
+    policy: Object.fromEntries((pol as { code: string; allowed_roles: string[] }[]).map((p) => [p.code, p.allowed_roles])),
     strict: ((flag as { value?: { enabled?: boolean } } | null)?.value?.enabled) === true,
   };
 }
@@ -36,11 +43,11 @@ export const c53Of = (v3: { controls_v3?: unknown }) => ((v3.controls_v3 ?? []) 
 /** K35 / K45 of a week (flag v5_input), as public.release_week sees it now; null with the flag off. */
 export async function k35State(sb: Supa, weekStart: string, overrides: string[]) {
   if (!(await v5InputOn(sb))) return null;
-  const { data: cells } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6));
+  const cells = mustRows(await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6)), "k35State.input_completeness_daily");
   // K38: "late" against now on the wall clock
   const now = wallNow().now;
   return k35({
-    cells: ((cells ?? []) as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
+    cells: (cells as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
     weekStart, now, override: overrides.includes("K35"),
   });
 }
@@ -55,6 +62,7 @@ export const k35Message = (k: NonNullable<Awaited<ReturnType<typeof k35State>>>)
  */
 /** `k25`: the PDF writes the live-bird block as a simulation (K25 for the releasing role, K54). */
 export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string, opts: { k25?: boolean } = {}) {
+  await assertSchemaCurrent(sb);
   const loaded = await loadWeek(sb, weekStart);
   if (!loaded) throw new WriteError("Minggu tidak ada");
   const result = computeWeek(loaded.inputs);

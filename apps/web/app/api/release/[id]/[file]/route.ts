@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
+import { must } from "@/lib/loader";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const { viewer } = await getViewer();
   if (!viewer) return new NextResponse("Tidak berwenang", { status: 401 });
   const sb = await supabaseServer();
-  const { data } = await sb.from("release").select("pdf_path").eq("id", id).maybeSingle();
+  const data = must(await sb.from("release").select("pdf_path").eq("id", id).maybeSingle(), "release.pdf_path") as { pdf_path: string | null } | null;
   if (!data?.pdf_path) return new NextResponse("Rilis tidak ada", { status: 404 });
   const path = file === "json" ? String(data.pdf_path).replace(/\.pdf$/, ".json") : String(data.pdf_path);
   const dl = await sb.storage.from("releases").download(path);

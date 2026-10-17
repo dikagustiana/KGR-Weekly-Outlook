@@ -13,7 +13,7 @@ import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@k
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
-import { inChunks, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
@@ -56,30 +56,30 @@ function monthBounds(d: string): { start: string; end: string } {
 
 export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingWeek> {
   const batches = (await fetchAll<Row>((f, t) => sb.from("batch").select("id, week_id, date, status, batch_ref, supplier, lb_kg, lb_price, freight, maklon, processed_kg, cost_mode, head_count, avg_lb_kg, costing_status, document_ref")
-    .eq("week_id", week.id).is("deleted_at", null).is("superseded_at", null).order("date").order("seq").range(f, t))) as unknown as BatchRow[];
+    .eq("week_id", week.id).is("deleted_at", null).is("superseded_at", null).order("date").order("seq").order("id").range(f, t))) as unknown as BatchRow[];
   const ids = batches.map((b) => b.id);
   const [outs, runs, keys, prices, param] = await Promise.all([
-    ids.length ? fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", ids).is("deleted_at", null).order("kg", { ascending: false }).range(f, t)) : Promise.resolve([]),
-    ids.length ? fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", ids).neq("status", "superseded").order("run_at", { ascending: false }).range(f, t)) : Promise.resolve([]),
-    fetchAll<Row>((f, t) => sb.from("sku_key").select("key, group_code, decision_group, cut_component, segment").range(f, t)),
-    fetchAll<Row>((f, t) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(f, t)),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", c).is("deleted_at", null).order("kg", { ascending: false }).order("id").range(f, t))) : Promise.resolve([]),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", c).neq("status", "superseded").order("run_at", { ascending: false }).order("id").range(f, t))) : Promise.resolve([]),
+    fetchAll<Row>((f, t) => sb.from("sku_key").select("key, group_code, decision_group, cut_component, segment").order("key").range(f, t)),
+    fetchAll<Row>((f, t) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(f, t)),
     sb.from("parameter").select("by_product_method, yield_gap_tolerance, avg_lb_kg_default, selling_cost_per_kg").eq("week_id", week.id).maybeSingle(),
   ]);
   const latestRun = new Map<string, RunRow>();
   for (const r of runs as unknown as RunRow[]) if (!latestRun.has(r.batch_id)) latestRun.set(r.batch_id, r);
   const runIds = [...latestRun.values()].map((r) => r.id);
-  const lines = runIds.length ? ((await fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", runIds).order("allocated_cost", { ascending: false }).range(f, t))) as unknown as LineRow[]) : [];
+  const lines = runIds.length ? ((await inChunks(runIds, (c) => fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", c).order("allocated_cost", { ascending: false }).order("id").range(f, t)))) as unknown as LineRow[]) : [];
   const m = monthBounds(week.week_start);
   const mEnd = monthBounds(week.week_end).end;
-  const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").range(f, t))) as unknown as PoolRow[];
-  const poolLines = pools.length ? ((await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", pools.map((p) => p.id)).is("deleted_at", null).order("date").range(f, t))) as unknown as PoolLineRow[]) : [];
-  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).range(f, t))) as unknown as RateRow[];
+  const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").order("id").range(f, t))) as unknown as PoolRow[];
+  const poolLines = pools.length ? ((await inChunks(pools.map((p) => p.id), (c) => fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", c).is("deleted_at", null).order("date").order("id").range(f, t)))) as unknown as PoolLineRow[]) : [];
+  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).order("id").range(f, t))) as unknown as RateRow[];
   const group = <T,>(xs: T[], k: (x: T) => string) => {
     const g = new Map<string, T[]>();
     for (const x of xs) g.set(k(x), [...(g.get(k(x)) ?? []), x]);
     return g;
   };
-  const p = (param.data ?? {}) as Partial<CostingParams>;
+  const p = (must(param, "costing.parameter") ?? {}) as Partial<CostingParams>;
   return {
     week, batches, outputs: group(outs as unknown as OutputRow[], (o) => o.batch_id), latestRun, lines: group(lines, (l) => l.allocation_run_id),
     pools, poolLines, rates,
@@ -208,14 +208,15 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
   for (const r of drafts) {
     const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
     if (e.error) throw new WriteError(e.error.message);
-    await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    const b = await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    if (b.error) throw new WriteError(b.error.message);
   }
   return `Diposting: ${drafts.length} batch`;
 }
 
 async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promise<string> {
   const m = monthBounds(date);
-  const { data } = await sb.from("cost_pool").select("id").eq("period_start", m.start).eq("period_end", m.end).eq("mode", mode).is("deleted_at", null).maybeSingle();
+  const data = must(await sb.from("cost_pool").select("id").eq("period_start", m.start).eq("period_end", m.end).eq("mode", mode).is("deleted_at", null).maybeSingle(), "costing.cost_pool") as Row | null;
   if (data) return (data as { id: string }).id;
   const ins = await sb.from("cost_pool").insert({ period_start: m.start, period_end: m.end, mode, description: `Cost pool RPA ${m.start.slice(0, 7)} (${mode})` }).select("id").single();
   if (ins.error) throw new WriteError(`cost_pool: ${ins.error.message}`);
@@ -224,7 +225,7 @@ async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promi
 
 async function refreshPoolTotals(sb: Supa, poolIds: string[]): Promise<void> {
   for (const id of [...new Set(poolIds)]) {
-    const lines = await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("amount").eq("cost_pool_id", id).is("deleted_at", null).range(f, t));
+    const lines = await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("amount").eq("cost_pool_id", id).is("deleted_at", null).order("id").range(f, t));
     const total = lines.reduce((a, l) => a.plus(D(String(l.amount))), D(0));
     const e = await sb.from("cost_pool").update({ total_pi: total.toFixed(2) }).eq("id", id);
     if (e.error) throw new WriteError(`cost_pool: ${e.error.message}`);
@@ -242,7 +243,7 @@ interface WpPlanned { b: WpBatch; weekId: string | null; existingId: string | nu
 
 async function planWp(sb: Supa, batches: WpBatch[]): Promise<{ planned: WpPlanned[]; weeks: WeekRow[]; itemKey: Map<string, string> }> {
   const weeks = await listWeeks(sb);
-  const items = await fetchAll<Row>((f, t) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(f, t));
+  const items = await fetchAll<Row>((f, t) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(f, t));
   const itemKey = new Map(items.map((i) => [String(i.item_code).toUpperCase(), String(i.key)]));
   const planned: WpPlanned[] = [];
   for (const b of batches) {
@@ -345,12 +346,14 @@ registerV3Kind({
         if (e.error) throw new WriteError(`batch_output_sku: ${e.error.message}`);
         inserted += outRows.length;
       }
-      const old = ((await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", batchId).is("deleted_at", null)).data ?? []) as Row[];
+      const old = mustRows(await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", batchId).is("deleted_at", null), "costing.batch_output_sku") as Row[];
       // WP rows that are no longer in the file, and the reconstructed (backfill) rows the WP now replaces
       const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key ?? ""}|${o.item_code ?? ""}`)) || o.source === "manual").map((o) => String(o.id));
       if (gone.length) {
-        const e = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone);
-        if (e.error) throw new WriteError(e.error.message);
+        for (let i = 0; i < gone.length; i += 200) {
+          const e = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone.slice(i, i + 200));
+          if (e.error) throw new WriteError(e.error.message);
+        }
         deleted += gone.length;
       }
       // cost lines (Ops, document = PI ref); replaced by the PI upload of the same document (cost_pool_pi)
@@ -361,7 +364,7 @@ registerV3Kind({
           ...b.costs.map((c, i) => ({ component: costComponentOf(c.label), amount: c.amount, document_ref: c.pi ?? c.document, note: null as string | null, line_key: `${ref}|${i + 1}` })),
           ...(b.cost_bl ? [{ component: "blast" as CostComponent, amount: b.cost_bl, document_ref: null, note: "pool:boneless", line_key: `${ref}|BL` }] : []),
         ];
-        const existing = ((await sb.from("cost_pool_line").select("id, line_key, source").eq("batch_id", batchId).is("deleted_at", null)).data ?? []) as Row[];
+        const existing = mustRows(await sb.from("cost_pool_line").select("id, line_key, source").eq("batch_id", batchId).is("deleted_at", null), "costing.cost_pool_line") as Row[];
         for (const l of lines) {
           const ex = existing.find((e) => e.line_key === l.line_key);
           if (ex && ex.source === "Accurate") continue; // the PI already replaced this line
@@ -386,7 +389,7 @@ registerV3Kind({
     const res = parseV3Table("cost_pool_pi", sheets);
     const ok = res.rows.filter((r) => !r.issues.length);
     const docs = ok.map((r) => r.values.document_ref).filter((x): x is string => !!x);
-    const ex = docs.length ? ((await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", docs).is("deleted_at", null)).data ?? []) as Row[] : [];
+    const ex = docs.length ? await inChunks(docs, async (c) => mustRows(await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", c).is("deleted_at", null), "costing.cost_pool_line_docs")) : [];
     const p = plan0("cost_pool_line", "Cost pool (PI)");
     for (const r of ok) {
       const hit = ex.find((e) => e.document_ref === r.values.document_ref);
@@ -417,7 +420,7 @@ registerV3Kind({
         ? (s(v.component) as CostComponent) : costComponentOf(`${s(v.description) ?? ""} ${s(v.supplier) ?? ""}`);
       const n = (seen.get(doc) ?? 0) + 1;
       seen.set(doc, n);
-      const ex = ((await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null)).data ?? []) as Row[];
+      const ex = mustRows(await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null), "costing.cost_pool_line_doc") as Row[];
       const hit = ex.find((e) => e.source === "Accurate" && e.line_key === `PI|${doc}|${n}`) ?? ex.find((e) => e.source !== "Accurate") ?? null;
       let batchId = hit ? s(hit.batch_id) : null;
       if (!batchId && s(v.batch_ref)) batchId = actual.get(s(v.batch_ref)!) ?? null;

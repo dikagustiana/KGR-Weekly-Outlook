@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_KEY, SUPABASE_URL } from "./lib/env";
 
-const PUBLIC = ["/login", "/auth/"];
+// /api/cron/: called by Vercel Cron without a session; the route checks `Authorization: Bearer ${CRON_SECRET}` itself
+const PUBLIC = ["/login", "/auth/", "/api/cron/"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

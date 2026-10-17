@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "./supabase";
+import { must } from "./loader";
 import type { Role } from "./roles";
 
 export interface Viewer {
@@ -16,7 +17,7 @@ export const getViewer = cache(async (): Promise<{ email: string | null; viewer:
   const { data } = await sb.auth.getUser();
   const email = data.user?.email?.toLowerCase() ?? null;
   if (!email) return { email: null, viewer: null };
-  const { data: row } = await sb.from("app_user").select("email, role, full_name, active").eq("email", email).maybeSingle();
+  const row = must(await sb.from("app_user").select("email, role, full_name, active").eq("email", email).maybeSingle(), "getViewer.app_user") as { email: string; role: Role; full_name: string | null; active: boolean } | null;
   if (!row || !row.active) return { email, viewer: null };
   return { email, viewer: { email, role: row.role as Role, fullName: row.full_name } };
 });

@@ -14,6 +14,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -55,14 +56,14 @@ function cutOffOf(first: string, today: string, override: string | null): string
 
 export async function computeMonth(sb: Supa, monthFirst: string, today: string, settings: ModuleSettings): Promise<MonthState> {
   const first = firstOfMonth(monthFirst), last = monthEnd(first);
-  const { data: mo } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "monthly.month_outlook") as Row | null;
   const outlook = (mo as Row | null) ?? null;
   const cutOff = cutOffOf(first, today, s(outlook?.cut_off_date));
   // journal from 6 weeks before the cut-off (the run-rate looks back 20 working days, across the month start)
   const from = addDays(cutOff, -42) < first ? addDays(cutOff, -42) : first;
   const [gl, coa] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).order("account").range(a, b)),
   ]);
   const glRows = gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) }));
   const coaRows = coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line) }));
@@ -75,7 +76,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
     const c = await computeForWeek(w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
-    const { data: p } = await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle();
+    const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "monthly.parameter") as Row | null;
     const pr = (p ?? {}) as Row;
     tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; v1LockWeek = Number(pr.v1_lock_week ?? v1LockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
@@ -96,7 +97,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const drivers = settings.m5_drivers?.enabled ? await loadMonthDrivers(sb, first, addDays(cutOff, 1)) : null;
   // run-rate opex lines from the v1 run-rate table of the last week in the month (monthly amounts)
   const lastWeek = weeks[weeks.length - 1];
-  const rrRows = lastWeek ? ((await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id)).data ?? []) as Row[] : [];
+  const rrRows = lastWeek ? mustRows(await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id), "monthly.runrate") as Row[] : [];
   const variable = drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && !isCogsLine(String(c.pl_line))).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [];
   const opex = days.length ? opexRemaining({
     fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
@@ -119,7 +120,12 @@ export async function writeMonthMart(sb: Supa, st: MonthState): Promise<{ writte
     const r = await martReplace(sb, "pl_daily", d, rows.filter((x) => x.date === d).map(martRow));
     written += r.written; deleted += r.deleted;
   }
-  await writeEngineAssumptions(sb, st).catch(() => undefined); // admin / finance only (RLS); other roles keep the mart
+  try {
+    await writeEngineAssumptions(sb, st);
+  } catch (e) {
+    // admin / finance only (RLS); other roles keep the mart already written by the rebuild. Any other error stops (K56).
+    if (!/row-level security|permission denied/i.test((e as Error).message)) throw e;
+  }
   return { written, deleted };
 }
 
@@ -135,8 +141,8 @@ async function writeEngineAssumptions(sb: Supa, st: MonthState): Promise<void> {
     { code: "forecast_tolerance_pct", description: "Toleransi forecast (rentang)", value_text: null, value_num: st.tolerance },
     { code: "v1_lock_date", description: `Kunci V1 (Kamis minggu ke-${st.v1LockWeek})`, value_text: st.v1LockDate, value_num: null },
   ];
-  const { data } = await sb.from("outlook_assumption").select("id, code, value_text, value_num").eq("month_outlook_id", String(mo.id)).eq("source", "engine").is("deleted_at", null);
-  const have = new Map(((data ?? []) as Row[]).map((r) => [String(r.code), r]));
+  const data = mustRows(await sb.from("outlook_assumption").select("id, code, value_text, value_num").eq("month_outlook_id", String(mo.id)).eq("source", "engine").is("deleted_at", null), "monthly.outlook_assumption");
+  const have = new Map((data as Row[]).map((r) => [String(r.code), r]));
   for (const r of rows) {
     const old = have.get(r.code);
     if (old && s(old.value_text) === r.value_text && (old.value_num === null ? null : D(String(old.value_num)).toFixed(6)) === (r.value_num === null ? null : D(r.value_num).toFixed(6))) continue;
@@ -156,7 +162,7 @@ registerBuilder({
   begin: async (sb) => {
     builtMonths = new Set();
     builderToday = await dataToday(sb);
-    const { data } = await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle();
+    const data = must(await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle(), "monthly.m5_drivers") as Row | null;
     builderSettings = { m5_drivers: { enabled: ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true } };
   },
   build: async (sb, date) => {
@@ -171,12 +177,12 @@ registerBuilder({
 
 /** Reads for /m/[month]: the mart rows of the month (engine sums them). */
 export async function plDaily(sb: Supa, first: string): Promise<PlDailyRow[]> {
-  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").range(a, b));
+  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").order("basis").order("pl_line").range(a, b));
   return rows.map((r) => ({ date: String(r.date), pl_line: String(r.pl_line), basis: r.basis as PlDailyRow["basis"], actual: r.actual === null ? null : D(String(r.actual)), forecast: r.forecast === null ? null : D(String(r.forecast)), anomaly: r.anomaly === true }));
 }
 
 async function ensureOutlook(sb: Supa, first: string): Promise<Row> {
-  const { data } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const data = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "monthly.month_outlook2") as Row | null;
   if (data) return data as Row;
   const { data: ins, error } = await sb.from("month_outlook").insert({ month: first, status: "open" }).select("*").single();
   if (error) throw new WriteError(`month_outlook: ${error.message}`);
@@ -195,14 +201,14 @@ const canonical = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typ
 /** Lock V1 / V2 (outlook of today's mart) or FINAL (full-month journal + posted adjustments). Immutable, with SHA-256. */
 export async function lockVersion(sb: Supa, viewer: Viewer, first: string, version: "V1" | "V2" | "FINAL", today: string, settings: ModuleSettings): Promise<string> {
   const mo = await ensureOutlook(sb, first);
-  const { data: have } = await sb.from("month_outlook_version").select("version").eq("month_outlook_id", String(mo.id));
+  const have = mustRows(await sb.from("month_outlook_version").select("version").eq("month_outlook_id", String(mo.id)), "monthly.versions2") as Row[];
   const got = new Set(((have ?? []) as Row[]).map((r) => String(r.version)));
   if (got.has(version)) throw new WriteError(`${version} sudah dikunci`);
   const st = await computeMonth(sb, first, version === "FINAL" ? addDays(monthEnd(first), 1) : today, settings);
   if (version === "V1" && today < st.v1LockDate) throw new WriteError(`V1 dikunci mulai Kamis minggu ke-${st.v1LockWeek} (${st.v1LockDate})`);
   if (version === "V2" && !got.has("V1")) throw new WriteError("Kunci V1 dulu");
   if (version === "FINAL" && today <= monthEnd(first)) throw new WriteError("FINAL dikunci setelah akhir bulan");
-  const adj = version === "FINAL" ? ((await sb.from("closing_adjustment").select("*").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[] : [];
+  const adj = version === "FINAL" ? mustRows(await sb.from("closing_adjustment").select("*").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null), "monthly.closing_adjustment") as Row[] : [];
   const rows = version === "FINAL" ? st.actualRows : [...st.actualRows, ...st.forecastRows];
   const adjRows: PlDailyRow[] = adj.map((a) => ({ date: monthEnd(first), pl_line: String(a.pl_line), basis: "journal", actual: D(String(a.amount)), forecast: null, anomaly: false }));
   const tot = sumRows([...rows, ...adjRows]);
@@ -229,8 +235,8 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
 
 /** After FINAL: accuracy of V1 / V2 (before and after the closing adjustments) and calibration for the next month. */
 async function afterFinal(sb: Supa, mo: Row, first: string, final: { revenue: Decimal; gp: Decimal; nibt: Decimal }, st: MonthState): Promise<void> {
-  const versions = ((await sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", String(mo.id)).neq("version", "FINAL")).data ?? []) as Row[];
-  const adj = ((await sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[];
+  const versions = mustRows(await sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", String(mo.id)).neq("version", "FINAL"), "monthly.versions") as Row[];
+  const adj = mustRows(await sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null), "monthly.adj_final") as Row[];
   const sumAdj = (p: (l: string) => boolean) => sum(adj.filter((a) => p(String(a.pl_line))).map((a) => D(String(a.amount))));
   const a = accuracy({
     final: { revenue: final.revenue, gp: final.gp, nibt: final.nibt },
@@ -258,14 +264,14 @@ export interface MonthView {
 }
 
 export async function monthView(sb: Supa, first: string): Promise<MonthView> {
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "monthly.month_outlook_id") as Row | null;
   if (!mo) return { versions: [], adjustments: [], accuracy: [], assumptions: [], bridge: null, controls: monthlyControls({ bridge: null }) };
   const id = String((mo as Row).id);
   const [versions, adjustments, acc, assumptions] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).order("metric").order("month_outlook_id").order("scope").order("version").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("id").range(a, b)),
   ]);
   const v1 = versions.find((v) => v.version === "V1"), v2 = versions.find((v) => v.version === "V2");
   const days = (v: Row | undefined) => ((v?.snapshot as { days?: VersionDay[] } | undefined)?.days ?? []);

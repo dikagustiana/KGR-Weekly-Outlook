@@ -44,10 +44,10 @@ export async function loadOutlookBulan(sb: Supa, x: {
   const moId = s(outlook?.id);
 
   const [mart, verRows, regRows, budRows, lockRow, monthsRows, param] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select(MART_COLS).gte("date", first).lte("date", last).order("date").range(a, b)),
-    moId ? fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, cut_off_date, locked_at, snapshot_sha256, revenue, gp, nibt, snapshot").eq("month_outlook_id", moId).order("version").range(a, b)) : Promise.resolve([] as Row[]),
-    moId ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", moId).is("deleted_at", null).order("code").range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select(MART_COLS).gte("date", first).lte("date", last).order("date").order("basis").order("pl_line").order("segment").range(a, b)),
+    moId ? fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, cut_off_date, locked_at, snapshot_sha256, revenue, gp, nibt, snapshot").eq("month_outlook_id", moId).order("version").order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    moId ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", moId).is("deleted_at", null).order("code").order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
     sb.from("data_status").select("note, built_at").eq("table_name", "month_lock").eq("scope", first).maybeSingle(),
     sb.from("month_outlook").select("month").order("month", { ascending: false }).limit(12),
     sb.from("week").select("id").lte("week_start", last).order("week_start", { ascending: false }).limit(1).maybeSingle(),
@@ -83,7 +83,8 @@ export async function loadOutlookBulan(sb: Supa, x: {
 
   const lock = must(lockRow, "data_status month_lock") as Row | null;
   let lockNote: { blockers?: LockBlocker[]; controls?: { code: string; status: string }[]; cutOff?: string; lockDate?: string } = {};
-  try { lockNote = lock?.note ? JSON.parse(String(lock.note)) : {}; } catch { lockNote = {}; }
+  // K56: a note that is not the JSON the lock wrote is shown as a blocker, never read as "nothing blocks"
+  try { lockNote = lock?.note ? JSON.parse(String(lock.note)) : {}; } catch (e) { lockNote = { blockers: [{ code: "NOTE", text: `catatan kunci tidak terbaca: ${(e as Error).message}` }] }; }
   const lastActual = rows ? rows.filter((r) => r.actual !== null).reduce<string>((m, r) => (r.date > m ? r.date : m), "") : "";
   const cutOff = s(outlook?.cut_off_date) ?? lockNote.cutOff ?? (lastActual || addDays(first, -1));
 
@@ -105,9 +106,9 @@ export async function loadOutlookBulan(sb: Supa, x: {
     if (f && f.revenue !== null) {
       const id = String(f.month_outlook_id);
       const [vs, adj, daily] = await Promise.all([
-        fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", id).neq("version", "FINAL").order("version").range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", id).eq("posted", true).is("deleted_at", null).range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("date, day_kind, diff, version").eq("month_outlook_id", id).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", id).neq("version", "FINAL").order("version").order("id").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", id).eq("posted", true).is("deleted_at", null).order("id").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("date, day_kind, diff, version").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b)),
       ]);
       if (vs.length) {
         const sumAdj = (pred: (l: string) => boolean) => adj.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0));

@@ -2,6 +2,7 @@ import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, Msg } from "@/components/ui";
 import { supabaseServer } from "@/lib/supabase";
+import { mustRows } from "@/lib/loader";
 import { MasterTabs } from "../MasterTabs";
 import { saveSkuKey } from "../actions";
 
@@ -11,7 +12,7 @@ export default async function SkuMaster({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const { viewer, weeks, week } = await plainContext(sp.week);
   const sb = await supabaseServer();
-  const { data } = await sb.from("sku_key").select("*").order("sort_order");
+  const data = mustRows(await sb.from("sku_key").select("*").order("sort_order"), "sku_master.sku_key") as any[];
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="master/sku">
       <h1>Master data</h1>
@@ -32,7 +33,7 @@ export default async function SkuMaster({ searchParams }: { searchParams: Promis
       <Card title={`Key analisa (${data?.length ?? 0})`}>
         <table className="t compact">
           <thead><tr><th>Key</th><th>Segmen</th><th>SKU</th><th>Bentuk</th><th>Kelompok keputusan</th><th>Aktif</th></tr></thead>
-          <tbody>{(data ?? []).map((k) => <tr key={k.key}><td>{k.key}</td><td>{k.segment}</td><td>{k.sku}</td><td>{k.form}</td><td>{k.decision_group}</td><td>{k.active ? "ya" : "tidak"}</td></tr>)}</tbody>
+          <tbody>{data.map((k) => <tr key={k.key}><td>{k.key}</td><td>{k.segment}</td><td>{k.sku}</td><td>{k.form}</td><td>{k.decision_group}</td><td>{k.active ? "ya" : "tidak"}</td></tr>)}</tbody>
         </table>
         <p className="muted">Harga acuan per key disimpan per minggu di Input → Harga.</p>
       </Card>

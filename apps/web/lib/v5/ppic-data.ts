@@ -49,11 +49,11 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const lines0 = src.orders.filter((o) => karkasKeys.includes(o.key) && o.delivery_date);
   const ids = lines0.map((o) => o.id);
   const [items, sized, classes, map] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, item_name, size_kg").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, item_name, size_kg").is("deleted_at", null).order("item_code").range(a, b)),
     // K42: the ids of a week's karkas lines go in chunks of 200 (URL length)
     inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, size_kg").in("id", part).not("size_kg", "is", null).order("id").range(a, b))),
-    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, min_kg, max_kg, avg_kg, sort_order").order("sort_order").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("size_class_map").select("size_kg, weight_class, effective_from, effective_to").is("deleted_at", null).lte("effective_from", ws).order("effective_from").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, min_kg, max_kg, avg_kg, sort_order").order("sort_order").order("code").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("size_class_map").select("size_kg, weight_class, effective_from, effective_to").is("deleted_at", null).lte("effective_from", ws).order("effective_from").order("id").range(a, b)),
   ]);
   const item = new Map(items.map((i) => [String(i.item_code), i]));
   const lineSize = new Map(sized.map((r) => [String(r.id), s(r.size_kg)]));
@@ -137,12 +137,12 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
   // PRD v5.1 K41: each read feeds named tiles; a failure shows there instead of a fallback price or "belum"
   const failed: Failed = {};
   const [decisionT, fromT, paramT] = await Promise.all([
-    tileData("ppic: keputusan harga LB", () => fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, price, decided_at").gte("date", ws).lte("date", we).order("decided_at", { ascending: false }).range(a, b))),
+    tileData("ppic: keputusan harga LB", () => fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, price, decided_at").gte("date", ws).lte("date", we).order("decided_at", { ascending: false }).order("id").range(a, b))),
     tileData("ppic: dari Commercial", async () => {
       const [commits, lists, plans] = await Promise.all([
-        fetchAll<Row>((a, b) => sb.from("sales_commitment").select("status").eq("week_start", next).range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).is("deleted_at", null).range(a, b)),
-        src.plans[0] ? fetchAll<Row>((a, b) => sb.from("surplus_response").select("plan_week_id").eq("plan_week_id", String(src.plans[0].id)).range(a, b)) : Promise.resolve([] as Row[]),
+        fetchAll<Row>((a, b) => sb.from("sales_commitment").select("status").eq("week_start", next).order("id").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).is("deleted_at", null).order("key").order("week_start").range(a, b)),
+        src.plans[0] ? fetchAll<Row>((a, b) => sb.from("surplus_response").select("plan_week_id").eq("plan_week_id", String(src.plans[0].id)).order("id").range(a, b)) : Promise.resolve([] as Row[]),
       ]);
       return { commits, lists, plans };
     }),

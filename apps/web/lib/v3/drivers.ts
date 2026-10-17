@@ -39,10 +39,10 @@ export async function loadMonthDrivers(sb: Supa, month: string, today: string): 
   const yday = addDays(today, -1);
   const through = yday < last ? yday : last;
   const [sched, coa, gl] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("*").is("deleted_at", null).order("pl_line").order("start_date").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("*").is("deleted_at", null).order("pl_line").order("start_date").order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("coa_map").select("account, name, type, pl_line, driver_type, rp_per_kg, intercompany, driver_basis").eq("type", "LabaRugi").is("deleted_at", null).order("account").range(a, b)),
     through >= first
-      ? fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", first).lte("date", through).range(a, b))
+      ? fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", first).lte("date", through).order("id").range(a, b))
       : Promise.resolve([] as Row[]),
   ]);
   const schedule = sched.map((r) => ({

@@ -5,6 +5,7 @@ import { parseNumber } from "@kgr/parsers";
 import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { queueRebuild } from "@/lib/rebuild";
+import { must } from "@/lib/loader";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -69,7 +70,7 @@ export async function saveFixedV4Action(_: ActionState, form: FormData): Promise
     if (end === undefined || (end && end < start)) return { error: "Berlaku sampai tidak valid" };
     const account = txt(form.get("account"));
     if (!account) return { error: "COA wajib" };
-    const { data: coa } = await sb.from("coa_map").select("account, name, pl_line, driver_type").eq("account", account).is("deleted_at", null).maybeSingle();
+    const coa = must(await sb.from("coa_map").select("account, name, pl_line, driver_type").eq("account", account).is("deleted_at", null).maybeSingle(), "biaya.coa");
     const c = coa as { account: string; name: string | null; pl_line: string | null; driver_type: string | null } | null;
     if (!c || !c.pl_line) return { error: `COA ${account} tidak ada di master akun` };
     if (c.driver_type !== "fixed") return { error: `COA ${account} berdriver ${c.driver_type ?? "belum ada"}, bukan Tetap` };
@@ -84,7 +85,7 @@ export async function saveFixedV4Action(_: ActionState, form: FormData): Promise
     const id = String(form.get("id") ?? "");
     let version = 1;
     if (id) {
-      const { data: cur } = await sb.from("fixed_cost_schedule").select("amount_per_month, version").eq("id", id).maybeSingle();
+      const cur = must(await sb.from("fixed_cost_schedule").select("amount_per_month, version").eq("id", id).maybeSingle(), "biaya.fixed_cost_schedule");
       const r = cur as { amount_per_month: string | null; version: number | null } | null;
       if (!r) return { error: "Baris tidak ditemukan" };
       const changed = r.amount_per_month === null || !D(String(r.amount_per_month)).eq(D(amount));
@@ -129,7 +130,7 @@ export async function deleteCostEventAction(_: ActionState, form: FormData): Pro
     const v = await requireModuleAction("m5_drivers", ["admin", "finance"]);
     const sb = await supabaseServer();
     const id = String(form.get("id") ?? "");
-    const { data: ev } = await sb.from("cost_event").select("date").eq("id", id).maybeSingle();
+    const ev = must(await sb.from("cost_event").select("date").eq("id", id).maybeSingle(), "biaya.cost_event");
     if (!ev) return { error: "Event tidak ditemukan" };
     const { error } = await sb.from("cost_event").update({ deleted_at: new Date().toISOString(), deleted_by: v.email }).eq("id", id);
     if (error) return { error: error.message };

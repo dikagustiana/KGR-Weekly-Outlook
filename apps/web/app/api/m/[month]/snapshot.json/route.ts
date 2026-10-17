@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/session";
 import { moduleEnabled } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
+import { must } from "@/lib/loader";
 import { monthStart } from "@/lib/v3/drivers";
 
 export const runtime = "nodejs";
@@ -17,9 +18,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ month: s
   const version = new URL(req.url).searchParams.get("version") ?? "FINAL";
   if (!first) return new NextResponse("Bulan tidak valid", { status: 400 });
   const sb = await supabaseServer();
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "snapshot.month_outlook") as { id: string } | null;
   if (!mo) return new NextResponse("Belum ada outlook", { status: 404 });
-  const { data: v } = await sb.from("month_outlook_version").select("snapshot, snapshot_sha256").eq("month_outlook_id", (mo as { id: string }).id).eq("version", version).maybeSingle();
+  const v = must(await sb.from("month_outlook_version").select("snapshot, snapshot_sha256").eq("month_outlook_id", (mo as { id: string }).id).eq("version", version).maybeSingle(), "snapshot.version") as { snapshot: unknown; snapshot_sha256: string } | null;
   if (!v) return new NextResponse("Versi belum dikunci", { status: 404 });
   const row = v as { snapshot: unknown; snapshot_sha256: string };
   return new NextResponse(JSON.stringify(row.snapshot), { headers: { "Content-Type": "application/json", "X-Snapshot-SHA256": row.snapshot_sha256, "Content-Disposition": `inline; filename="KGR_Outlook_${first.slice(0, 7)}_${version}.json"`, "Cache-Control": "private, no-store" } });

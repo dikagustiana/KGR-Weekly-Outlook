@@ -3,6 +3,7 @@ import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card } from "@/components/ui";
 import { supabaseServer } from "@/lib/supabase";
+import { mustRows } from "@/lib/loader";
 import { restoreRow } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   if (sp.op) q = q.eq("op", sp.op);
   if (sp.actor) q = q.ilike("actor", `%${sp.actor}%`);
   if (sp.inserts !== "1" && !sp.op) q = q.neq("op", "INSERT");
-  const { data } = await q;
+  const data = mustRows(await q, "audit.audit_log") as any[];
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/audit">
       <h1>Audit trail</h1>
@@ -45,7 +46,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         <table className="t compact">
           <thead><tr><th>Waktu</th><th>Pengguna</th><th>Tabel</th><th>Baris</th><th>Aksi</th><th>Perubahan (lama → baru)</th><th /></tr></thead>
           <tbody>
-            {(data ?? []).map((a) => (
+            {data.map((a) => (
               <tr key={a.id}>
                 <td style={{ whiteSpace: "nowrap" }}>{new Date(a.at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</td>
                 <td>{a.actor}</td><td>{a.table_name}</td><td><code>{String(a.row_id ?? "").slice(0, 13)}</code></td><td>{a.op}</td>

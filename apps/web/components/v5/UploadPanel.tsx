@@ -57,7 +57,7 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
       const wb = X.utils.book_new();
       X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(templateGrid(kind)), "data");
       setTplUrl(URL.createObjectURL(new Blob([X.write(wb, { type: "array", bookType: "xlsx" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })));
-    } catch {
+    } catch { // k41-ok: SheetJS tidak termuat di browser → templat CSV yang sama (bukan bacaan data)
       setTplUrl(URL.createObjectURL(new Blob([templateGrid(kind)[0].join(";") + "\n"], { type: "text/csv" })));
     }
   }

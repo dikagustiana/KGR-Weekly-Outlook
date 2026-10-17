@@ -10,6 +10,7 @@ import { parseV3Table } from "@kgr/parsers";
 import { fetchAll } from "../data";
 import { applyChanges, WriteError } from "../write";
 import { plan0, registerV3Kind, type Row } from "../v3/uploads";
+import { inChunks, must } from "../loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -22,8 +23,8 @@ registerV3Kind({
     const issues = [...p.issues];
     const ok = p.rows.filter((r) => !r.issues.length);
     const pos = [...new Set(ok.map((r) => String(r.values.po_ref).trim()))];
-    const lines = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, po_ref, item_code, delivery_date, kg, fulfilled_kg, cancelled_kg, status").in("po_ref", pos).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).order("delivery_date").range(a, b)) : [];
-    const done = lines.length ? await fetchAll<Row>((a, b) => sb.from("delivery").select("sales_line_id, document_ref").in("sales_line_id", lines.map((l) => String(l.id))).is("deleted_at", null).range(a, b)) : [];
+    const lines = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, po_ref, item_code, delivery_date, kg, fulfilled_kg, cancelled_kg, status").in("po_ref", c).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).order("delivery_date").order("id").range(a, b))) : [];
+    const done = lines.length ? await inChunks(lines.map((l) => String(l.id)), (c) => fetchAll<Row>((a, b) => sb.from("delivery").select("sales_line_id, document_ref").in("sales_line_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const recorded = new Set(done.map((x) => `${String(x.sales_line_id)}|${s(x.document_ref) ?? ""}`));
     // outstanding per line, reduced as the rows of this file take it
     const left = new Map<string, Decimal>(lines.map((l) => [String(l.id), outstandingKg({ kg: String(l.kg), fulfilled_kg: s(l.fulfilled_kg), cancelled_kg: s(l.cancelled_kg) })]));
@@ -59,7 +60,7 @@ registerV3Kind({
     const closed: string[] = [];
     for (const r of rows) {
       const id = String(r.data.sales_line_id);
-      const { data: line } = await sb.from("sales_line").select("kg, fulfilled_kg, cancelled_kg, status").eq("id", id).maybeSingle();
+      const line = must(await sb.from("sales_line").select("kg, fulfilled_kg, cancelled_kg, status").eq("id", id).maybeSingle(), "uploads-ppic.sales_line");
       const l = line as Row | null;
       if (!l || l.status !== "Order") continue;
       const chk = deliveryCheck({ kg: String(l.kg), fulfilled_kg: String(l.fulfilled_kg ?? 0), cancelled_kg: String(l.cancelled_kg ?? 0) }, String(r.data.kg));
