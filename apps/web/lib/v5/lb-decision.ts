@@ -9,7 +9,7 @@ import { D, isISODate } from "@kgr/engine";
 import { parseNumber } from "@kgr/parsers";
 import type { Supa } from "../supabase";
 import { WriteError } from "../write";
-import { queueThrough } from "../rebuild";
+import { queueThroughNote } from "../rebuild";
 import { num } from "../fmt";
 
 export async function insertLbDecision(sb: Supa, form: FormData): Promise<string> {
@@ -23,7 +23,8 @@ export async function insertLbDecision(sb: Supa, form: FormData): Promise<string
   const cls = String(form.get("weight_class") ?? "").trim() || null;
   const e = await sb.from("lb_price_decision").insert({ date, price, volume_kg_lb: volume, weight_class: cls, note: String(form.get("note") ?? "").trim() || null });
   if (e.error) throw new WriteError(e.error.message);
-  // K40: the trigger queued the cut date; a cut date on or before the data date also re-runs every day after it
-  await queueThrough(sb, [date], "keputusan harga LB");
-  return `Harga LB potong ${date}${cls ? ` kelas ${cls}` : ""} diputuskan Rp ${num(price, 0)}/kg${volume ? `, volume ${num(volume, 0)} kg LB` : ""}; batch hari itu memakainya sebagai biaya sementara.`;
+  // K40: the trigger queued the cut date; a cut date on or before the data date also re-runs every day after it.
+  // R57: a queue that cannot be auto-queued (62-day range) is reported, not thrown — the decision is already saved.
+  const qNote = await queueThroughNote(sb, [date], "keputusan harga LB");
+  return `Harga LB potong ${date}${cls ? ` kelas ${cls}` : ""} diputuskan Rp ${num(price, 0)}/kg${volume ? `, volume ${num(volume, 0)} kg LB` : ""}; batch hari itu memakainya sebagai biaya sementara.${qNote}`;
 }
