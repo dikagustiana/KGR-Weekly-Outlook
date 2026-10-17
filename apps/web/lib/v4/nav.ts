@@ -64,7 +64,8 @@ export const WORKSPACE: Record<Role, Def[]> = {
   purchasing: [D.supplyLb, D.harga, D.input, D.upload],
   inventory_accounting: [D.stokSku, D.rekon, D.input, D.upload, D.kontrol],
   cost_accounting: [D.costing, D.kontrolCosting, D.input, D.upload],
-  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.input, D.upload],
+  // R77 (A-UI-19, Q-v5.1-25): the v4 wizard link leaves the Finance nav (7 items); it lives in the Input Finance panel
+  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.input],
   admin: [D.mingguIni, D.outlookBulan, D.rencana, D.komersial, D.stok, D.rilis, D.admin],
 };
 
