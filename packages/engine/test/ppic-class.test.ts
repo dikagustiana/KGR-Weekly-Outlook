@@ -1,7 +1,7 @@
 /** PRD v5 §4.2–4.4 (K27, K28, C50, C51, C58) on fixtures/plan-2026-08-24 v5: Lampiran B.3 and B.4. */
 import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
-import { c50, c51, c58, classByProducts, dailyClassPlan, needByCutDate, sizeCode, sizeKgOf, toClassLB, weekClassPlan, type SizedLine } from "../src/ppic-class";
+import { c50, c51, c58, classByProducts, dailyClassPlan, needByCutDate, netShareOf, sizeCode, sizeKgOf, toClassLB, weekClassPlan, type SizedLine } from "../src/ppic-class";
 import { planDemand, planInp, planOrders, planWeek, planGold } from "./plan-fixture";
 
 type V5In = { size_class_map: { size_kg: string; weight_class: string }[]; yield_karkas: Record<string, string>; avg_kg: Record<string, string>; mid_offset: string; fallback_class: string; lead_time_days: number; karkas_keys: string[] };
@@ -23,7 +23,7 @@ const setup = {
   classOf: (s: ReturnType<typeof D>) => v5.size_class_map.find((m) => D(m.size_kg).eq(s))?.weight_class ?? null,
   yieldKarkas: (c: string) => v5.yield_karkas[c] ?? null, avgKg: (c: string) => v5.avg_kg[c] ?? null, midOffset: v5.mid_offset, fallback: v5.fallback_class,
 };
-const cd = toClassLB({ lines, setup });
+const cd = toClassLB({ lines, netShare: netShareOf(demand.rows), setup });
 const near = (a: { toNumber(): number } | number, b: string | number, tol = 1) => expect(Math.abs((typeof a === "number" ? a : a.toNumber()) - Number(b)), `${typeof a === "number" ? a : a.toNumber()} vs ${b}`).toBeLessThanOrEqual(tol);
 
 describe("size from the item name (O3, O4)", () => {

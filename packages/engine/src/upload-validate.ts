@@ -16,6 +16,7 @@ import { D, Decimal, ZERO, sum, type Num } from "./decimal";
 import { addDays, isISODate, type ISODate } from "./dates";
 import { fixed } from "./format";
 import { sizeKgOf } from "./ppic-class";
+import { inAssignmentScope, type SalesAssignment } from "./commercial-v5";
 
 export type UploadKindV5 = "po_lines" | "costing_wp" | "yield_matrix" | "lb_supply" | "fixed_cost" | "supplier_invoice";
 export const UPLOAD_KINDS_V5: UploadKindV5[] = ["po_lines", "costing_wp", "yield_matrix", "lb_supply", "fixed_cost", "supplier_invoice"];
@@ -86,7 +87,14 @@ export const UPLOAD_TEMPLATES: Record<UploadKindV5, UploadTemplate> = {
 
 export interface UploadItem { code: string; name: string | null; key: string; size_kg?: Num | null }
 export interface UploadClass { code: string; min_kg: Num | null; max_kg: Num | null; avg_kg: Num | null }
-export interface UploadBatch { ref: string; date: ISODate; lb_kg: Num | null; heads: Num | null }
+export interface UploadBatch {
+  ref: string; date: ISODate; lb_kg: Num | null; heads: Num | null;
+  /**
+   * PRD v5.2 R58: the WP output rows the batch already has (active, source WP). A line of the file that is held keeps its
+   * old row (the commit does not retire it), so C22 counts that old output with the rows that pass.
+   */
+  output?: { key: string | null; item_code: string | null; kg: Num }[];
+}
 
 export interface UploadContext {
   today: ISODate;
@@ -101,6 +109,11 @@ export interface UploadContext {
   tolerance?: Num;
   /** K32: customers the uploader writes POs for; "all" for the commercial lead and admin. */
   customers?: string[] | "all";
+  /**
+   * PRD v5.2 R58 (O21(b)): the assignment rows (customer × key) of a Sales uploader. When given, a PO line must lie inside one
+   * of them (customer and key together, the database guard's rule); without it only `customers` is checked.
+   */
+  assignments?: SalesAssignment[];
   /** fixed_cost: accounts whose driver is fixed, and the schedule rows already in force. */
   fixedAccounts?: string[];
   fixedSchedule?: { code: string | null; account: string | null; start: ISODate; end: ISODate | null }[];
@@ -320,6 +333,8 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
   const item = itemIndex(ctx);
   const customers = ctx.customers ?? "all";
   const allowed = customers === "all" ? null : new Set(customers.map((c) => c.trim().toLowerCase()));
+  // R58 (O21(b)): a Sales line must lie inside one assignment row — customer and key together (the database guard's rule)
+  const scope = ctx.assignments ?? null;
   const unsizedFails = ctx.poUnsizedMode === "fail";
   let mapped = 0, needSize = 0, sized = 0, dateOk = 0, numOk = 0, floorOk = 0, custOk = 0;
   let kgOk = ZERO, kgAll = ZERO;
@@ -344,7 +359,10 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
     const fl = it && ctx.floors && ctx.floors[it.key] !== undefined && ctx.floors[it.key] !== null ? D(ctx.floors[it.key]) : null;
     if (fl && price?.gt(0) && price.lt(fl)) { issues.push(`harga ${f0(price)} < lantai ${f0(fl)}: approval Kepala Sales`); if (level === "ok") level = "warn"; }
     else floorOk++;
-    if (!allowed || (customer && allowed.has(customer.toLowerCase()))) custOk++;
+    if (scope) {
+      if (inAssignmentScope(scope, { customer, key: it?.key ?? null })) custOk++;
+      else fail(`${customer ?? "(spot)"} · ${it?.key ?? code ?? "—"} tidak ditugaskan kepada Anda`);
+    } else if (!allowed || (customer && allowed.has(customer.toLowerCase()))) custOk++;
     else fail(customer ? `pelanggan ${customer} tidak ditugaskan kepada Anda` : "pelanggan kosong");
     if (kg?.gt(0)) kgAll = kgAll.plus(kg);
     if (level !== "fail" && kg?.gt(0)) kgOk = kgOk.plus(kg);
@@ -362,7 +380,7 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
     countCheck("Tanggal kirim ≥ hari ini", dateOk, n, "fail"),
     countCheck("kg dan harga terisi", numOk, n, "fail"),
     ctx.floors ? countCheck("Harga ≥ lantai (biaya)", floorOk, n, "warn", "", "C38", `${n - floorOk} baris → approval`) : chk("info", "Harga ≥ lantai (biaya)", "dicek saat simpan", "di bawah lantai → approval", "C38"),
-    allowed ? countCheck("Pelanggan sesuai assignment", custOk, n, "fail", "", "K32") : chk("ok", "Pelanggan sesuai assignment", "semua pelanggan", "lolos", "K32"),
+    allowed || scope ? countCheck(scope ? "Pelanggan dan SKU sesuai assignment" : "Pelanggan sesuai assignment", custOk, n, "fail", "", "K32") : chk("ok", "Pelanggan sesuai assignment", "semua pelanggan", "lolos", "K32"),
   ];
   const dates = [...new Set(records.filter((x) => x.level !== "fail" && x.data.delivery_date).map((x) => x.data.delivery_date!))].sort();
   return finish("po_lines", grid, {
@@ -376,13 +394,17 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
   const tol = D(ctx.tolerance ?? "0.02"), shrink = D(ctx.shrinkTarget ?? "0.03");
   const ymin = D(ctx.yieldKarkas?.min ?? "0.68"), ymax = D(ctx.yieldKarkas?.max ?? "0.76");
   const known = ctx.batches ? new Map(ctx.batches.map((b) => [b.ref.trim().toUpperCase(), b])) : null;
-  interface B { ref: string; kgLb: Decimal | null; heads: Decimal | null; lbs: Set<string>; lines: number[]; out: Decimal; karkas: Decimal; found: UploadBatch | null | undefined }
+  interface B {
+    ref: string; kgLb: Decimal | null; heads: Decimal | null; lbs: Set<string>; lines: number[]; out: Decimal; karkas: Decimal; found: UploadBatch | null | undefined;
+    /** R58: item codes of the lines held in the file, and the key|code of the lines that pass (what the commit writes). */
+    held: Set<string>; passing: Set<string>;
+  }
   const batches = new Map<string, B>();
   let mapped = 0;
   const rows: UploadRow[] = [], records: UploadRecord[] = [];
   for (const r of t.body) {
     const ref = txt(g(r, "batch")) || "?", code = txt(g(r, "kode_item")), it = item(code), kg = upNum(g(r, "kg"));
-    const b = batches.get(ref) ?? { ref, kgLb: null, heads: null, lbs: new Set<string>(), lines: [], out: ZERO, karkas: ZERO, found: known ? known.get(ref.toUpperCase()) ?? null : undefined };
+    const b = batches.get(ref) ?? { ref, kgLb: null, heads: null, lbs: new Set<string>(), lines: [], out: ZERO, karkas: ZERO, found: known ? known.get(ref.toUpperCase()) ?? null : undefined, held: new Set<string>(), passing: new Set<string>() };
     batches.set(ref, b);
     b.lines.push(rows.length);
     const lb = upNum(g(r, "kg_lb")), hd = upNum(g(r, "ekor"));
@@ -394,8 +416,10 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
     if (it) mapped++; else fail("kode tidak dikenal: petakan di master item");
     if (!kg?.gt(0)) fail("kg kosong");
     if (b.found === null) fail(`batch ${ref} tidak ada di data batch`);
-    // R58: C22 is judged on the output that will be saved — the rows that pass, not the rejected ones
-    if (kg?.gt(0) && level !== "fail") { b.out = b.out.plus(kg); if (it && /\|Karkas\|/.test(it.key)) b.karkas = b.karkas.plus(kg); }
+    // R58: C22 is judged on the output that will be saved — the rows that pass (and the old output a held line keeps),
+    // not the rejected ones
+    if (kg?.gt(0) && level !== "fail") { b.out = b.out.plus(kg); if (it && /\|Karkas\|/.test(it.key)) b.karkas = b.karkas.plus(kg); if (it) b.passing.add(`${it.key}|${code}`); }
+    else if (code) b.held.add(code.toUpperCase());
     rows.push({ ref: code || "—", name: it ? it.name ?? it.key : "(tidak dikenal)", kg: kg?.gt(0) ? f1(kg) : "—", level, action: issues.join("; ") });
     records.push({ line: r.line, level, data: { batch_ref: ref, item_code: code || null, key: it?.key ?? null, item_name: it?.name ?? null, kg: str(kg), kg_lb: str(lb?.gt(0) ? lb : null), heads: str(hd?.gt(0) ? hd : null), batch_date: b.found?.date ?? null } });
   }
@@ -424,10 +448,14 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
     }
     const avg = b.kgLb.div(b.heads), cls = classOfAvg(ctx.classes, avg);
     checks.push(chk("info", `Batch ${b.ref} · rata-rata LB`, `${f1(b.kgLb)} kg / ${f0(b.heads)} ekor = ${f2(avg)} kg/ekor`, cls ? `kelas ${cls}` : "di luar kelas terdaftar"));
-    const expect = b.kgLb.times(D(1).minus(shrink)), gap = D(1).minus(b.out.div(expect)), okGap = gap.abs().lte(tol);
-    checks.push(chk(okGap ? "ok" : "fail", "Σ SKU vs hasil potong", `${f1(b.out)} vs ${f1(expect)} kg (LB − susut ${pc0(shrink)}), selisih ${pc1(gap)} (batas ${pc0(tol)})`, okGap ? "lolos" : "perlu penjelasan", "C22"));
+    // R58: the old rows of the lines held in this file are kept by the commit, so they are part of what will be saved
+    const kept = (b.found?.output ?? []).filter((o) => o.item_code && b.held.has(o.item_code.toUpperCase()) && !b.passing.has(`${o.key ?? ""}|${o.item_code}`));
+    const keptKg = sum(kept.map((o) => D(o.kg))), keptKarkas = sum(kept.filter((o) => o.key && /\|Karkas\|/.test(o.key)).map((o) => D(o.kg)));
+    const out = b.out.plus(keptKg), karkas = b.karkas.plus(keptKarkas);
+    const expect = b.kgLb.times(D(1).minus(shrink)), gap = D(1).minus(out.div(expect)), okGap = gap.abs().lte(tol);
+    checks.push(chk(okGap ? "ok" : "fail", "Σ SKU vs hasil potong", `${f1(out)} vs ${f1(expect)} kg (LB − susut ${pc0(shrink)}), selisih ${pc1(gap)} (batas ${pc0(tol)})${keptKg.gt(0) ? `; termasuk ${f1(keptKg)} kg output lama yang dipertahankan` : ""}`, okGap ? "lolos" : "perlu penjelasan", "C22"));
     if (!okGap) needsReason.push(b.ref);
-    const ky = b.karkas.div(b.kgLb), okY = ky.gte(ymin) && ky.lte(ymax);
+    const ky = karkas.div(b.kgLb), okY = ky.gte(ymin) && ky.lte(ymax);
     checks.push(chk(okY ? "ok" : "warn", "Yield karkas", `${pc1(ky)} (batas ${range(ymin, ymax)})`, okY ? "lolos" : "cek timbangan"));
   }
   const ok = records.filter((x) => x.level !== "fail").length;

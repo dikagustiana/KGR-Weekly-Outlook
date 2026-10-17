@@ -139,7 +139,7 @@
    {
     "level": "fail",
     "title": "Σ SKU vs hasil potong",
-    "detail": "6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%)",
+    "detail": "6.043,6 vs 7.286,6 kg (LB − susut 3%), selisih 17,1% (batas 2%)",
     "result": "perlu penjelasan",
     "code": "C22"
    },
@@ -220,7 +220,7 @@
   "needsReason": [
    "B260826"
   ],
-  "fingerprint": "v1:1608d6f7fec05514143f37752ffc"
+  "fingerprint": "v1:109f236b1e87d90966ef14a2667f"
  },
  "yield_matrix": {
   "total": 18,

@@ -637,16 +637,35 @@ export function c54(x: { rows: { key: string; costPerKg: Num | null; priceRef: N
   };
 }
 
-/** C57: a cut date without the operations director's LB price decision (K25). BELUM DIISI; holds "salin ke batch" for that day. */
-export function c57(x: { cutDates: string[]; decisions: { date: string; weight_class?: string | null }[]; batchesWithoutPrice?: string[] }): ControlV3 & { dates: string[] } {
-  const decided = new Set(x.decisions.map((d) => d.date));
-  const missing = [...new Set(x.cutDates)].filter((d) => !decided.has(d)).sort();
+export interface LbDecisionRef { date: string; weight_class?: string | null }
+
+/**
+ * PRD v5.2 R51: the LB price decision that holds for a cut date of a class — the decision of that class, else the one for
+ * all classes (weight_class null), else none (C57). `decisions` newest first: the latest decision of a tier wins.
+ */
+export function lbDecisionFor<T extends LbDecisionRef>(decisions: T[], date: string, weightClass: string | null): T | null {
+  const day = decisions.filter((d) => d.date === date);
+  return (weightClass ? day.find((d) => d.weight_class === weightClass) : undefined) ?? day.find((d) => !d.weight_class) ?? null;
+}
+
+/**
+ * C57: a cut date without the operations director's LB price decision (K25). BELUM DIISI; holds "salin ke batch" for that day.
+ * R51: `cuts` (date × class of the batches a copy would create) are judged per class — the decision of the class, else the
+ * one for all classes — and replace `cutDates`.
+ */
+export function c57(x: { cutDates: string[]; decisions: { date: string; weight_class?: string | null }[]; batchesWithoutPrice?: string[]; cuts?: { date: string; weight_class: string | null }[] }): ControlV3 & { dates: string[] } {
+  const label = (c: { date: string; weight_class: string | null }) => (c.weight_class ? `${c.date} ${c.weight_class}` : c.date);
+  const lacking = x.cuts
+    ? x.cuts.filter((c) => lbDecisionFor(x.decisions, c.date, c.weight_class) === null)
+    : (() => { const decided = new Set(x.decisions.map((d) => d.date)); return [...new Set(x.cutDates)].filter((d) => !decided.has(d)).map((date) => ({ date, weight_class: null as string | null })); })();
+  const missing = [...new Set(lacking.map(label))].sort();
+  const missingDates = [...new Set(lacking.map((c) => c.date))].sort();
   // PRD v5.1 K50: a batch without any LB price (no decision, no batch price, no price today) has no cost, never Rp 0
   const noPrice = [...new Set(x.batchesWithoutPrice ?? [])].sort();
   const n = missing.length + noPrice.length;
   return {
     code: "C57", module: "M1", name: "Harga live bird tanggal potong sudah diputuskan", value: D(n), comparator: ZERO, difference: D(n),
     status: n ? "BELUM DIISI" : "LULUS", action: n ? "Direktur Operasional memutuskan harga dan volume LB; simulasi memakai harga terakhir berlabel" : "",
-    detail: [...missing, ...noPrice.map((r) => `batch ${r}: harga LB belum ada, biaya batch belum dihitung`)], dates: missing,
+    detail: [...missing, ...noPrice.map((r) => `batch ${r}: harga LB belum ada, biaya batch belum dihitung`)], dates: missingDates,
   };
 }
