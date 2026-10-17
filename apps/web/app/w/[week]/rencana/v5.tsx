@@ -12,7 +12,7 @@ import { loadPlanning } from "@/lib/v3/planning";
 import { loadPpicV5 } from "@/lib/v5/ppic-data";
 import { ppicV5Model } from "@/lib/v5/ppic";
 import { num, tglShort } from "@/lib/fmt";
-import { copyClassPlanAction, reasonAction, saveClassPlanAction, setCapacityAction } from "./actions";
+import { approvePlanAction, copyClassPlanAction, reasonAction, saveClassPlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
 
 /** PRD v5 §6.3 PPIC · Rencana (flag v5_ppic_class): demand per size → class → kg LB, weekly and daily plan per class. */
@@ -54,6 +54,17 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
       </>,
       !latest ? "Simpan rencana dulu" : input.copyBlockers.length ? `Belum bisa: ${input.copyBlockers.join(", ")}${input.copyBlockers.some((b) => b.startsWith("C57 ")) ? " (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian)" : ""}` : input.c58Reason ? `C58 dengan alasan: ${input.c58Reason}` : null,
     );
+  }
+  // R53: Finance / admin approve a plan whose downgrade is above the threshold; the status is text.
+  if ((role === "admin" || role === "finance") && latest?.needs_approval) {
+    extras["t-approval"] = latest.approved_by
+      ? <p className="muted">Rencana v{String(latest.version)} disetujui ({String(latest.approved_by)})</p>
+      : bar(
+        <ActionForm v4="primary" action={approvePlanAction} submit={`Setujui rencana v${latest.version}`} confirm="Setujui rencana dengan downgrade di atas batas?">
+          <input type="hidden" name="week" value={week} /><input type="hidden" name="plan_id" value={String(latest.id)} />
+        </ActionForm>,
+        "Downgrade di atas batas perlu persetujuan Finance",
+      );
   }
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
   return (
