@@ -11,6 +11,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { loadInputScreen, uploadContext } from "@/lib/v5/input-data";
 import { ROLE_KINDS, inputV5Model, panelOf, shownRole } from "@/lib/v5/input";
 import { UPLOAD_SAMPLES } from "@/lib/v5/upload-samples";
+import { mustRows } from "@/lib/loader";
 import { decideLbPriceAction, k35OverrideAction, refreshTasksAction, remindAction, saveUploadAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -54,8 +55,8 @@ export default async function InputPage({ searchParams }: { searchParams: Promis
     );
   }
   if (role === "operations_director" && !mgmt && ["admin", "operations_director"].includes(viewer.role)) {
-    const { data: cls } = await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg");
-    const reg = registeredClasses(((cls ?? []) as Record<string, unknown>[]).map((c) => ({ code: String(c.code), min_kg: (c.min_kg ?? null) as string | null, max_kg: (c.max_kg ?? null) as string | null, avg_kg: (c.avg_kg ?? null) as string | null })));
+    const cls = mustRows(await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg"), "input.weight_class");
+    const reg = registeredClasses((cls as Record<string, unknown>[]).map((c) => ({ code: String(c.code), min_kg: (c.min_kg ?? null) as string | null, max_kg: (c.max_kg ?? null) as string | null, avg_kg: (c.avg_kg ?? null) as string | null })));
     extras.parameter = (
       <ActionForm v4="primary" action={decideLbPriceAction} submit="Simpan keputusan" className="tile-form" confirm="Simpan keputusan harga LB? Keputusan tidak diubah; keputusan baru menggantikannya.">
         <label>Tanggal potong <input name="date" type="date" defaultValue={addDays(input.today, 1)} required /></label>
