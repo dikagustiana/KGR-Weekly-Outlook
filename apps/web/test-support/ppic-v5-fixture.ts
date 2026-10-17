@@ -3,7 +3,7 @@
  * Lampiran B.3, placeholder yields) and the example week, without Supabase. Node only.
  */
 import {
-  D, classByProducts, computeWeek, dailyClassPlan, needBasisOutputs, planCost, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan, type SizedLine,
+  D, classByProducts, computeWeek, dailyClassPlan, needBasisOutputs, netShareOf, planCost, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan, type SizedLine,
 } from "@kgr/engine";
 import { planDemand, planInp, planOrders, planWeek } from "../../../packages/engine/test/plan-fixture";
 import type { PpicV5Input } from "../lib/v5/ppic";
@@ -19,7 +19,7 @@ export function ppicV5Fixture(versi: "need" | "batch" = "need"): PpicV5Input {
   const orders = planOrders().filter((o) => o.delivery_date && o.delivery_date >= "2026-08-27" && o.delivery_date <= "2026-08-29");
   const lines: SizedLine[] = orders.filter((o) => v5.karkas_keys.includes(o.key)).map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeKgOf(names.get(codeOf.get(o.ref) ?? "") ?? null), kg: o.kg }));
   const cd = toClassLB({
-    lines,
+    lines, netShare: netShareOf(demand.rows),
     setup: { classOf: (s) => v5.size_class_map.find((m) => D(m.size_kg).eq(s))?.weight_class ?? null, yieldKarkas: (c) => v5.yield_karkas[c] ?? null, avgKg: (c) => v5.avg_kg[c] ?? null, midOffset: v5.mid_offset, fallback: v5.fallback_class },
   });
   const price = (k: string) => planWeek.sku_keys.find((s) => s.key === k)?.ref_sell_price ?? null;
