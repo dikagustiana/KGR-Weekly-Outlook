@@ -73,7 +73,11 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
     const w = o.demand_status === "Tentative" ? src.weights.tentative : o.demand_status === "Forecast" ? src.weights.forecast : "1";
     return D(o.kg).minus(D(o.fulfilled_kg ?? "0")).minus(D(o.cancelled_kg ?? "0")).times(D(w)).toFixed(2);
   };
-  const lines: SizedLine[] = lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: weightOf(o) }));
+  const lines: SizedLine[] = [
+    ...lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: weightOf(o) })),
+    // R49: the week's forecasts enter as STD (no size) lines, so a forecast-only week still shows a need
+    ...src.forecasts.filter((f) => karkasKeys.includes(f.key)).map((f) => ({ ship_date: f.week_start, key: f.key, size_kg: null, kg: s(f.kg) ?? "0" })),
+  ];
   const demand = toClassLB({
     lines,
     setup: { classOf: (sz) => latest.get(sz.toFixed(2)) ?? null, yieldKarkas: (c) => yieldOf(c, "Karkas"), avgKg: (c) => avg.get(c) ?? null, midOffset: SIZE_MID_OFFSET, fallback: FALLBACK },
