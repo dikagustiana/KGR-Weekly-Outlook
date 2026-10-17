@@ -33,6 +33,15 @@ describe("size from the item name (O3, O4)", () => {
     expect(sizeKgOf("Ayam Karkas Mix")).toBeNull();
     expect([sizeCode("1.30"), sizeCode(null)]).toEqual(["Uk 1.3", "tanpa"]);
   });
+  it("PRD v5.1 R31: 1,25 and 1,30 kg are two sizes (two decimals), each with its own class; codes Uk 1.25 / Uk 1.3", () => {
+    expect([sizeCode("1.25"), sizeCode("1.2"), sizeCode("1.00")]).toEqual(["Uk 1.25", "Uk 1.2", "Uk 1.0"]);
+    const map: Record<string, string> = { "1.25": "S", "1.30": "B" };
+    const r = toClassLB({
+      lines: [{ ship_date: "2026-08-27", key: "RPA|Karkas|Fresh", size_kg: "1.25", kg: "100" }, { ship_date: "2026-08-27", key: "RPA|Karkas|Fresh", size_kg: "1.30", kg: "200" }],
+      setup: { ...setup, classOf: (x) => map[x.toFixed(2)] ?? null },
+    });
+    expect(r.rows.map((x) => [x.size_code, x.weight_class, x.po_kg.toFixed(0)])).toEqual([["Uk 1.25", "S", "100"], ["Uk 1.3", "B", "200"]]);
+  });
 });
 
 describe("K28 toClassLB = Lampiran B.3 (kirim 27–29 Agu, yield placeholder 71,46%)", () => {

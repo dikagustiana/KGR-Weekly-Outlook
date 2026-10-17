@@ -20,8 +20,11 @@ export function sizeKgOf(name: string | null | undefined): Decimal | null {
 }
 
 export const NO_SIZE = "tanpa";
-/** Size code of a line (key of demand_class_weekly): "Uk 1.3" or "tanpa". */
-export const sizeCode = (size: Num | null | undefined) => (size === null || size === undefined || size === "" ? NO_SIZE : `Uk ${D(size).toFixed(1)}`);
+/**
+ * Size code of a line (key of demand_class_weekly): "Uk 1.3", "Uk 1.25" or "tanpa". PRD v5.1 R31: two decimals as
+ * size_kg holds them (1.25 and 1.30 are two sizes, never one "Uk 1.3"); a one-decimal size reads as before.
+ */
+export const sizeCode = (size: Num | null | undefined) => (size === null || size === undefined || size === "" ? NO_SIZE : `Uk ${D(size).toFixed(2).replace(/(\.\d)0$/, "$1")}`);
 
 export interface SizedLine { ship_date: ISODate; key: string; size_kg: Num | null; kg: Num }
 
@@ -77,7 +80,8 @@ export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => N
     const size = l.size_kg === null || l.size_kg === undefined || l.size_kg === "" ? null : D(l.size_kg);
     const mappedCls = size ? s.classOf(size) : null;
     const cls = mappedCls ?? s.fallback;
-    const k = `${l.ship_date}|${sizeCode(size)}`;
+    // R31: accumulate per size as stored (two decimals); the code is what the screen and the mart key show
+    const k = `${l.ship_date}|${size === null ? NO_SIZE : size.toFixed(2)}`;
     const share = x.netShare ? D(x.netShare(l.key)) : D(1);
     const o = acc.get(k) ?? {
       ship_date: l.ship_date, size_code: sizeCode(size), size_kg: size, weight_class: cls, mapped: mappedCls !== null, yieldFallback: false,

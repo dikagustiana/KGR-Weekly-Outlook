@@ -12,6 +12,7 @@ import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "./uploads";
 import { v5CostingOn } from "../v5/costing";
+import { must } from "../loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -119,12 +120,16 @@ registerBuilder({ module: "m7_commercial", name: "commercial", build: buildComme
 
 /**
  * Reads for /komersial: the latest built day ≤ date (sales through the view without the SI cost; with v5_costing on,
- * the v5 view that adds the cost per SKU, its status and C54).
+ * the v5 view that adds the cost per SKU, its status and C54). PRD v5.1 K53: `v5` = v5_costing is on for the viewer's
+ * role (the builder writes the v5 columns whenever the flag is enabled); off = the v5 columns are not read (null).
  */
-export async function commercialMart(sb: Supa, date: string, sales: boolean): Promise<{ date: string | null; rows: Row[] }> {
-  const table = !sales ? "commercial_daily" : (await v5CostingOn(sb)) ? "commercial_daily_sales_v5" : "commercial_daily_sales";
-  const { data } = await sb.from(table).select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle();
-  const d = data ? String((data as Row).date) : null;
+export async function commercialMart(sb: Supa, date: string, sales: boolean, v5: boolean): Promise<{ date: string | null; rows: Row[] }> {
+  const table = !sales ? "commercial_daily" : v5 ? "commercial_daily_sales_v5" : "commercial_daily_sales";
+  const d0 = must(await sb.from(table).select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), `${table} (tanggal)`) as Row | null;
+  const d = d0 ? String(d0.date) : null;
   if (!d) return { date: null, rows: [] };
-  return { date: d, rows: await fetchAll<Row>((a, b) => sb.from(table).select("*").eq("date", d).order("rank").range(a, b)) };
+  const rows = await fetchAll<Row>((a, b) => sb.from(table).select("*").eq("date", d).order("rank").range(a, b));
+  return { date: d, rows: v5 ? rows : rows.map((r) => ({ ...r, ...V5_NONE })) };
 }
+
+const V5_NONE = { cost_per_kg: null, cost_status: null, cost_check: null };

@@ -26,6 +26,12 @@ describe("aturan parsing (§4.9)", () => {
     expect(upNum("−12,5")!.toString()).toBe("-12.5");
     expect(upNum("")).toBeNull();
     expect(upNum("abc")).toBeNull();
+    // PRD v5.1 R32: a leading 0 is a decimal, not a thousands group
+    expect(upNum("0.715")!.toString()).toBe("0.715");
+    expect(upNum("0.500")!.toString()).toBe("0.5");
+    expect(upNum("-0.25")!.toString()).toBe("-0.25");
+    expect(upNum("1.234")!.toString()).toBe("1234");
+    expect(upNum("12.345,6")!.toString()).toBe("12345.6");
     expect(upNum(null)).toBeNull();
   });
   it("tanggal: YYYY-MM-DD · DD/MM/YYYY · tanggal Excel; bulan", () => {
@@ -83,14 +89,25 @@ describe("kelas terdaftar (C51)", () => {
 });
 
 describe("Lampiran B.5 dengan konteks golden", () => {
-  it("PO 7 → 4 lolos; 5 baris di bawah lantai ke approval; JLB1857 tanpa ukuran, 26 Agu lewat, X-999 dan harga kosong ditahan", () => {
+  it("PO 7 → 5 lolos (O15 warn): Karkas Mix tanpa ukuran tersimpan STD; 5 baris di bawah lantai ke approval; 26 Agu lewat, X-999 dan harga kosong ditahan", () => {
     const r = validateUpload("po_lines", samples.po_lines.grid, ctx);
-    expect([r.total, r.ok_count]).toEqual([7, 4]);
-    expect(r.records.filter((x) => x.level !== "fail").map((x) => x.data.po_ref)).toEqual(["KGR26.00349", "KGR26.00350", "KGR26.00353", "KGR26.00357"]);
+    expect([r.total, r.ok_count]).toEqual([7, 5]);
+    expect(r.records.filter((x) => x.level !== "fail").map((x) => x.data.po_ref)).toEqual(["KGR26.00341", "KGR26.00349", "KGR26.00350", "KGR26.00353", "KGR26.00357"]);
+    expect(r.records[0]).toMatchObject({ level: "warn", data: { key: "RPA|Karkas|n/a", size_kg: null } });
+    expect(r.rows[0].action).toBe("ukuran karkas kosong: isi kolom ukuran atau biarkan STD");
+    expect(r.checks.find((c) => c.code === "C50")).toMatchObject({ level: "warn", detail: "4 dari 5 baris karkas", result: "1 baris → STD" });
     expect(r.records.filter((x) => x.data.below_floor === "true").length).toBe(5);
     expect(r.records[1].data).toMatchObject({ key: "RPA|Karkas|Fresh", size_kg: "1.30", delivery_date: "2026-08-29", kg: "1755", price: "36705" });
-    expect(r.summary).toBe("4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.");
+    expect(r.summary).toBe("5 dari 7 baris bisa disimpan (7.594,9 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.");
     expect(r.dates).toEqual(["2026-08-27", "2026-08-29"]);
+  });
+  it("PO dengan po_unsized_mode = fail: 7 → 4 lolos, Karkas Mix tanpa ukuran ditahan (perilaku v5)", () => {
+    const r = validateUpload("po_lines", samples.po_lines.grid, { ...ctx, poUnsizedMode: "fail" });
+    expect([r.total, r.ok_count]).toEqual([7, 4]);
+    expect(r.records.filter((x) => x.level !== "fail").map((x) => x.data.po_ref)).toEqual(["KGR26.00349", "KGR26.00350", "KGR26.00353", "KGR26.00357"]);
+    expect(r.rows[0].action).toBe("ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)");
+    expect(r.checks.find((c) => c.code === "C50")).toMatchObject({ level: "fail", result: "1 baris" });
+    expect(r.summary).toBe("4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.");
   });
   it("WP 8 → 6 lolos; Σ SKU 6.782,8 vs 7.286,6 (6,9%) gagal C22 2% → alasan wajib; yield karkas 73,4%", () => {
     const r = validateUpload("costing_wp", samples.costing_wp.grid, ctx);
@@ -134,6 +151,22 @@ describe("cek per jenis lain", () => {
     expect(r.checks.find((c) => c.title === "kg LB sesuai batch")).toEqual({ level: "ok", title: "kg LB sesuai batch", detail: "1.000 di WP vs 1.010 di batch (−1,0%)", result: "lolos" });
     // 720 vs 970 = 25,8% short; karkas yield 72%
     expect(r.checks.find((c) => c.code === "C22")?.level).toBe("fail");
+  });
+  it("PRD v5.1 R34: batch tanpa kg LB / ekor, atau kg LB berbeda antar baris → semua baris batch itu ditahan", () => {
+    const batches = [{ ref: "B1", date: "2026-08-25", lb_kg: null, heads: null }, { ref: "B2", date: "2026-08-25", lb_kg: null, heads: null }, { ref: "B3", date: "2026-08-25", lb_kg: null, heads: null }];
+    const g: Grid = [
+      ["batch", "kg_lb", "ekor", "kode_item", "kg"],
+      ["B1", "", "", "JLB0829", 720], ["B1", "", "", "JLB0829", 50],
+      ["B2", 1000, 500, "JLB0829", 700], ["B2", 1100, "", "JLB0829", 40],
+      ["B3", 1000, 500, "JLB0829", 700], ["B3", "", "", "JLB0829", 40],
+    ];
+    const r = validateUpload("costing_wp", g, { ...ctx, batches });
+    expect(r.records.map((x) => x.level)).toEqual(["fail", "fail", "fail", "fail", "ok", "ok"]);
+    expect(r.rows[1].action).toBe("batch B1: kg_lb atau ekor kosong");
+    expect(r.rows[3].action).toBe("batch B2: kg LB tidak konsisten");
+    expect(r.checks.find((c) => c.title === "Batch B2")).toEqual({ level: "fail", title: "Batch B2", detail: "kg LB tidak konsisten (1.000,0 / 1.100,0)", result: "satu angka kg LB per batch" });
+    // kg LB on the first row only (the template) is consistent
+    expect(r.checks.some((c) => c.title === "Batch B3")).toBe(false);
   });
   it("supply LB: kelas tidak terdaftar gagal (C51); kurang dari kebutuhan kelas → PERIKSA (C58)", () => {
     const g: Grid = [["tanggal", "kelas", "pemasok", "kg_lb", "harga"], ["2026-08-28", "STD", "AGRO", 2400, 24600], ["2026-08-28", "S", "AGRO", 100, ""]];

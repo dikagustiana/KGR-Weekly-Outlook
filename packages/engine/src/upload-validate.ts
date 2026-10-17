@@ -104,6 +104,11 @@ export interface UploadContext {
   /** fixed_cost: accounts whose driver is fixed, and the schedule rows already in force. */
   fixedAccounts?: string[];
   fixedSchedule?: { code: string | null; account: string | null; start: ISODate; end: ISODate | null }[];
+  /**
+   * PRD v5.1 O15 (parameter.po_unsized_mode): a karkas RPA PO line without size is "warn" — saved with size_kg null,
+   * PPIC plans it as STD — or "fail" (held). Default "warn".
+   */
+  poUnsizedMode?: "warn" | "fail";
   /** supplier_invoice: GL amount per document number (C23 tie). */
   glByDoc?: Record<string, Num>;
   /** lb_supply: need of kg LB per cut date and class (C58). */
@@ -158,7 +163,7 @@ export function parseCsv(text: string): Grid {
   return parseDelimited(text, (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ";" : ",");
 }
 
-/** 1.234,5 · 36.705 · Rp 43.086 · 71,5% · 811.3 · Excel numbers; null when empty or not a number. */
+/** 1.234,5 · 36.705 · Rp 43.086 · 71,5% · 811.3 · 0.715 · Excel numbers; null when empty or not a number. */
 export function upNum(v: Cell | undefined): Decimal | null {
   if (typeof v === "number") return Number.isFinite(v) ? D(String(v)) : null;
   if (typeof v === "boolean" || v === null || v === undefined) return null;
@@ -166,6 +171,8 @@ export function upNum(v: Cell | undefined): Decimal | null {
   if (!s) return null;
   if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
   else if (s.includes(",")) s = s.replace(",", ".");
+  // PRD v5.1 R32: 0.715 is a decimal (a share, a yield), never 715; 1.234 stays a thousands group
+  else if (/^-?0\.\d+$/.test(s)) { /* decimal as written */ }
   else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
   return /^-?\d+(\.\d+)?$/.test(s) ? D(s) : null;
 }
@@ -313,6 +320,7 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
   const item = itemIndex(ctx);
   const customers = ctx.customers ?? "all";
   const allowed = customers === "all" ? null : new Set(customers.map((c) => c.trim().toLowerCase()));
+  const unsizedFails = ctx.poUnsizedMode === "fail";
   let mapped = 0, needSize = 0, sized = 0, dateOk = 0, numOk = 0, floorOk = 0, custOk = 0;
   let kgOk = ZERO, kgAll = ZERO;
   const rows: UploadRow[] = [], records: UploadRecord[] = [];
@@ -327,7 +335,9 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
     if (it && isKarkasToSize(it.key)) {
       needSize++;
       size = upSize(g(r, "ukuran")) ?? (it.size_kg !== null && it.size_kg !== undefined && it.size_kg !== "" ? D(it.size_kg) : null) ?? sizeKgOf(it.name);
-      if (size) sized++; else fail("ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)");
+      if (size) sized++;
+      else if (unsizedFails) fail("ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)");
+      else { issues.push("ukuran karkas kosong: isi kolom ukuran atau biarkan STD"); if (level === "ok") level = "warn"; }
     }
     if (date && date >= ctx.today) dateOk++; else fail(date ? `tanggal kirim ${dm(date)} sudah lewat` : "tanggal kirim tidak terbaca");
     if (kg?.gt(0) && price?.gt(0)) numOk++; else fail(!kg?.gt(0) ? "kg kosong" : "harga kosong");
@@ -348,7 +358,7 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
   const checks = [
     head,
     countCheck("Kode item terpetakan", mapped, n, "fail", "", "C56"),
-    countCheck("Ukuran karkas RPA terisi", sized, needSize, "fail", " baris karkas", "C50"),
+    countCheck("Ukuran karkas RPA terisi", sized, needSize, unsizedFails ? "fail" : "warn", " baris karkas", "C50", unsizedFails ? undefined : `${needSize - sized} baris → STD`),
     countCheck("Tanggal kirim ≥ hari ini", dateOk, n, "fail"),
     countCheck("kg dan harga terisi", numOk, n, "fail"),
     ctx.floors ? countCheck("Harga ≥ lantai (biaya)", floorOk, n, "warn", "", "C38", `${n - floorOk} baris → approval`) : chk("info", "Harga ≥ lantai (biaya)", "dicek saat simpan", "di bawah lantai → approval", "C38"),
@@ -366,16 +376,17 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
   const tol = D(ctx.tolerance ?? "0.02"), shrink = D(ctx.shrinkTarget ?? "0.03");
   const ymin = D(ctx.yieldKarkas?.min ?? "0.68"), ymax = D(ctx.yieldKarkas?.max ?? "0.76");
   const known = ctx.batches ? new Map(ctx.batches.map((b) => [b.ref.trim().toUpperCase(), b])) : null;
-  interface B { ref: string; kgLb: Decimal | null; heads: Decimal | null; out: Decimal; karkas: Decimal; found: UploadBatch | null | undefined }
+  interface B { ref: string; kgLb: Decimal | null; heads: Decimal | null; lbs: Set<string>; lines: number[]; out: Decimal; karkas: Decimal; found: UploadBatch | null | undefined }
   const batches = new Map<string, B>();
   let mapped = 0;
   const rows: UploadRow[] = [], records: UploadRecord[] = [];
   for (const r of t.body) {
     const ref = txt(g(r, "batch")) || "?", code = txt(g(r, "kode_item")), it = item(code), kg = upNum(g(r, "kg"));
-    const b = batches.get(ref) ?? { ref, kgLb: null, heads: null, out: ZERO, karkas: ZERO, found: known ? known.get(ref.toUpperCase()) ?? null : undefined };
+    const b = batches.get(ref) ?? { ref, kgLb: null, heads: null, lbs: new Set<string>(), lines: [], out: ZERO, karkas: ZERO, found: known ? known.get(ref.toUpperCase()) ?? null : undefined };
     batches.set(ref, b);
+    b.lines.push(rows.length);
     const lb = upNum(g(r, "kg_lb")), hd = upNum(g(r, "ekor"));
-    if (lb?.gt(0)) b.kgLb = lb;
+    if (lb?.gt(0)) { b.kgLb = lb; b.lbs.add(lb.toString()); }
     if (hd?.gt(0)) b.heads = hd;
     const issues: string[] = [];
     let level = "ok" as RowLevel;
@@ -390,9 +401,22 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
   const n = t.body.length;
   const checks: UploadCheck[] = [head, countCheck("Kode SKU terpetakan", mapped, n, "fail", " baris", "C56")];
   const needsReason: string[] = [];
+  // PRD v5.1 R34: a batch without kg LB or heads, or with different kg LB on its rows, holds every row of that batch
+  const holdBatch = (b: B, why: string) => {
+    for (const i of b.lines) {
+      if (records[i].level !== "fail") { records[i].level = "fail"; rows[i].level = "fail"; }
+      rows[i].action = rows[i].action ? `${rows[i].action}; ${why}` : why;
+    }
+  };
   for (const b of batches.values()) {
     if (b.found === null) { checks.push(chk("fail", `Batch ${b.ref}`, "tidak ada di data batch", "buat batch dulu")); continue; }
-    if (!b.kgLb || !b.heads) { checks.push(chk("fail", `Batch ${b.ref}`, "kg_lb atau ekor kosong", "isi di baris pertama")); continue; }
+    if (!b.kgLb || !b.heads) { checks.push(chk("fail", `Batch ${b.ref}`, "kg_lb atau ekor kosong", "isi di baris pertama")); holdBatch(b, `batch ${b.ref}: kg_lb atau ekor kosong`); continue; }
+    if (b.lbs.size > 1) {
+      const v = [...b.lbs].map((x) => f1(D(x))).join(" / ");
+      checks.push(chk("fail", `Batch ${b.ref}`, `kg LB tidak konsisten (${v})`, "satu angka kg LB per batch"));
+      holdBatch(b, `batch ${b.ref}: kg LB tidak konsisten`);
+      continue;
+    }
     if (b.found && b.found.lb_kg !== null && b.found.lb_kg !== "" && D(b.found.lb_kg).gt(0)) {
       const plan = D(b.found.lb_kg), d = b.kgLb.minus(plan).div(plan);
       checks.push(chk(d.abs().lte(tol) ? "ok" : "warn", "kg LB sesuai batch", `${f0(b.kgLb)} di WP vs ${f0(plan)} di batch (${d.gte(0) ? "+" : ""}${pc1(d)})`, d.abs().lte(tol) ? "lolos" : "cek timbangan"));

@@ -16,6 +16,12 @@ export function tileBox(w: number, h: number, chrome = 52): { width: number; hei
   return { width: Math.round(w * col + (w - 1) * 12 - 32), height: Math.max(60, Math.round(h * 76 + (h - 1) * 12 - chrome)) };
 }
 
+/**
+ * PRD v5.1 R40: a chart that fills its tile takes the height the tile body really has (a grid row can grow past 76 px),
+ * never less than tileBox at 76 px rows; the SVG keeps its proportions (viewBox, meet).
+ */
+const Fit = ({ min, children }: { min: number; children: ReactNode }) => <div className="chart-fit" style={{ minHeight: min }}>{children}</div>;
+
 const noteH = (t: TileModel) => (t.note ? (t.note.length > 78 ? 42 : 26) : 0);
 
 function legendOf(t: TileModel): ReactNode {
@@ -33,19 +39,19 @@ function body(t: TileModel): ReactNode {
     case "card": return <CardBody value={c.value} unit={c.unit} compare={c.compare} href={c.href} missing={c.missing} negative={c.negative} maxCompare={c.maxCompare} />;
     case "combo": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
-      return <ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} labelMax={c.labelMax} />;
+      return <Fit min={b.height}><ComboChart width={b.width} height={b.height} points={c.points} label={t.title ?? t.id} labelMax={c.labelMax} /></Fit>;
     }
     case "line": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
-      return <LineChart width={b.width} height={b.height} plot={c.plot} label={t.title ?? t.id} />;
+      return <Fit min={b.height}><LineChart width={b.width} height={b.height} plot={c.plot} label={t.title ?? t.id} /></Fit>;
     }
     case "waterfall": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
-      return <Waterfall width={b.width} height={b.height} steps={c.steps} label={t.title ?? t.id} />;
+      return <Fit min={b.height}><Waterfall width={b.width} height={b.height} steps={c.steps} label={t.title ?? t.id} /></Fit>;
     }
     case "paired": {
       const b = tileBox(t.pos.w, t.pos.h, 52 + noteH(t));
-      return <PairedBars width={b.width} height={b.height} groups={c.groups} label={t.title ?? t.id} />;
+      return <Fit min={b.height}><PairedBars width={b.width} height={b.height} groups={c.groups} label={t.title ?? t.id} /></Fit>;
     }
     case "stacked": {
       const b = tileBox(t.pos.w, 1);

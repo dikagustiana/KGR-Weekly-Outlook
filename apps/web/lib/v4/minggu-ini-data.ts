@@ -68,14 +68,15 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     if (!date) return null;
     // K42: every row of the day, page by page (no .limit above 1000)
     const [keys, lots] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma").eq("date", date).order("key").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma, cost_status").eq("date", date).order("key").range(a, b)),
       fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").range(a, b)),
     ]);
     const info: StockMart["info"] = {};
     for (const k of r.stock.rows) info[k.key] = { ordersRest: k.ordersRestOfWeek.toFixed(2), refPrice: k.refPrice === null ? null : k.refPrice.toFixed(2) };
     return {
       date,
-      keys: keys.map((k) => ({ key: String(k.key), over_age_kg: s(k.over_age_kg), cost_per_kg_ma: s(k.cost_per_kg_ma) })),
+      // R39 / K53: the cost status (K20) only for a role with v5_costing
+      keys: keys.map((k) => ({ key: String(k.key), over_age_kg: s(k.over_age_kg), cost_per_kg_ma: s(k.cost_per_kg_ma), cost_status: isModuleOn(settings.v5_costing, role) ? s(k.cost_status) : null })),
       lots: lots.map((l) => ({ key: String(l.key), kg: String(l.kg), age_days: l.age_days === null ? null : Number(l.age_days), cost_per_kg_ma: s(l.cost_per_kg_ma) })),
       info,
     };
@@ -91,7 +92,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
       // a day before the first upload stays without a balance (null, never 0) even when later days have one
       const has = (c: Row) => Number(c.accounts ?? 0) > 0;
-      cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
+      cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null, without: has(c) ? s(c.closing_without_affiliate) : null }));
       noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }
     const v = fail(failed, ["c-solvabilitas"], await tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
@@ -188,7 +189,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   }
   let v5Mgmt: MingguIniInput["v5Mgmt"] = null;
   if (isModuleOn(settings.v5_management, role)) {
-    const m = await tileData("minggu ini: manajemen v5", () => loadManagementV5(sb, w, r, sp, noFunding));
+    const m = await tileData("minggu ini: manajemen v5", () => loadManagementV5(sb, w, r, sp, noFunding, role));
     v5Mgmt = "ok" in m ? m.ok : managementFailed(m.error);
   }
 

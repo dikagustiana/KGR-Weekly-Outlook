@@ -13,15 +13,27 @@ import type { Supa } from "../supabase";
 import { fetchAll, type WeekRow } from "../data";
 import { inChunks, must, mustRows } from "../loader";
 import type { Row } from "../v3/uploads";
+import { parseSetting, type ModuleSetting } from "../modules-core";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 /** WIB date of a timestamp. */
 const jakartaDate = (at: string) => jakartaToday(new Date(at));
 
+/** R40: the start date of v5 costing from app_setting v5_costing value.since (YYYY-MM-DD); null when not filled. */
+export const sinceOf = (value: unknown): string | null => {
+  const v = s((value as { since?: string } | null | undefined)?.since)?.slice(0, 10) ?? null;
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+};
+
 /** Is v5 costing on (app_setting v5_costing)? Builders read it themselves (they run without a session). */
 export async function v5CostingOn(sb: Supa): Promise<boolean> {
-  const { data } = await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle();
-  return ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
+  return (await v5CostingSetting(sb)).enabled;
+}
+
+/** The v5_costing flag with its role list (K53: screens read the v5 columns only for the roles it lists). */
+export async function v5CostingSetting(sb: Supa): Promise<ModuleSetting> {
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing");
+  return parseSetting((data as Row | null)?.value);
 }
 
 export interface V5BatchCost {
@@ -96,7 +108,7 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
   // reference prices: last week's locked price list (K24), else the batch week's reference prices
   const prevWeeks = [...new Set([...weekStart.values()].map((w) => addDays(w, -7)))];
   const [lists, refPrices] = await Promise.all([
-    inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).range(a, b))),
+    inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).is("deleted_at", null).range(a, b))),
     inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", part).range(a, b))),
   ]);
   const yieldOf = (k: string) => s(yields.find((y) => String(y.key) === k)?.yield_pct);
@@ -163,27 +175,28 @@ export interface V5LedgerCosts {
   statusByBatch: Map<string, CostStatus>;
   mode: RevaluationMode;
   /**
-   * First day v5 costing ran (app_setting v5_costing value.since, else the date the flag was last changed): a batch
-   * posted before it never carried a provisional cost in the ledger, so it is not revalued (K22).
+   * First day v5 costing ran (app_setting v5_costing value.since): a batch posted before it never carried a provisional
+   * cost in the ledger, so it is not revalued (K22). PRD v5.1 R40 (B.3): null = not filled — no revaluation runs (the
+   * date the flag was last changed is not a start date), and the Costing page says so.
    */
-  since: string;
+  since: string | null;
 }
 
 export async function v5LedgerCosts(sb: Supa, from: string, today: string, latestWeekId: string): Promise<V5LedgerCosts> {
   const [batches, par, flag] = await Promise.all([
     loadV5BatchCosts(sb, from, today),
     sb.from("parameter").select("revaluation_sold_mode").eq("week_id", latestWeekId).maybeSingle(),
-    sb.from("app_setting").select("value, updated_at").eq("key", "v5_costing").maybeSingle(),
+    sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(),
   ]);
   const mode = s((par.data as Row | null)?.revaluation_sold_mode) === "restate_sale_date" ? "restate_sale_date" : "cogs_line";
-  const f = (flag.data ?? {}) as Row;
-  const since = s((f.value as { since?: string } | undefined)?.since)?.slice(0, 10) ?? (s(f.updated_at) ? jakartaDate(String(f.updated_at)) : today);
+  const f = (must(flag, "app_setting v5_costing") ?? {}) as Row;
+  const since = sinceOf(f.value);
   return { batches, statusByBatch: new Map(batches.map((b) => [b.batch_ref, b.status])), mode, since };
 }
 
 /** C53, C54 (on the batches' costing lines) and C57 (upcoming cut dates without an LB price decision) for a week. */
-export async function v5CostingControls(sb: Supa, week: WeekRow, today: string, nowIso: string): Promise<ControlV3[]> {
-  const costs = await loadV5BatchCosts(sb, week.week_start, today);
+export async function v5CostingControls(sb: Supa, week: WeekRow, today: string, nowIso: string, loaded?: V5BatchCost[]): Promise<ControlV3[]> {
+  const costs = loaded ?? await loadV5BatchCosts(sb, week.week_start, today);
   const inWeek = costs.filter((c) => c.date && c.date >= week.week_start && c.date <= week.week_end);
   const bs = mustRows<Row>(await sb.from("batch").select("batch_ref, status, date").eq("week_id", week.id).is("deleted_at", null), "C53 batch");
   const statusOf = new Map(bs.map((b) => [String(b.batch_ref), s(b.status)]));

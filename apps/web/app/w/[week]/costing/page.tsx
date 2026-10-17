@@ -6,7 +6,8 @@ import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleEnabled, requireModulePage } from "@/lib/modules";
 import { CostingV5 } from "@/components/v5/CostingV5";
-import { loadV5BatchCosts, v5CostingControls } from "@/lib/v5/costing";
+import { loadV5BatchCosts, sinceOf, v5CostingControls } from "@/lib/v5/costing";
+import { must } from "@/lib/loader";
 import { supabaseServer } from "@/lib/supabase";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "@/lib/v3/costing";
 import { tgl } from "@/lib/fmt";
@@ -26,7 +27,8 @@ export default async function CostingPage({ params }: PageProps) {
   const v5 = (await moduleEnabled("v5_costing", viewer))
     ? await (async () => {
       const all = await loadV5BatchCosts(sb, ctx.week.week_start, ctx.week.update_date);
-      return { batches: all.filter((b) => b.date && b.date <= ctx.week.week_end), controls: await v5CostingControls(sb, ctx.week, ctx.week.update_date, new Date().toISOString()) };
+      const flag = must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null;
+      return { batches: all.filter((b) => b.date && b.date <= ctx.week.week_end), controls: await v5CostingControls(sb, ctx.week, ctx.week.update_date, new Date().toISOString(), all), sinceMissing: sinceOf(flag?.value) === null };
     })()
     : null;
   const d = await loadCostingWeek(sb, ctx.week);
@@ -93,7 +95,7 @@ export default async function CostingPage({ params }: PageProps) {
           </table>
         </Card>
       </div>
-      {v5 ? <CostingV5 batches={v5.batches} controls={v5.controls} showControls={!mgmt} /> : null}
+      {v5 ? <CostingV5 batches={v5.batches} controls={v5.controls} showControls={!mgmt} sinceMissing={v5.sinceMissing} /> : null}
       {!mgmt ? <Card title="Kontrol costing"><ControlsV3Table controls={weekCostingControls(d)} /></Card> : null}
     </WeekShell>
   );

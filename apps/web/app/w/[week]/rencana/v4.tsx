@@ -8,7 +8,7 @@ import { fetchAll } from "@/lib/data";
 import { stockMartControl } from "@/lib/v3/stale";
 import { loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, unitBuyPrice } from "@/lib/v3/planning";
 import { rencanaModel } from "@/lib/v4/rencana";
-import { moduleEnabled } from "@/lib/modules";
+import { k25Enabled } from "@/lib/modules";
 import { num, tglShort } from "@/lib/fmt";
 import { approvePlanAction, copyPlanAction, reasonAction, savePlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
@@ -41,7 +41,7 @@ export async function RencanaV4({ ctx, kelas }: { ctx: WeekCtx; kelas: string | 
     } : null,
     savedDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), weight_class: s(d.weight_class), cut_pattern: s(d.cut_pattern), supplier: s(d.supplier), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string>, limited_by: s(d.limited_by) })),
     capacity: (d) => src.capacity.get(d)?.cut_capacity_head ?? null, lbSupply: (d) => lb.get(d) ?? null,
-    controls, gates, reasons: src.reasons, block2: ctx.computed.result.block2, k25: await moduleEnabled("v5_costing", ctx.viewer),
+    controls, gates, reasons: src.reasons, block2: ctx.computed.result.block2, k25: await k25Enabled(ctx.viewer),
     variance: variance.map((v) => ({ date: String(v.date), key: String(v.key), planned_kg: s(v.planned_kg), actual_kg: s(v.actual_kg), variance_kg: s(v.variance_kg), planned_heads: v.planned_heads === null ? null : Number(v.planned_heads), actual_heads: v.actual_heads === null ? null : Number(v.actual_heads) })),
     blockers: { save: bl("save"), approve: bl("approve"), copy: bl("copy") }, alokasiHref: `/hari/${ctx.week.update_date}/alokasi`, buyPrice: (u) => unitBuyPrice(src, u),
   });

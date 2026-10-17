@@ -50,7 +50,7 @@ export async function remindAction(_: ActionState, form: FormData): Promise<Acti
     const now = (await clock(sb)).now;
     const cells = mustRows<Row>(await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", ws).lte("date", form.get("week_end") ? String(form.get("week_end")) : ws), "input_completeness_daily");
     const red = cells.filter((c) => c.status === "late" || (c.status === "not_due" && c.due_at && Date.parse(String(c.due_at)) <= Date.parse(now)));
-    if (!red.length) return { ok: "Tidak ada sel merah; tidak ada pengingat yang dikirim." };
+    if (!red.length) return { ok: "Tidak ada sel terlambat; tidak ada pengingat yang dikirim." };
     const e = await sb.from("input_reminder").insert(red.map((c) => ({ date: c.date, kind: c.kind, owner_role: c.owner_role, note: c.note ?? null })));
     if (e.error) throw new WriteError(e.error.message);
     revalidatePath("/input");

@@ -53,7 +53,8 @@ export const k35Message = (k: NonNullable<Awaited<ReturnType<typeof k35State>>>)
  * file is stored for a release that will be refused) and again by public.release_week inside the release
  * transaction, which is the only way a release row is written.
  */
-export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string) {
+/** `k25`: the PDF writes the live-bird block as a simulation (K25 for the releasing role, K54). */
+export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string, opts: { k25?: boolean } = {}) {
   const loaded = await loadWeek(sb, weekStart);
   if (!loaded) throw new WriteError("Minggu tidak ada");
   const result = computeWeek(loaded.inputs);
@@ -78,7 +79,7 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const base = `${weekStart}/${loaded.week.update_date}_${stamp}`;
   const now = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-  const pdf = await outlookPdf(result, { releasedBy, generatedAt: now });
+  const pdf = await outlookPdf(result, { releasedBy, generatedAt: now, k25: opts.k25 === true });
   const up1 = await sb.storage.from("releases").upload(`${base}.json`, new Blob([json], { type: "application/json" }), { contentType: "application/json" });
   if (up1.error) throw new WriteError(`Simpan snapshot: ${up1.error.message}`);
   const up2 = await sb.storage.from("releases").upload(`${base}.pdf`, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { contentType: "application/pdf" });

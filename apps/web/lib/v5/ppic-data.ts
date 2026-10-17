@@ -11,7 +11,10 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { fetchAll, listWeeks } from "../data";
-import { inChunks, must, tileData } from "../loader";
+import { inChunks, must, mustRows, tileData } from "../loader";
+import { clock } from "../clock";
+import { loadV5BatchCosts, v5CostingControls, v5CostingOn } from "./costing";
+import { statusMode } from "./cost-status";
 import { fail, type Failed } from "../v4/tile-errors";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "../v3/uploads";
@@ -94,6 +97,37 @@ export function demandClassRows(weekStart: string, d: ClassDemand): Row[] {
   }));
 }
 
+/**
+ * PRD v5.1 R29: what holds "Salin ke batch rencana" — the v4 copy rules (C42, C45, C46, C47), C57 (an upcoming cut date
+ * without the operations director's LB price: no exception, §7) and C58 unless PPIC wrote a reason for it.
+ */
+export function copyBlockersOf(controls: { code: string; status: ControlV3["status"]; action?: string }[], c57: ControlV3 | null, reasons: { code: string }[]): string[] {
+  const c58 = controls.find((c) => c.code === "C58");
+  const open = (st: string) => st === "LULUS" || st === "N/A";
+  return [
+    ...ppicBlockers(controls, "copy").map((c) => `${c.code} ${c.status}`),
+    ...(c57 && !open(c57.status) ? [`C57 ${c57.status}`] : []),
+    ...(c58 && !open(c58.status) && !reasons.some((r) => r.code === "C58") ? [`C58 ${c58.status}`] : []),
+  ];
+}
+
+/**
+ * While v5_costing is on: C57 of the week (the controls of the release, lib/v3/week.ts) and the cost status of the
+ * week's actual batches (R39: from the WP, the invoice and the posting, "campur" when they differ); null when off.
+ */
+export async function ppicCostingOf(sb: Supa, week: PlanningSources["week"]): Promise<{ c57: ControlV3 | null; actualStatus: string | null } | null> {
+  if (!(await v5CostingOn(sb))) return null;
+  const costs = await loadV5BatchCosts(sb, week.week_start, week.update_date);
+  const c57 = (await v5CostingControls(sb, week, week.update_date, (await clock(sb)).now, costs)).find((c) => c.code === "C57") ?? null;
+  const actual = new Set(mustRows<Row>(await sb.from("batch").select("batch_ref").eq("week_id", week.id).eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null), "batch aktual minggu").map((b) => String(b.batch_ref)));
+  return { c57, actualStatus: statusMode(costs.filter((c) => actual.has(c.batch_ref)).map((c) => c.status)) };
+}
+
+/** C57 of the week while v5_costing is on; null when off. */
+export async function c57Of(sb: Supa, week: PlanningSources["week"]): Promise<ControlV3 | null> {
+  return (await ppicCostingOf(sb, week))?.c57 ?? null;
+}
+
 /** Everything the PPIC v5 page shows. */
 export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: WeekResult; base: string; versi: "need" | "batch"; canPlan: boolean; c45: ControlV3 }): Promise<PpicV5Input> {
   const { src, result } = x;
@@ -107,13 +141,17 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     tileData("ppic: dari Commercial", async () => {
       const [commits, lists, plans] = await Promise.all([
         fetchAll<Row>((a, b) => sb.from("sales_commitment").select("status").eq("week_start", next).range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).is("deleted_at", null).range(a, b)),
         src.plans[0] ? fetchAll<Row>((a, b) => sb.from("surplus_response").select("plan_week_id").eq("plan_week_id", String(src.plans[0].id)).range(a, b)) : Promise.resolve([] as Row[]),
       ]);
       return { commits, lists, plans };
     }),
     tileData("ppic: parameter minggu", async () => (must(await sb.from("parameter").select("commitment_lock_dow, commitment_lock_time, cut_off_time").eq("week_id", w.id).maybeSingle(), "parameter") ?? {}) as Row),
   ]);
+  // R29: C57 holds the copy; a failed read holds it too (shown on the daily plan tile)
+  const c57T = await tileData("ppic: C57 dan status biaya batch", () => ppicCostingOf(sb, w));
+  const pc = fail(failed, ["t-harian", "t-batch"], c57T, null);
+  const c57 = pc?.c57 ?? null;
   const decision = fail(failed, ["c-biaya", "c-rencana"], decisionT, []);
   const { commits, lists, plans } = fail(failed, ["dari-commercial"], fromT, { commits: [] as Row[], lists: [] as Row[], plans: [] as Row[] });
   const p = fail(failed, ["dari-commercial", "t-hari-ini"], paramT, {} as Row);
@@ -148,7 +186,6 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
   const lockDow = Number(p.commitment_lock_dow ?? 5);
   const deadline = addDays(ws, lockDow - 1);
   const block = (codes: { code: string; status: string }[]) => codes.map((c) => `${c.code} ${c.status}`);
-  const c58 = cs.controls.find((c) => c.code === "C58")!;
   return {
     week: { start: ws, end: w.week_end, update: w.update_date }, base: x.base, versi: x.versi,
     demand: d, daily: cs.daily, classes: cs.classes,
@@ -177,7 +214,9 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     today: { poKg: sumKg(todayRows), poValue: todayRows.reduce((a, o) => a.plus(D(o.kg).times(D(o.price ?? 0))), D(0)), cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."), allocHref: `/hari/${w.update_date}/alokasi` },
     block6: result.block6, canPlan: x.canPlan,
     saveBlockers: block(ppicBlockers(controls, "save")),
-    copyBlockers: [...block(ppicBlockers(controls, "copy")), ...(c58.status === "LULUS" ? [] : [`C58 ${c58.status}`])],
+    copyBlockers: c57T && "error" in c57T ? [...copyBlockersOf(controls, null, src.reasons), "C57 (gagal dimuat)"] : copyBlockersOf(controls, c57, src.reasons),
+    c58Reason: src.reasons.find((r) => r.code === "C58")?.reason ?? null,
+    batchStatus: pc?.actualStatus ?? null,
     failed,
   };
 }

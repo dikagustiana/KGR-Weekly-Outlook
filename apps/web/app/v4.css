@@ -118,6 +118,9 @@
 
 /* Chart (SVG): series tones from the tokens */
 .chart { width: 100%; height: auto; display: block; }
+/* PRD v5.1 R40: a full-tile chart fills the tile body (its real height), at least the tileBox height of 76 px rows */
+.chart-fit { position: relative; height: 100%; }
+.chart-fit > .chart { position: absolute; inset: 0; width: 100%; height: 100%; }
 .chart text { font-family: var(--font); font-size: 11px; fill: var(--muted); }
 .chart text.v { fill: var(--text); }
 .chart text.v.neg { fill: var(--bad); }

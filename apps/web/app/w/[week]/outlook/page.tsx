@@ -3,7 +3,7 @@ import { WeekShell } from "@/components/WeekShell";
 import { OutlookBody } from "@/components/OutlookBody";
 import { Headline } from "@/components/outlook/Headline";
 import { tgl } from "@/lib/fmt";
-import { MODULE_KEYS, isModuleOn, moduleSettings, type ModuleSettings } from "@/lib/modules";
+import { MODULE_KEYS, isModuleOn, k25On, moduleSettings, type ModuleSettings } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { managementV3 } from "@/lib/v3/management";
 import { HeadlineV3, managementSlots } from "@/components/v3/ManagementV3";
@@ -23,8 +23,8 @@ export default async function OutlookPage({ params }: PageProps) {
   if (ctx.view === "management" && mingguIniAllowed(ctx.viewer.role) && v4On(all, ctx.viewer.role)) redirect(`/minggu-ini/${week}`);
   const mine: ModuleSettings = Object.fromEntries(MODULE_KEYS.map((k) => [k, { enabled: isModuleOn(all[k], ctx.viewer.role) }]));
   const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r) : null;
-  // PRD v5 K25 (flag v5_costing): the live-bird block shows the simulation, no recommendation
-  const k25 = mine.v5_costing?.enabled === true;
+  // PRD v5 K25 / v5.1 K54 (v5_costing or v5_management for the role): the live-bird block shows the simulation only
+  const k25 = k25On(all, ctx.viewer.role);
   return (
     <WeekShell ctx={ctx} active="outlook">
       {ctx.view === "management" ? (

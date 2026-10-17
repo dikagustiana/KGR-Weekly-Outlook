@@ -4,6 +4,7 @@ import { requireViewer } from "@/lib/session";
 import { can } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
 import { releaseWeek } from "@/lib/release";
+import { k25Enabled } from "@/lib/modules";
 import { addOverride, withdrawOverride } from "@/lib/v4/release-override";
 
 export async function release(_: { ok?: string; error?: string }, form: FormData): Promise<{ ok?: string; error?: string }> {
@@ -12,7 +13,7 @@ export async function release(_: { ok?: string; error?: string }, form: FormData
     if (!can(v.role, "release")) return { error: "Hanya Admin / Finance yang boleh merilis" };
     const week = String(form.get("week"));
     const sb = await supabaseServer();
-    const r = await releaseWeek(sb, week, v.email);
+    const r = await releaseWeek(sb, week, v.email, { k25: await k25Enabled(v) });
     revalidatePath(`/w/${week}`, "layout");
     return { ok: `Outlook dirilis (${r.overall}); snapshot SHA-256 ${r.sha.slice(0, 12)}…${r.ops ? `; ${r.ops} baris masih bersumber Ops` : ""}.` };
   } catch (e) {

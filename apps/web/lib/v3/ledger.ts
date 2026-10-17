@@ -144,6 +144,12 @@ type Revaluation = { byDate: Map<string, ReturnType<typeof revalueLots>["rows"]>
 type Run = { src: LedgerSources; led: LedgerResult; revenueDates: Map<string, string>; ma: Map<string, Map<string, Decimal>>; reval?: Revaluation | null };
 let run: Run | null = null;
 
+/**
+ * PRD v5.1 R40 (B.4): forget the ledger run kept by the last rebuild. A month lock outside a rebuild computes the
+ * "Selisih costing" from a fresh run, not from a run left in this server process by an earlier rebuild.
+ */
+export function resetLedgerRun(): void { run = null; }
+
 async function ensureRun(sb: Supa): Promise<Run | null> {
   if (run) return run;
   const src = await loadLedgerSources(sb);
@@ -168,7 +174,9 @@ function revaluationOf(r: Run): Revaluation | null {
   if (r.reval !== undefined) return r.reval;
   const v5 = r.src.v5;
   if (!v5) return (r.reval = null);
-  const finals: FinalBatch[] = v5.batches.filter((b) => b.finalDate && b.provisional && b.finalDate >= v5.since && b.finalDate >= r.src.inputs.startDate).map((b) => ({
+  // R40: without a start date (value.since) nothing is revalued
+  const since = v5.since;
+  const finals: FinalBatch[] = since === null ? [] : v5.batches.filter((b) => b.finalDate && b.provisional && b.finalDate >= since && b.finalDate >= r.src.inputs.startDate).map((b) => ({
     batch_ref: b.batch_ref, finalDate: b.finalDate!, statusFrom: b.provisional!.status,
     costFromByKey: new Map(b.provisional!.lines.filter((l) => l.costPerKg !== null).map((l) => [l.key, l.costPerKg!])),
   }));
