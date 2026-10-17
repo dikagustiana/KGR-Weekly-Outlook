@@ -11,9 +11,10 @@ import { applyChanges, WriteError } from "../write";
 import { canWriteRow, TABLES } from "../tables";
 import { queueRebuild } from "../rebuild";
 import { num } from "../fmt";
+import { must } from "../loader";
 
 export async function recordDelivery(sb: Supa, viewer: Viewer, x: { id: string; date: string; kg: string | null; documentRef: string | null }): Promise<string> {
-  const { data: old } = await sb.from("sales_line").select("*").eq("id", x.id).maybeSingle();
+  const old = must(await sb.from("sales_line").select("*").eq("id", x.id).maybeSingle(), "delivery.sales_line");
   const o = old as Record<string, unknown> | null;
   if (!o || !canWriteRow(viewer.role, TABLES.sales_line, { ...o, status: "Aktual" })) throw new WriteError("Tidak berwenang");
   if (o.status !== "Order") throw new WriteError("Baris ini bukan order terbuka");

@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
 import { supabaseServer, type Supa } from "./supabase";
+import { LoaderError, isSchemaError, must, mustRows } from "./loader";
 
 export interface WeekRow {
   id: string;
@@ -21,25 +22,35 @@ type Row = Record<string, unknown>;
 
 const s = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
 
-/** PostgREST returns at most 1000 rows per request; page through everything. */
-export async function fetchAll<T = Row>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-  size = 1000,
-): Promise<T[]> {
+export type FetchPage<T> = (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>;
+
+/** PostgREST returns at most 1000 rows per request; page through everything. R47 (K42): the caller must order uniquely. */
+export async function fetchAll<T = Row>(page: FetchPage<T>, size = 1000): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += size) {
     const { data, error } = await page(from, from + size - 1);
-    if (error) throw new Error(error.message);
-    out.push(...(data ?? []));
+    if (error) throw new LoaderError("fetchAll", error.message, isSchemaError(error.code), error.code);
+    if (data) out.push(...data);
     if (!data || data.length < size) break;
   }
   return out;
 }
 
+/** K56 (R43): fetchAll of a table that may not be migrated yet — 42P01 returns [], any other error throws. */
+export async function fetchAllOrMissing<T = Row>(page: FetchPage<T>, where: string, size = 1000): Promise<T[]> {
+  try {
+    return await fetchAll(page, size);
+  } catch (e) {
+    if (e instanceof LoaderError && e.code === "42P01") {
+      console.error(`[schema] ${where}: ${e.message}`);
+      return [];
+    }
+    throw e;
+  }
+}
+
 export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
-  const { data, error } = await sb.from("week").select("*").order("week_start", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as WeekRow[];
+  return mustRows(await sb.from("week").select("*").order("week_start", { ascending: false }), "listWeeks.week") as WeekRow[];
 }
 
 // PRD v5.1 K38: the data date lives in clock.ts with the wall clock; re-exported for the builders that read it
@@ -49,9 +60,7 @@ export { inChunks } from "./loader";
 
 export async function getWeek(sb: Supa, weekStart: string): Promise<WeekRow | null> {
   if (!isISODate(weekStart)) return null; // e.g. /w/2026-02-31: not a week, and Postgres would reject the literal
-  const { data, error } = await sb.from("week").select("*").eq("week_start", weekStart).maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as WeekRow) ?? null;
+  return must(await sb.from("week").select("*").eq("week_start", weekStart).maybeSingle(), "getWeek.week") as WeekRow | null;
 }
 
 export interface LoadedWeek {
@@ -92,7 +101,7 @@ export async function loadWeek(sb: Supa, weekStart: string): Promise<LoadedWeek 
   const [param, keys, prices, items, coa, opening, sales, receipts, batches, tb, runrate, cashPlan, supSales, supRec] = await Promise.all([
     sb.from("parameter").select("*").eq("week_id", wid).maybeSingle(),
     fetchAll<Row>((f, t) => sb.from("sku_key").select("*").eq("active", true).order("sort_order").order("key").range(f, t)),
-    fetchAll<Row>((f, t) => sb.from("sku_price").select("*").eq("week_id", wid).range(f, t)),
+    fetchAll<Row>((f, t) => sb.from("sku_price").select("*").eq("week_id", wid).order("key").order("week_id").range(f, t)),
     fetchAll<Row>((f, t) => active(sb.from("item_map").select("item_code, item_name, key")).order("item_code").range(f, t)),
     fetchAll<Row>((f, t) => active(sb.from("coa_map").select("*")).order("account").range(f, t)),
     byWeek("opening_stock", (q) => q.is("superseded_at", null)),

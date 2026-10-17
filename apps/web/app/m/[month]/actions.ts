@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { moduleSettingsGlobal, processRebuildQueue, queueRebuild } from "@/lib/rebuild";
 import { lockVersion, setBudget } from "@/lib/v3/monthly";
 import { monthStart } from "@/lib/v3/drivers";
+import { must } from "@/lib/loader";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -73,7 +74,7 @@ export async function adjustmentAction(_: ActionState, form: FormData): Promise<
     const amount = money(form.get("amount"));
     const kind = String(form.get("kind") ?? "other");
     if (amount === null) return { error: "Isi jumlah (tanda P&L: + pendapatan / − biaya)" };
-    const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+    const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month.month_outlook");
     let moId = (mo as { id: string } | null)?.id;
     if (!moId) { const r = await sb.from("month_outlook").insert({ month: first }).select("id").single(); if (r.error) return { error: r.error.message }; moId = (r.data as { id: string }).id; }
     const rec = { month_outlook_id: moId, code: String(form.get("code") ?? "").trim(), description: String(form.get("description") ?? "").trim(), pl_line: String(form.get("pl_line") ?? "").trim(), amount,

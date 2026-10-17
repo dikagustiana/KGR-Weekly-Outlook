@@ -68,7 +68,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
 
   // ------------------------------------------------------------ decisions waiting
   const ap = fail(failed, ["keputusan"], await tileData("manajemen: permintaan diskon", async () =>
-    mustRows<Row>(await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }).limit(20), "discount_approval")), []);
+    mustRows<Row>(await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }), "discount_approval").slice(0, 20)), []);
   const future = (cash ?? []).filter((x) => x.date >= today && x.closing !== null);
   const low = future.length ? future.reduce((m, x) => (D(x.closing!).lt(D(m.closing!)) ? x : m)) : null;
   const decisions = decisionLines({
@@ -87,7 +87,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
       sb.from("parameter").select("commitment_lock_dow, commitment_lock_time").eq("week_id", w.id).maybeSingle(),
       sb.from("plan_week").select("version").eq("week_start", next).order("version", { ascending: false }).limit(1).maybeSingle(),
       sb.from("batch").select("batch_ref, wp_received_at, invoice_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
-      fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)),
     ]);
     return {
       commits: mustRows<Row>(commits, "sales_commitment"), par: (must(par, "parameter") ?? {}) as Row, plan: must(plan, "plan_week") as Row | null,
@@ -171,7 +171,7 @@ export function sourcesFailed(screen: keyof typeof SCREEN_SOURCES, message: stri
 export async function loadSources(sb: Supa, c: Clock, tasks?: TaskRef[]): Promise<Record<SourceKey, SourceLabel>> {
   // K38: the task window and "late" of Input (wall − 13 … wall + 7, against now)
   const win = taskWindow(c);
-  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)))
+  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)))
     .map((t: Row) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, c.now) }));
   const late = (k: string) => ts.some((t) => t.kind === k && t.st === "late");
   const first = async (q: PromiseLike<{ data: unknown; error: { message: string } | null }>, where: string) => must(await q, `label sumber ${where}`) as Row | null;

@@ -3,6 +3,7 @@ import { addDays, computeWeek, toFixedString, type WeekResult } from "@kgr/engin
 import type { Supa } from "./supabase";
 import { fetchAll, loadWeek, type WeekRow } from "./data";
 import { applyChanges, WriteError } from "./write";
+import { must } from "./loader";
 
 type Row = Record<string, unknown>;
 
@@ -16,13 +17,13 @@ export async function rolloverWeek(sb: Supa, prev: WeekRow): Promise<{ weekStart
   const loaded = await loadWeek(sb, prev.week_start);
   if (!loaded) throw new WriteError("Minggu sebelumnya tidak ditemukan");
   const nextStart = addDays(prev.week_start, 7);
-  const { data: exists } = await sb.from("week").select("id").eq("week_start", nextStart).maybeSingle();
+  const exists = must(await sb.from("week").select("id").eq("week_start", nextStart).maybeSingle(), "rollover.exists") as Row | null;
   if (exists) throw new WriteError(`Minggu ${nextStart} sudah ada`);
 
   // last-week summary: released snapshot first, else live projection
   let lw: { RPA: Row; Trading: Row };
   let lwSource: string;
-  const { data: rel } = await sb.from("release").select("snapshot, released_at").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle();
+  const rel = must(await sb.from("release").select("snapshot, released_at").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "rollover.release") as Row | null;
   if (rel) {
     const b1 = (rel.snapshot as { block1: Row[] }).block1;
     const seg = (s: string) => b1.find((x) => x.segment === s) as Row;
@@ -89,12 +90,13 @@ export async function rolloverWeek(sb: Supa, prev: WeekRow): Promise<{ weekStart
     const xs = rows.filter((r) => inNext(r.date) && keep(r)).map(strip);
     if (xs.length) moved += (await applyChanges(sb, table, xs)).inserted;
   }
-  await sb.from("week").update({ status: "closed" }).eq("id", prev.id);
+  const closed = await sb.from("week").update({ status: "closed" }).eq("id", prev.id);
+  if (closed.error) throw new WriteError(`minggu ${prev.week_start} tidak bisa ditutup: ${closed.error.message}`);
   return { weekStart: nextStart, carried: carried.length, moved };
 }
 
 export async function weekIdOf(sb: Supa, weekStart: string): Promise<string> {
-  const { data } = await sb.from("week").select("id").eq("week_start", weekStart).maybeSingle();
+  const data = must(await sb.from("week").select("id").eq("week_start", weekStart).maybeSingle(), "rollover.weekId") as Row | null;
   if (!data) throw new WriteError(`Minggu ${weekStart} tidak ada`);
   return (data as { id: string }).id;
 }

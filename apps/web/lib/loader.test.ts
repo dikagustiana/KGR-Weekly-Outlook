@@ -1,6 +1,6 @@
 /** PRD v5.1 K41 / K42 (R25, R26): errors are not rows; `.in()` in chunks of 200. */
 import { describe, expect, it, vi } from "vitest";
-import { LoaderError, inChunks, must, mustRows, tileData, tileError, tileValue } from "./loader";
+import { LoaderError, inChunks, isSchemaError, must, mustRows, orMissingTable, tileData, tileError, tileValue } from "./loader";
 import { fakeSb } from "./fake-sb";
 
 describe("must / mustRows", () => {
@@ -11,6 +11,32 @@ describe("must / mustRows", () => {
   it("no row is null (maybeSingle), an empty list is []", () => {
     expect(must({ data: null, error: null }, "x")).toBeNull();
     expect(mustRows({ data: [], error: null }, "x")).toEqual([]);
+  });
+});
+
+describe("schema errors (R43 K56 / R44 K57)", () => {
+  it("must / mustRows flag a PostgREST schema code as schema: true", () => {
+    try { must({ data: null, error: { message: "column price_list_week.deleted_at does not exist", code: "42703" } }, "probe"); } catch (e) {
+      expect(e).toBeInstanceOf(LoaderError);
+      expect((e as LoaderError).schema).toBe(true);
+    }
+    try { mustRows({ data: null, error: { message: "relation allocation does not exist", code: "42P01" } }, "ledger"); } catch (e) {
+      expect((e as LoaderError).schema).toBe(true);
+    }
+  });
+  it("isSchemaError knows the K57 codes only", () => {
+    expect(isSchemaError("42P01")).toBe(true);
+    expect(isSchemaError("42703")).toBe(true);
+    expect(isSchemaError("PGRST204")).toBe(true);
+    expect(isSchemaError("42501")).toBe(false);
+    expect(isSchemaError(undefined)).toBe(false);
+  });
+  it("orMissingTable returns [] only for 42P01; any other error throws", () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(orMissingTable({ data: null, error: { message: "relation allocation does not exist", code: "42P01" } }, "ledger.allocation")).toEqual([]);
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("ledger.allocation"));
+    expect(() => orMissingTable({ data: null, error: { message: "permission denied", code: "42501" } }, "ledger.allocation")).toThrow(LoaderError);
+    log.mockRestore();
   });
 });
 

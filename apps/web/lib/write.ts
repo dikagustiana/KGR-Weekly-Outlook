@@ -48,7 +48,7 @@ async function must<T>(p: PromiseLike<{ data: T; error: { message: string } | nu
 
 export async function activeIds(sb: Supa, table: string, weekId: string): Promise<string[]> {
   const rows = await fetchAll<{ id: string }>((f, t) =>
-    sb.from(table).select("id").eq("week_id", weekId).is("deleted_at", null).range(f, t));
+    sb.from(table).select("id").eq("week_id", weekId).is("deleted_at", null).order("id").range(f, t));
   return rows.map((r) => r.id);
 }
 
@@ -156,7 +156,7 @@ export async function loadWeekInputs(
   const dates = inputs.gl_lines.map((g) => g.date).filter((d): d is string => !!d).sort();
   if (dates.length > 0) {
     const from = dates[0], to = dates[dates.length - 1];
-    const old = await fetchAll<{ id: string }>((f, t) => sb.from("gl_line").select("id").is("deleted_at", null).gte("date", from).lte("date", to).range(f, t));
+    const old = await fetchAll<{ id: string }>((f, t) => sb.from("gl_line").select("id").is("deleted_at", null).gte("date", from).lte("date", to).order("id").range(f, t));
     const seen = new Map<string, number>();
     const rows = inputs.gl_lines.filter((g) => g.date).map((g, i) => {
       const n = (seen.get(g.voucher_no ?? "") ?? 0) + 1;

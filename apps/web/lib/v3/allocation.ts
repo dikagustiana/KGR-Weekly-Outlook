@@ -15,6 +15,7 @@ import { WriteError } from "../write";
 import { stockMartControl } from "./stale";
 import { loadLedgerSources, type LedgerSources } from "./ledger";
 import type { Row } from "./uploads";
+import { must } from "@/lib/loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -68,11 +69,11 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const horizon = addDays(date, 7);
   const [lines, allocations, blasts, param, prices] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, status, date, delivery_date, demand_status, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, sales_rep, document_ref, item_code, key_manual")
-      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).range(a, b)),
-    week ? sb.from("parameter").select("cut_off_time, blast_cost_per_kg").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
-    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)) : Promise.resolve([] as Row[]),
+      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).order("id").range(a, b)),
+    week ? sb.from("parameter").select("cut_off_time, blast_cost_per_kg").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)) : Promise.resolve([] as Row[]),
   ]);
   const keyFor = (r: Row) => keyOf.get(String(r.id)) ?? s(r.key_manual) ?? "";
   const toOrder = (r: Row): DayOrder => ({
@@ -97,7 +98,7 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   });
   const futureOrders = lines.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
     .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: s(r.kg) ?? "0", fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
-  const p = (param.data ?? {}) as Row;
+  const p = (must(param, "allocation.parameter") ?? {}) as Row;
   const priceMap = new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)]));
   const info = new Map(src.inputs.keys.map((k) => [k.key, k]));
   const blastCostPerKg = s(p.blast_cost_per_kg) ?? String(src.inputs.params.blastCostPerKg ?? "0");
@@ -126,8 +127,11 @@ export async function allocateDay(sb: Supa, viewer: Viewer, date: string): Promi
     if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
   }
   if (stale.length) {
-    const e = await sb.from("allocation").update({ deleted_at: new Date().toISOString(), deleted_by: viewer.email }).in("id", stale.map((a) => String(a.id)));
-    if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
+    const ids = stale.map((a) => String(a.id));
+    for (let i = 0; i < ids.length; i += 200) {
+      const e = await sb.from("allocation").update({ deleted_at: new Date().toISOString(), deleted_by: viewer.email }).in("id", ids.slice(i, i + 200));
+      if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
+    }
   }
   const un = d.proposal.unallocated.length;
   return `${rows.length} alokasi FEFO ditulis${stale.length ? `, ${stale.length} alokasi lama dilepas` : ""}${un ? ` — ${un} baris PO belum tertutup stok` : ""}`;

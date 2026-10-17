@@ -10,6 +10,7 @@ import { parseNumber } from "@kgr/parsers";
 import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { WriteError } from "@/lib/write";
+import { must } from "@/lib/loader";
 
 export type ActionState = { ok?: string; error?: string };
 type Row = Record<string, unknown>;
@@ -30,7 +31,7 @@ export async function saveCommitmentsAction(_: ActionState, form: FormData): Pro
       const fresh = num(form.get(`fresh_${i}`)), frozen = num(form.get(`frozen_${i}`)), price = num(form.get(`price_${i}`));
       if (!key || (fresh === null && frozen === null && price === null)) continue;
       const rec = { fresh_kg: fresh ?? "0", frozen_kg: frozen ?? "0", price: price ?? null };
-      const { data: draft } = await sb.from("sales_commitment").select("id").eq("week_start", week).eq("key", key).eq("status", "draft").is("deleted_at", null).maybeSingle();
+      const draft = must(await sb.from("sales_commitment").select("id").eq("week_start", week).eq("key", key).eq("status", "draft").is("deleted_at", null).maybeSingle(), "komersial.draft");
       const r = draft
         ? await sb.from("sales_commitment").update(rec).eq("id", String((draft as Row).id))
         : await sb.from("sales_commitment").insert({ week_start: week, key, ...rec, reason });
@@ -84,7 +85,7 @@ export async function answerSurplusAction(_: ActionState, form: FormData): Promi
     const week = String(form.get("week_start") ?? "");
     const response = String(form.get("response") ?? "");
     if (!["absorb", "partial", "reduce"].includes(response)) throw new WriteError("Pilih jawaban surplus");
-    const { data: plan } = await sb.from("plan_week").select("id").eq("week_start", week).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle();
+    const plan = must(await sb.from("plan_week").select("id").eq("week_start", week).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "komersial.plan_week");
     if (!plan) throw new WriteError("Belum ada rencana PPIC tersimpan untuk minggu ini");
     const kg = num(form.get("absorb_kg")), price = num(form.get("price"));
     if (response === "partial" && kg === null) throw new WriteError("Isi kg yang sanggup diserap");

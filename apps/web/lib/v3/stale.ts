@@ -6,18 +6,19 @@ import "server-only";
  */
 import { staleControl, type ControlV3 } from "@kgr/engine";
 import type { Supa } from "../supabase";
+import { mustRows } from "../loader";
 
 export async function martStaleFrom(sb: Supa): Promise<string | null> {
-  const { data } = await sb.from("rebuild_queue").select("date").in("status", ["queued", "running", "failed"]).order("date").limit(1);
-  const r = (data ?? []) as { date: string }[];
+  const r = mustRows(await sb.from("rebuild_queue").select("date").in("status", ["queued", "running", "failed"]).order("date").limit(1), "martStaleFrom.rebuild_queue") as { date: string }[];
   return r.length ? String(r[0].date) : null;
 }
 
 /** C45 for the stock mart (sku_balance_daily) on a date. */
 export async function stockMartControl(sb: Supa, date: string): Promise<ControlV3> {
-  const [staleFrom, built] = await Promise.all([
+  const [staleFrom, builtRes] = await Promise.all([
     martStaleFrom(sb),
     sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1),
   ]);
-  return staleControl({ date, staleFrom, built: ((built.data ?? []) as unknown[]).length > 0 });
+  const built = mustRows(builtRes, "stockMartControl.sku_balance_daily");
+  return staleControl({ date, staleFrom, built: built.length > 0 });
 }

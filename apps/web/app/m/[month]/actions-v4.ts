@@ -12,6 +12,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { moduleSettingsGlobal, processRebuildQueue, queueRebuild } from "@/lib/rebuild";
 import { agreeAssumption, lockVersionV4 } from "@/lib/v4/month";
 import { addOverride, withdrawOverride } from "@/lib/v4/release-override";
+import { must, mustRows } from "@/lib/loader";
 import { finalizeMonthV4 } from "@/lib/v4/close";
 import { monthStart } from "@/lib/v3/drivers";
 
@@ -48,7 +49,7 @@ export async function budgetV4Action(_: ActionState, form: FormData): Promise<Ac
     const metrics = { revenue: money(form.get("budget_revenue")), gp: money(form.get("budget_gp")), opex: money(form.get("budget_opex")), nibt: money(form.get("budget_nibt")), kg: money(form.get("budget_kg")) };
     const given = Object.entries(metrics).filter(([, x]) => x !== null) as [string, string][];
     if (!given.length) return { error: "Isi paling sedikit satu angka budget" };
-    const { data: have } = await sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null);
+    const have = mustRows(await sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null), "month.budget");
     const rows = (have ?? []) as { version: number; segment: string; metric: string; value: string }[];
     const latest = rows.reduce((m, r) => Math.max(m, Number(r.version)), 0);
     const cur = rows.filter((r) => Number(r.version) === latest);
@@ -71,7 +72,7 @@ export async function cutOffV4Action(_: ActionState, form: FormData): Promise<Ac
     const co = String(form.get("cut_off_date") ?? "").trim();
     if (co && !isISODate(co)) return { error: "Cut-off tidak valid" };
     const sb = await supabaseServer();
-    const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+    const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month.month_outlook");
     let id = (mo as { id: string } | null)?.id;
     if (!id) { const ins = await sb.from("month_outlook").insert({ month: first, status: "open" }).select("id").single(); if (ins.error) return { error: ins.error.message }; id = (ins.data as { id: string }).id; }
     const u = await sb.from("month_outlook").update({ cut_off_date: co || null }).eq("id", id);

@@ -5,24 +5,43 @@
  * for an empty result that is valid. `.in()` lists go in chunks of 200 values (URL length).
  */
 
+/** K57 (R44): PostgREST codes that mean the database schema is behind the code. */
+export const SCHEMA_ERROR_CODES = ["42703", "42883", "42P01", "PGRST202", "PGRST204"] as const;
+export const isSchemaError = (code: string | undefined): boolean => !!code && (SCHEMA_ERROR_CODES as readonly string[]).includes(code);
+
 export class LoaderError extends Error {
-  constructor(readonly where: string, message: string) {
+  constructor(readonly where: string, message: string, readonly schema = false, readonly code?: string) {
     super(`${where}: ${message}`);
     this.name = "LoaderError";
   }
 }
 
-type Res<T> = { data: T | null; error: { message: string } | null };
+type Res<T> = { data: T | null; error: { message: string; code?: string } | null };
 
 /** The data of a PostgREST result, or LoaderError(where). `null` stays null (maybeSingle without a row). */
 export function must<T>(res: Res<T>, where: string): T | null {
-  if (res.error) throw new LoaderError(where, res.error.message);
+  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
   return res.data;
 }
 
 /** The rows of a list result (PostgREST returns [] for none), or LoaderError(where). */
 export function mustRows<T = Record<string, unknown>>(res: Res<T[]>, where: string): T[] {
-  if (res.error) throw new LoaderError(where, res.error.message);
+  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
+  return res.data ?? [];
+}
+
+/**
+ * R43 (K56): a read of a table the database does not have yet (42P01) returns [] with a log; every other error throws.
+ * Only this helper may swallow a read, and only for a genuinely-not-migrated table.
+ */
+export function orMissingTable<T>(res: Res<T[]>, where: string): T[] {
+  if (res.error) {
+    if (res.error.code === "42P01") {
+      console.error(`[schema] ${where}: ${res.error.message}`);
+      return [];
+    }
+    throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
+  }
   return res.data ?? [];
 }
 

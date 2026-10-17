@@ -32,21 +32,21 @@ export interface CommercialState {
 export async function computeCommercial(sb: Supa, date: string): Promise<CommercialState> {
   const weeks = await listWeeks(sb);
   const week = weeks.find((w) => date >= w.week_start && date <= w.week_end) ?? weeks.filter((w) => w.week_start <= date).sort((a, b) => b.week_start.localeCompare(a.week_start))[0] ?? null;
-  const { data: sd } = await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle();
+  const sd = must(await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), "commercial.sku_balance_daily");
   const stockDate = sd ? String((sd as Row).date) : null;
   const [bal, lots, keys, prices, items, sales, orders, urg, floors, assigned, fcReps, param] = await Promise.all([
-    stockDate ? fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", stockDate).range(a, b)) : Promise.resolve([] as Row[]),
-    stockDate ? fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, hours_to_cutoff, free_kg").eq("date", stockDate).eq("form", "fresh").gt("free_kg", 0).range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, group_code, storage_cost_per_kg_day, fresh_window_hours, frozen_age_limit_days").range(a, b)),
-    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, price, sales_rep").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", addDays(date, -7)).lte("date", addDays(date, -1)).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, sales_rep, delivery_date, date").eq("status", "Order").is("deleted_at", null).is("superseded_at", null).gte("date", addDays(date, -30)).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("urgency_rule").select("form, age_from, age_to, status").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("price_floor_rule").select("key, group_code, markup_rp_per_kg, markup_pct, effective_from").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep").is("deleted_at", null).gte("week_start", addDays(date, -35)).range(a, b)),
-    week ? sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
+    stockDate ? fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", stockDate).order("date").order("key").range(a, b)) : Promise.resolve([] as Row[]),
+    stockDate ? fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, hours_to_cutoff, free_kg").eq("date", stockDate).eq("form", "fresh").gt("free_kg", 0).order("date").order("lot_ref").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, group_code, storage_cost_per_kg_day, fresh_window_hours, frozen_age_limit_days").order("key").range(a, b)),
+    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, price, sales_rep").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", addDays(date, -7)).lte("date", addDays(date, -1)).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, sales_rep, delivery_date, date").eq("status", "Order").is("deleted_at", null).is("superseded_at", null).gte("date", addDays(date, -30)).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("urgency_rule").select("form, age_from, age_to, status").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("price_floor_rule").select("key, group_code, markup_rp_per_kg, markup_pct, effective_from").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep").is("deleted_at", null).gte("week_start", addDays(date, -35)).order("id").range(a, b)),
+    week ? sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
   // v5 §4.1 / §4.6 (K17): the cost per kg of the stock is the ledger's lot cost (costing engine), with its status
   const v5 = await v5CostingOn(sb);
@@ -62,7 +62,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
   }
   const hours = new Map<string, number>();
   for (const l of lots) if (l.hours_to_cutoff !== null) hours.set(String(l.key), Math.min(hours.get(String(l.key)) ?? Infinity, Number(l.hours_to_cutoff)));
-  const p = (param.data ?? {}) as Row;
+  const p = (must(param, "commercial.parameter") ?? {}) as Row;
   const blast = s(p.blast_cost_per_kg) ?? "0";
   const rows = commercialRows({
     date, blastCostPerKg: blast, costAnomalyRatio: s(p.cost_anomaly_ratio) ?? "3",
@@ -128,7 +128,7 @@ export async function commercialMart(sb: Supa, date: string, sales: boolean, v5:
   const d0 = must(await sb.from(table).select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), `${table} (tanggal)`) as Row | null;
   const d = d0 ? String(d0.date) : null;
   if (!d) return { date: null, rows: [] };
-  const rows = await fetchAll<Row>((a, b) => sb.from(table).select("*").eq("date", d).order("rank").range(a, b));
+  const rows = await fetchAll<Row>((a, b) => sb.from(table).select("*").eq("date", d).order("rank").order("key").range(a, b));
   return { date: d, rows: v5 ? rows : rows.map((r) => ({ ...r, ...V5_NONE })) };
 }
 

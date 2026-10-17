@@ -10,6 +10,7 @@ import { fetchAll } from "@/lib/data";
 import { weekFloorControls } from "@/lib/v3/discount";
 import { tgl } from "@/lib/fmt";
 import { decideAction } from "../actions";
+import { must } from "@/lib/loader";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,10 @@ export default async function ApprovalPage() {
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const [rows, lim] = await Promise.all([
-    fetchAll<Record<string, unknown>>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).limit(200).range(a, b)),
+    fetchAll<Record<string, unknown>>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).order("id").range(a, b)),
     sb.rpc("discount_limit"),
   ]);
-  const limit = String(lim.data ?? "500");
+  const limit = String(must(lim, "approval.discount_limit") ?? "500");
   const pending = rows.filter((r) => r.status === "pending");
   const controls = week ? await weekFloorControls(sb, week) : [];
   const mayDecide = (r: Record<string, unknown>) => v.role === "admin" || v.role === "finance" || (v.role === "commercial_lead" && Number(r.rp_per_kg_below) <= Number(limit));

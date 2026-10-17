@@ -45,7 +45,8 @@ export async function commit(uploadId: string, week: string): Promise<{ ok?: str
 export async function discardStaged(uploadId: string): Promise<{ ok?: string; error?: string }> {
   await requireViewer();
   const sb = await supabaseServer();
-  await sb.from("upload_row").delete().eq("upload_id", uploadId);
+  const rows = await sb.from("upload_row").delete().eq("upload_id", uploadId);
+  if (rows.error) return { error: rows.error.message };
   const { error } = await sb.from("upload").update({ status: "discarded" }).eq("id", uploadId).eq("status", "staged");
   return error ? { error: error.message } : { ok: "Dibatalkan" };
 }

@@ -8,6 +8,7 @@ import "server-only";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { WriteError } from "../write";
+import { must } from "../loader";
 
 export type OverrideScopeKind = "week" | "month";
 
@@ -17,8 +18,8 @@ export async function addOverride(sb: Supa, viewer: Viewer, x: { scopeKind: Over
   if (!/^(C[0-9]{1,2}|K35)$/.test(x.code)) throw new WriteError("Kode kontrol tidak dikenal");
   if (reason.length < 10) throw new WriteError("Alasan minimal 10 karakter");
   if (evidence.length < 3) throw new WriteError("Bukti wajib: nomor voucher, nama file, atau tautan");
-  const { data: pol } = await sb.from("release_override_policy").select("allowed_roles").eq("code", x.code).maybeSingle();
-  const roles = ((pol as { allowed_roles?: string[] } | null)?.allowed_roles ?? []);
+  const pol = must(await sb.from("release_override_policy").select("allowed_roles").eq("code", x.code).maybeSingle(), "release-override.policy") as { allowed_roles?: string[] } | null;
+  const roles = pol?.allowed_roles ?? [];
   if (!roles.length) throw new WriteError(`${x.code} tidak bisa di-override; perbaiki kontrolnya`);
   if (!viewer.role || !roles.includes(viewer.role)) throw new WriteError(`Override ${x.code} hanya oleh ${roles.join(", ")}`);
   const { error } = await sb.from("release_override").insert({ scope_kind: x.scopeKind, scope: x.scope, code: x.code, reason, evidence });

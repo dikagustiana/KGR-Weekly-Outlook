@@ -12,7 +12,7 @@ export async function supabaseServer() {
       setAll: (list) => {
         try {
           list.forEach(({ name, value, options }) => store.set(name, value, options));
-        } catch {
+        } catch { // k41-ok: cookies() hanya-baca di Server Component (pola resmi @supabase/ssr)
           // called from a Server Component: the middleware refreshes the session instead
         }
       },

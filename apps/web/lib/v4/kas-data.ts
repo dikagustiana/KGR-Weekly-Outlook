@@ -7,6 +7,7 @@ import "server-only";
 import { addDays, firstOfMonth, monthEnd } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { KasHorizon, KasInput } from "./kas";
+import { must, mustRows } from "../loader";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -14,12 +15,15 @@ const num = (v: string | undefined, d: string) => (v !== undefined && /^-?\d+(\.
 const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
 export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, string | undefined> }): Promise<KasInput> {
-  const [{ data: pos }, { data: cc }, { data: svs }] = await Promise.all([
+  const [posRes, ccRes, svsRes] = await Promise.all([
     sb.from("cash_position_daily").select("*").lte("date", x.today).not("total_closing", "is", null).order("date", { ascending: false }).limit(1).maybeSingle(),
     sb.from("ccc_daily").select("*").lte("date", x.today).order("date", { ascending: false }).limit(1).maybeSingle(),
     sb.from("solvency_monthly").select("*").lte("month", x.today).order("month", { ascending: false }).limit(2),
   ]);
-  const p = pos as Row | null;
+  const pos = must(posRes, "kas.pos") as Row | null;
+  const cc = must(ccRes, "kas.ccc") as Row | null;
+  const svs = mustRows(svsRes, "kas.solvency") as Row[];
+  const p = pos;
   // a day built without any bank balance (no template kas harian uploaded yet) has no cash position: the balances and
   // what is projected from them are "belum diisi", never Rp 0 (K12); the planned flows and the missing days stay
   const noBalance = p !== null && Number(p.accounts ?? 0) === 0;
@@ -31,11 +35,11 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
   } : null;
 
   let solvency: KasInput["solvency"] = null;
-  const [cur, prev] = ((svs ?? []) as Row[]);
+  const [cur, prev] = svs;
   if (cur && cur.equity !== null && cur.paid_in_capital !== null) {
     const month = String(cur.month);
-    const { data: intr } = await sb.from("pl_daily_v4").select("actual, forecast").eq("pl_line", "Interest Expense").neq("basis", "fixed_estimate").gte("date", firstOfMonth(month)).lte("date", monthEnd(month));
-    const ir = (intr ?? []) as Row[];
+    const intr = mustRows(await sb.from("pl_daily_v4").select("actual, forecast").eq("pl_line", "Interest Expense").neq("basis", "fixed_estimate").gte("date", firstOfMonth(month)).lte("date", monthEnd(month)), "kas.interest") as Row[];
+    const ir = intr;
     solvency = {
       label: `${MONTH[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`, month, equity: String(cur.equity), paidIn: String(cur.paid_in_capital),
       affiliate: s(cur.affiliate_payable) ?? "0", months: s(cur.months_to_negative_equity), basis: s(cur.basis_nibt), interestRows: ir.length ? ir.map((r) => ({ actual: s(r.actual), forecast: s(r.forecast) })) : null,

@@ -33,9 +33,9 @@ async function storageRate(sb: Supa, date: string) {
   const first = addDays(firstOfMonth(date), -1).slice(0, 8) + "01";
   const last = addDays(firstOfMonth(date), -1);
   const [gl, coa, inv] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", first).lte("date", last).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("cost_ma").eq("date", last).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", first).lte("date", last).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).order("account").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("cost_ma").eq("date", last).order("date").order("key").range(a, b)),
   ]);
   if (!gl.length || !inv.length) return null;
   const lines = lineTotals(actualRowsV4({ gl: gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) })), coa: coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line), segment: s(c.segment) })), from: first, to: last }));
@@ -86,10 +86,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   // K26 / K24: next week's commitments per base key (SKUs of this week's orders and sales, and those already committed)
   const cm = fail(failed, ["t-komitmen"], await tileData("commercial: komitmen minggu depan", async () => {
     const [commits, lists, orders, items] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", next).is("deleted_at", null).neq("status", "superseded").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("price_list_week").select("key, price_fresh, price_frozen, price_frozen_source, locked_at").eq("week_start", next).is("deleted_at", null).range(a, b)),
-      week ? fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, status").in("status", ["Order", "Aktual"]).is("deleted_at", null).is("superseded_at", null).gte("date", week.week_start).lte("date", week.week_end).range(a, b)) : Promise.resolve([] as Row[]),
-      fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", next).is("deleted_at", null).neq("status", "superseded").order("id").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("price_list_week").select("key, price_fresh, price_frozen, price_frozen_source, locked_at").eq("week_start", next).is("deleted_at", null).order("key").order("week_start").range(a, b)),
+      week ? fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, status").in("status", ["Order", "Aktual"]).is("deleted_at", null).is("superseded_at", null).gte("date", week.week_start).lte("date", week.week_end).order("id").range(a, b)) : Promise.resolve([] as Row[]),
+      fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b)),
     ]);
     return { commits, lists, orders, items };
   }), { commits: [] as Row[], lists: [] as Row[], orders: [] as Row[], items: [] as Row[] });

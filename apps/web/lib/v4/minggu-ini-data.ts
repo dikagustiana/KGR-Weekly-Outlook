@@ -68,8 +68,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     if (!date) return null;
     // K42: every row of the day, page by page (no .limit above 1000)
     const [keys, lots] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma, cost_status").eq("date", date).order("key").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma, cost_status").eq("date", date).order("key").order("date").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").order("date").range(a, b)),
     ]);
     const info: StockMart["info"] = {};
     for (const k of r.stock.rows) info[k.key] = { ordersRest: k.ordersRestOfWeek.toFixed(2), refPrice: k.refPrice === null ? null : k.refPrice.toFixed(2) };
@@ -112,7 +112,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       // "Satu angka": the same mart and the same engine call as the page Outlook bulan (pl_daily_v4, monthSummaryV4, budget)
       const [v4, bud] = await Promise.all([
         fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).order("date").order("segment").order("pl_line").order("basis").range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
       ]);
       if (v4.length && isModuleOn(settings.v5_pl, role)) {
         // PRD v5 §4.7: the same month rows with the fixed-cost estimate; cut-off and nominal sources from the month builder

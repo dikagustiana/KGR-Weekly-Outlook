@@ -15,7 +15,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks } from "../data";
-import { must, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -30,9 +30,9 @@ const canonical = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typ
 
 /** C48 over the batches dated in the month (not the weeks around it). */
 async function monthC48(sb: Supa, first: string, last: string): Promise<ControlV3> {
-  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, status, date").is("deleted_at", null).gte("date", first).lte("date", last).range(a, b));
+  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, status, date").is("deleted_at", null).gte("date", first).lte("date", last).order("id").range(a, b));
   const ids = batches.map((b) => String(b.id));
-  const outs = ids.length ? await fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, kg").in("batch_id", ids).is("deleted_at", null).range(a, b)) : [];
+  const outs = ids.length ? await inChunks(ids, (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, kg").in("batch_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
   const ref = new Map(batches.map((b) => [String(b.id), s(b.batch_ref) ?? String(b.id)]));
   return c48({
     batches: batches.map((b) => ({ ref: ref.get(String(b.id))!, status: String(b.status ?? ""), date: s(b.date) })),
@@ -177,7 +177,7 @@ export interface CloseViewV4 {
 /** DI-01 pairs from the ledger mart (lot_movement with revenue_date), for DOs delivered in `month`. */
 async function unbilledOf(sb: Supa, month: string) {
   const rows = await fetchAll<Row>((a, b) => sb.from("lot_movement").select("document_ref, key, kg, date, revenue_date, cost_ma, cost_ma_revenue").eq("type", "out_sale")
-    .gte("revenue_date", month).lte("revenue_date", monthEnd(month)).gt("date", monthEnd(month)).range(a, b));
+    .gte("revenue_date", month).lte("revenue_date", monthEnd(month)).gt("date", monthEnd(month)).order("id").range(a, b));
   const r = unbilledRevaluation({
     month,
     pairs: rows.filter((x) => x.cost_ma_revenue !== null && x.cost_ma !== null).map((x) => ({
@@ -195,8 +195,8 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
   const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   const id = (mo as Row | null)?.id ? String((mo as Row).id) : null;
   const [adjustments, vs] = id ? await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, snapshot_sha256, locked_at, revenue, gp, nibt").eq("month_outlook_id", id).order("locked_at").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, snapshot_sha256, locked_at, revenue, gp, nibt").eq("month_outlook_id", id).order("locked_at").order("id").range(a, b)),
   ]) : [[] as Row[], [] as Row[]];
   const versions = vs.map((v) => ({ version: String(v.version), sha: String(v.snapshot_sha256 ?? ""), lockedAt: s(v.locked_at), revenue: s(v.revenue), gp: s(v.gp), nibt: s(v.nibt) }));
   const fin = versions.find((v) => v.version === "FINAL");
@@ -216,7 +216,7 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
       adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
       versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue ?? "0", gp: v.gp ?? "0", nibt: v.nibt ?? "0" })),
     });
-    const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).range(a, b));
+    const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
     for (const r of rows) { const k = `${String(r.version)}|${String(r.day_kind)}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
     const tot = (rs: Row[], k: string) => rs.some((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0)).toFixed(2) : null;

@@ -16,6 +16,7 @@ import { loadLedgerSources } from "./ledger";
 import { plDaily } from "./monthly";
 import { bsInventoryYesterday } from "./week";
 import type { Row } from "./uploads";
+import { must, mustRows } from "../loader";
 
 export interface ManagementV3 {
   any: boolean;
@@ -44,37 +45,37 @@ export async function managementV3(sb: Supa, week: WeekRow, settings: ModuleSett
   if (on("m4_monthly")) {
     const first = firstOfMonth(week.update_date);
     const [rows, mo] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt, id").eq("month", first).maybeSingle()]);
-    const m = (mo.data ?? null) as Row | null;
+    const m = must(mo, "management.month_outlook") as Row | null;
     if (rows.length) {
       const summary = monthSummary(rows, first, m ? { revenue: m.budget_revenue as string | null, gp: m.budget_gp as string | null, nibt: m.budget_nibt as string | null } : null, "0.10");
       out.month = { first, summary, budget: { revenue: summary.budget.revenue, gp: summary.budget.gp } };
     }
     // accuracy of the last month with a FINAL version
-    const { data: fin } = await sb.from("month_outlook").select("id, month").eq("status", "final").order("month", { ascending: false }).limit(1).maybeSingle();
+    const fin = must(await sb.from("month_outlook").select("id, month").eq("status", "final").order("month", { ascending: false }).limit(1).maybeSingle(), "management.fin") as Row | null;
     if (fin) {
-      const { data: acc } = await sb.from("outlook_accuracy").select("*").eq("month_outlook_id", String((fin as Row).id));
-      out.accuracy = { month: String((fin as Row).month), rows: (acc ?? []) as Row[] };
+      const acc = mustRows(await sb.from("outlook_accuracy").select("*").eq("month_outlook_id", String((fin as Row).id)), "management.accuracy") as Row[];
+      out.accuracy = { month: String((fin as Row).month), rows: acc };
     }
   }
   if (on("m6_cash")) {
-    const { data: c } = await sb.from("cash_position_daily").select("*").lte("date", week.update_date).order("date", { ascending: false }).limit(1).maybeSingle();
+    const c = must(await sb.from("cash_position_daily").select("*").lte("date", week.update_date).order("date", { ascending: false }).limit(1).maybeSingle(), "management.cash") as Row | null;
     if (c) {
       const cr = c as Row;
       out.cash = { date: String(cr.date), closing: cr.total_closing === null ? null : String(cr.total_closing), lowest: cr.lowest_next_13w === null ? null : String(cr.lowest_next_13w), lowestDate: cr.lowest_date ? String(cr.lowest_date) : null, weeks: [] };
     }
   }
   if (on("m7_commercial")) {
-    const { data: d } = await sb.from("commercial_daily").select("date").lte("date", week.update_date).order("date", { ascending: false }).limit(1).maybeSingle();
+    const d = must(await sb.from("commercial_daily").select("date").lte("date", week.update_date).order("date", { ascending: false }).limit(1).maybeSingle(), "management.commercial_date") as Row | null;
     if (d) {
       const date = String((d as Row).date);
-      const { data: rows } = await sb.from("commercial_daily").select("urgency, free_fresh_kg, free_frozen_kg, cost_per_kg_ma, downgrade_risk_rp").eq("date", date);
-      out.urgent = { date, ...urgentStock(((rows ?? []) as Row[]).map((x) => ({ urgency: x.urgency as string | null, free_fresh_kg: x.free_fresh_kg as string | null, free_frozen_kg: x.free_frozen_kg as string | null, cost_per_kg_ma: x.cost_per_kg_ma as string | null, downgrade_risk_rp: x.downgrade_risk_rp as string | null }))) };
+      const rows = mustRows(await sb.from("commercial_daily").select("urgency, free_fresh_kg, free_frozen_kg, cost_per_kg_ma, downgrade_risk_rp").eq("date", date), "management.commercial_rows") as Row[];
+      out.urgent = { date, ...urgentStock(rows.map((x) => ({ urgency: x.urgency as string | null, free_fresh_kg: x.free_fresh_kg as string | null, free_frozen_kg: x.free_frozen_kg as string | null, cost_per_kg_ma: x.cost_per_kg_ma as string | null, downgrade_risk_rp: x.downgrade_risk_rp as string | null }))) };
     }
   }
   if (on("m3_planning")) {
-    const { data: rows } = await sb.from("demand_weekly").select("*").eq("week_start", week.week_start);
-    const { data: plan } = await sb.from("plan_week").select("version, head_count").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle();
-    const rs = (rows ?? []) as Row[];
+    const rows = mustRows(await sb.from("demand_weekly").select("*").eq("week_start", week.week_start), "management.demand_weekly") as Row[];
+    const plan = must(await sb.from("plan_week").select("version, head_count").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "management.plan_week") as Row | null;
+    const rs = rows;
     out.demand = {
       totals: demandTotals(rs.map((x) => ({ confirmed_kg: x.confirmed_kg as string, tentative_kg: x.tentative_kg as string, forecast_kg: x.forecast_kg as string, weighted_kg: x.weighted_kg as string, stock_free_kg: x.stock_free_kg as string, net_kg: x.net_kg as string }))),
       heads: plan ? Number((plan as Row).head_count) : null, planVersion: plan ? Number((plan as Row).version) : null, rows: rs.length,

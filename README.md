@@ -29,3 +29,19 @@ pnpm parity      # regenerate docs/parity.md
 pnpm dev         # http://localhost:3000
 pnpm build
 ```
+
+## Operasi
+
+- **Antrean rebuild (K61, PRD v5.2-A R46).** `GET /api/cron/rebuild` menguras `rebuild_queue` (maks. 30 tanggal,
+  anggaran 50 dtk), mereset baris `running` > 15 menit, menandai tanggal > jam dinding + 7 sebagai `done`, lalu
+  membangun tugas input dan grid kelengkapan hari ini (bila `v5_input` hidup). Dijadwalkan `vercel.json` `crons`
+  `0 22 * * *` (05.00 WIB). Route tidak memakai sesi: wajib header `Authorization: Bearer $CRON_SECRET` (Vercel Cron
+  mengirimnya otomatis bila env `CRON_SECRET` ada), dan membaca flag serta antrean dengan `SUPABASE_SERVICE_ROLE_KEY`.
+  Tanpa secret → 401; tanpa kunci service → 503. Aksi di aplikasi memproses inline maksimal 7 tanggal; sisanya
+  "dilanjutkan otomatis" oleh cron.
+- **Env Vercel Production** (PRD v5.2-B B-R80): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `SUPABASE_SERVICE_ROLE_KEY` (server saja), `CRON_SECRET` (`openssl rand -hex 32`). Preview/Development menunjuk
+  staging, tidak pernah KGR-OS.
+- **Skema tertinggal (K57).** Bila database belum punya objek yang dipakai kode, header menampilkan satu banner;
+  rilis dan aksi tulis modul ditolak dengan pesan yang sama, dan rebuild membiarkan antrean dengan catatan itu.
+  Terapkan bundel `docs/v5.*/kgr-os-migrasi-*.sql` yang sesuai (lihat `docs/v5.2/kgr-os-log.md`).

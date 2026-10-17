@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireViewer } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
+import { must } from "@/lib/loader";
 
 const go = (path: string, k: "ok" | "err", m: string): never => redirect(`${path}${path.includes("?") ? "&" : "?"}${k}=${encodeURIComponent(m)}`);
 
@@ -59,7 +60,7 @@ export async function saveSkuKey(form: FormData) {
   const seg = s("segment"), sku = s("sku"), formv = s("form"), group = s("decision_group");
   if (!seg || !sku || !formv || !group) go(path, "err", "Semua kolom wajib");
   const sb = await supabaseServer();
-  const { data: last } = await sb.from("sku_key").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+  const last = must(await sb.from("sku_key").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle(), "master.sku_key") as { sort_order: number | null } | null;
   const { error } = await sb.from("sku_key").upsert({ key: `${seg}|${sku}|${formv}`, segment: seg, sku, form: formv, decision_group: group, sort_order: Number(last?.sort_order ?? 0) + 1, active: true }, { onConflict: "key" });
   if (error) go(path, "err", error.message);
   revalidatePath("/", "layout");

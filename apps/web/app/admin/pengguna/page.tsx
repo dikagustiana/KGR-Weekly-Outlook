@@ -4,6 +4,7 @@ import { Shell } from "@/components/Shell";
 import { Card } from "@/components/ui";
 import { ActionForm } from "@/components/ActionForm";
 import { supabaseServer } from "@/lib/supabase";
+import { mustRows } from "@/lib/loader";
 import { ROLE_LABEL } from "@/lib/roles";
 import { saveUser, setPassword, toggleActive } from "./actions";
 
@@ -26,7 +27,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const { viewer, weeks, week } = await plainContext(sp.week);
   if (viewer.role !== "admin") redirect("/");
   const sb = await supabaseServer();
-  const { data } = await sb.from("app_user").select("*").order("role").order("email");
+  const data = mustRows(await sb.from("app_user").select("*").order("role").order("email"), "pengguna.app_user") as any[];
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/pengguna">
       <h1>Pengguna dan peran</h1>
@@ -51,7 +52,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         <table className="t">
           <thead><tr><th>E-mail</th><th>Nama</th><th>Peran</th><th>Hak tulis</th><th>Status</th><th /></tr></thead>
           <tbody>
-            {(data ?? []).map((u) => (
+            {data.map((u) => (
               <tr key={u.email} className={u.active ? "" : "dim"}>
                 <td>{u.email}</td><td>{u.full_name}</td><td>{ROLE_LABEL[u.role as keyof typeof ROLE_LABEL]}</td><td className="muted">{ROLE_HELP[u.role]}</td>
                 <td>{u.active ? "aktif" : "nonaktif"}</td>

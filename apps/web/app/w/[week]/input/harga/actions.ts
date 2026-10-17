@@ -6,6 +6,7 @@ import { requireViewer } from "@/lib/session";
 import { can } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
 import { weekIdOf } from "@/lib/rollover";
+import { mustRows } from "@/lib/loader";
 
 /** Reference sell prices (Sales) and replacement buy prices (Purchasing), per week (I_Master F:G). */
 export async function savePrices(form: FormData) {
@@ -17,7 +18,7 @@ export async function savePrices(form: FormData) {
   if (!sell && !buy) go("err", "Peran Anda tidak boleh mengubah harga");
   const sb = await supabaseServer();
   const weekId = await weekIdOf(sb, week);
-  const { data: cur } = await sb.from("sku_price").select("*").eq("week_id", weekId);
+  const cur = mustRows(await sb.from("sku_price").select("*").eq("week_id", weekId), "harga.sku_price");
   const byKey = new Map((cur ?? []).map((r) => [String(r.key), r]));
   const keys = form.getAll("key").map(String);
   const rows: Record<string, unknown>[] = [];

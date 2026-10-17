@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { listWeeks } from "@/lib/data";
 import { buildScorecardWeek, consumeApprovals, decide, floorGuard } from "@/lib/v3/discount";
 import type { Supa } from "@/lib/supabase";
+import { must, mustRows } from "@/lib/loader";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -34,8 +35,8 @@ export async function scorecardAction(_: ActionState, form: FormData): Promise<A
 
 const weekOf = async (sb: Supa, date: string) => (await listWeeks(sb)).find((w) => w.week_start <= date && w.week_end >= date) ?? null;
 const repOf = async (sb: Supa, email: string) => {
-  const { data } = await sb.from("sales_assignment").select("sales_rep").eq("active", true).ilike("email", email).limit(1);
-  return ((data ?? []) as { sales_rep: string }[])[0]?.sales_rep ?? null;
+  const data = mustRows(await sb.from("sales_assignment").select("sales_rep").eq("active", true).ilike("email", email).limit(1), "komersial.sales_rep");
+  return (data as { sales_rep: string }[])[0]?.sales_rep ?? null;
 };
 const numOf = (v: FormDataEntryValue | null) => parseNumber(String(v ?? ""));
 
@@ -77,7 +78,7 @@ export async function orderFromApprovalAction(_: ActionState, form: FormData): P
     const po = String(form.get("po_ref") ?? "").trim(), date = String(form.get("delivery_date") ?? "").trim();
     if (!po) return { error: "Isi nomor PO" };
     if (!isISODate(date) || date < jakartaToday()) return { error: "Tanggal kirim tidak valid" };
-    const { data: a } = await sb.from("discount_approval").select("*").eq("id", id).maybeSingle();
+    const a = must(await sb.from("discount_approval").select("*").eq("id", id).maybeSingle(), "komersial.approval");
     const r = a as Record<string, unknown> | null;
     if (!r || r.status !== "approved") return { error: "Approval tidak ditemukan atau belum disetujui" };
     if (r.sales_line_id) return { error: "Approval ini sudah dipakai untuk order lain" };
