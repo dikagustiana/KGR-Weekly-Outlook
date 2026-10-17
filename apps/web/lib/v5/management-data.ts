@@ -86,7 +86,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
       sb.from("sales_commitment").select("status").eq("week_start", next).is("deleted_at", null).neq("status", "superseded"),
       sb.from("parameter").select("commitment_lock_dow, commitment_lock_time").eq("week_id", w.id).maybeSingle(),
       sb.from("plan_week").select("version").eq("week_start", next).order("version", { ascending: false }).limit(1).maybeSingle(),
-      sb.from("batch").select("batch_ref, wp_received_at, invoice_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
+      sb.from("batch").select("batch_ref, wp_received_at, invoice_status, costing_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
       fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)),
     ]);
     return {
@@ -119,7 +119,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     off,
     commitment: { locked: lr.commits.some((x) => x.status === "locked"), drafts: lr.commits.filter((x) => x.status === "draft").length, deadline: `${DAYS[new Date(`${dl}T00:00:00Z`).getUTCDay()]} ${Number(dl.slice(8, 10))}/${dl.slice(5, 7)} ${deadline.slice(11, 16).replace(":", ".")}`, late: Date.parse(now) >= Date.parse(deadline) },
     planNext: { version: lr.plan ? Number(lr.plan.version) : null },
-    costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.invoice_status !== "tied").length, final: lr.batches.filter((b) => b.invoice_status === "tied").length, wpLate: lateOf("costing_wp") },
+    // K59: final = the allocation is posted (batch.costing_status 'posted'), not a tied invoice
+    costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.costing_status !== "posted").length, final: lr.batches.filter((b) => b.costing_status === "posted").length, wpLate: lateOf("costing_wp") },
     lb: { cutDate, price: decided?.price ?? null },
     freeStock: "error" in free ? { error: free.error } : free.ok,
   });

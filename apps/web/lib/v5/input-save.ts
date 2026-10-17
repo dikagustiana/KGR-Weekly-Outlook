@@ -213,14 +213,15 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     if (!w) throw new WriteError("Belum ada minggu");
     const rows = ok(r).map((q) => ({ target: "pi", data: { document_ref: v(q, "document_ref"), date: v(q, "date"), supplier: v(q, "supplier"), component: "LB", amount: v(q, "amount"), batch_ref: v(q, "batch_ref"), description: `Faktur LB batch ${v(q, "batch_ref")}${v(q, "kg") ? ` · ${v(q, "kg")} kg` : ""}` } as Row }));
     const res = await pi.commit({ sb, viewer, week: w, uploadId, rows });
-    let tied = 0;
+    const tiedRefs: string[] = [];
     for (const q of ok(r)) {
       const st = v(q, "tied") ? "tied" : "received";
-      if (st === "tied") tied++;
+      if (st === "tied") tiedRefs.push(v(q, "batch_ref")!);
       const q2 = sb.from("batch").update({ invoice_status: st }).eq("batch_ref", v(q, "batch_ref")!).eq("status", "Aktual").is("deleted_at", null);
       const e = st === "tied" ? await q2 : await q2.eq("invoice_status", "pending");
       if (e.error) throw new WriteError(`batch ${v(q, "batch_ref")}: ${e.error.message}`);
     }
-    return { inserted: res.inserted, updated: res.updated, held: [], dates: [...new Set(ok(r).map((q) => v(q, "batch_date")).filter((d): d is string => !!d))], note: `${tied} faktur tie ke GL (biaya batch final); ${ok(r).length - tied} masih sementara.` };
+    return { inserted: res.inserted, updated: res.updated, held: [], dates: [...new Set(ok(r).map((q) => v(q, "batch_date")).filter((d): d is string => !!d))], // K59 (R60): a tied invoice is the condition to post, not the final status — the cost turns final only once the allocation is posted
+      note: `${tiedRefs.length} faktur tie ke GL; ${ok(r).length - tiedRefs.length} masih sementara.${tiedRefs.length ? ` Biaya batch ${[...new Set(tiedRefs)].join(", ")} belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara.` : ""}` };
   },
 };
