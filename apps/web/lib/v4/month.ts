@@ -25,6 +25,7 @@ import { loadMonthDrivers, type MonthDrivers } from "../v3/drivers";
 import { isWorkingDay } from "../v3/monthly";
 import type { Row } from "../v3/uploads";
 import { v5CostingPlRows } from "../v5/costing-pl";
+import { forecastCostsOf } from "../v5/forecast-cost";
 import { fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
 import { resetLedgerRun } from "../v3/ledger";
 
@@ -112,6 +113,8 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const unbilled: ReturnType<typeof unbilledFromWeek> = [];
   let tolerance = "0.10", lockWeek = 3, windowDays = 7, wT = "0.7", wF = "0.5";
   let pnlMtd: { revenue: string; cogs: string; gp: string } | null = null;
+  // R67 (F14): with v5_costing + v5_pl the forecast cost is the class planCost, else the MA cost (fallback below)
+  const forecastCosts = settings.v5_costing?.enabled && settings.v5_pl?.enabled ? await forecastCostsOf(sb, first, last) : null;
   for (const w of weeks) {
     const c = await computeForWeek(w.week_start);
     if (!c) continue;
@@ -122,7 +125,11 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
     const lo = addDays(cutOff, 1) > w.week_start ? addDays(cutOff, 1) : w.week_start;
     const hi = last < w.week_end ? last : w.week_end;
-    if (lo <= hi) orders.push(...ordersV4FromWeek(c.result.sales, lo, hi, (id) => { const st = id ? status.get(id) : null; return st === "Tentative" ? wT : st === "Forecast" ? wF : "1"; }));
+    const sales = forecastCosts ? c.result.sales.map((s) => {
+      const cpg = s.date && s.key ? forecastCosts.get(s.date)?.get(s.key.trim().toUpperCase()) : undefined;
+      return cpg ? { ...s, hpp: cpg.times(s.kg) } : s;
+    }) : c.result.sales;
+    if (lo <= hi) orders.push(...ordersV4FromWeek(sales, lo, hi, (id) => { const st = id ? status.get(id) : null; return st === "Tentative" ? wT : st === "Forecast" ? wF : "1"; }));
     const ulo = first > w.week_start ? first : w.week_start, uhi = cutOff < w.week_end ? cutOff : w.week_end;
     if (ulo <= uhi) unbilled.push(...unbilledFromWeek(c.result.sales, ulo, uhi));
     // C49: the weekly P&L whose update date is the day after the cut-off carries the month to date up to the cut-off
