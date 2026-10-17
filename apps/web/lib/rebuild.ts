@@ -111,7 +111,7 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
 
   const { data, error } = await sb.from("rebuild_queue").select("id, date").eq("status", "queued").order("date").limit(500);
   if (error) throw new WriteError(error.message);
-  const rows = (data ?? []) as { id: string; date: string }[];
+  const rows = (data as { id: string; date: string }[]);
   const byDate = new Map<string, string[]>();
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r.id]);
   let done = 0, failed = 0;

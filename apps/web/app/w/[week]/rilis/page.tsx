@@ -2,6 +2,7 @@ import { weekContext, type PageProps } from "@/lib/page";
 import { WeekShell } from "@/components/WeekShell";
 import { Badge, Card } from "@/components/ui";
 import { supabaseServer } from "@/lib/supabase";
+import { mustRows } from "@/lib/loader";
 import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,9 @@ export default async function RilisPage({ params }: PageProps) {
   const { week } = await params;
   const ctx = await weekContext(week);
   const sb = await supabaseServer();
-  const { data } = await sb.from("release").select("id, update_date, engine_version, snapshot_sha256, pdf_path, control_status, controls, ops_rows, released_by, released_at")
-    .eq("week_id", ctx.week.id).order("released_at", { ascending: false });
-  const rows = (data ?? []) as { id: string; update_date: string; engine_version: string; snapshot_sha256: string; pdf_path: string; control_status: string; controls: { controls?: unknown[]; counts?: Record<string, number> } | null; ops_rows: unknown[]; released_by: string; released_at: string }[];
+  const data = mustRows(await sb.from("release").select("id, update_date, engine_version, snapshot_sha256, pdf_path, control_status, controls, ops_rows, released_by, released_at")
+    .eq("week_id", ctx.week.id).order("released_at", { ascending: false }), "rilis.release") as any[];
+  const rows = data as { id: string; update_date: string; engine_version: string; snapshot_sha256: string; pdf_path: string; control_status: string; controls: { controls?: unknown[]; counts?: Record<string, number> } | null; ops_rows: unknown[]; released_by: string; released_at: string }[];
   // R12/R13: the management view shows when and how the release stood, not who (e-mail) or the audit columns
   const mgmt = ctx.view === "management";
   const controlLine = (x: (typeof rows)[number]) => {

@@ -30,7 +30,7 @@ export async function fetchAll<T = Row>(page: FetchPage<T>, size = 1000): Promis
   for (let from = 0; ; from += size) {
     const { data, error } = await page(from, from + size - 1);
     if (error) throw new LoaderError("fetchAll", error.message, isSchemaError(error.code), error.code);
-    out.push(...(data ?? []));
+    if (data) out.push(...data);
     if (!data || data.length < size) break;
   }
   return out;

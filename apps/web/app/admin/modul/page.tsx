@@ -8,7 +8,7 @@ import { MODULE_KEYS, MODULE_LABEL, moduleSettings } from "@/lib/modules";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
 import { processQueue, queueDates, setFlag } from "./actions";
-import { must } from "@/lib/loader";
+import { must, mustRows } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +21,9 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
   if (viewer.role !== "admin") redirect("/");
   const settings = await moduleSettings();
   const sb = await supabaseServer();
-  const { data: q } = await sb.from("rebuild_queue").select("id, date, reason, status, error, requested_at, finished_at, created_by")
-    .order("requested_at", { ascending: false }).limit(60);
-  const queue = (q ?? []) as QueueRow[];
+  const q = mustRows(await sb.from("rebuild_queue").select("id, date, reason, status, error, requested_at, finished_at, created_by")
+    .order("requested_at", { ascending: false }).limit(60), "modul.rebuild_queue") as any[];
+  const queue = q as QueueRow[];
   const queued = queue.filter((r) => r.status === "queued").length;
   const today = (await clock(sb)).data;
   // PRD v5.1 R40: the start date of v5 costing (value.since) is set here; without it the lot revaluation does not run

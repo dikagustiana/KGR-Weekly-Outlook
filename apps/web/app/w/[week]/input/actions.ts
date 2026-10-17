@@ -86,7 +86,7 @@ export async function deleteRow(form: FormData) {
   const def = TABLES[String(form.get("table")) as TableDef["table"]];
   const id = String(form.get("id"));
   const sb = await supabaseServer();
-  const { data: old } = await sb.from(def.table).select("*").eq("id", id).maybeSingle();
+  const old = must(await sb.from(def.table).select("*").eq("id", id).maybeSingle(), "input.old3");
   if (!old || !canWriteRow(v.role, def, old as Row)) back(week, path, "Peran Anda tidak boleh menghapus baris ini", "err");
   try { await applyChanges(sb, def.table, [], [], [id]); } catch (e) { back(week, path, (e as Error).message, "err"); }
   revalidatePath(`/w/${week}`, "layout");

@@ -23,7 +23,7 @@ export const moduleSettings = cache(async (): Promise<ModuleSettings> => {
     throw new LoaderError("moduleSettings", error.message);
   }
   const out: ModuleSettings = {};
-  for (const r of (data ?? []) as { key: string; value: unknown }[]) out[r.key as ModuleKey] = parseSetting(r.value);
+  for (const r of (data as { key: string; value: unknown }[])) out[r.key as ModuleKey] = parseSetting(r.value);
   return out;
 });
 

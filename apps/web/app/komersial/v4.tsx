@@ -5,6 +5,7 @@ import { plainContext } from "@/lib/page";
 import { moduleSettings } from "@/lib/modules";
 import { isModuleOn } from "@/lib/modules-core";
 import { supabaseServer } from "@/lib/supabase";
+import { mustRows } from "@/lib/loader";
 import { currentView } from "@/lib/view-server";
 import { fetchAll, listWeeks } from "@/lib/data";
 import { clock } from "@/lib/clock";
@@ -30,8 +31,8 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   const today = c.data;
   const sales = viewer.role === "sales";
   const mart = await commercialMart(sb, today, sales, isModuleOn(settings.v5_costing, viewer.role));
-  const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);
-  const own = (asg ?? []) as { key: string | null }[];
+  const asg = mustRows(await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email), "komersial.assignment") as any[];
+  const own = asg as { key: string | null }[];
   const todayWeek = (await listWeeks(sb)).find((w) => w.week_start <= today && w.week_end >= today) ?? null;
   const { data: par } = todayWeek ? await sb.from("parameter").select("sales_sees_cost, spot_enabled, cut_off_time").eq("week_id", todayWeek.id).maybeSingle() : { data: null };
   const p = (par ?? {}) as Row;
