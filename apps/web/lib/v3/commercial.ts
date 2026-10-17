@@ -32,7 +32,7 @@ export interface CommercialState {
 export async function computeCommercial(sb: Supa, date: string): Promise<CommercialState> {
   const weeks = await listWeeks(sb);
   const week = weeks.find((w) => date >= w.week_start && date <= w.week_end) ?? weeks.filter((w) => w.week_start <= date).sort((a, b) => b.week_start.localeCompare(a.week_start))[0] ?? null;
-  const { data: sd } = await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle();
+  const sd = must(await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), "commercial.sku_balance_daily");
   const stockDate = sd ? String((sd as Row).date) : null;
   const [bal, lots, keys, prices, items, sales, orders, urg, floors, assigned, fcReps, param] = await Promise.all([
     stockDate ? fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", stockDate).range(a, b)) : Promise.resolve([] as Row[]),

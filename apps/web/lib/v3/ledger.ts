@@ -11,7 +11,7 @@ import {
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
 import { fetchAll, fetchAllOrMissing, listWeeks, type WeekRow } from "../data";
-import { mustRows } from "../loader";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -340,7 +340,7 @@ export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: st
 
 /** Reads for /sku and /sku/[key]: the latest built day ≤ the requested date. */
 export async function skuBalances(sb: Supa, date: string): Promise<{ date: string | null; rows: Row[] }> {
-  const { data } = await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle();
+  const data = must(await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), "ledger.sku_balance_daily");
   const d = data ? String((data as Row).date) : null;
   if (!d) return { date: null, rows: [] };
   const rows = await fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", d).order("key").range(a, b));

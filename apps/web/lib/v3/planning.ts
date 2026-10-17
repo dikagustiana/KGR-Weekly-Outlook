@@ -93,7 +93,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const p = (param.data ?? {}) as Row;
   const stockDate = addDays(ws, -1);
-  const { data: sd } = await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle();
+  const sd = must(await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle(), "planning.lot_balance_daily");
   const sdate = sd ? String((sd as Row).date) : null;
   const lots = sdate ? await fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, free_kg, age_days").eq("date", sdate).gt("free_kg", 0).range(a, b)) : [];
   const latest = plans[0];
@@ -389,7 +389,7 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
 
 export async function approvePlan(sb: Supa, viewer: Viewer, planId: string): Promise<string> {
   // C46: a plan with surplus but no fresh / frozen price cannot be approved (the downgrade is unknown)
-  const { data: pw } = await sb.from("plan_week").select("week_start, surplus_kg_by_key").eq("id", planId).maybeSingle();
+  const pw = must(await sb.from("plan_week").select("week_start, surplus_kg_by_key").eq("id", planId).maybeSingle(), "planning.plan_week");
   const plan = pw as Row | null;
   if (!plan) throw new WriteError("Rencana tidak ditemukan");
   const week = (await listWeeks(sb)).find((w) => w.week_start === String(plan.week_start));
@@ -610,7 +610,7 @@ registerV3Kind({
     const issues = [...res.issues];
     const ok: { target: string; data: Row }[] = [];
     // PRD v5 C51 (flag v5_ppic_class): a supply row of a class that is not registered is not saved
-    const { data: flag } = await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle();
+    const flag = must(await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle(), "planning.v5_ppic_class");
     const v5 = ((flag as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
     const classes = v5 ? new Set(mustRows(await sb.from("weight_class").select("code"), "planning.weight_class").map((c: Row) => String(c.code))) : null;
     for (const r of res.rows.filter((x) => !x.issues.length)) {
