@@ -212,9 +212,9 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const posted = adjustments.filter((a) => a.posted === true);
     const sumAdj = (pred: (l: string) => boolean) => posted.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0)).toFixed(2);
     accuracy = accuracyV4({
-      final: { revenue: fin.revenue ?? "0", gp: fin.gp ?? "0", nibt: fin.nibt ?? "0" },
+      final: { revenue: fin.revenue, gp: fin.gp, nibt: fin.nibt },
       adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
-      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue ?? "0", gp: v.gp ?? "0", nibt: v.nibt ?? "0" })),
+      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt })),
     });
     const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
