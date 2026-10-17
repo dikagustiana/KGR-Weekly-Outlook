@@ -141,7 +141,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
     ]);
     const v = must(svR, "solvency_monthly") as Row | null, cash = must(cashR, "cash_position_daily");
     if (v && v.equity !== null && v.paid_in_capital !== null) {
-      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), cash: s((cash as Row | null)?.total_closing) };
+      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable), months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), cash: s((cash as Row | null)?.total_closing) };
     }
   }
 

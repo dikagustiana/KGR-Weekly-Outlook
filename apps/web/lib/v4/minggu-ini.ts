@@ -97,7 +97,7 @@ export interface MingguIniInput {
   cashMart: { date: string; closing: string | null; planned: boolean; without?: string | null }[] | null;
   month: { label: string; revenue: string; gp: string; gpPct: string | null; budgetRevenue: string | null; budgetGp: string | null } | null;
   /** `basis` = the NIBT the months rest on; null = unknown (K52: no fixed nominal), not "profit". */
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; interest: string | null } | null;
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; interest: string | null } | null;
   demand: { confirmed: string; tentative: string; forecast: string; weighted: string; fromStock: string; net: string; heads: number | null; planHeads: number | null; variance: string | null } | null;
   groups: { group: string; cogsPerKg: string | null }[] | null;
   roll: RollForward | null;
@@ -265,7 +265,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         type: "card", value: jtV4(s.equity), unit: "Rp jt", negative: D(s.equity).lt(0),
         compare: [
           { label: "ekuitas / modal disetor", value: pctV4(D(s.equity).div(D(s.paidIn)), 0) },
-          { label: "utang pihak berelasi", value: `${jtV4(s.affiliate)} jt` },
+          { label: "utang pihak berelasi", value: s.affiliate === null ? "belum ada" : `${jtV4(s.affiliate)} jt` },
           { label: "bulan sampai ekuitas negatif", value: monthsToNegative(s.months, s.basis) },
         ],
         href: "/kas",
