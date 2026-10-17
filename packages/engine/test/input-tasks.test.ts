@@ -1,6 +1,6 @@
 /** PRD v5 §4.9, §3.1 (K35): task instances from the registry, status from the data, the completeness grid and K35. */
 import { describe, expect, it } from "vitest";
-import { completenessCells, dueOf, effectiveCell, effectiveStatus, instancesDue, k35, parseDueRule, taskOf, type TaskRule } from "../src/input-tasks";
+import { completenessCells, dueDatesFor, dueOf, effectiveCell, effectiveStatus, instancesDue, k35, parseDueRule, taskOf, type TaskRule } from "../src/input-tasks";
 
 // the registry seeded by v5/0 (§3.1)
 const rules: TaskRule[] = [
@@ -18,6 +18,8 @@ describe("aturan tenggat", () => {
   it("parse dan tenggat WIB", () => {
     expect(parseDueRule("batch.date + 1 day 12:00")).toEqual({ event: false, anchor: "batch.date", days: 1, time: "12:00" });
     expect(parseDueRule("week_start - 3 days 17:00")).toEqual({ event: false, anchor: "week_start", days: -3, time: "17:00" });
+    expect(dueDatesFor(rules.find((x) => x.kind === "commitment_lock")!, "2026-08-24")).toEqual(["2026-08-21"]); // Senin − 3 = Jumat
+    expect(dueDatesFor(rules.find((x) => x.kind === "supplier_invoice")!, "2026-08-24")).toEqual([]); // event: tanpa tenggat
     expect(parseDueRule("event")).toEqual({ event: true });
     expect(parseDueRule("kapan-kapan")).toBeNull();
     const p = parseDueRule("week_start - 3 days 17:00");
