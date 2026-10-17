@@ -15,7 +15,7 @@
  */
 import { D, Decimal, ZERO, div, max, sum, type Num } from "./decimal";
 import { addDays, daysInMonth, firstOfMonth, type ISODate } from "./dates";
-import { isCogsLine, isRevenueLine, monthEnd } from "./monthly";
+import { isCogsLine, isMemoLine, isOpexLine, isRevenueLine, monthEnd, type CostingRowsMode } from "./monthly";
 import { dailyFixed, monthlyAmount, type FixedCostRow } from "./drivers";
 import { segmentOfLine, type PlRowV4 } from "./week-outlook";
 import type { ControlV3 } from "./controls-v3";
@@ -114,24 +114,33 @@ export function lineTotals(rows: PlRowV4[]): Record<string, string> {
 
 // ------------------------------------------------------------------------------------------------ totals with the fixed costs
 
-export interface PlTotalsV5 { revenue: Decimal; cogs: Decimal; gp: Decimal; opex: Decimal; nibt: Decimal; fixed: Decimal; nibtAfter: Decimal }
+export interface PlTotalsV5 {
+  revenue: Decimal; cogs: Decimal; gp: Decimal; opex: Decimal; nibt: Decimal; fixed: Decimal; nibtAfter: Decimal;
+  /** R66 (K63, mode 'memo'): the v5 costing rows kept out of the journal totals (P&L sign); 0 in mode 'cogs', where they are inside COGS. */
+  memoSelisih: Decimal; memoIdle: Decimal;
+  /** NIBT manajemen = NIBT menurut jurnal + the memo rows; equals `nibt` in mode 'cogs'. */
+  nibtMgmt: Decimal;
+}
 
 const valueOf = (r: PlRowV4) => (r.actual ?? ZERO).plus(r.forecast ?? ZERO);
 
 /** Totals of rows (actual + forecast as they carry them): NIBT according to the journal, the fixed estimate, NIBT after it. */
-export function plTotalsV5(rows: PlRowV4[], pick: (r: PlRowV4) => Decimal = valueOf, mode: "cogs" | "memo" = "cogs"): PlTotalsV5 {
+export function plTotalsV5(rows: PlRowV4[], pick: (r: PlRowV4) => Decimal = valueOf, mode: CostingRowsMode = "cogs"): PlTotalsV5 {
   const j = rows.filter((r) => r.basis !== "fixed_estimate");
   const f = (p: (l: string) => boolean) => sum(j.filter((r) => p(r.pl_line)).map(pick));
-  // R66 (K63): in 'memo' the v5 costing rows are not COGS (they move to the memo block)
-  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l, mode));
+  // R66 (K63): in 'memo' the v5 costing rows are neither COGS nor opex: not in GP, not in the journal NIBT (they form the memo block)
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => isOpexLine(l, mode));
+  const memoSelisih = f((l) => isMemoLine(l, mode) && l === "Selisih costing"), memoIdle = f((l) => isMemoLine(l, mode) && l === "Biaya kapasitas idle");
   const fixed = sum(rows.filter((r) => r.basis === "fixed_estimate").map(pick));
   const nibt = revenue.plus(cogs).plus(opex);
-  return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt, fixed, nibtAfter: nibt.plus(fixed) };
+  return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt, fixed, nibtAfter: nibt.plus(fixed), memoSelisih, memoIdle, nibtMgmt: nibt.plus(memoSelisih).plus(memoIdle) };
 }
 
 /**
  * PRD v5.1 K52: the month's NIBT the solvency uses while v5_pl is on — NIBT after fixed costs (the fixed_estimate rows
  * included); unknown (null) when the month has no fixed nominal at all (K51), never NIBT without the fixed costs.
+ * R66: always on the management basis (the v5 costing rows included, as in mode 'cogs'): the solvency is a projection
+ * of the company's money, not of the FS column, so the setting costing_rows_mode does not move it.
  */
 export function solvencyNibtV5(rows: PlRowV4[], fixedMissing: boolean): Decimal | null {
   return fixedMissing ? null : plTotalsV5(rows).nibtAfter;
@@ -153,7 +162,7 @@ export function plWeeks(month: ISODate): { from: ISODate; to: ISODate }[] {
   return out;
 }
 
-export type PlRowKey = "revenue" | "cogs" | "gp" | "gp_pct" | "opex" | "nibt" | "fixed" | "nibt_after" | "nibt_pct";
+export type PlRowKey = "revenue" | "cogs" | "gp" | "gp_pct" | "opex" | "nibt" | "fixed" | "nibt_after" | "nibt_pct" | "memo_selisih" | "memo_idle" | "nibt_mgmt";
 export const PL_TABLE_ROWS: { key: PlRowKey; label: string; pct: boolean; strong: 0 | 1 | 2 }[] = [
   { key: "revenue", label: "Revenue", pct: false, strong: 0 },
   { key: "cogs", label: "COGS", pct: false, strong: 0 },
@@ -164,6 +173,13 @@ export const PL_TABLE_ROWS: { key: PlRowKey; label: string; pct: boolean; strong
   { key: "fixed", label: "Beban tetap belum dijurnal (estimasi)", pct: false, strong: 0 },
   { key: "nibt_after", label: "NIBT setelah beban tetap", pct: false, strong: 2 },
   { key: "nibt_pct", label: "NIBT %", pct: true, strong: 0 },
+];
+
+/** R66 (K63): the memo block of mode 'memo', placed right below "NIBT menurut jurnal". */
+export const PL_MEMO_ROWS: { key: PlRowKey; label: string; pct: boolean; strong: 0 | 1 | 2 }[] = [
+  { key: "memo_selisih", label: "Memo · Selisih costing (belum di jurnal)", pct: false, strong: 0 },
+  { key: "memo_idle", label: "Memo · Biaya kapasitas idle (belum di jurnal)", pct: false, strong: 0 },
+  { key: "nibt_mgmt", label: "NIBT manajemen (jurnal + memo)", pct: false, strong: 1 },
 ];
 
 export interface PlColumn {
@@ -204,6 +220,7 @@ const rowValues = (t: PlTotalsV5, fixedMissing = false): Record<PlRowKey, Decima
   revenue: t.revenue, cogs: t.cogs, gp: t.gp, gp_pct: t.revenue.isZero() ? null : div(t.gp, t.revenue), opex: t.opex, nibt: t.nibt,
   fixed: fixedMissing ? null : t.fixed, nibt_after: fixedMissing ? null : t.nibtAfter,
   nibt_pct: fixedMissing || t.revenue.isZero() ? null : div(t.nibtAfter, t.revenue),
+  memo_selisih: t.memoSelisih, memo_idle: t.memoIdle, nibt_mgmt: t.nibtMgmt,
 });
 
 /** K51: every fixed nominal of the month is missing (the list is not empty and no line has an amount). */
@@ -219,12 +236,13 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: {
   rows: PlRowV4[]; cutOff: ISODate; budget?: PlBudget | null; split?: boolean; highlight?: ISODate | null;
   /** The fixed nominals of the month (K51); all missing → the fixed row and NIBT after it are null. */
   nominals?: { nominal: unknown }[] | null;
-  /** R66 (K63): 'memo' keeps the v5 costing rows out of COGS. */
-  mode?: "cogs" | "memo";
+  /** R66 (K63): 'memo' keeps the v5 costing rows out of the journal totals and adds the memo block below the journal NIBT. */
+  mode?: CostingRowsMode;
 }): PlTable {
   const first = firstOfMonth(month), last = monthEnd(month);
   const missing = fixedAllMissing(opts.nominals);
   const rows = opts.rows.filter((r) => r.date >= first && r.date <= last);
+  const defs = opts.mode === "memo" ? PL_TABLE_ROWS.flatMap((r) => (r.key === "nibt" ? [r, ...PL_MEMO_ROWS] : [r])) : PL_TABLE_ROWS;
   const inRange = (from: ISODate, to: ISODate) => plTotalsV5(rows.filter((r) => r.date >= from && r.date <= to), valueOf, opts.mode);
   const kindOf = (from: ISODate, to: ISODate): PlColumn["kind"] => (to <= opts.cutOff ? "actual" : from > opts.cutOff ? "forecast" : "mixed");
   const outlook = inRange(first, last);
@@ -238,13 +256,14 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: {
     if (cut < last) add("forecast", addDays(cut, 1), last, "forecast");
     add("outlook", first, last, "total");
     const ov = rowValues(outlook, missing);
-    cols.push({ col: { id: "share", from: null, to: null, kind: "share", current: false, forecastBasis: [] }, v: Object.fromEntries(PL_TABLE_ROWS.map((r) => [r.key, r.pct || outlook.revenue.isZero() || ov[r.key] === null ? null : div(ov[r.key]!, outlook.revenue)])) as Record<PlRowKey, Decimal | null> });
+    cols.push({ col: { id: "share", from: null, to: null, kind: "share", current: false, forecastBasis: [] }, v: Object.fromEntries(defs.map((r) => [r.key, r.pct || outlook.revenue.isZero() || ov[r.key] === null ? null : div(ov[r.key]!, outlook.revenue)])) as Record<PlRowKey, Decimal | null> });
     const b = opts.budget ?? null;
     const n = (v: Num | null | undefined) => (v === null || v === undefined || v === "" ? null : D(v));
     const bRev = n(b?.revenue), bGp = n(b?.gp), bNibt = n(b?.nibt);
     cols.push({ col: { id: "budget", from: null, to: null, kind: "budget", current: false, forecastBasis: [] }, v: {
       revenue: bRev, cogs: bRev && bGp ? bGp.minus(bRev) : null, gp: bGp, gp_pct: bRev && bGp && !bRev.isZero() ? div(bGp, bRev) : null, opex: n(b?.opex),
       nibt: null, fixed: null, nibt_after: bNibt, nibt_pct: bRev && bNibt && !bRev.isZero() ? div(bNibt, bRev) : null,
+      memo_selisih: null, memo_idle: null, nibt_mgmt: null,
     } });
   } else {
     for (const w of plWeeks(month)) {
@@ -258,7 +277,7 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: {
   }
   return {
     view, month: first, cutOff: opts.cutOff, columns: cols.map((c) => c.col), outlook, fixedMissing: missing,
-    rows: PL_TABLE_ROWS.map((r) => ({ ...r, values: cols.map((c) => c.v[r.key]) })),
+    rows: defs.map((r) => ({ ...r, values: cols.map((c) => c.v[r.key]) })),
   };
 }
 
@@ -285,17 +304,24 @@ export interface CumulativeSeries {
   total: Decimal;
   bandLow: Decimal;
   bandHigh: Decimal;
+  /** K51: the measure is unknown (no fixed nominal): no point is drawn, the total is not a number. */
+  unknown?: boolean;
 }
 
 /** K31: running total of a measure over the month; band ± tolerance × |running forecast part| after the cut-off only. */
-export function cumulativeSeries(metric: CumulativeMetric, month: ISODate, rows: PlRowV4[], cutOff: ISODate, tolerance: Num): CumulativeSeries {
+export function cumulativeSeries(metric: CumulativeMetric, month: ISODate, rows: PlRowV4[], cutOff: ISODate, tolerance: Num, opts: { mode?: CostingRowsMode; fixedMissing?: boolean } = {}): CumulativeSeries {
   const first = firstOfMonth(month), n = daysInMonth(month), tol = D(tolerance);
   const pick = (t: PlTotalsV5) => (metric === "revenue" ? t.revenue : metric === "cogs" ? t.cogs.neg() : metric === "gp" ? t.gp : metric === "nibt" ? t.nibt : t.nibtAfter);
   const dates: ISODate[] = [], daily: Decimal[] = [];
   for (let i = 0; i < n; i++) {
     const d = addDays(first, i);
     dates.push(d);
-    daily.push(pick(plTotalsV5(rows.filter((r) => r.date === d))));
+    daily.push(pick(plTotalsV5(rows.filter((r) => r.date === d), valueOf, opts.mode)));
+  }
+  // R64 (K51): "NIBT after fixed costs" with no fixed nominal at all is unknown — the series draws no point (it is not the journal NIBT)
+  if (metric === "nibt_after" && opts.fixedMissing) {
+    const none = dates.map(() => null);
+    return { metric, dates, daily, actual: none, outlook: none, low: none, high: none, cutIndex: dates.filter((d) => d <= cutOff).length - 1, mtd: null, total: ZERO, bandLow: ZERO, bandHigh: ZERO, unknown: true };
   }
   const cutIndex = dates.filter((d) => d <= cutOff).length - 1;
   const actual: (Decimal | null)[] = [], outlook: (Decimal | null)[] = [], low: (Decimal | null)[] = [], high: (Decimal | null)[] = [];

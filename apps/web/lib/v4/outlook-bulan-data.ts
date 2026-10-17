@@ -10,7 +10,9 @@ import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
 import { must, mustRows } from "../loader";
 import type { AccuracyInput, OutlookBulanInput, VersionRow } from "./outlook-bulan";
-import { isModuleOn, type ModuleSettings } from "../modules-core";
+import { costingModeOf, isModuleOn, type CostingRowsMode, type ModuleSettings } from "../modules-core";
+import { v5CostingMode } from "../v5/pl";
+import { forecastCostText, type ForecastCostLabel } from "../v5/forecast-cost-core";
 import type { Role } from "../roles";
 
 type Row = Record<string, unknown>;
@@ -75,9 +77,11 @@ export async function loadOutlookBulan(sb: Supa, x: {
   let rowsRaw: Row[] = mart;
   let fixedRaw: Row[] = mart.filter((r) => r.basis === "fixed_estimate");
   let effectiveSelected: string | null = null;
+  // R66 (K63): a locked version keeps the definition of its journal columns (absent = 'cogs'); the live page follows the setting
+  let selectedMode: CostingRowsMode = "cogs";
   if (selected) {
-    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[]; fixed_estimate?: Row[] } | null;
-    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; fixedRaw = snap.fixed_estimate ?? []; effectiveSelected = selected; }
+    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[]; fixed_estimate?: Row[]; costing_rows_mode?: string } | null;
+    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; fixedRaw = snap.fixed_estimate ?? []; effectiveSelected = selected; selectedMode = costingModeOf({ costing_rows_mode: snap.costing_rows_mode }); }
   }
   const rows = rowsRaw.length ? plRowsFromMart(rowsRaw as never) : null;
 
@@ -147,6 +151,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
 
   // PRD v5 §4.7 (flag v5_pl): the same rows with the fixed-cost estimate, its sources as the month builder recorded them
   const v5On = isModuleOn(x.settings.v5_pl, x.role);
+  const mode: CostingRowsMode = !v5On ? "cogs" : effectiveSelected ? selectedMode : await v5CostingMode(sb);
   const base = `/m/${first.slice(0, 7)}`;
   const pl: "rr" | "wk" = x.pl === "wk" ? "wk" : "rr";
   const cm = (["revenue", "cogs", "gp", "nibt", "nibt_after"] as const).find((m) => m === x.cm) ?? "revenue";
@@ -161,7 +166,9 @@ export async function loadOutlookBulan(sb: Supa, x: {
   };
   const v5 = v5On && rows ? {
     rows: [...rows, ...plRowsFromMart(fixedRaw.filter((r) => r.basis === "fixed_estimate") as never, { fixedEstimate: true })],
-    fixed: ((lockNote as { fixed?: FixedSource[] }).fixed ?? []), pl, cm: cm as CumulativeMetric, href,
+    fixed: ((lockNote as { fixed?: FixedSource[] }).fixed ?? []), pl, cm: cm as CumulativeMetric, href, mode,
+    // R67: the label of the forecast COGS of the live month (the month builder's note); a locked version has no such note
+    forecastText: effectiveSelected ? null : forecastCostText((lockNote as { forecastCost?: ForecastCostLabel }).forecastCost),
   } : null;
 
   const input: OutlookBulanInput = {

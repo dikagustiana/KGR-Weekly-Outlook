@@ -11,9 +11,22 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
+import { must } from "../loader";
+import { costingModeOf, type CostingRowsMode, type ModuleSettings } from "../modules-core";
 import type { Row } from "../v3/uploads";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
+
+/** R66 (K63): the costing-rows mode stored in app_setting v5_pl ('cogs' without a value). A failed read throws (K41). */
+export async function v5CostingMode(sb: Supa): Promise<CostingRowsMode> {
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  return costingModeOf(data?.value);
+}
+
+/** The mode that applies to a builder or page: only while v5_pl is on; with it off the v5 rows are not shown and the v4 totals stay as they were. */
+export async function costingModeFor(sb: Supa, settings: ModuleSettings): Promise<CostingRowsMode> {
+  return settings.v5_pl?.enabled ? v5CostingMode(sb) : "cogs";
+}
 
 /** P&L lines of the last month before `before` that has a FINAL version (its journal per line), or null. */
 export async function lastFinalLines(sb: Supa, before: string): Promise<{ month: string; byLine: Record<string, string> } | null> {
