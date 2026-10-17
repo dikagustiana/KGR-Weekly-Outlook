@@ -58,13 +58,15 @@ export interface InputV5Input {
   params: ParamLine[];
   grid: { weekStart: string; days: string[]; rows: GridRow[]; override: { reason: string; by: string | null } | null } | null;
   kinds: UploadKindV5[];
+  /** PRD v5.1 R35: the v4 upload wizard of the running week (journal, stock card, delivery); null = no week. */
+  uploadHref?: string | null;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const day = (d: string) => `${DAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.slice(8, 10))}`;
-const CELL: Record<CellStatus, string> = { passed: "✓ lolos", noted: "! catatan", late: "✕ terlambat", not_due: "belum jatuh tempo" };
-const TONE = { plain: undefined, warn: undefined, bad: "worse" } as const;
+/** PRD v5.1 R36 (v4 §5.1): the status in words, no icon and no colour; colour is for negative numbers only. */
+const CELL: Record<CellStatus, string> = { passed: "lolos", noted: "catatan", late: "terlambat", not_due: "belum jatuh tempo" };
 const KIND_LABEL: Record<UploadKindV5, string> = {
   po_lines: "PO", costing_wp: "WP potong", yield_matrix: "Yield per kelas", lb_supply: "Supply LB per kelas", fixed_cost: "Jadwal beban tetap", supplier_invoice: "Faktur pemasok",
 };
@@ -85,7 +87,7 @@ export function headlineOf(x: InputV5Input): { text: string; sub: string } {
   const open = x.tasks.filter((t) => t.status === "open");
   if (x.role === "finance" && x.grid) {
     const red = x.grid.rows.filter((r) => r.cells.some((c) => c.status === "late"));
-    if (red.length && !x.grid.override) return { text: `Rilis minggu ${tglShort(x.grid.weekStart)} tertahan: ${red.map((r) => r.title).join(", ")} lewat tenggat.`, sub: "Kelengkapan data dicek sebelum rilis. Merah = lewat tenggat, kuning = masuk dengan catatan." };
+    if (red.length && !x.grid.override) return { text: `Rilis minggu ${tglShort(x.grid.weekStart)} tertahan: ${red.map((r) => r.title).join(", ")} lewat tenggat.`, sub: "Kelengkapan data dicek sebelum rilis: terlambat menahan rilis, catatan tidak." };
   }
   if (late.length) return { text: `${late.length} tugas terlambat: ${late.slice(0, 3).map((t) => t.title).join("; ")}.`, sub: late[0].impact };
   if (noted.length) return { text: `${noted.length} input masuk dengan catatan: ${noted.slice(0, 2).map((t) => t.title).join("; ")}.`, sub: noted[0].impact };
@@ -116,7 +118,7 @@ export function inputV5Model(x: InputV5Input, base = "/input"): { title: string;
   tiles.push({ id: "headline", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: `${h.text} ${h.sub}` } });
   x.cards.slice(0, 4).forEach((c, i) => tiles.push({
     id: `c-${i}`, pos: P(i * 3, 2, 3, 2), kind: "card", title: c.title,
-    content: { type: "card", value: c.value, compare: [{ label: c.sub, value: "", tone: TONE[c.tone] }] },
+    content: { type: "card", value: c.value, compare: [{ label: c.sub, value: "" }] },
   }));
 
   // tasks: title, due, status (as text), impact; a task of an upload kind opens its panel
@@ -135,12 +137,16 @@ export function inputV5Model(x: InputV5Input, base = "/input"): { title: string;
     tiles.push({
       id: "panel", pos: P(5, 4, 7, 5), kind: "tall", title: `Kelengkapan data · ${tglShort(g.days[0])}–${tglShort(g.days[g.days.length - 1])}`,
       views: x.kinds.length ? [{ label: "Panel", current: "grid", options: [{ value: "grid", label: "Kelengkapan", href: href({ panel: "grid" }) }, ...x.kinds.map((k) => ({ value: k, label: `Upload ${KIND_LABEL[k]}`, href: href({ panel: k }) }))] }] : undefined,
-      note: g.override ? `Override K35 tercatat: ${g.override.reason}${g.override.by ? ` (${g.override.by})` : ""}.` : "Rilis aktif bila tidak ada sel merah untuk minggu yang dirilis, atau sel merah sudah diberi alasan dan disetujui Finance (K35).",
+      note: g.override ? `Override K35 tercatat: ${g.override.reason}${g.override.by ? ` (${g.override.by})` : ""}.` : "Rilis aktif bila tidak ada sel terlambat untuk minggu yang dirilis, atau sel terlambat sudah diberi alasan dan disetujui Finance (K35).",
       content: { type: "table", cols, rows },
     });
   } else if (p.type === "upload") {
     const views = x.kinds.length > 1 || x.grid ? [{ label: "Panel", current: p.kind, options: [...(x.grid ? [{ value: "grid", label: "Kelengkapan", href: href({ panel: "grid" }) }] : []), ...x.kinds.map((k) => ({ value: k, label: `Upload ${KIND_LABEL[k]}`, href: href({ panel: k }) }))] }] : undefined;
     tiles.push({ id: "panel", pos: P(5, 4, 7, 5), kind: "tall", title: `Upload dan cek · ${KIND_LABEL[p.kind]}`, views, note: UPLOAD_TEMPLATES[p.kind].hint, content: { type: "slot" } });
+  } else if (x.role === "inventory_accounting" && x.uploadHref) {
+    // R35: the uploads of Inventory Accounting are the v4 wizard's; each row opens it
+    const rows: TRow[] = ["Jurnal Accurate", "Stok awal", "Kartu stok", "Pengiriman"].map((k) => ({ id: k, href: x.uploadHref!, cells: { k, w: "Upload (wizard v4)" } }));
+    tiles.push({ id: "panel", pos: P(5, 4, 7, 5), kind: "tall", title: "Upload dan cek", note: "Tugas dan status di kiri dihitung dari data itu.", content: { type: "table", cols: [{ key: "k", label: "Data", kind: "key" }, { key: "w", label: "Di" }], rows } });
   } else {
     const items = x.role === "inventory_accounting"
       ? ["Jurnal Accurate, stok awal, kartu stok dan pengiriman diunggah lewat wizard v4 (§4.4) dari menu Upload; tugas dan status di kiri dihitung dari data itu."]

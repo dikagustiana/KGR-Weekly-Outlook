@@ -8,7 +8,7 @@ import { tgl } from "@/lib/fmt";
  * PRD v5 §4.1 on the costing page (flag v5_costing): status of every RPA batch's cost and the planCost numbers the
  * ledger and Commercial carry (estimasi / sementara), with C53, C54, C57. Every number comes from @kgr/engine.
  */
-export function CostingV5({ batches, controls, showControls }: { batches: V5BatchCost[]; controls: ControlV3[]; showControls: boolean }) {
+export function CostingV5({ batches, controls, showControls, sinceMissing = false }: { batches: V5BatchCost[]; controls: ControlV3[]; showControls: boolean; sinceMissing?: boolean }) {
   const open = batches.filter((b) => b.result);
   return (
     <>
@@ -53,6 +53,7 @@ export function CostingV5({ batches, controls, showControls }: { batches: V5Batc
           </table>
         </Card>
       ) : null}
+      {sinceMissing ? <p className="muted" data-since-missing="">Tanggal mulai v5 costing belum diisi: revaluasi lot (K22) tidak dijalankan sampai Admin mengisinya di Admin → Modul (v5_costing, mulai).</p> : null}
       {showControls ? <Card title="Kontrol costing v5"><ControlsV3Table controls={controls} /></Card> : null}
     </>
   );

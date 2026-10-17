@@ -12,7 +12,7 @@ import { loadPlanning } from "@/lib/v3/planning";
 import { loadPpicV5 } from "@/lib/v5/ppic-data";
 import { ppicV5Model } from "@/lib/v5/ppic";
 import { num, tglShort } from "@/lib/fmt";
-import { copyClassPlanAction, saveClassPlanAction, setCapacityAction } from "./actions";
+import { copyClassPlanAction, reasonAction, saveClassPlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
 
 /** PRD v5 §6.3 PPIC · Rencana (flag v5_ppic_class): demand per size → class → kg LB, weekly and daily plan per class. */
@@ -38,11 +38,21 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
       </ActionForm>,
       input.saveBlockers.length ? `Belum bisa disimpan: ${input.saveBlockers.join(", ")}` : c42 && c42 !== "LULUS" ? "yield sementara: boleh disimpan, tidak boleh disalin ke batch" : null,
     );
+    // PRD v5.1 R29: C58 (supply short of the class need) opens with a written reason; C57 never does (§7)
+    const c58Open = input.copyBlockers.some((b) => b.startsWith("C58 "));
     extras["t-harian"] = bar(
-      <ActionForm v4 action={copyClassPlanAction} submit="Salin ke batch rencana" disabled={!latest || input.copyBlockers.length > 0} confirm="Batch rencana minggu ini (salinan sebelumnya) diganti. Lanjut?">
-        <input type="hidden" name="week" value={week} /><input type="hidden" name="plan_id" value={latest ? String(latest.id) : ""} />
-      </ActionForm>,
-      !latest ? "Simpan rencana dulu" : input.copyBlockers.length ? `Belum bisa: ${input.copyBlockers.join(", ")}` : null,
+      <>
+        <ActionForm v4 action={copyClassPlanAction} submit="Salin ke batch rencana" disabled={!latest || input.copyBlockers.length > 0} confirm="Batch rencana minggu ini (salinan sebelumnya) diganti. Lanjut?">
+          <input type="hidden" name="week" value={week} /><input type="hidden" name="plan_id" value={latest ? String(latest.id) : ""} />
+        </ActionForm>
+        {c58Open ? (
+          <ActionForm v4 action={reasonAction} submit="Simpan alasan C58" className="tile-form">
+            <input type="hidden" name="week" value={week} /><input type="hidden" name="code" value="C58" />
+            <input name="reason" size={36} placeholder="alasan supply LB kurang dari kebutuhan kelas" aria-label="alasan C58" />
+          </ActionForm>
+        ) : null}
+      </>,
+      !latest ? "Simpan rencana dulu" : input.copyBlockers.length ? `Belum bisa: ${input.copyBlockers.join(", ")}${input.copyBlockers.some((b) => b.startsWith("C57 ")) ? " (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian)" : ""}` : input.c58Reason ? `C58 dengan alasan: ${input.c58Reason}` : null,
     );
   }
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));

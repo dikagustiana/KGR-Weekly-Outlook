@@ -29,7 +29,7 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   const c = await clock(sb);
   const today = c.data;
   const sales = viewer.role === "sales";
-  const mart = await commercialMart(sb, today, sales);
+  const mart = await commercialMart(sb, today, sales, isModuleOn(settings.v5_costing, viewer.role));
   const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);
   const own = (asg ?? []) as { key: string | null }[];
   const todayWeek = (await listWeeks(sb)).find((w) => w.week_start <= today && w.week_end >= today) ?? null;

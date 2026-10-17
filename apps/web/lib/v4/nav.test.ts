@@ -33,9 +33,13 @@ describe("v4 navigation per role (PRD v4 §5.4)", () => {
 
 describe("v5/5: Input (flag v5_input)", () => {
   const v5 = { ...allOn, v5_input: { enabled: true } };
-  it("one Input item replaces Upload; at most 7 items; off = Upload as before", () => {
+  it("PRD v5.1 R35: Input has its own item; the v4 wizard Upload stays next to it; at most 7 items; off = Upload as before", () => {
     for (const r of ROLES) expect(v4Nav(r, v5, ctx).length, r).toBeLessThanOrEqual(NAV_MAX);
-    expect(v4Nav("cost_accounting", v5, ctx).map((n) => [n.label, n.href])).toEqual([["Costing", "/w/2026-08-24/costing"], ["Kontrol costing", "/w/2026-08-24/kontrol"], ["Input", "/input"]]);
+    expect(v4Nav("cost_accounting", v5, ctx).map((n) => [n.label, n.href])).toEqual([["Costing", "/w/2026-08-24/costing"], ["Kontrol costing", "/w/2026-08-24/kontrol"], ["Input", "/input"], ["Upload", "/w/2026-08-24/upload"]]);
+    expect(v4Nav("inventory_accounting", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
+    expect(v4Nav("sales", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
+    expect(v4Nav("ppic", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
+    // Finance has eight items with both: the v4 §5.4 limit of 7 leaves Upload out of the row (Q-v5.1-25, owner)
     expect(v4Nav("finance", v5, ctx).map((n) => n.label)).toEqual(["Outlook bulan", "Biaya tetap & driver", "Tutup buku", "Kas", "Rilis", "Kontrol", "Input"]);
     expect(v4Nav("finance", allOn, ctx).map((n) => n.label).pop()).toBe("Upload");
     expect(v4Nav("management", v5, ctx).map((n) => n.label).pop()).toBe("Input");

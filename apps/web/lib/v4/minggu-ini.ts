@@ -19,6 +19,7 @@ import type { TilePos } from "@/components/v4/Tile";
 import { mingguIniV5, type MingguIniV5Pl } from "../v5/pl-tiles";
 import { managementV5, type ManagementV5Input } from "../v5/management";
 import { withFailures, type Failed } from "./tile-errors";
+import { statusMode } from "../v5/cost-status";
 
 export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
@@ -69,7 +70,8 @@ export interface MingguIniModel {
 
 export interface StockMart {
   date: string;
-  keys: { key: string; over_age_kg: string | null; cost_per_kg_ma: string | null }[];
+  /** `cost_status` (K20, flag v5_costing for the role): the status of the key's cost in sku_balance_daily. */
+  keys: { key: string; over_age_kg: string | null; cost_per_kg_ma: string | null; cost_status?: string | null }[];
   lots: { key: string; kg: string; age_days: number | null; cost_per_kg_ma: string | null }[];
   /** Extra columns for the 7-SKU table (orders rest of week, reference price), by key. */
   info?: Record<string, { ordersRest?: string | null; refPrice?: string | null }>;
@@ -91,7 +93,8 @@ export interface MingguIniInput {
   lastWeek: WeekOutlook["lastWeek"];
   stock: StockMart | null;
   /** cash_position_daily (M6) for the 7 days; null = use the weekly cash flow. */
-  cashMart: { date: string; closing: string | null; planned: boolean }[] | null;
+  /** `without` = closing without the affiliate loans received (closing_without_affiliate); null = not built. */
+  cashMart: { date: string; closing: string | null; planned: boolean; without?: string | null }[] | null;
   month: { label: string; revenue: string; gp: string; gpPct: string | null; budgetRevenue: string | null; budgetGp: string | null } | null;
   /** `basis` = the NIBT the months rest on; null = unknown (K52: no fixed nominal), not "profit". */
   solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; interest: string | null } | null;
@@ -166,6 +169,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   const over = x.on.m2 && x.stock ? stockOverAge(x.stock.keys) : null;
   const stockValue = over ? over.value : stockFallback ? stockFallback.value : null;
   const cashLowest = x.on.m6 && x.cashMart ? lowestOf(x.cashMart) : { date: cash.lowest.date, balance: cash.lowest.balance, average: cash.average };
+  const withoutDays = x.on.m6 && x.cashMart ? x.cashMart.filter((d) => d.without !== null && d.without !== undefined).map((d) => D(d.without!)) : null;
+  const withoutLowest: Decimal | null = withoutDays === null ? cash.lowestWithoutAffiliate : withoutDays.length ? withoutDays.reduce((m, v) => (v.lt(m) ? v : m)) : null;
 
   const headline = weekHeadline({
     outlook: wo, segments: r.block1.map((s) => ({ segment: s.segment, gpProjection: s.gpProjection })),
@@ -228,7 +233,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       type: "card", value: cashLowest ? jtV4(cashLowest.balance) : null, unit: "Rp jt", negative: cashLowest ? cashLowest.balance.lt(0) : false,
       compare: cashLowest ? [
         { label: "hari", value: `${dayName(cashLowest.date)} ${tglShort(cashLowest.date)}` },
-        ...(x.on.m6 && x.cashMart ? [] : [{ label: "tanpa afiliasi", value: `${jtV4(cash.lowestWithoutAffiliate)} jt`, tone: tone(cash.lowestWithoutAffiliate) } as CardCompare]),
+        // PRD v5.1 R37: the line without affiliate loans is always there; from the cash mart its lowest closing_without_affiliate
+        ...(withoutLowest !== null ? [{ label: "tanpa pinjaman afiliasi", value: `${jtV4(withoutLowest)} jt`, tone: tone(withoutLowest) } as CardCompare] : [{ label: "tanpa pinjaman afiliasi", value: "belum ada" }]),
       ] : [],
       href: x.on.m6 ? "/kas" : `/w/${x.week.start}/arus-kas`,
     },
@@ -311,13 +317,17 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   const segCols: Col[] = x.mode === "aktual"
     ? [{ key: "seg", label: "Segmen", kind: "key" }, { key: "kg", label: "kg aktual", num: true }, { key: "rev", label: "Revenue aktual", num: true }, { key: "gp", label: "GP aktual", num: true, kind: "key" }, { key: "pct", label: "GP %", num: true }, { key: "lw", label: "GP/kg lalu", num: true, kind: "sup" }]
     : [{ key: "seg", label: "Segmen", kind: "key" }, { key: "kg", label: "kg", num: true }, { key: "rev", label: "Revenue", num: true }, { key: "gpa", label: "GP aktual", num: true, kind: "sup" }, { key: "gpo", label: "GP order", num: true, kind: "sup" }, { key: "gp", label: "GP produk", num: true, kind: "key" }, { key: "pct", label: "GP %", num: true }, { key: "lw", label: "GP/kg lalu", num: true, kind: "sup" }, { key: "d", label: "Δ GP/kg", num: true }];
+  // PRD v5.1 R39 (K20): the cost status of the segment's stock (one status, or "campur"), only when the mart has one
+  const statusOfKey = new Map((x.stock?.keys ?? []).map((k) => [k.key, k.cost_status ?? null]));
+  const segStatus = (seg: string) => statusMode([...statusOfKey].filter(([k]) => seg === "TOTAL KGR" || k.startsWith(`${seg === "RPA" ? "RPA" : "Trading"}|`)).map(([, v]) => v));
+  if ([...statusOfKey.values()].some((v) => v)) segCols.push({ key: "cs", label: "Status biaya", kind: "sup" });
   const segRows: TRow[] = [];
   for (const s of segs) {
     const isTot = s.segment === "TOTAL KGR";
     const cells = x.mode === "aktual"
       ? { seg: s.segment === "TOTAL KGR" ? "Total" : s.segment, kg: num(s.kgActual, 0), rev: jtV4(s.revenueActual), gp: jtV4(s.gpActual), pct: s.revenueActual.isZero() ? "—" : pctV4(s.gpActual.div(s.revenueActual)), lw: rpkg(s.gpPerKgLastWeek) }
       : { seg: s.segment === "TOTAL KGR" ? "Total" : s.segment, kg: num(s.kgProjection, 0), rev: jtV4(s.revenueProjection), gpa: jtV4(s.gpActual), gpo: jtV4(s.gpOrder), gp: jtV4(s.gpProjection), pct: pctV4(s.gpPct), lw: rpkg(s.gpPerKgLastWeek), d: num(s.deltaGpPerKg, 0) };
-    segRows.push({ id: s.segment, cells, kind: isTot ? "total" : undefined, href: isTot ? undefined : q({ segmen: x.segmen === s.segment ? null : s.segment }), on: x.segmen === s.segment });
+    segRows.push({ id: s.segment, cells: { ...cells, cs: segStatus(s.segment) ?? "" }, kind: isTot ? "total" : undefined, href: isTot ? undefined : q({ segmen: x.segmen === s.segment ? null : s.segment }), on: x.segmen === s.segment });
     if (s.segment === "RPA" && b6) segRows.push({ id: "rpa-trigger", kind: "sub", span: true, cells: { seg: `harga LB rata-rata ${rpkg(b6.avgLbPrice)} vs breakeven ${rpkg(b6.breakevenLb)} Rp/kg` } });
   }
   tiles.push({
@@ -402,7 +412,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
           cols: [{ key: "k", label: "SKU", kind: "key" }, { key: "kg", label: "kg", num: true }, { key: "rp", label: "Rp jt", num: true }, { key: "age", label: "Umur", num: true }, { key: "ord", label: "Order sisa kg", num: true }, { key: "c", label: "Biaya/kg", num: true, kind: "sup" }, { key: "ref", label: "Harga acuan", num: true, kind: "sup" }],
           rows: ages.filter((a) => !x.sku || a.key === x.sku).map((a) => {
             const info = x.stock!.info?.[a.key];
-            return { id: a.key, cells: { k: a.key.replace(/^(RPA|Trading)\|/, "").replace(/\|/g, " "), kg: num(a.kg, 0), rp: a.value ? jtV4(a.value) : "belum diisi", age: a.maxAge === null ? "—" : String(a.maxAge), ord: info?.ordersRest ? num(info.ordersRest, 0) : "0", c: a.value && !a.kg.isZero() ? num(a.value.div(a.kg), 0) : "belum diisi", ref: info?.refPrice ? num(info.refPrice, 0) : "belum diisi" } };
+            return { id: a.key, cells: { k: a.key.replace(/^(RPA|Trading)\|/, "").replace(/\|/g, " "), kg: num(a.kg, 0), rp: a.value ? jtV4(a.value) : "belum diisi", age: a.maxAge === null ? "—" : String(a.maxAge), ord: info?.ordersRest ? num(info.ordersRest, 0) : "0", c: a.value && !a.kg.isZero() ? `${num(a.value.div(a.kg), 0)}${statusOfKey.get(a.key) ? ` ${statusOfKey.get(a.key)}` : ""}` : "belum diisi", ref: info?.refPrice ? num(info.refPrice, 0) : "belum diisi" } };
           }),
         },
       },

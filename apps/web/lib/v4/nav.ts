@@ -37,8 +37,9 @@ const D: Record<string, Def> = {
   alokasi: { id: "alokasi", label: "Alokasi hari ini", href: (c) => `/hari/${c.today}/alokasi`, module: "m3_planning" },
   batch: { id: "batch", label: "Batch", href: w("input/batch") },
   upload: { id: "upload", label: "Upload", href: w("upload") },
-  // PRD v5 §6.4 (flag v5_input): one Input screen for every role; same id, so it replaces "Upload" in the row
-  input: { id: "upload", label: "Input", href: () => "/input", module: "v5_input" },
+  // PRD v5 §6.4 (flag v5_input): one Input screen for every role. PRD v5.1 R35: its own id — the v4 wizard "Upload"
+  // stays next to it for the roles with v4 upload kinds (journal, stock card, delivery, PO, yield, supply, costing)
+  input: { id: "input", label: "Input", href: () => "/input", module: "v5_input" },
   pesanan: { id: "pesanan", label: "Pesanan", href: w("input/penjualan") },
   approval: { id: "approval", label: "Approval", href: () => "/komersial/approval", module: "m7_approval" },
   scorecard: { id: "scorecard", label: "Scorecard", href: () => "/komersial/scorecard", module: "m7_approval" },

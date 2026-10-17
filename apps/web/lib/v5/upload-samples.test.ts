@@ -46,7 +46,8 @@ describe("Lampiran B.5 — upload contoh", () => {
 
   it("angka acuan B.5", () => {
     const po = expected.po_lines, wp = expected.costing_wp, y = expected.yield_matrix;
-    expect([po.total, po.ok_count]).toEqual([7, 4]);
+    // PRD v5.1 O15 (po_unsized_mode = warn): Karkas Mix without size is saved as STD, 7 → 5 (was 4)
+    expect([po.total, po.ok_count]).toEqual([7, 5]);
     expect(po.rows.filter((r) => /< lantai/.test(r.action)).length).toBe(5);
     expect(po.rows.find((r) => r.ref === "KGR26.00341")?.action).toMatch(/ukuran karkas kosong/);
     expect([wp.total, wp.ok_count]).toEqual([8, 6]);

@@ -102,9 +102,11 @@ describe("Finance: completeness grid (K35, journey P)", () => {
     expect(t).toMatch(/Kelengkapan data · 24 Agu–29 Agu/);
     expect(t).toMatch(/Input Pemilik Sen 24 Sel 25 Rab 26 Kam 27 Jum 28 Sab 29/);
     expect(t).toMatch(/WP potong per batch Cost Accounting/);
-    expect(t).toMatch(/✕ terlambat \(B260825\)/);
-    expect(t).toMatch(/! catatan \(B260826\)/);
-    expect(t).toMatch(/Rilis aktif bila tidak ada sel merah/);
+    expect(t).toMatch(/terlambat \(B260825\)/);
+    // PRD v5.1 R36: words only, no icon
+    expect(t).not.toMatch(/[✓✕!] (lolos|terlambat|catatan)/);
+    expect(t).toMatch(/terlambat \(B260825\) catatan \(B260826\)/);
+    expect(t).toMatch(/Rilis aktif bila tidak ada sel terlambat/);
   });
   it("headline: the release is held by the red rows; an override is shown once recorded", () => {
     expect(headlineOf(input("finance")).text).toBe("Rilis minggu 24 Agu tertahan: WP potong per batch lewat tenggat.");

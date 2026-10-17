@@ -33,7 +33,7 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
   const sb = await supabaseServer();
   const date = sp.date && isISODate(sp.date) ? sp.date : (await clock(sb)).data;
   const sales = v.role === "sales";
-  const mart = await commercialMart(sb, date, sales);
+  const mart = await commercialMart(sb, date, sales, await moduleEnabled("v5_costing", v));
   const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);
   const own = (asg ?? []) as { key: string | null }[];
   const assignedKeys = assignedKeysFor(v.role, own);

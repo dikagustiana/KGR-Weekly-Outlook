@@ -25,7 +25,7 @@ afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 describe("Manajemen v5 on the wall clock (K38)", () => {
   it("data 27 Aug, wall 17 Oct: the decision is for 18 Oct and the simulation names both dates", async () => {
     const sb = fakeSb({ rows: { week: [{ update_date: "2026-08-27" }] } });
-    const m = await loadManagementV5(sb as never, week, r, {}, null);
+    const m = await loadManagementV5(sb as never, week, r, {}, null, "operations_director");
     expect(m.sim.cutDate).toBe("2026-10-18");
     expect(m.sim.dataDate).toBe("2026-08-27");
     expect(m.decisions[0]?.title).toBe("Harga live bird untuk potong Min 18/10");
@@ -36,7 +36,7 @@ describe("Manajemen v5 on the wall clock (K38)", () => {
   });
   it("current data: one date, no double label", async () => {
     const sb = fakeSb({ rows: { week: [{ update_date: "2026-10-17" }] } });
-    const m = await loadManagementV5(sb as never, week, r, {}, null);
+    const m = await loadManagementV5(sb as never, week, r, {}, null, "operations_director");
     expect(m.sim.cutDate).toBe("2026-10-18");
     expect(managementV5([], m, { at: 8 }).find((t) => t.id === "sim-lb")!.note).not.toMatch(/^Data per/);
   });
@@ -46,7 +46,7 @@ describe("a failing read shows on its tile (K41)", () => {
   it("discount_approval refused: 'Perlu keputusan' is in state error, the simulation is not", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const sb = fakeSb({ rows: { week: [{ update_date: "2026-08-27" }] }, fail: { discount_approval: "permission denied for table discount_approval" } });
-    const m = await loadManagementV5(sb as never, week, r, {}, null);
+    const m = await loadManagementV5(sb as never, week, r, {}, null, "operations_director");
     const tiles = managementV5([], m, { at: 8 });
     expect(tiles.find((t) => t.id === "keputusan")?.error).toContain("permission denied for table discount_approval");
     expect(tiles.find((t) => t.id === "sim-lb")?.error).toBeUndefined();
@@ -58,7 +58,7 @@ describe("a failing read shows on its tile (K41)", () => {
   it("the source labels refused: each label says so (never an empty 'belum ada')", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const sb = fakeSb({ rows: { week: [{ update_date: "2026-08-27" }] }, fail: { gl_line: "column gl_line.created_at does not exist" } });
-    const m = await loadManagementV5(sb as never, week, r, {}, null);
+    const m = await loadManagementV5(sb as never, week, r, {}, null, "operations_director");
     expect(m.sources["c-outlook"]).toEqual({ text: expect.stringMatching(/^gagal dimuat \(manajemen: label sumber — label sumber jurnal: column gl_line.created_at does not exist\)$/), late: true });
   });
   it("the whole loader failing keeps both tiles in place with the message", async () => {

@@ -46,8 +46,14 @@ export interface PpicV5Input {
   /** Why save / copy are not possible now (control codes with their status); empty = possible. */
   saveBlockers: string[];
   copyBlockers: string[];
+  /** PRD v5.1 R29: the written reason that lets C58 (supply short of the class need) open the copy; null = none. */
+  c58Reason?: string | null;
+  /** R39 (K20): cost status of this week's actual batches (estimasi / sementara / final / campur); null = v5_costing off or none. */
+  batchStatus?: string | null;
 }
 
+/** PRD v5.1 R30: "dalam n kelas berat", or STD alone (no weight class filled by PPIC yet) — STD is not a class. */
+export const classWords = (n: number) => (n === 0 ? "dalam kelas STD (kelas berat belum diisi PPIC)" : `dalam ${n} kelas berat`);
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
 const kg = (v: Decimal | null | undefined) => (v === null || v === undefined ? "belum diisi" : minus(num(v, 0)));
 const rp = kg;
@@ -85,7 +91,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
     id: "headline", pos: P(0, 1, 12, 1), kind: "bare",
     content: {
       type: "headline",
-      text: `Order ${shipRange} butuh ${kg(d.total.kg_lb)} kg LB dalam ${classes.length} kelas berat (± ${kg(d.total.heads)} ekor)${x.batch ? `; batch rencana di input ${kg(x.batch.kgLb)} kg LB, ${over && over.gt(0) ? `${kg(over)} kg di atas kebutuhan` : over && over.lt(0) ? `${kg(over.neg())} kg di bawah kebutuhan` : "sama dengan kebutuhan"}` : ""}.`,
+      text: `Order ${shipRange} butuh ${kg(d.total.kg_lb)} kg LB ${classWords(classes.length)} (± ${kg(d.total.heads)} ekor)${x.batch ? `; batch rencana di input ${kg(x.batch.kgLb)} kg LB, ${over && over.gt(0) ? `${kg(over)} kg di atas kebutuhan` : over && over.lt(0) ? `${kg(over.neg())} kg di bawah kebutuhan` : "sama dengan kebutuhan"}` : ""}.`,
     },
   });
 
@@ -145,7 +151,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
     const c = x.needCost;
     oRows = (c?.lines ?? []).map((l) => ({ id: l.key, cells: { s: l.key.replace(/^RPA\|/, "").replace("|", " "), o: kg(l.kg), f: kg(l.kg), z: "0", p: l.priceRef === null ? "belum diisi" : rp(l.priceRef), c: l.costPerKg === null ? "—" : rp(l.costPerKg), dg: "0,0" } }));
     planCards = [
-      `kg LB · ${classes.length} kelas: ${kg(d.total.kg_lb)} (± ${kg(d.total.heads)} ekor)`,
+      `kg LB · ${classes.length ? `${classes.length} kelas` : "STD"}: ${kg(d.total.kg_lb)} (± ${kg(d.total.heads)} ekor)`,
       c ? `Biaya rencana Rp ${jtV4(c.costPool)} jt di LB ${rp(x.lbPrice.price)}` : "Biaya rencana: harga LB belum diputuskan",
       c ? `GP rencana Rp ${jtV4(c.gp)} jt${c.value.isZero() ? "" : ` (${pctV4(c.gp.div(c.value))})`}` : "",
       "Frozen terencana 0 kg: semua output ke PO",
@@ -221,7 +227,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
   tiles.push({
     id: "t-batch", pos: P(7, 16, 5, 3), title: "Batch aktual vs rencana · WP H+1",
     content: { type: "table", cols: [{ key: "k", label: "", kind: "key" }, { key: "lb", label: "kg LB", num: true }, { key: "sh", label: "Shrink", num: true }, { key: "y", label: "Yield", num: true }, { key: "c", label: "Biaya" }], rows: [
-      { id: "a", cells: { k: "Aktual", lb: a && !a.lbKg.isZero() ? kg(a.lbKg) : "belum ada", sh: a?.shrink ? pctV4(a.shrink) : "", y: a?.karkasYield ? pctV4(a.karkasYield) : "", c: "sementara" } },
+      { id: "a", cells: { k: "Aktual", lb: a && !a.lbKg.isZero() ? kg(a.lbKg) : "belum ada", sh: a?.shrink ? pctV4(a.shrink) : "", y: a?.karkasYield ? pctV4(a.karkasYield) : "", c: x.batchStatus ?? "" } },
       { id: "r", cells: { k: "Rencana", lb: r && !r.lbKg.isZero() ? kg(r.lbKg) : "belum ada", sh: r?.shrink ? pctV4(r.shrink) : "", y: r?.karkasYield ? pctV4(r.karkasYield) : "", c: "rencana" } },
       { id: "t", cells: { k: "Target", lb: "", sh: b6 ? pctV4(b6.target.shrink) : "", y: b6 ? pctV4(b6.target.karkasYield) : "", c: "" } },
     ] },

@@ -6,7 +6,7 @@ import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { getWeek } from "@/lib/data";
 import { approvePlan, copyPlanToBatches, loadPlanning, savePlan } from "@/lib/v3/planning";
-import { loadClassDemand, planWeekClassRows } from "@/lib/v5/ppic-data";
+import { c57Of, copyBlockersOf, loadClassDemand, planWeekClassRows } from "@/lib/v5/ppic-data";
 import { WriteError } from "@/lib/write";
 
 export type ActionState = { ok?: string; error?: string };
@@ -54,14 +54,17 @@ export async function saveClassPlanAction(_: ActionState, form: FormData): Promi
   } catch (e) { return { error: (e as Error).message }; }
 }
 
-/** Copy to batch (v5): the v4 rules (C42, C45, C46, C47) and C58 LULUS, or C58 with a written reason. */
+/**
+ * Copy to batch (v5): the v4 rules (C42, C45, C46, C47, checked again by copyPlanToBatches), C57 LULUS (PRD v5.1 R29:
+ * no reason opens it) and C58 LULUS, or C58 with a written reason — the same rule as the page (copyBlockersOf).
+ */
 export async function copyClassPlanAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
     await requireModuleAction("v5_ppic_class", ["admin", "ppic"]);
     const { sb, week } = await ctx(form, ["admin", "ppic"]);
     const src = await loadPlanning(sb, week);
-    const c58 = (await loadClassDemand(sb, src)).controls.find((c) => c.code === "C58");
-    if (c58 && c58.status !== "LULUS" && !src.reasons.some((r) => r.code === "C58")) throw new WriteError(`C58 ${c58.status}: ${c58.action}`);
+    const held = copyBlockersOf((await loadClassDemand(sb, src)).controls, await c57Of(sb, src.week), src.reasons);
+    if (held.length) throw new WriteError(`Belum bisa disalin ke batch: ${held.join(", ")}`);
     const msg = await copyPlanToBatches(sb, week, String(form.get("plan_id")));
     done(week.week_start);
     return { ok: msg };
@@ -111,6 +114,8 @@ export async function reasonAction(_: ActionState, form: FormData): Promise<Acti
     const code = String(form.get("code") ?? "");
     const reason = String(form.get("reason") ?? "").trim();
     if (!/^C\d{2}$/.test(code)) return { error: "Kode kontrol tidak dikenal" };
+    // PRD v5.1 R29 (§7): C57 holds without exception — the operations director decides the LB price
+    if (code === "C57") return { error: "C57 tidak bisa diberi alasan: tunggu keputusan harga LB Direktur Operasional" };
     if (reason.length < 5) return { error: "Tulis alasannya (paling sedikit 5 huruf)" };
     const { error } = await sb.from("plan_check_reason").insert({ week_start: week.week_start, code, reason });
     if (error) return { error: error.message.includes("duplicate") ? "Alasan untuk kontrol ini sudah ada" : error.message };

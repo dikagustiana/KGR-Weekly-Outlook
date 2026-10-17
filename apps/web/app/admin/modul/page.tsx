@@ -8,6 +8,8 @@ import { MODULE_KEYS, MODULE_LABEL, moduleSettings } from "@/lib/modules";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
 import { processQueue, queueDates, setFlag } from "./actions";
+import { must } from "@/lib/loader";
+import { sinceOf } from "@/lib/v5/costing";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,8 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
   const queue = (q ?? []) as QueueRow[];
   const queued = queue.filter((r) => r.status === "queued").length;
   const today = (await clock(sb)).data;
+  // PRD v5.1 R40: the start date of v5 costing (value.since) is set here; without it the lot revaluation does not run
+  const since = sinceOf((must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null)?.value);
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/modul">
       <h1>Modul v3</h1>
@@ -43,6 +47,7 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
                     <ActionForm action={setFlag} submit="Simpan" className="row">
                       <input type="hidden" name="key" value={k} />
                       <label className="row" style={{ gap: 4 }}><input type="checkbox" name="enabled" value="1" defaultChecked={on} /> aktif</label>
+                      {k === "v5_costing" ? <label className="row" style={{ gap: 4 }}>mulai <input name="since" type="date" defaultValue={since ?? ""} aria-label="tanggal mulai v5 costing" /></label> : null}
                       {ROLES.map((r) => (
                         <label key={r} className="row" style={{ gap: 2 }}>
                           <input type="checkbox" name={`role_${r}`} value="1" defaultChecked={!!s?.roles?.includes(r)} /> <span className="muted">{ROLE_LABEL[r]}</span>

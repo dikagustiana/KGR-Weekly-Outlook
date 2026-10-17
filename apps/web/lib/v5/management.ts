@@ -103,17 +103,27 @@ export interface LoopFacts {
   lb: { cutDate: string; price: Decimal | null };
   /** null = no Commercial mart yet; error = the mart could not be read (K41). */
   freeStock: { kg: Decimal; value: Decimal } | { error: string } | null;
+  /** PRD v5.1 R28: rows whose module is off (flag not enabled): "modul belum aktif", never late. */
+  off?: Partial<Record<LoopRow, boolean>>;
 }
+
+export type LoopRow = "commitment" | "planNext" | "costing" | "freeStock";
+/** The module behind each loop row that can be off. */
+export const LOOP_MODULE: Record<LoopRow, "v5_commercial" | "v5_ppic_class" | "v5_costing" | "m7_commercial"> = {
+  commitment: "v5_commercial", planNext: "v5_ppic_class", costing: "v5_costing", freeStock: "m7_commercial",
+};
+const OFF = "modul belum aktif";
 
 /** "Status putaran" (§3.2): the hand-overs of the week, each as the data says. */
 export function loopLines(f: LoopFacts): LoopLine[] {
-  return [
-    { label: "Komitmen Commercial minggu depan", value: f.commitment.locked ? `dikunci${f.commitment.drafts ? ` · ${f.commitment.drafts} SKU masih draft` : ""}` : `belum dikunci · tenggat ${f.commitment.deadline}`, late: !f.commitment.locked && f.commitment.late },
-    { label: "Rencana PPIC minggu depan", value: f.planNext.version !== null ? `versi ${f.planNext.version} tersimpan` : f.commitment.locked ? "belum disusun" : "menunggu komitmen", late: false },
+  const lines: (LoopLine & { row?: LoopRow })[] = [
+    { row: "commitment", label: "Komitmen Commercial minggu depan", value: f.commitment.locked ? `dikunci${f.commitment.drafts ? ` · ${f.commitment.drafts} SKU masih draft` : ""}` : `belum dikunci · tenggat ${f.commitment.deadline}`, late: !f.commitment.locked && f.commitment.late },
+    { row: "planNext", label: "Rencana PPIC minggu depan", value: f.planNext.version !== null ? `versi ${f.planNext.version} tersimpan` : f.commitment.locked ? "belum disusun" : "menunggu komitmen", late: false },
     { label: `Harga LB potong ${dm(f.lb.cutDate)}`, value: f.lb.price ? `Rp ${rp(f.lb.price)} · Direktur Operasional` : "belum diputuskan", late: false },
-    { label: "Costing batch minggu ini", value: `${f.costing.sementara} sementara, ${f.costing.final} final${f.costing.wpLate.length ? ` · WP ${f.costing.wpLate.join(", ")} terlambat` : ""}`, late: f.costing.wpLate.length > 0 },
-    { label: "Stok bebas belum ke PO", value: !f.freeStock ? "belum ada mart Commercial" : "error" in f.freeStock ? `gagal dimuat (${f.freeStock.error})` : `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt`, late: !!f.freeStock && "error" in f.freeStock },
+    { row: "costing", label: "Costing batch minggu ini", value: `${f.costing.sementara} sementara, ${f.costing.final} final${f.costing.wpLate.length ? ` · WP ${f.costing.wpLate.join(", ")} terlambat` : ""}`, late: f.costing.wpLate.length > 0 },
+    { row: "freeStock", label: "Stok bebas belum ke PO", value: !f.freeStock ? "belum ada mart Commercial" : "error" in f.freeStock ? `gagal dimuat (${f.freeStock.error})` : `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt`, late: !!f.freeStock && "error" in f.freeStock },
   ];
+  return lines.map(({ row, ...l }) => (row && f.off?.[row] ? { label: l.label, value: OFF, late: false } : l));
 }
 
 const LABEL: Record<SimBasis, string> = { need: "Kebutuhan PO", batch: "Batch rencana" };

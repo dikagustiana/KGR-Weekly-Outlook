@@ -56,6 +56,12 @@ export function isModuleOn(setting: ModuleSetting | undefined, role: Role | null
   return !setting.roles || setting.roles.length === 0 || setting.roles.includes(role);
 }
 
+/**
+ * PRD v5.1 K54: K25 (the live-bird price is decided by the operations director — simulation, never a recommendation)
+ * holds for a role when v5_costing or v5_management is on for it. One source for Outlook, Rencana v4, print and PDFs.
+ */
+export const k25On = (settings: ModuleSettings, role: Role | null | undefined) => isModuleOn(settings.v5_costing, role) || isModuleOn(settings.v5_management, role);
+
 /** Any module enabled (for any role). None = nothing v3 to rebuild, so v1 flows never touch the v3 tables. */
 export function anyModuleOn(settings: ModuleSettings): boolean {
   return Object.values(settings).some((s) => s?.enabled === true);

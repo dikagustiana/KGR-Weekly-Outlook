@@ -57,6 +57,8 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
     yieldKarkas: { min: s(par.yield_karkas_min) ?? "0.68", max: s(par.yield_karkas_max) ?? "0.76" },
     shrinkTarget: s(par.target_shrink) ?? "0.03",
     tolerance: "0.02",
+    // PRD v5.1 O15: karkas PO lines without size warn (saved as STD) unless the week says fail
+    poUnsizedMode: par.po_unsized_mode === "fail" ? "fail" : "warn",
   };
   if (kind === "po_lines") {
     const sales = viewer.role === "sales";
@@ -141,7 +143,7 @@ function factReaders(sb: Supa): Record<string, FactOf> {
       return !locked ? none : { done: drafts ? "noted" : "passed", note: drafts ? `${drafts} SKU masih draft` : null };
     },
     price_list_lock: async (ref) => {
-      const rows = mustRows<Row>(await sb.from("price_list_week").select("locked_at").eq("week_start", ref), "tugas price_list_lock");
+      const rows = mustRows<Row>(await sb.from("price_list_week").select("locked_at").eq("week_start", ref).is("deleted_at", null), "tugas price_list_lock");
       const locked = rows.filter((r) => r.locked_at).length;
       return !locked ? none : { done: locked === rows.length ? "passed" : "noted", note: locked < rows.length ? `${rows.length - locked} SKU belum terkunci` : null };
     },
@@ -212,7 +214,7 @@ export async function buildInputDay(sb: Supa, date: string): Promise<string> {
   const cells = completenessCells(tasks, rs, now);
   await martReplace(sb, "input_task", date, tasks as unknown as Record<string, unknown>[]);
   await martReplace(sb, "input_completeness_daily", date, cells as unknown as Record<string, unknown>[]);
-  return `${tasks.length} tugas, ${cells.filter((c) => c.status === "late").length} sel merah`;
+  return `${tasks.length} tugas, ${cells.filter((c) => c.status === "late").length} sel terlambat`;
 }
 
 registerBuilder({ module: "v5_input", name: "tugas input dan kelengkapan", build: buildInputDay });
@@ -290,7 +292,15 @@ export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, pane
     cutOffLb: "12.00", cutOffFresh: String(par.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."),
     roles: (["cost_accounting", "sales", "commercial_lead", "ppic", "purchasing", "inventory_accounting", "finance", "operations_director"] as Role[]).map((r) => ({ role: r, bad: roleBad(r) })),
     tasks: all, cards, history, params, grid, kinds, failed,
+    uploadHref: await uploadWizardHref(sb, today),
   };
+}
+
+/** R35: the v4 upload wizard of the week of `today` (the latest week when none holds it). */
+async function uploadWizardHref(sb: Supa, today: string): Promise<string | null> {
+  const weeks = await listWeeks(sb);
+  const w = weeks.find((x) => x.week_start <= today && x.week_end >= today) ?? weeks[0];
+  return w ? `/w/${w.week_start}/upload` : null;
 }
 
 /** The four cards of a role (§6.4 "Headline + 4 kartu"). */
@@ -366,7 +376,7 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     const mo = must(await sb.from("month_outlook").select("id").eq("month", `${month}-01`).maybeSingle(), "kartu month_outlook") as Row | null;
     const regs = mo ? mustRows<Row>(await sb.from("assumption_register").select("agreed_at").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).neq("status", "superseded"), "kartu register asumsi") : [];
     return [
-      { title: "Siap rilis", value: red && !grid?.override ? "belum" : "ya", sub: red ? `${bad} input bermasalah${grid?.override ? " · override K35" : ""}` : "grid tanpa sel merah", tone: red && !grid?.override ? "bad" : "plain" },
+      { title: "Siap rilis", value: red && !grid?.override ? "belum" : "ya", sub: red ? `${bad} input bermasalah${grid?.override ? " · override K35" : ""}` : "grid tanpa sel terlambat", tone: red && !grid?.override ? "bad" : "plain" },
       first,
       { title: "Beban tetap bulan ini", value: est ? "estimasi" : "jadwal", sub: est ? `${est} baris tanpa jadwal (C55)` : "jadwal Finance", tone: est ? "warn" : "plain" },
       { title: "Register asumsi", value: `${regs.filter((r) => r.agreed_at).length} dari ${regs.length}`, sub: "disepakati", tone: regs.some((r) => !r.agreed_at) ? "bad" : "plain" }];

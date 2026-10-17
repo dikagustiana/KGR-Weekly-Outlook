@@ -101,8 +101,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
   // accuracy of the last month with a FINAL version
   let accuracy: AccuracyInput | null = null;
   {
-    const { data: fin } = await sb.from("month_outlook_version").select("month_outlook_id, revenue, gp, nibt, month_outlook!inner(month)").eq("version", "FINAL").order("locked_at", { ascending: false }).limit(1).maybeSingle();
-    const f = fin as (Row & { month_outlook: { month: string } }) | null;
+    const f = must(await sb.from("month_outlook_version").select("month_outlook_id, revenue, gp, nibt, month_outlook!inner(month)").eq("version", "FINAL").order("locked_at", { ascending: false }).limit(1).maybeSingle(), "month_outlook_version FINAL") as (Row & { month_outlook: { month: string } }) | null;
     if (f && f.revenue !== null) {
       const id = String(f.month_outlook_id);
       const [vs, adj, daily] = await Promise.all([
@@ -122,7 +121,11 @@ export async function loadOutlookBulan(sb: Supa, x: {
           const r = daily.filter((d) => String(d.version) === version && String(d.day_kind) === k);
           return r.length ? { n: new Set(r.map((d) => String(d.date))).size, diff: r.reduce((a, d) => a.plus(D(String(d.diff ?? 0))), D(0)).toFixed(2) } : null;
         };
-        accuracy = { month: String(f.month_outlook.month), version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate") };
+        // R38: the fixed-cost estimate the version carried in its snapshot (v5_pl at the lock); none = null, never 0
+        const snap = must(await sb.from("month_outlook_version").select("snapshot").eq("month_outlook_id", id).eq("version", version).maybeSingle(), "month_outlook_version snapshot") as Row | null;
+        const fe = ((snap?.snapshot ?? null) as { fixed_estimate?: { actual: string | null; forecast: string | null }[] } | null)?.fixed_estimate;
+        const fixedOfVersion = fe ? fe.reduce((acc, r) => acc.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).toFixed(2) : null;
+        accuracy = { month: String(f.month_outlook.month), version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion };
       }
     }
   }

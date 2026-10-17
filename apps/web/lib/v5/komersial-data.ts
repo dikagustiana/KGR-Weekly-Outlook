@@ -21,6 +21,8 @@ import { stockMartControl } from "../v3/stale";
 import { loadPlanning } from "../v3/planning";
 import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
+import { v5CostingSetting } from "./costing";
+import { isModuleOn } from "../modules-core";
 import type { CommitmentRow, KomersialV5Input } from "./komersial";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -55,7 +57,8 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     (week ? (must(await sb.from("parameter").select("sales_sees_cost, cut_off_time, commitment_lock_dow, commitment_lock_time").eq("week_id", week.id).maybeSingle(), "parameter") ?? {}) : {}) as Row), {} as Row);
   const st = fail(failed, STOCK_TILES, await tileData("commercial: stok bebas (mart)", async () => {
     const [mart, own] = await Promise.all([
-      commercialMart(sb, today, sales),
+      // K53: the v5 cost columns only where v5_costing is on for this role
+      commercialMart(sb, today, sales, isModuleOn(await v5CostingSetting(sb), viewer.role)),
       sb.from("sales_assignment").select("key").eq("active", true).eq("email", viewer.email.toLowerCase()).then((r) => mustRows<{ key: string | null }>(r, "sales_assignment")),
     ]);
     const overAge = sales || !mart.date ? new Map<string, string | null>()

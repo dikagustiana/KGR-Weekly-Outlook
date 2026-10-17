@@ -14,17 +14,19 @@ import { clock, taskWindow, type Clock } from "../clock";
 import { must, mustRows, tileData } from "../loader";
 import { fail, type Failed } from "../v4/tile-errors";
 import type { Role } from "../roles";
+import { isModuleOn, parseSetting } from "../modules-core";
+import { v5CostingSetting } from "./costing";
 import type { Row } from "../v3/uploads";
 import { commercialMart } from "../v3/commercial";
 import { loadPlanning } from "../v3/planning";
 import { stockMartControl } from "../v3/stale";
 import { loadPpicV5 } from "./ppic-data";
-import { decisionLines, loopLines, simPrices, sourceLabel, type ManagementV5Input, type SimBasis, type SourceLabel } from "./management";
+import { LOOP_MODULE, decisionLines, loopLines, simPrices, sourceLabel, type LoopRow, type ManagementV5Input, type SimBasis, type SourceLabel } from "./management";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: Record<string, string | undefined>, cash: { date: string; closing: string | null }[] | null): Promise<ManagementV5Input> {
+export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: Record<string, string | undefined>, cash: { date: string; closing: string | null }[] | null, role: Role): Promise<ManagementV5Input> {
   // PRD v5.1 K38: marts are read as of the data date; the cut date of the LB decision is tomorrow on the wall clock,
   // "late" is against now, and the task window is the one of Input (wall − 13 … wall + 7)
   const c = await clock(sb);
@@ -57,9 +59,10 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     const q = new URLSearchParams([...keep, ...(b === "need" ? [] : [["sim", b]]), ["lb", p.toFixed(0)]]).toString();
     return `/minggu-ini/${w.week_start}?${q}`;
   };
-  const nClasses = ppic ? new Set(ppic.demand.byClass.map((x) => x.weight_class)).size : 0;
+  // PRD v5.1 R30: STD is not a weight class
+  const nClasses = ppic ? new Set(ppic.demand.byClass.map((x) => x.weight_class).filter((c) => c !== "STD")).size : 0;
   const labels: Partial<Record<SimBasis, string>> = {
-    ...(bases.need ? { need: `Kebutuhan PO: ${bases.need.kgLb.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} kg LB (${nClasses} kelas)` } : {}),
+    ...(bases.need ? { need: `Kebutuhan PO: ${bases.need.kgLb.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} kg LB (${nClasses ? `${nClasses} kelas` : "STD"})` } : {}),
     ...(bases.batch ? { batch: `Batch rencana di input: ${bases.batch.kgLb.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} kg LB` } : {}),
   };
 
@@ -97,7 +100,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   const ts = lr.tasks.map((t) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, now) }));
   const lateOf = (k: string) => ts.filter((t) => t.kind === k && t.st === "late").map((t) => t.ref);
   const free = await tileData("manajemen: stok bebas (mart Commercial)", async () => {
-    const mart = await commercialMart(sb, today, false);
+    // K53: the v5 cost of the stock only where v5_costing is on for this role (else the MA cost, as v4)
+    const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
       key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days),
@@ -105,7 +109,14 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     })), null));
     return { kg: sum.kg, value: sum.value };
   });
+  // R28: a row whose module is not enabled says so instead of "late" (the flags, not the viewer's role: the process runs or not)
+  const flagsT = await tileData("manajemen: flag modul", async () =>
+    mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", Object.values(LOOP_MODULE)), "app_setting"));
+  const flags = fail(failed, ["keputusan"], flagsT, [] as Row[]);
+  const enabled = (k: string) => parseSetting(flags.find((f) => String(f.key) === k)?.value).enabled;
+  const off = "error" in flagsT ? {} : Object.fromEntries((Object.keys(LOOP_MODULE) as LoopRow[]).map((r) => [r, !enabled(LOOP_MODULE[r])]));
   const loop = loopLines({
+    off,
     commitment: { locked: lr.commits.some((x) => x.status === "locked"), drafts: lr.commits.filter((x) => x.status === "draft").length, deadline: `${DAYS[new Date(`${dl}T00:00:00Z`).getUTCDay()]} ${Number(dl.slice(8, 10))}/${dl.slice(5, 7)} ${deadline.slice(11, 16).replace(":", ".")}`, late: Date.parse(now) >= Date.parse(deadline) },
     planNext: { version: lr.plan ? Number(lr.plan.version) : null },
     costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.invoice_status !== "tied").length, final: lr.batches.filter((b) => b.invoice_status === "tied").length, wpLate: lateOf("costing_wp") },

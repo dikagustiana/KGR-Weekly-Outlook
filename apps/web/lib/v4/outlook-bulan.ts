@@ -38,6 +38,8 @@ export interface AccuracyInput {
   /** FINAL minus the closing adjustments, per metric (the "before adjustment" columns). */
   poDays: { n: number; diff: string } | null;
   runrateDays: { n: number; diff: string } | null;
+  /** PRD v5.1 R38 (§6.5): the fixed-cost estimate the version carried (P&L sign); null = the version had none. */
+  fixedOfVersion?: string | null;
 }
 
 export interface OutlookBulanInput {
@@ -349,11 +351,20 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
     const rev = a.lines.find((l) => l.metric === "revenue") ?? null;
     const diff = (l: AccuracyLineV4) => `${jtV4(l.absError)}${l.pctOfVersion ? ` (${pctV4(l.pctOfVersion.abs())})` : ""}`;
     const aCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: a.version, num: true }, { key: "f", label: "FINAL", num: true }, { key: "d", label: "Selisih", num: true }];
-    const LBL: Record<string, string> = { revenue: "Revenue", gp: "GP P&L", nibt: "NIBT" };
+    // PRD v5.1 R38 (§6.5, flag v5_pl): NIBT by the journal and NIBT with the fixed-cost estimate of the version, both
+    // against the FINAL (the closed statements carry every fixed cost)
+    const LBL: Record<string, string> = { revenue: "Revenue", gp: "GP P&L", nibt: x.v5 ? "NIBT jurnal" : "NIBT" };
+    const nibtLine = a.lines.find((l) => l.metric === "nibt") ?? null;
+    const withFixed = x.v5 && nibtLine ? (() => {
+      if (a.fixedOfVersion === null || a.fixedOfVersion === undefined) return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: "belum ada", f: jtV4(nibtLine.final), d: "" } };
+      const v = nibtLine.value.plus(D(a.fixedOfVersion)), e = v.minus(nibtLine.final);
+      return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: jtV4(v), f: jtV4(nibtLine.final), d: `${jtV4(e.abs())}${v.isZero() ? "" : ` (${pctV4(nibtLine.final.minus(v).div(v.abs()).abs())})`}` } };
+    })() : null;
     const aRows: TRow[] = [
       // a metric the version did not carry (e.g. NIBT of a version locked without the cost plan) is left out, not shown as 0
       ...(["revenue", "gp", "nibt"] as const).map((m) => a.lines.find((l) => l.metric === m)).filter((l): l is AccuracyLineV4 => !!l)
         .map((l) => ({ id: l.metric, cells: { k: LBL[l.metric], v: jtV4(l.value), f: jtV4(l.final), d: diff(l) } })),
+      ...(withFixed ? [withFixed] : []),
       ...(rev ? [{ id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } }] : []),
       ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: jtV4(rev.absErrorPre) } }] : []),
       ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? jtV4(a.poDays.diff) : "belum ada"} / ${a.runrateDays ? jtV4(a.runrateDays.diff) : "belum ada"}` } }] : []),

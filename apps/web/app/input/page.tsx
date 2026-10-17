@@ -45,7 +45,7 @@ export default async function InputPage({ searchParams }: { searchParams: Promis
         {viewer.role === "finance" && red && !g.override ? (
           <ActionForm v4 action={k35OverrideAction} submit="Rilis dengan alasan" className="tile-form" confirm="Catat override K35 untuk minggu ini? Rilis tetap lewat halaman Rilis.">
             <input type="hidden" name="week_start" value={g.weekStart} />
-            <input name="reason" size={28} placeholder="alasan (min. 10 karakter)" aria-label="Alasan rilis dengan sel merah" required minLength={10} />
+            <input name="reason" size={28} placeholder="alasan (min. 10 karakter)" aria-label="Alasan rilis dengan sel terlambat" required minLength={10} />
             <input name="evidence" size={12} placeholder="bukti" aria-label="Bukti" required minLength={3} />
           </ActionForm>
         ) : null}

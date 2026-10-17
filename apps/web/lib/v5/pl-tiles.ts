@@ -186,7 +186,8 @@ export function outlookBulanV5(tiles: TileModel[], x: { first: string; cutOff: s
       const gp = { label: "GP P&L", value: `${jtV4(tot.gp)} jt`, tone: neg(tot.gp) };
       const nj = { label: "NIBT jurnal", value: `${jtV4(tot.nibt)} jt`, tone: neg(tot.nibt) };
       const na = { label: "NIBT setelah beban tetap", value: after(tot.nibtAfter), tone: missing ? undefined : neg(tot.nibtAfter) };
-      const compare = t.id === "c-outlook" ? [...keep, gp, nj, na] : t.id === "c-forecast" ? [gp, nj, ...keep] : [gp, nj];
+      // PRD v5.1 R38 (§6.5): NIBT after fixed costs on all three cards (at most four lines)
+      const compare = t.id === "c-outlook" ? [...keep, gp, nj, na] : t.id === "c-forecast" ? [gp, nj, na, ...keep] : [gp, nj, na];
       out.push({ ...t, content: { ...t.content, compare, maxCompare: 4 } });
     } else if (t.id === "ch-kumulatif") {
       const s = e.cumulativeSeries(x.v5.cm, x.first, rows, x.cutOff, x.tolerance);

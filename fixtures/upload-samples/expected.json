@@ -2,7 +2,7 @@
  "_note": "Lampiran B.5 (PRD v5 §9.2): hasil validateUpload atas po_sample.xlsx, wp_sample.xlsx, yield_sample.xlsx dengan context.json. Kelas WP = STD karena rentang K/S/B belum diisi PPIC (O5); 'kelas S' Lampiran B.5 memakai rentang ilustrasi mockup dan diuji terpisah, bukan golden.",
  "po_lines": {
   "total": 7,
-  "ok_count": 4,
+  "ok_count": 5,
   "checks": [
    {
     "level": "ok",
@@ -18,10 +18,10 @@
     "code": "C56"
    },
    {
-    "level": "fail",
+    "level": "warn",
     "title": "Ukuran karkas RPA terisi",
     "detail": "4 dari 5 baris karkas",
-    "result": "1 baris",
+    "result": "1 baris → STD",
     "code": "C50"
    },
    {
@@ -56,8 +56,8 @@
     "ref": "KGR26.00341",
     "name": "Ayam Karkas Mix · kirim 27/08",
     "kg": "811,3",
-    "level": "fail",
-    "action": "ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)"
+    "level": "warn",
+    "action": "ukuran karkas kosong: isi kolom ukuran atau biarkan STD"
    },
    {
     "ref": "KGR26.00349",
@@ -103,14 +103,15 @@
    }
   ],
   "ok_lines": [
+   2,
    3,
    4,
    5,
    6
   ],
-  "summary": "4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.",
+  "summary": "5 dari 7 baris bisa disimpan (7.594,9 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.",
   "needsReason": [],
-  "fingerprint": "v1:1228f59d23ef0f1d01b19519db11"
+  "fingerprint": "v1:1711b979cb3b661b9269a7d0d5ef"
  },
  "costing_wp": {
   "total": 8,

@@ -5,7 +5,7 @@ import { supabaseServer } from "./supabase";
 import { requireViewer, type Viewer } from "./session";
 import { WriteError } from "./write";
 import type { Role } from "./roles";
-import { MODULE_KEYS, isModuleOn, parseSetting, type ModuleKey, type ModuleSettings } from "./modules-core";
+import { MODULE_KEYS, isModuleOn, k25On, parseSetting, type ModuleKey, type ModuleSettings } from "./modules-core";
 
 export * from "./modules-core";
 
@@ -23,6 +23,11 @@ export const moduleSettings = cache(async (): Promise<ModuleSettings> => {
 export async function moduleEnabled(key: ModuleKey, viewer?: Viewer | { role: Role }): Promise<boolean> {
   const v = viewer ?? (await requireViewer());
   return isModuleOn((await moduleSettings())[key], v.role);
+}
+
+/** K54: K25 for this viewer (v5_costing or v5_management on for the role). */
+export async function k25Enabled(viewer: Viewer | { role: Role }): Promise<boolean> {
+  return k25On(await moduleSettings(), viewer.role);
 }
 
 /** Pages of a module: 404 when the flag is off for the viewer, or the role may not open the page. */

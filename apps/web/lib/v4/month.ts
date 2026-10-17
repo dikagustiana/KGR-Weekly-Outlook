@@ -26,6 +26,7 @@ import { isWorkingDay } from "../v3/monthly";
 import type { Row } from "../v3/uploads";
 import { v5CostingPlRows } from "../v5/costing-pl";
 import { fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
+import { resetLedgerRun } from "../v3/ledger";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: { toFixed(n: number): string } | null) => (x === null ? null : x.toFixed(2));
@@ -254,6 +255,8 @@ export interface LockResult { message: string; sha: string; bridge: BridgeV4 | n
  * rule version, with its SHA-256; the database refuses any later change (version_immutable).
  */
 export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, version: "V1" | "V2", settings: ModuleSettings): Promise<LockResult> {
+  // R40 (B.4): the lock reads the ledger as it is now
+  resetLedgerRun();
   const mo = await ensureOutlook(sb, first);
   const { data: have } = await sb.from("month_outlook_version").select("version, snapshot").eq("month_outlook_id", String(mo.id));
   const got = new Map(((have ?? []) as Row[]).map((r) => [String(r.version), r]));

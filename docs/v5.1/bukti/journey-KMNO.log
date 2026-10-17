@@ -1,0 +1,70 @@
+# journey K, M, N, O (irisan 4) — 2026-10-17T04:58:33.718Z (jam dinding mesin); jam uji DB 2026-08-27 10:06 WIB; viewport 1366×768
+SETUP: keputusan harga LB 28/08 dari putaran sebelumnya dihapus; PO uji KGR26.T09xx dan WP batch 125 dari putaran sebelumnya dihapus; antrean rebuild kosong
+    mgmt@t  POST /login (server action) → HTTP 303
+K mgmt@t — Manajemen · Minggu ini, Kamis 27 Agu pagi
+    mgmt@t  GET /minggu-ini/2026-08-24 → HTTP 200
+    headline: GP P&L minggu ini diproyeksikan Rp −62,0 jt (−3,7%); RPA menyumbang Rp −62,6 jt. Stok di atas batas umur Rp 685,4 jt.
+    kartu: 5 (c-outlook, c-stok, c-kas, c-bulan, c-solvabilitas)
+    laba rugi: NIBT setelah beban tetap 157,2 −27,3 151,0 −113,3 −113,2 7,0 61,4 
+    "Perlu keputusan": posisi y=835 px, tinggi 451 px (viewport 768 px; dicatat, tanpa klaim above-fold, O17)
+    tile keputusan: Perlu keputusan minggu ini Keputusan Pemilik Harga live bird untuk potong Jum 28/08. Harga hari ini 24.600; breakeven rencana kebutuhan 19.466 Rp/kg LB. Direktur Operasional · hari ini Batch rencana 27.219 kg LB, 2.944 kg di atas kebutuhan. ± 2.104 kg karkas jadi frozen, downgrade Rp 10,6 jt. Direkt
+    tombol tulis (button di dalam form pada main): 0
+K' SETUP v5_commercial dimatikan (lokal): baris modul mati di Status putaran
+    mgmt@t  GET /minggu-ini/2026-08-24 → HTTP 200
+    Status putaran: Komitmen Commercial minggu depan: modul belum aktif 
+    SETUP v5_commercial dihidupkan lagi
+    ppic@t  POST /login (server action) → HTTP 303
+M0 ppic@t — Rencana sebelum keputusan harga LB (C57)
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    tombol Salin: nonaktif; Belum bisa: C42 BELUM DIISI, C46 BELUM DIISI, C47 BELUM DIISI, C45 BELUM DIISI, C57 BELUM DIISI (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian) Belum bisa salin ke batch rencana: C42 BELUM DIISI, C46 BELUM DIISI, C47 BELUM DIISI, C45 BELUM DIISI, C57 BELUM DIISI. Kebutuhan per hari dihitung dari ukuran karkas di PO per tanggal kirim.
+    opsdir@t  POST /login (server action) → HTTP 303
+M1 opsdir@t — simulasi harga LB berubah per harga; keputusan tersimpan
+    opsdir@t  GET /minggu-ini/2026-08-24 → HTTP 200
+    simulasi (harga awal 24.600 · hari ini): COGS rencana 659,1 Rp jt · 24.274 kg LB GP rencana −124,6 Rp jt · −23,3% dari nilai jual Breakeven live bird 19.466 Rp/kg LB pada rencana ini Margin per kg LB −5.134 breakeven − harga dipilih SKU kg Harga list COGS/kg Margin/kg Karkas Fresh 0 36.705 45.264 −8.
+    opsdir@t  GET /minggu-ini/2026-08-24?lb=26000 → HTTP 200
+    simulasi (26000): COGS rencana 693,1 Rp jt · 24.274 kg LB GP rencana −158,6 Rp jt · −29,7% dari nilai jual Breakeven live bird 19.466 Rp/kg LB pada rencana ini Margin per kg LB −6.534 breakeven − harga dipilih SKU kg Harga list COGS/kg Margin/kg Karkas Fresh 0 36.705 47.598 −10
+    tombol: Putuskan Rp 26.000 untuk potong 28/08
+    opsdir@t  POST /minggu-ini/2026-08-24 (server action) → HTTP 200
+    pesan: Harga LB potong 2026-08-28 diputuskan Rp 26.000/kg, volume 15.000 kg LB; batch hari itu memakainya sebagai biaya sementara.
+    DB lb_price_decision 28/08: 26000.0000 · 15000.00 kg · opsdir@t
+    costacc@t  POST /login (server action) → HTTP 303
+    costacc@t  GET /w/2026-08-24/costing → HTTP 200
+    Costing (costacc@t) batch 129 (potong 28/08): 129/PO/KGR/08/2026 rencana · harga acuan kosong: RPA|Lemak|Fresh keputusan 15.537,20 26.000 443.618.134 384.152.902 1,1548 22.173 -3.827 harga acuan minggu ini Biaya per SKU dari batch yang belum final Batch SKU kg Harga acuan Biaya Rp/kg Margin Rp/kg 125/PO/K
+M2 ppic@t — Rencana sesudah keputusan 28/08
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    tombol Salin: nonaktif; Belum bisa: C42 BELUM DIISI, C46 BELUM DIISI, C47 BELUM DIISI, C45 BELUM DIISI, C57 BELUM DIISI (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian) Belum bisa salin ke batch rencana: C42 BELUM DIISI, C46 BELUM DIISI, C47 BELUM DIISI, C45 BELUM DIISI, C57 BELUM DIISI. Kebutuhan per hari dihitung dari ukuran karkas di PO per tanggal kirim.
+    sales@t  POST /login (server action) → HTTP 303
+N sales@t — Input → PO: karkas tanpa ukuran, harga di bawah lantai, tanggal lewat, kode tak dikenal
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    PPIC sebelum: Tanpa ukuran 811; sales_line PO uji: 0
+    sales@t  GET /input?panel=po_lines → HTTP 200
+    cek: Kolom wajib lengkap lolos ditahan: Kode item terpetakan 4 dari 5 1 baris · C56 catatan: Ukuran karkas RPA terisi 3 dari 4 baris karkas 1 baris → STD · C50 ditahan: Tanggal kirim ≥ hari ini 4 dari 5 1 baris kg dan harga terisi 5 dari 5 lolos catatan: Harga ≥ lantai (biaya) 4 dari 5 1 baris → approval · C38 Pelanggan sesuai assignment 5 dari 5 lolos · K32
+    baris: KGR26.T0901 Ayam Karkas Mix · kirim 28/08 400,0 catatan ukuran karkas kosong: isi kolom ukuran atau biarkan STD | KGR26.T0902 Karkas Uk 1.3 Karkas Uk 1.3 Fresh Grade A · kirim 29/08 300,0 catatan harga 30.000 < lantai 39.738: approval Kepala Sales | KGR26.T0903 Karkas Uk 1.4 Karkas Uk 1.4 Fresh Premium · kirim 29/08 250,0 lolos | KGR26.T0904 Karkas Uk 1.2 Karkas Uk 1.2 Fresh Grade A · kirim 26/08 120,0 gagal tanggal kirim 26/08 sudah lewat | KGR26.T0905 X-999 (tidak dikenal) 50,0 gagal kode tidak dikenal: petakan di master item
+    sales@t  POST /input (server action) → HTTP 200
+    pesan: 3 dari 5 baris lolos cek; 2 baru, 0 diubah. Demand PPIC diperbarui; 1 baris di bawah lantai ke approval Kepala Sales (C38). Rebuild: 2 selesai.
+    DB sales_line: KGR26.T0901 JLB1857 400.00 kg @36000.0000 ukuran null (STD); KGR26.T0903 JLB0922 250.00 kg @45000.0000 ukuran 1.40
+    DB discount_approval (menunggu, dari sales@t): RPA|Karkas|Fresh 300.00 kg @30000.0000 < lantai 39738 · pending (baris PO dibuat saat Kepala Sales menyetujui)
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    PPIC sesudah: Tanpa ukuran 1.211 (sebelum: Tanpa ukuran 811)
+O costacc@t — Input → WP batch 125: kg LB tidak konsisten (R34), lalu kode tak dikenal + selisih hasil potong
+    admin@t  POST /login (server action) → HTTP 303
+    SETUP admin@t — Admin → Modul → Bangun ulang 25–27/08 (WP batch 125 dihapus di SETUP; mart menyesuaikan)
+    admin@t  GET /admin/modul → HTTP 200
+    admin@t  POST /admin/modul (server action) → HTTP 200
+    pesan: Bangun ulang 3 hari: 3 selesai, 0 gagal. 2026-08-25: monthly: bulan 2026-08: cut-off 2026-08-26, 262 baris (0 ditulis, 0 dihapus); ledger: 34 key, 134 lot, 27 m
+    costacc@t  GET /input?panel=costing_wp → HTTP 200
+    cek (kg LB 12.211,6 dan 12.300): Kolom wajib lengkap lolos Kode SKU terpetakan 3 dari 3 baris lolos · C56 ditahan: Batch 125/PO/KGR/08/2026 kg LB tidak konsisten (12.211,6 / 12.300,0) satu angka kg LB per batch
+    tombol simpan: tidak ada (0 baris lolos)
+    costacc@t  GET /input?panel=costing_wp → HTTP 200
+    cek: Kolom wajib lengkap lolos ditahan: Kode SKU terpetakan 6 dari 7 baris 1 baris · C56 kg LB sesuai batch 12.212 di WP vs 12.212 di batch (+0,0%) lolos Batch 125/PO/KGR/08/2026 · rata-rata LB 12.211,6 kg / 6.300 ekor = 1,94 kg/ekor kelas STD ditahan: Σ SKU vs hasil potong 9.995,0 vs 11.845,3 kg (LB − susut 3%), selisih 15,6% (batas 2%) perlu penjelasan · C22 catatan: Yield karkas 67,9% (batas 68–76%) cek timbangan
+    alasan selisih hasil potong diisi (C22)
+    costacc@t  POST /input (server action) → HTTP 200
+    pesan: 5 dari 7 baris lolos cek; 5 baru, 0 diubah. Lot batch 125/PO/KGR/08/2026 → sementara; PPIC dan Commercial membaca biaya baru setelah rebuild. Selisih hasil potong tercatat dengan alasan; batch tetap sementara. Rebuild: 3 selesai.
+    DB batch 125: wp_received_at=2026-08-27 10:06; baris WP 5
+    antrean rebuild (queued): -
+    lot batch 125 sebelum: estimasi; sesudah upload (rebuild K40 dari pesan di atas): sementara
+    commercial_daily 27/08 RPA|Karkas|Fresh (biaya/kg, status): sebelum 38676.6835 estimasi; sesudah 39737.9217 estimasi
+    lead@t  POST /login (server action) → HTTP 303
+    lead@t  GET /komersial → HTTP 200
+    lead@t Commercial, tile spot (kolom Lantai/kg = biaya): Karkas fresh · RPA 11.702 39.738 36.705 31.658 −59,1 jt acuan di bawah biaya: butuh approval
+log app: 0 respons 4xx/5xx
