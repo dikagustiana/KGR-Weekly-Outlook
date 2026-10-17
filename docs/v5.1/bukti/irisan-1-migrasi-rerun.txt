@@ -1,0 +1,55 @@
+# Irisan 1 — migrasi v5.1 dijalankan dua kali (PRD v5.1 Bab 7)
+# Lingkungan: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) lokal (socket /var/tmp/kgrpg), DB kgr_rerun51; bukan KGR-OS, bukan Supabase.
+# Waktu: 2026-10-17T03:18:59Z; commit dasar: 9f43884 + perubahan irisan 1
+# Persiapan: supabase/tests/supabase_shim.sql, semua migrasi sebelum 20261024 (v1, v3, v4, v5), seed — keadaan KGR-OS sebelum v5.1.
+# data uji sebelum v5.1: satu assignment dengan email '  Sales@T ' (R9)
+== A. tiap file migrasi dua kali (psql -1 per file) ==
+putaran 1  20261024000100_v51_release.sql  exit=0  
+putaran 1  20261024000200_v51_security.sql  exit=0  
+putaran 1  20261024000300_v51_params.sql  exit=0  
+putaran 2  20261024000100_v51_release.sql  exit=0  
+putaran 2  20261024000200_v51_security.sql  exit=0  pesan: psql:supabase/migrations/20261024000200_v51_security.sql:11: NOTICE:  column "deleted_at" of relation "price_list_week" already exists, skipping psql:supabase/migrations/20261024000200_v51_security.sq
+putaran 2  20261024000300_v51_params.sql  exit=0  pesan: psql:supabase/migrations/20261024000300_v51_params.sql:28: NOTICE:  column "price_frozen_source" of relation "price_list_week" already exists, skipping psql:supabase/migrations/20261024000300_v51_para
+== B. DB baru dalam keadaan yang sama, bundel dua kali ==
+--- bundel docs/v5.1/kgr-os-migrasi-v51.sql putaran 1 (satu transaksi, psql -1) ---
+ no |                  cek                  | ada 
+----+---------------------------------------+-----
+  1 | 0100 base_key                         | t
+  2 | 0100 release_week K44/K45/K47         | t
+  3 | 0100 needs_rebuild di 5 tabel v5      | t
+  4 | 0200 commitment guard base_key        | t
+  5 | 0200 sales_line_scope (K49)           | t
+  6 | 0200 view sales v5 + sales_sees_cost  | t
+  7 | 0200 policy baca Sales base_key       | t
+  8 | 0200 price_list_week.deleted_at (R40) | t
+  9 | 0200 email assignment huruf kecil     | t
+ 10 | 0300 advance_update_date (K39)        | t
+ 11 | 0300 lock_commitments (K46)           | t
+ 12 | 0300 parameter.po_unsized_mode (O15)  | t
+(12 rows)
+exit=0
+--- bundel docs/v5.1/kgr-os-migrasi-v51.sql putaran 2 (satu transaksi, psql -1) ---
+psql:docs/v5.1/kgr-os-migrasi-v51.sql:137: NOTICE:  column "deleted_at" of relation "price_list_week" already exists, skipping
+psql:docs/v5.1/kgr-os-migrasi-v51.sql:138: NOTICE:  column "deleted_by" of relation "price_list_week" already exists, skipping
+psql:docs/v5.1/kgr-os-migrasi-v51.sql:340: NOTICE:  column "price_frozen_source" of relation "price_list_week" already exists, skipping
+psql:docs/v5.1/kgr-os-migrasi-v51.sql:394: NOTICE:  column "po_unsized_mode" of relation "parameter" already exists, skipping
+ no |                  cek                  | ada 
+----+---------------------------------------+-----
+  1 | 0100 base_key                         | t
+  2 | 0100 release_week K44/K45/K47         | t
+  3 | 0100 needs_rebuild di 5 tabel v5      | t
+  4 | 0200 commitment guard base_key        | t
+  5 | 0200 sales_line_scope (K49)           | t
+  6 | 0200 view sales v5 + sales_sees_cost  | t
+  7 | 0200 policy baca Sales base_key       | t
+  8 | 0200 price_list_week.deleted_at (R40) | t
+  9 | 0200 email assignment huruf kecil     | t
+ 10 | 0300 advance_update_date (K39)        | t
+ 11 | 0300 lock_commitments (K46)           | t
+ 12 | 0300 parameter.po_unsized_mode (O15)  | t
+(12 rows)
+exit=0
+--- sesudah ---
+email assignment: 'sales@t'
+flag v5 hidup: 0
+kolom commercial_daily_sales_v5: date,key,group_code,form,free_fresh_kg,free_frozen_kg,oldest_age_days,hours_to_cutoff,cost_per_kg_ma,price_floor,price_list,margin_per_kg_list,realized_price_7d,margin_per_kg_realized,holding_loss_per_day,downgrade_risk_rp,urgency,priority_score,rank,ordered_today_kg,cost_per_kg,cost_status,cost_check

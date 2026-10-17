@@ -47,7 +47,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const next = week ? addDays(week.week_start, 7) : addDays(today, 7);
   const [mart, asg, par, approvals, commits, lists, orders] = await Promise.all([
     commercialMart(sb, today, sales),
-    sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email),
+    sb.from("sales_assignment").select("key").eq("active", true).eq("email", viewer.email.toLowerCase()),
     week ? sb.from("parameter").select("sales_sees_cost, cut_off_time, commitment_lock_dow, commitment_lock_time").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
     sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"),
     fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", next).is("deleted_at", null).neq("status", "superseded").range(a, b)).catch(() => [] as Row[]),
@@ -57,7 +57,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const p = (par.data ?? {}) as Row;
   const own = ((asg.data ?? []) as { key: string | null }[]);
   const assigned = assignedKeysFor(viewer.role, own);
-  const view = commercialView(mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: assigned });
+  // K43: an assignment covers every form of its base key, as the database guards and the v5 Sales view
+  const scope = assigned === "all" ? "all" as const
+    : new Set(mart.rows.map((r) => String(r.key)).filter((k) => [...assigned].some((a) => baseKey(a) === baseKey(k))));
+  const view = commercialView(mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: scope });
   const overAge = sales || !mart.date ? new Map<string, string | null>() : new Map(((await sb.from("sku_balance_daily").select("key, over_age_kg").eq("date", mart.date)).data ?? [] as Row[]).map((r: Row) => [String(r.key), s(r.over_age_kg)]));
   const rate = sales ? null : await storageRate(sb, today);
   const all = stockSellRows(view.map((r) => ({

@@ -71,7 +71,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
       } else ctx.floors = {};
     }
     if (sales) {
-      const { data: asg } = await sb.from("sales_assignment").select("customer").eq("active", true).ilike("email", viewer.email);
+      const { data: asg } = await sb.from("sales_assignment").select("customer").eq("active", true).eq("email", viewer.email.toLowerCase());
       const list = ((asg ?? []) as Row[]).map((a) => s(a.customer));
       ctx.customers = list.some((c) => c === null) ? "all" : (list as string[]);
     } else ctx.customers = "all";

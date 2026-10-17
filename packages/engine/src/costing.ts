@@ -598,9 +598,13 @@ export function costingPlRows(x: { cutOff: string; from: string; to: string; sel
 
 // ------------------------------------------------------------------------------------------------ C53, C54, C57
 
-/** C53: an Aktual batch past its WP deadline (H+1 12.00) without WP. BELUM DIISI; holds the RPA GP of the release. */
+/**
+ * C53: an Aktual batch past its WP deadline (H+1 12.00) without WP. BELUM DIISI; holds the RPA GP of the release.
+ * Times are compared as instants (PRD v5.1 R4): the deadline is stored "…T12:00:00+07:00", `now` may be UTC "…Z".
+ */
 export function c53(x: { batches: { ref: string; status: string | null; dueAt: string | null; wpReceivedAt: string | null }[]; now: string }): ControlV3 {
-  const late = x.batches.filter((b) => b.status === "Aktual" && !b.wpReceivedAt && b.dueAt && b.dueAt < x.now);
+  const now = Date.parse(x.now);
+  const late = x.batches.filter((b) => b.status === "Aktual" && !b.wpReceivedAt && b.dueAt && Date.parse(b.dueAt) < now);
   return {
     code: "C53", module: "M1", name: "WP potong masuk sebelum tenggat (H+1 12.00)", value: D(late.length), comparator: ZERO, difference: D(late.length),
     status: late.length ? "BELUM DIISI" : "LULUS", action: late.length ? "Cost Accounting mengunggah WP batch berikut; biaya/kg tetap estimasi" : "",

@@ -20,6 +20,7 @@ import { jakartaNow } from "../v3/allocation";
 import { UploadRejected, recheck } from "./input-check";
 import { uploadContext } from "./input-data";
 import { ROLE_KINDS, kindLabel } from "./input";
+import { poLinesInScope } from "./po-lines";
 
 interface Committed { inserted: number; updated: number; held: string[]; dates: string[]; note: string }
 const ok = (r: UploadResult) => r.records.filter((x) => x.level !== "fail");
@@ -52,7 +53,7 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
 
   let c: Committed;
   try {
-    c = await COMMIT[x.kind]({ sb, viewer, r, uploadId, weeks, week, reason, today });
+    c = await COMMIT[x.kind]({ sb, viewer, r, uploadId, weeks, week, reason, today, customers: ctx.customers ?? "all" });
   } catch (e) {
     await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
     throw e;
@@ -63,11 +64,11 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
   return message;
 }
 
-type Ctx = { sb: Supa; viewer: Viewer; r: UploadResult; uploadId: string; weeks: WeekRow[]; week: WeekRow | null; reason: string; today: string };
+type Ctx = { sb: Supa; viewer: Viewer; r: UploadResult; uploadId: string; weeks: WeekRow[]; week: WeekRow | null; reason: string; today: string; customers: "all" | string[] };
 
 const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
   // PO lines → Order lines (Confirmed). Below the floor: a pending discount request (C38) instead of the line until approved.
-  async po_lines({ sb, viewer, r, uploadId, weeks }) {
+  async po_lines({ sb, viewer, r, uploadId, weeks, customers }) {
     const settings = await moduleSettings();
     const n = new Map<string, number>();
     const keyOf = (q: UploadRecord) => {
@@ -79,7 +80,9 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     // line keys over every file row (failing ones too), so a row fixed later keeps its key
     const keyed = r.records.map((q) => ({ q, line_key: keyOf(q) }));
     const pos = [...new Set(r.records.map((q) => v(q, "po_ref")).filter((p): p is string => !!p))];
-    const existing = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
+    // R7: only this channel's lines of the PO × customer pairs in the file (and, for Sales, of their customers)
+    const found = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, customer").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
+    const existing = poLinesInScope(found, r.records.map((q) => ({ po_ref: v(q, "po_ref"), customer: v(q, "customer") })), customers);
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
     const held: string[] = [], dates: string[] = [];
@@ -112,7 +115,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
       if (old) updated++; else inserted++;
       dates.push(date);
     }
-    // lines of these POs that are no longer in the file at all
+    // lines of these POs (and customers) that are no longer in the file at all
     const inFile = new Set(keyed.map((k) => k.line_key));
     const gone = existing.filter((e) => !inFile.has(String(e.line_key)));
     if (gone.length) {

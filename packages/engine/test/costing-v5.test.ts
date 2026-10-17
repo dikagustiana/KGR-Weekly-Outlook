@@ -230,6 +230,15 @@ describe("C53, C57", () => {
     expect(c.status).toBe("BELUM DIISI");
     expect(c.detail).toEqual(["125 (tenggat 2026-08-26 12:00)"]);
   });
+  it("C53 compares instants, not strings (PRD v5.1 R4): due 12.00 WIB, now in UTC", () => {
+    const batches = [{ ref: "125", status: "Aktual", dueAt: "2026-08-27T12:00:00+07:00", wpReceivedAt: null }];
+    // 13.30 WIB = 06.30Z: as strings "…06:30Z" < "…12:00+07:00" and the batch looked on time
+    expect(c53({ now: "2026-08-27T06:30:00.000Z", batches }).status).toBe("BELUM DIISI");
+    expect(c53({ now: "2026-08-27T13:30:00+07:00", batches }).status).toBe("BELUM DIISI");
+    // 11.59 WIB = 04.59Z
+    expect(c53({ now: "2026-08-27T04:59:00.000Z", batches }).status).toBe("LULUS");
+    expect(c53({ now: "2026-08-27T11:59:00+07:00", batches }).status).toBe("LULUS");
+  });
   it("C57: a cut date without a decision", () => {
     const c = c57({ cutDates: ["2026-08-27", "2026-08-28"], decisions: [{ date: "2026-08-27" }] });
     expect(c.status).toBe("BELUM DIISI");

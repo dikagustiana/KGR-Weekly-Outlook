@@ -1,0 +1,44 @@
+# journey P — 2026-10-17T03:17:42.678Z (jam dinding mesin); jam uji DB: 2026-08-24 10:30 WIB
+SETUP flag lokal: v4_release dimatikan (C8/C9 fixture BELUM DIISI; lihat P6), v5_input hidup; grid & tugas minggu 2026-08-24 dihapus (grid kosong); antrean rebuild kosong
+    release_override minggu ini: 0; rilis: 0; grid: (kosong)
+    finance@t  POST /login (server action) → HTTP 303
+P1 finance@t — grid kosong → rilis ditolak K45
+    finance@t  GET /w/2026-08-24/kontrol → HTTP 200
+    tombol rilis: nonaktif; kartu Rilis: Rilis outlook Rilis ditolak — K35: grid kelengkapan belum dibangun; Admin → Modul → Perbarui status tugas Rilis outlook (simpan snapshot JSON + PDF) Riwayat rilis →
+    hasil: DITOLAK K45 (sesuai)
+P2 finance@t — Input → Perbarui status tugas (membangun tugas & grid 7 hari terakhir)
+    finance@t  GET /input → HTTP 200
+    finance@t  POST /input (server action) → HTTP 200
+    pesan: Perbarui status tugas Tugas diperbarui: 7 hari. 2026-08-18: monthly: bulan 2026-08: cut-off 2026-08-23, 291 baris (0 ditulis, 0 dihapus); ledger: sebelum stok awal; scorecard: scorecard 2026-08-17: 0 sales (0 ditulis); demand: minggu 2026-08-17 belum ada; cash: kas 0.00, terendah 13 minggu 0.00 (202
+    grid minggu ini: allocation 24/08 not_due, gl_daily 24/08 passed, lb_price_decision 24/08 not_due, lb_supply 24/08 not_due, plan_week 24/08 late, po_lines 24/08 not_due, stock_daily 24/08 not_due
+P3 finance@t — satu sel merah → rilis ditolak dengan nama sel
+    finance@t  GET /w/2026-08-24/kontrol → HTTP 200
+    tombol rilis: nonaktif; kartu Rilis: Rilis outlook Rilis ditolak — K35 kelengkapan data merah: plan_week 24/08. Lengkapi input, atau Finance mencatat alasan di layar Input ("Rilis dengan alasan"). Rilis outlook (simpan snapshot JSON + PDF) Riwayat rilis →
+    hasil: DITOLAK K35, hanya sel plan_week 24/08 disebut (sesuai)
+    ppic@t  POST /login (server action) → HTTP 303
+P4 ppic@t — Rencana → simpan rencana mingguan (pemilik input plan_week)
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    ppic@t  POST /w/2026-08-24/rencana (server action) → HTTP 200
+    pesan: Simpan rencana versi 2 Rencana v1 (yield sementara): 12138 ekor; 1 kelas
+    plan_week 2026-08-24: 1 versi, dibuat oleh ppic@t
+P5 finance@t — Perbarui status tugas lagi
+    finance@t  GET /input → HTTP 200
+    finance@t  POST /input (server action) → HTTP 200
+    pesan: Perbarui status tugas Tugas diperbarui: 7 hari. 2026-08-18: monthly: bulan 2026-08: cut-off 2026-08-23, 291 baris (0 ditulis, 0 dihapus); ledger: sebelum stok awal; scorecard: scorecard 2026-08-17: 0 sales (0 ditulis); demand: minggu 2026-08-17 belum ada; cash: kas 0.00, terendah 13 minggu 0.00 (202
+    grid minggu ini: allocation 24/08 not_due, gl_daily 24/08 passed, lb_price_decision 24/08 not_due, lb_supply 24/08 not_due, plan_week 24/08 passed, po_lines 24/08 not_due, stock_daily 24/08 not_due
+P6 finance@t — sama, dengan v4_release hidup seperti KGR-OS (SETUP flag lokal)
+    finance@t  GET /w/2026-08-24/kontrol → HTTP 200
+    tombol rilis: nonaktif; kartu Rilis: Rilis outlook Rilis ditolak: C8 BELUM DIISI, C9 BELUM DIISI. C8 BELUM DIISI: kg penjualan aktual minggu ini = laporan Accurate · override oleh finance C9 BELUM DIISI: Nilai stok awal = Inventory Valuation Accurate · override oleh finance Kontrol C8 C9 Alasan Bukti Catat override Rilis outlook (simpan snapshot JSON + PDF) Riwayat rilis →
+    hasil: ditolak hanya oleh kontrol v1 C8/C9 (total Accurate kosong di fixture), bukan K35
+P7 finance@t — v4_release mati: rilis tanpa override
+    finance@t  GET /w/2026-08-24/kontrol → HTTP 200
+    finance@t  POST /w/2026-08-24/kontrol (server action) → HTTP 200
+    pesan: Rilis outlook (simpan snapshot JSON + PDF) Outlook dirilis (PERIKSA); snapshot SHA-256 a5dc7a389dea…; 2 baris masih bersumber Ops.
+    DB: 1 rilis; oleh finance@t; status minggu released; release_override minggu ini: 0
+    hasil: DIRILIS TANPA OVERRIDE (sesuai)
+P8 finance@t — POST /rpc/release_week langsung ke PostgREST (tanpa pre-check app), snapshot release.snapshot 1963e24d-40e5-49ca-9dee-c93f62da6f7a
+    SETUP grid minggu dihapus → HTTP 400 {"code":"P0001","details":null,"hint":"Perbaiki kontrol, atau minta override per kontrol dengan alasan dan bukti.","message":"Rilis ditolak: K35: grid kelengkapan belum dibangun; Admin → Modul → Perbarui status tugas"}
+    SETUP satu sel merah plan_week 24/08 → HTTP 400 {"code":"P0001","details":null,"hint":"Perbaiki kontrol, atau minta override per kontrol dengan alasan dan bukti.","message":"Rilis ditolak: K35 kelengkapan data merah: plan_week 24/08"}
+    SETUP sel lolos + sel release_week lama 'late' (K44) → HTTP 200 "7c6ed054-65ad-4592-98ea-a19528bee640"
+    rilis minggu ini sekarang: 2; override: 0
+PostgREST, status per respons selama P1–P8 (docker logs pgrst sejak 03:17:42Z): {'200': 1941, '201': 5, '204': 28, '400': 2}

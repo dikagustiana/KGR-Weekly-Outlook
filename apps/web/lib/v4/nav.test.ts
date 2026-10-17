@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROLES } from "../roles";
-import { NAV_MAX, v4Home, v4Nav, v4On } from "./nav";
+import { MINGGU_INI_ROLES, NAV_MAX, mingguIniAllowed, v4Home, v4Nav, v4On } from "./nav";
 
 const ctx = { week: "2026-08-24", month: "2026-08", today: "2026-08-27" };
 const allOn = Object.fromEntries(["m1_costing", "m2_ledger", "m3_planning", "m4_monthly", "m5_drivers", "m6_cash", "m7_commercial", "m7_approval", "v4_design"].map((k) => [k, { enabled: true }]));
@@ -40,5 +40,11 @@ describe("v5/5: Input (flag v5_input)", () => {
     expect(v4Nav("finance", allOn, ctx).map((n) => n.label).pop()).toBe("Upload");
     expect(v4Nav("management", v5, ctx).map((n) => n.label).pop()).toBe("Input");
     expect(v4Nav("operations_director", v5, ctx).map((n) => n.label).pop()).toBe("Input");
+  });
+  it("PRD v5.1 K48: Minggu ini opens for admin, management, operations director and finance only; no other role links to it", () => {
+    expect(ROLES.filter(mingguIniAllowed)).toEqual(expect.arrayContaining([...MINGGU_INI_ROLES]));
+    expect(ROLES.filter(mingguIniAllowed).length).toBe(MINGGU_INI_ROLES.length);
+    for (const r of ["sales", "commercial_lead", "ppic", "purchasing", "inventory_accounting", "cost_accounting"] as const) expect(mingguIniAllowed(r), r).toBe(false);
+    for (const r of ROLES) if (!mingguIniAllowed(r)) expect(v4Nav(r, allOn, ctx).map((n) => n.id), r).not.toContain("minggu-ini");
   });
 });

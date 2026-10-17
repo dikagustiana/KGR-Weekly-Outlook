@@ -10,6 +10,8 @@ do $$
 declare out text := ''; wid uuid; n int;
 begin
   insert into public.app_user(email, role) values ('t-sales@x.test','sales'),('t-mgmt@x.test','management'),('t-ppic@x.test','ppic'),('t-purch@x.test','purchasing'),('t-fin@x.test','finance');
+  -- K49 (v5.1): Sales write sales_line only within an active assignment; this user sells every customer and key
+  insert into public.sales_assignment (sales_rep, email) values ('T', 't-sales@x.test');
   select id into wid from public.week order by week_start desc limit 1;
 
   perform set_config('request.jwt.claims', '{"email":"t-sales@x.test","role":"authenticated"}', true);
@@ -236,6 +238,8 @@ declare out text := ''; n int; wid uuid; pid uuid;
 begin
   insert into public.app_user(email, role) values ('t6-sales@x.test','sales'),('t6-cl@x.test','commercial_lead'),('t6-ppic@x.test','ppic'),
     ('t6-purch@x.test','purchasing'),('t6-fin@x.test','finance'),('t6-mgmt@x.test','management');
+  -- K49 (v5.1): Sales write sales_line only within an active assignment; this user sells every customer and key
+  insert into public.sales_assignment (sales_rep, email) values ('T6', 't6-sales@x.test');
   select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
   insert into public.plan_week (week_start, version, head_count, frozen_planned_rp_downgrade, needs_approval) values ('2030-01-07', 1, 100, 30000000, true) returning id into pid;
 
@@ -685,6 +689,9 @@ declare
 begin
   insert into public.app_user(email, role) values ('t21-sales@x.test','sales'),('t21-sales2@x.test','sales'),('t21-mgmt@x.test','management'),
     ('t21-fin@x.test','finance'),('t21-ppic@x.test','ppic'),('t21-cl@x.test','commercial_lead'),('t21-ia@x.test','inventory_accounting'),('t21-admin@x.test','admin');
+  -- K49 (v5.1): Sales write sales_line only within an active assignment; these users sell every customer and key
+  insert into public.sales_assignment (sales_rep, email) values ('T21', 't21-sales@x.test');
+  insert into public.sales_assignment (sales_rep, email, key) values ('T21B', 't21-sales2@x.test', 'T21B-OTHER');
   select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
   insert into public.week (week_start, update_date, tb_opening_date, status) values ('2030-06-03', '2030-06-05', '2030-06-02', 'closed') returning id into cw;
   insert into public.sales_line (week_id, date, status, item_code, kg, price, customer, delivery_date, demand_status)
@@ -990,6 +997,8 @@ do $$
 declare out text := ''; n int; wid uuid; lid uuid; b text;
 begin
   insert into public.app_user(email, role) values ('t24-ppic@x.test','ppic'),('t24-sales@x.test','sales'),('t24-fin@x.test','finance'),('t24-mgmt@x.test','management');
+  -- K49 (v5.1): Sales write sales_line (deliveries update it) only within an active assignment
+  insert into public.sales_assignment (sales_rep, email) values ('T24', 't24-sales@x.test');
   select id into wid from public.week where status <> 'closed' order by week_start desc limit 1;
   insert into public.sales_line (week_id, date, status, item_code, kg, price, customer, delivery_date, demand_status, po_ref)
   values (wid, '2030-06-04', 'Order', 'JLB0593', 1800, 30000, 'PT Uji', '2030-06-05', 'Confirmed', 'PO-T24') returning id into lid;
@@ -1581,4 +1590,187 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
   raise exception 'RLS-RESULTS v5/5 (rolled back): %', out;
+end $$;
+
+-- v5.1/1 (PRD v5.1 K43–K47, K49, K53; R1–R3, R5, R7, R8, R13, R40 and the schema of K39, K46): the release task is
+-- not a grid cell (K44); no grid → no release (K45); C53 of controls_v3 holds the release like a v1 control (K47);
+-- assignments and guards on base keys (K43); Sales write PO lines only in their scope (K49); the cost columns of the
+-- Sales view follow sales_sees_cost (K53); rebuild triggers on the v5 tables (R13); lock_commitments in one
+-- transaction (K46); the admin retires a locked row (R40); advance_update_date (K39).
+do $$
+declare out text := ''; n int; wk1 uuid; wk2 uuid; wk3 uuid; nx date := '2032-03-22'; r text; d date; x numeric;
+  ok8 text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]}}';
+  c53 text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"BELUM DIISI"},{"code":"C49","status":"BELUM DIISI"}]}';
+begin
+  insert into public.app_user(email, role) values ('v51-fin@x.test','finance'),('v51-adm@x.test','admin'),('v51-sales@x.test','sales'),
+    ('v51-sales0@x.test','sales'),('v51-lead@x.test','commercial_lead'),('v51-ia@x.test','inventory_accounting');
+  insert into public.sales_assignment (sales_rep, email, customer, key) values ('V51', 'v51-sales@x.test', 'PT A', 'RPA|Karkas|Fresh');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-01', '2032-03-04', '2032-02-29') returning id into wk1;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-08', '2032-03-10', '2032-03-07') returning id into wk2;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-15', '2032-03-17', '2032-03-14') returning id into wk3;
+  insert into public.parameter (week_id) values (wk3) on conflict (week_id) do nothing;
+  update public.parameter set sales_sees_cost = false where week_id = wk3;
+  insert into public.sku_price (week_id, key, ref_sell_price) values (wk3, 'RPA|Karkas|Frozen', 21000);
+  insert into public.commercial_daily (date, key, cost_per_kg, cost_status, cost_check) values ('2032-03-16', 'RPA|Karkas|Fresh', 30000, 'final', false);
+  insert into public.input_completeness_daily (date, kind, owner_role, status, due_at) values
+    ('2032-03-02', 'gl_daily', 'inventory_accounting', 'passed', '2032-03-02T16:00:00+07'),
+    ('2032-03-03', 'costing_wp', 'cost_accounting', 'passed', '2032-03-03T12:00:00+07'),
+    ('2032-03-04', 'release_week', 'finance', 'late', '2032-03-04T17:00:00+07');
+  delete from public.rebuild_queue where date between '2032-03-01' and '2032-03-28';
+
+  select count(*) into n from information_schema.columns where table_schema = 'public' and (
+    (table_name = 'price_list_week' and column_name in ('deleted_at','deleted_by','price_frozen_source')) or (table_name = 'parameter' and column_name = 'po_unsized_mode'));
+  out := out || 'v5.1 columns=' || n || case when n = 4 then '' else '(!)' end || '; ';
+  r := public.base_key('RPA|Karkas|Fresh') || ',' || public.base_key('RPA|Karkas') || ',' || public.base_key('X|n/a') || ',' || public.base_key('RPA|Karkas|Frozen');
+  out := out || 'base_key=' || r || case when r = 'RPA|Karkas,RPA|Karkas,X,RPA|Karkas' then '' else '(!)' end || '; ';
+  select count(*) into n from public.parameter where week_id = wk3 and po_unsized_mode = 'warn'; out := out || 'po_unsized_mode default warn=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  out := out || 'clients execute tg_sales_line_scope=' || has_function_privilege('authenticated', 'public.tg_sales_line_scope()', 'execute')::text
+    || case when has_function_privilege('authenticated', 'public.tg_sales_line_scope()', 'execute') then '(!)' else '' end || '; ';
+
+  -- K45 / K44: with v5_input on a week without grid is not released; a week whose only red cell is the release task is
+  update public.app_setting set value = '{"enabled": true}' where key = 'v5_input';
+  perform set_config('request.jwt.claims', '{"email":"v51-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk2, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'K45 no grid: RELEASED(!); ';
+  exception when others then out := out || 'K45 no grid: rejected (' || case when sqlerrm like '%grid kelengkapan belum dibangun%' then 'grid belum dibangun' else sqlerrm || '(!)' end || '); '; end;
+  begin perform public.release_week(wk1, ok8, encode(sha256(convert_to(ok8, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'K44 only release task red: released; ';
+  exception when others then out := out || 'K44 only release task red: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  update public.app_setting set value = '{"enabled": false}' where key = 'v5_input';
+
+  -- K47: C53 BELUM DIISI in controls_v3 holds the release (strict mode); other v3 codes do not; Finance's override lifts it
+  update public.app_setting set value = '{"enabled": true}' where key = 'v4_release';
+  delete from public.rebuild_queue where date between '2032-03-15' and '2032-03-21';
+  perform set_config('request.jwt.claims', '{"email":"v51-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wk3, c53, encode(sha256(convert_to(c53, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'K47 C53 BELUM DIISI: RELEASED(!); ';
+  exception when others then out := out || 'K47 C53 BELUM DIISI: rejected (' || case when sqlerrm like '%C53 BELUM DIISI%' and sqlerrm not like '%C49%' then 'C53 only' else sqlerrm || '(!)' end || '); '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"v51-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2032-03-15', 'C53', 'WP batch sudah dicek manual', 'WP-0316'); out := out || 'admin C53 override: ALLOWED(!); ';
+  exception when others then out := out || 'admin C53 override: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"v51-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2032-03-15', 'C53', 'WP batch sudah dicek manual', 'WP-0316'); out := out || 'finance C53 override: OK; ';
+  exception when others then out := out || 'finance C53 override: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(wk3, c53, encode(sha256(convert_to(c53, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'K47 with C53 override: released; ';
+  exception when others then out := out || 'K47 with C53 override: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  update public.app_setting set value = '{"enabled": false}' where key = 'v4_release';
+
+  -- K43 / R5: a Sales user assigned "RPA|Karkas|Fresh" commits on the base key and reads it back; another key is refused.
+  -- R13: the commitment queues a rebuild of its week.
+  perform set_config('request.jwt.claims', '{"email":"v51-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values (nx, 'RPA|Karkas', 500, 25000); out := out || 'R5 base-key commitment: OK; ';
+  exception when others then out := out || 'R5 base-key commitment: DENIED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.sales_commitment where week_start = nx and key = 'RPA|Karkas'; out := out || 'sales reads it back=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg) values (nx, 'RPA|Kepala', 100); out := out || 'R5 other key: ALLOWED(!); ';
+  exception when others then out := out || 'R5 other key: denied; '; end;
+  begin perform public.lock_commitments(nx, '{}'::jsonb); out := out || 'sales locks commitments: ALLOWED(!); ';
+  exception when others then out := out || 'sales locks commitments: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.rebuild_queue where date = nx and status = 'queued'; out := out || 'R13 commitment queues rebuild=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  -- K46: the lead locks the week in one call; the price list gets the fresh price and the frozen reference price
+  perform set_config('request.jwt.claims', '{"email":"v51-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments(nx, '{}'::jsonb); out := out || 'lead locks drafts=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lead locks: DENIED(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.sales_commitment where week_start = nx and key = 'RPA|Karkas' and status = 'locked' and locked_by = 'v51-lead@x.test';
+  out := out || 'commitment locked by lead=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select p.price_frozen_source into r from public.price_list_week p where p.week_start = nx and p.key = 'RPA|Karkas';
+  select count(*) into n from public.price_list_week p where p.week_start = nx and p.key = 'RPA|Karkas' and p.price_fresh = 25000 and p.price_frozen = 21000 and p.locked_at is not null;
+  out := out || 'price list fresh 25000 frozen 21000 from ' || coalesce(r, 'null') || case when n = 1 and r = 'sku_price' then '' else '(!)' end || '; ';
+  begin perform public.lock_commitments(nx, '{}'::jsonb); out := out || 'lock without drafts: ACCEPTED(!); ';
+  exception when others then out := out || 'lock without drafts: rejected; '; end;
+  begin update public.sales_commitment set fresh_kg = 1 where week_start = nx and key = 'RPA|Karkas' and status = 'locked'; get diagnostics n = row_count; out := out || 'lead edits locked rows=' || n || '(!); ';
+  exception when others then out := out || 'lead edits locked commitment: rejected; '; end;
+  begin update public.price_list_week set price_fresh = 1 where week_start = nx and key = 'RPA|Karkas'; get diagnostics n = row_count; out := out || 'lead edits locked price rows=' || n || '(!); ';
+  exception when others then out := out || 'lead edits locked price list: rejected; '; end;
+  begin update public.price_list_week set deleted_at = now() where week_start = nx and key = 'RPA|Karkas'; get diagnostics n = row_count; out := out || 'lead retires locked price rows=' || n || '(!); ';
+  exception when others then out := out || 'lead retires locked price list: rejected; '; end;
+  execute 'reset role';
+
+  -- K46: a new version after the lock without a reason (written before the guard) makes the whole lock fail
+  perform set_config('request.jwt.claims', '', true);
+  insert into public.sales_commitment (week_start, version, key, fresh_kg, price) values (nx, 2, 'RPA|Karkas', 600, 26000), (nx, 1, 'RPA|Sayap', 50, 30000);
+  perform set_config('request.jwt.claims', '{"email":"v51-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.lock_commitments(nx, '{"RPA|Sayap": 28000}'::jsonb); out := out || 'v2 without reason: LOCKED(!); ';
+  exception when others then out := out || 'v2 without reason: rejected (' || case when sqlstate = '23514' and sqlerrm like '%RPA|Karkas%' then 'key named' else sqlerrm || '(!)' end || '); '; end;
+  execute 'reset role';
+  select count(*) into n from public.sales_commitment where week_start = nx and status = 'draft'; out := out || 'drafts left=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  select count(*) into n from public.price_list_week where week_start = nx and key = 'RPA|Sayap'; out := out || 'price list untouched=' || case when n = 0 then 'yes' else 'no(!)' end || '; ';
+  update public.sales_commitment set reason = 'harga naik minggu depan' where week_start = nx and key = 'RPA|Karkas' and status = 'draft';
+  perform set_config('request.jwt.claims', '{"email":"v51-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments(nx, '{"RPA|Sayap": 28000}'::jsonb); out := out || 'with reason locks=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'with reason: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select string_agg(version || ':' || status, ',' order by version) into r from public.sales_commitment where week_start = nx and key = 'RPA|Karkas';
+  out := out || 'versions ' || coalesce(r, 'none') || case when r = '1:superseded,2:locked' then '' else '(!)' end || '; ';
+  select count(*) into n from public.price_list_week where week_start = nx and key = 'RPA|Sayap' and price_frozen = 28000 and price_frozen_source = 'form';
+  out := out || 'frozen price from form=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select count(*) into n from public.price_list_week where week_start = nx and key = 'RPA|Karkas' and price_fresh = 25000; out := out || 'locked price row kept=' || n || case when n = 1 then '' else '(!)' end || '; ';
+
+  -- R40: the admin retires a locked commitment and a locked price-list row; nothing else of them changes
+  perform set_config('request.jwt.claims', '{"email":"v51-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.sales_commitment set deleted_at = now(), deleted_by = 'v51-adm@x.test' where week_start = nx and key = 'RPA|Sayap' and status = 'locked'; get diagnostics n = row_count;
+    out := out || 'admin retires locked commitment rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin retires locked commitment: REJECTED(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set deleted_at = now(), deleted_by = 'v51-adm@x.test' where week_start = nx and key = 'RPA|Sayap'; get diagnostics n = row_count;
+    out := out || 'admin retires locked price rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin retires locked price list: REJECTED(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_commitment set fresh_kg = 1 where week_start = nx and key = 'RPA|Karkas' and status = 'locked'; get diagnostics n = row_count; out := out || 'admin edits locked rows=' || n || '(!); ';
+  exception when others then out := out || 'admin edits locked commitment: rejected; '; end;
+  execute 'reset role';
+
+  -- K49: a Sales user writes PO lines only for an assigned customer and key; a Sales user without assignment writes none
+  perform set_config('request.jwt.claims', '{"email":"v51-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, item_code, kg, price, customer) values (wk2, '2032-03-09', 'Order', 'JLB0593', 10, 30000, 'PT A'); out := out || 'K49 assigned customer and key: OK; ';
+  exception when others then out := out || 'K49 assigned customer and key: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, item_code, kg, price, customer) values (wk2, '2032-03-09', 'Order', 'JLB0593', 10, 30000, 'PT B'); out := out || 'K49 other customer: ALLOWED(!); ';
+  exception when others then out := out || 'K49 other customer: denied; '; end;
+  begin insert into public.sales_line (week_id, date, status, item_code, kg, price, customer) values (wk2, '2032-03-09', 'Order', 'JLB0092', 10, 30000, 'PT A'); out := out || 'K49 other key: ALLOWED(!); ';
+  exception when others then out := out || 'K49 other key: denied; '; end;
+  begin update public.sales_line set customer = 'PT B' where week_id = wk2 and customer = 'PT A'; get diagnostics n = row_count; out := out || 'K49 move line to other customer rows=' || n || '(!); ';
+  exception when others then out := out || 'K49 move line to other customer: rejected; '; end;
+  -- K53: sales_sees_cost = false for the week → the cost columns are empty for Sales
+  select count(*), max(cost_per_kg), max(cost_status) into n, x, r from public.commercial_daily_sales_v5 where date = '2032-03-16';
+  out := out || 'K53 sales rows=' || n || ' cost=' || coalesce(x::text, 'null') || ' status=' || coalesce(r, 'null') || case when n = 1 and x is null and r is null then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"v51-sales0@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, item_code, kg, price, customer) values (wk2, '2032-03-09', 'Order', 'JLB0593', 10, 30000, 'PT A'); out := out || 'K49 sales without assignment: ALLOWED(!); ';
+  exception when others then out := out || 'K49 sales without assignment: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"v51-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select max(cost_per_kg), max(cost_status) into x, r from public.commercial_daily_sales_v5 where date = '2032-03-16';
+  out := out || 'K53 admin cost=' || coalesce(x::text, 'null') || case when x = 30000 and r = 'final' then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  -- K39: the upload owners move the update date through the RPC only; never backwards, never outside the week
+  perform set_config('request.jwt.claims', '{"email":"v51-ia@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin d := public.advance_update_date(wk2, '2032-03-11'); out := out || 'K39 ia upload 11/03 → ' || to_char(d, 'DD/MM') || case when d = '2032-03-12' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'K39 ia: DENIED(!) ' || sqlerrm || '; '; end;
+  d := public.advance_update_date(wk2, '2032-03-09'); out := out || 'earlier date keeps ' || to_char(d, 'DD/MM') || case when d = '2032-03-12' then '' else '(!)' end || '; ';
+  d := public.advance_update_date(wk2, '2032-03-20'); out := out || 'outside week keeps ' || to_char(d, 'DD/MM') || case when d = '2032-03-12' then '' else '(!)' end || '; ';
+  d := public.advance_update_date(wk2, '2032-03-14'); out := out || 'Sunday → ' || to_char(d, 'DD/MM') || case when d = '2032-03-15' then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"v51-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.advance_update_date(wk2, '2032-03-14'); out := out || 'K39 sales: ALLOWED(!); ';
+  exception when others then out := out || 'K39 sales: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select update_date into d from public.week where id = wk2; out := out || 'week update_date ' || to_char(d, 'DD/MM') || case when d = '2032-03-15' then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.1/1 (rolled back): %', out;
 end $$;
