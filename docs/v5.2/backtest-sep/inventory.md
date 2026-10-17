@@ -44,3 +44,8 @@
 
 - **BT-1 (bug parser, diperbaiki)** — header Accurate `Nilai Debit` / `Nilai Kredit` tidak cocok alias `debit`/`kredit` → debit/kredit jadi null. Tambah alias `nilai debit`/`nilai kredit` (+ `nilai debet`/`nilai credit`). Tes: `parsers.test.ts` "Daftar Histori GL". Commit `2ca9292`.
 - **GL KGR Rev 1.xls** (setelah BT-1): header terdeteksi di baris 5; **1.942 baris**, tanggal `2026-09-01`→`2026-09-30`; Σ debit `81.300.134.506,31` vs Σ kredit `81.300.134.506,27` (**selisih 0,04** — rounding sumber); 52 baris tanpa tanggal (penyesuaian akhir bulan) diabaikan; 0 baris tanpa debit+credit atau tanpa akun.
+
+## Format sumber lain (catatan definisi, bukan bug)
+
+- **Detail Sales September.xls** — "Rincian Penjualan" per faktur: header baris 5 = `No. Faktur`(2) `Tgl Faktur`(4) `Keterangan`(7) `Kuantitas`(9) `Unit`(11) `Jumlah`(13); nama barang (mis. "Ayam Karkas Mix") di baris 6. **Tanpa kolom kode item / pelanggan** — ini sumber **cek revenue** (bukan upload `sales_line`). Parser `accurate_sales` butuh kode item + pelanggan; pemetaan/cocok-cocok perlu disepakati (Q-v5.2 bila jadi input).
+- **Valuation detail.xls** — kartu stok **per item** (bukan flat): `No. Barang`/`Deskripsi Barang` di baris 4–5, lalu header ledger di baris 7 = `Tanggal`(0) `Tipe`(2) `No. Faktur`(6) `Kts. Masuk`(8) `Nilai masuk`(12) `Kts. Keluar`(15) `Nilai keluar`(21) `Kuantitas`(23) `Nilai Akhir`(25). Beda struktur dari parser `accurate_inventory` (yang flat "Kode Barang" per baris). Dipakai untuk **cek nilai stok & HPP**, bukan upload langsung.
