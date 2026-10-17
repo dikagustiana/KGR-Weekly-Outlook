@@ -10,3 +10,4 @@ coverage/
 .DS_Store
 out/
 __pycache__/
+tests/e2e/.work/
