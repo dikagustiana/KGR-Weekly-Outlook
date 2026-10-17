@@ -120,7 +120,7 @@ export function allocationInput(d: CostingWeek, b: BatchRow): AllocateInput {
     })),
     costLines: batchCostLines(d, b),
     overheadRate: rate ? { rate_per_kg_lb: rate.rate_per_kg_lb, rate_per_head: rate.rate_per_head, basis_kg: rate.basis_kg } : null,
-    options: { byProductMethod: d.params.by_product_method, sellingCostPerKg: d.params.selling_cost_per_kg },
+    options: { byProductMethod: d.params.by_product_method, sellingCostPerKg: d.params.selling_cost_per_kg, nullMissing: true },
   };
 }
 
@@ -182,7 +182,7 @@ export async function allocateWeek(sb: Supa, viewer: Viewer, week: WeekRow, batc
     const rows = r.lines.map((l) => ({
       allocation_run_id: runId, batch_output_sku_id: l.ref, key: l.key, item_code: l.item_code, kg: toFixedString(l.kg, 2),
       price_ref: l.priceRef === null ? null : toFixedString(l.priceRef, 4), sales_value: toFixedString(l.salesValue, 2), share: toFixedString(l.share, 8),
-      allocated_cost: toFixedString(l.allocatedCost, 2), cost_per_kg: toFixedString(l.costPerKg, 4), by_product_method: l.byProductMethod,
+      allocated_cost: toFixedString(l.allocatedCost, 2), cost_per_kg: l.costPerKg === null ? "0" : toFixedString(l.costPerKg, 4), by_product_method: l.byProductMethod,
       nrv_floor: l.nrvFloor === null ? null : toFixedString(l.nrvFloor, 4), nrv_writedown: toFixedString(l.nrvWritedown, 2),
     }));
     if (rows.length) {
@@ -205,6 +205,9 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
   // C48: a batch whose SKU output is gone cannot be posted (the database trigger allocation_run_c48 refuses it too)
   const empty = drafts.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
   if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id).join(", ")}`);
+  // R61 (K50): an allocation whose SKU lacks a reference price is below final and cannot be posted
+  const unpriced = await fetchAll<Row>((a, b) => sb.from("allocation_line").select("allocation_run_id, key").in("allocation_run_id", drafts.map((r) => r.id)).is("price_ref", null).range(a, b));
+  if (unpriced.length) throw new WriteError(`Belum bisa diposting: harga acuan kosong untuk ${[...new Set(unpriced.map((u) => String(u.key)))].join(", ")} — isi harga lalu alokasikan ulang`);
   for (const r of drafts) {
     const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
     if (e.error) throw new WriteError(e.error.message);
