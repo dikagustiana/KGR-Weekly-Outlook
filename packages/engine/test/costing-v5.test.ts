@@ -83,12 +83,12 @@ describe("planCost rules (§4.1)", () => {
     expect(r.lines[2].costPerKg).toBeNull();
     expect(planCost({ status: "rencana", kgLb: "1", lbPrice: "1", outputs: [{ key: "C", kg: "1", priceRef: null }] }).k).toBeNull();
   });
-  it("status of a batch: rencana → estimasi (cut date) → sementara (WP) → final (invoice tied / allocation posted)", () => {
+  it("status of a batch: rencana → estimasi (cut date) → sementara (WP) → final (allocation posted & priced)", () => {
     expect(costStatusOf({ date: "2026-08-28" }, "2026-08-27")).toBe("rencana");
     expect(costStatusOf({ date: "2026-08-26" }, "2026-08-27")).toBe("estimasi");
     expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00" }, "2026-08-27")).toBe("sementara");
-    expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00", invoiceStatus: "tied" }, "2026-08-27")).toBe("final");
-    expect(costStatusOf({ date: "2026-08-26", allocationPosted: true }, "2026-08-27")).toBe("final");
+    expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00", invoiceStatus: "tied" }, "2026-08-27")).toBe("sementara");
+    expect(costStatusOf({ date: "2026-08-26", allocationPosted: true, allPriced: true }, "2026-08-27")).toBe("final");
     expect(lowestStatus(["final", "sementara", "estimasi"])).toBe("estimasi");
     expect(lowestStatus([])).toBeNull();
   });

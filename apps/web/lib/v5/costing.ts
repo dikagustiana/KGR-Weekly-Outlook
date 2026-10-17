@@ -118,7 +118,7 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     const p = params.find((x) => String(x.week_id) === String(b.week_id)) ?? {};
     const dueAt = wpDueAt(s(b.date), Number(p.wp_due_hours ?? 24), String(p.wp_due_time ?? "12:00"));
     const wpRows = wp.filter((r) => String(r.batch_id) === id);
-    const status = costStatusOf({ date: s(b.date), wpReceivedAt: s(b.wp_received_at) ?? (wpRows.length ? "wp" : null), allocationPosted: postedIds.has(id), invoiceStatus: s(b.invoice_status) }, today);
+    const status = costStatusOf({ date: s(b.date), wpReceivedAt: s(b.wp_received_at) ?? (wpRows.length ? "wp" : null), allocationPosted: postedIds.has(id), allPriced: postedIds.has(id), invoiceStatus: s(b.invoice_status) }, today);
     const base = { batch_id: id, batch_ref: ref, date: s(b.date), week_id: String(b.week_id), status, dueAt, wpReceivedAt: s(b.wp_received_at), finalDate: postedOn.get(id) ?? null };
     if (!b.lb_kg) { out.push({ ...base, result: null, provisional: null, costByKey: new Map(), lbPriceSource: "batch", priceSource: "harga acuan minggu ini", costCheck: null }); continue; }
     const list = priceListToKeys(lists.filter((l) => String(l.week_start) === addDays(ws, -7)).map((l) => ({ key: String(l.key), price_fresh: s(l.price_fresh), price_frozen: s(l.price_frozen) })));
