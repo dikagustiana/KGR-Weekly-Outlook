@@ -18,6 +18,8 @@ import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
 const s = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+/** R61: a reference price that is missing or 0 is no price. */
+const priced = (v: string | null | undefined): string | null => (v === null || v === undefined || v === "" || D(v).isZero() ? null : v);
 
 export interface BatchRow {
   id: string; week_id: string; date: string | null; status: string | null; batch_ref: string | null; supplier: string | null;
@@ -113,8 +115,8 @@ export function allocationInput(d: CostingWeek, b: BatchRow): AllocateInput {
     },
     outputs: outs.map((o) => ({
       ref: o.id, key: o.key, item_code: o.item_code, name: o.item_name, kg: o.kg,
-      // Q3: the WP price list of the cut week; without it the week's reference price of the key
-      price_ref: o.price_ref ?? (o.key ? d.prices.get(o.key) ?? null : null),
+      // Q3 / R61: the WP price list of the cut week, else the week's reference price of the key; a price of 0 is no price
+      price_ref: priced(o.price_ref) ?? (o.key ? priced(d.prices.get(o.key) ?? null) : null),
       by_product: !!o.key && d.keys.get(o.key)?.decision_group === "By-product",
       pools: /boneless/i.test(o.item_name ?? "") ? ["boneless"] : [],
     })),
@@ -196,8 +198,18 @@ export async function allocateWeek(sb: Supa, viewer: Viewer, week: WeekRow, batc
   return `Dialokasikan ${targets.length} batch (draft): ${notes.join(" · ")}`;
 }
 
-/** Post the latest draft runs (C24); a posted run is what the monthly release and the ledger use. */
-export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise<string> {
+/** The SKUs of a posted-to-be allocation that carry output kg but no reference price (null or 0): K50/R61. */
+export function unpricedLines(d: CostingWeek, runId: string): string[] {
+  return (d.lines.get(runId) ?? []).filter((l) => D(l.kg).gt(0) && priced(l.price_ref) === null).map((l) => l.key ?? l.item_code ?? "?");
+}
+
+/**
+ * Post the latest draft runs (C24); a posted run is what the monthly release and the ledger use. R61 (K50): a batch
+ * whose allocation has an unpriced SKU cannot be posted — the message names batch and SKUs — unless Finance's override
+ * (`override`, a reason of at least 10 characters) is given: the allocation is then posted with the override written
+ * into allocation_run.issues, and the batch stays below final (K59: final needs every line priced).
+ */
+export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow, opts: { override?: { reason: string } } = {}): Promise<string> {
   const d = await loadCostingWeek(sb, week);
   const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft");
   const bad = drafts.filter((r) => D(r.diff).abs().gt(1));
@@ -205,16 +217,25 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
   // C48: a batch whose SKU output is gone cannot be posted (the database trigger allocation_run_c48 refuses it too)
   const empty = drafts.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
   if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id).join(", ")}`);
-  // R61 (K50): an allocation whose SKU lacks a reference price is below final and cannot be posted
-  const unpriced = await fetchAll<Row>((a, b) => sb.from("allocation_line").select("allocation_run_id, key").in("allocation_run_id", drafts.map((r) => r.id)).is("price_ref", null).range(a, b));
-  if (unpriced.length) throw new WriteError(`Belum bisa diposting: harga acuan kosong untuk ${[...new Set(unpriced.map((u) => String(u.key)))].join(", ")} — isi harga lalu alokasikan ulang`);
+  const refOf = (r: RunRow) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id;
+  const unpriced = drafts.map((r) => ({ run: r, keys: unpricedLines(d, r.id) })).filter((x) => x.keys.length);
+  const naming = unpriced.map((x) => `${refOf(x.run)}: ${x.keys.join(", ")}`).join("; ");
+  const reason = opts.override?.reason.trim() ?? "";
+  if (unpriced.length && !opts.override) throw new WriteError(`Belum bisa diposting: harga acuan kosong — ${naming} — isi harga lalu alokasikan ulang (atau override Finance dengan alasan)`);
+  if (unpriced.length && opts.override) {
+    if (viewer.role !== "admin" && viewer.role !== "finance") throw new WriteError("Override posting harga acuan kosong hanya oleh Finance");
+    if (reason.length < 10) throw new WriteError("Override posting: alasan minimal 10 karakter");
+  }
   for (const r of drafts) {
-    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
+    const keys = unpriced.find((x) => x.run.id === r.id)?.keys ?? [];
+    const issues = keys.length ? [...(r.issues ?? []), `override Finance: diposting tanpa harga acuan ${keys.join(", ")} — ${reason} (${viewer.email}, ${new Date().toISOString().slice(0, 10)})`] : r.issues;
+    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email, issues }).eq("id", r.id).select("id");
     if (e.error) throw new WriteError(e.error.message);
+    if (!(e.data as Row[] | null)?.length) throw new WriteError(`Posting ${refOf(r)} tidak tersimpan: tidak ada baris yang diubah (hak akses)`);
     const b = await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
     if (b.error) throw new WriteError(b.error.message);
   }
-  return `Diposting: ${drafts.length} batch`;
+  return `Diposting: ${drafts.length} batch${unpriced.length ? ` (override Finance: harga acuan kosong ${naming}; batch tetap di bawah final)` : ""}`;
 }
 
 async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promise<string> {

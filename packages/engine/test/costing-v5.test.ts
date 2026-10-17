@@ -87,8 +87,11 @@ describe("planCost rules (§4.1)", () => {
     expect(costStatusOf({ date: "2026-08-28" }, "2026-08-27")).toBe("rencana");
     expect(costStatusOf({ date: "2026-08-26" }, "2026-08-27")).toBe("estimasi");
     expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00" }, "2026-08-27")).toBe("sementara");
-    expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00", invoiceStatus: "tied" }, "2026-08-27")).toBe("sementara");
     expect(costStatusOf({ date: "2026-08-26", allocationPosted: true, allPriced: true }, "2026-08-27")).toBe("final");
+    // K59 (R60): posted but not every line priced, or priced but not posted, is not final; a tied invoice is not an input
+    expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00", allocationPosted: true, allPriced: false }, "2026-08-27")).toBe("sementara");
+    expect(costStatusOf({ date: "2026-08-26", wpReceivedAt: "2026-08-27T09:12:00+07:00", allocationPosted: false, allPriced: true }, "2026-08-27")).toBe("sementara");
+    expect(costStatusOf({ date: "2026-08-26", allocationPosted: true }, "2026-08-27")).toBe("estimasi");
     expect(lowestStatus(["final", "sementara", "estimasi"])).toBe("estimasi");
     expect(lowestStatus([])).toBeNull();
   });
@@ -98,6 +101,26 @@ describe("planCost rules (§4.1)", () => {
     const b = forecastPlanCost({ lbPrice: "25000", tariffPerKgLb: "650", outputs: outs });
     expect(a.get("RPA|Karkas|Fresh")).not.toBeNull();
     expect(b.get("RPA|Karkas|Fresh")!.gt(a.get("RPA|Karkas|Fresh")!)).toBe(true); // LB naik → biaya/kg naik
+  });
+  it("R61: a reference price of 0 is no price — the line stores null, costs null (nullMissing) and the batch cannot be final", () => {
+    const r = allocateBatch({
+      batch: { ref: "B", mode: "maklon" }, outputs: [{ ref: "k", kg: "100", price_ref: "10000" }, { ref: "l", kg: "5", price_ref: "0" }, { ref: "m", kg: "5", price_ref: "" }],
+      costLines: [{ component: "LB", amount: "900000" }], options: { byProductMethod: "joint", nullMissing: true },
+    });
+    expect(r.canBeFinal).toBe(false);
+    expect(r.lines[1].priceRef).toBeNull();
+    expect(r.lines[1].costPerKg).toBeNull();
+    expect(r.lines[2].priceRef).toBeNull();
+    expect(r.issues.some((i) => /harga acuan kosong/.test(i))).toBe(true);
+    // the priced SKU takes the whole cost
+    expect(r.lines[0].allocatedCost.toFixed(0)).toBe("900000");
+  });
+  it("R62: C54 names a batch whose cost is missing for a yield / tariff, never a cost of 0", () => {
+    const c = c54({ ratio: "3", rows: [{ key: "batch B1", costPerKg: null, priceRef: null, missing: "yield/tarif belum diisi: yield Karkas" }, { key: "K", costPerKg: "100", priceRef: "200" }] });
+    expect(c.status).toBe("PERIKSA");
+    expect(c.keys).toEqual(["batch B1"]);
+    expect(c.detail).toEqual(["batch B1: biaya belum ada (yield/tarif belum diisi: yield Karkas)"]);
+    expect(c54({ ratio: "3", rows: [{ key: "K", costPerKg: "100", priceRef: "200" }] }).status).toBe("LULUS");
   });
   it("allocateBatch carries a status (default final)", () => {
     const r = allocateBatch({ batch: { ref: "B", mode: "maklon" }, outputs: [{ ref: "o", kg: "1", price_ref: "1" }], costLines: [{ component: "LB", amount: "1" }], options: { byProductMethod: "joint" } });

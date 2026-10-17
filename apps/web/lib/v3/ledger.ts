@@ -45,6 +45,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   // v5 K20–K23: an RPA batch without a posted allocation takes the planCost of its status (estimasi / sementara)
   const v5 = (await v5CostingOn(sb)) ? await v5LedgerCosts(sb, first.week_start, latest.update_date, latest.id) : null;
   const v5Cost = new Map(v5 ? v5.batches.map((b) => [b.batch_ref, b.costByKey]) : []);
+  // K59 / R61: a batch whose posted allocation has an unpriced SKU is not final; its lots keep the v5 cost (sementara)
+  const notFinal = new Set(v5 ? v5.batches.filter((b) => b.posted && !b.m1Final).map((b) => b.batch_ref) : []);
   const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").order("id").range(a, b)),
@@ -88,7 +90,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     // plans and orders only from the latest week (older weeks' undelivered plans are history, not stock)
     receipts: receipts.filter((r) => r.status === "Aktual" || isLatest(r.week_id)).map((r) => {
       const key = keyOf(s(r.key_manual), s(r.item_code));
-      const c = r.receipt_source === "Produksi RPA" ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
+      const c = r.receipt_source === "Produksi RPA" && !notFinal.has(s(r.document_ref) ?? "") ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
       const v = !c && v5 && r.receipt_source === "Produksi RPA" ? costOfKey(v5Cost.get(s(r.document_ref) ?? "") ?? new Map(), key) : undefined;
       return {
         ref: String(r.id), date: s(r.date), status: s(r.status), source: s(r.receipt_source), item_code: s(r.item_code), key, kg: s(r.kg),

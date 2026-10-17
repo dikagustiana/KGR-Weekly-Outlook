@@ -323,11 +323,13 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   const first: InputCard = { title: "Tugas terbuka", value: String(dueToday.length), sub: late ? `${late} terlambat` : "tidak ada yang terlambat", tone: late ? "bad" : "plain" };
   const ws = mondayOf(today);
   if (role === "cost_accounting") {
-    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
-    const fin = bs.filter((b) => b.invoice_status === "tied").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at, costing_status").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
+    // K59: final = the allocation is posted; a tied invoice waits for the posting
+    const fin = bs.filter((b) => b.costing_status === "posted").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const waitPost = bs.filter((b) => b.invoice_status === "tied" && b.costing_status !== "posted").length;
     const inv = bs.filter((b) => b.invoice_status !== "pending").length;
     return [first,
-      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: "sementara / final", tone: "plain" },
+      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: waitPost ? `sementara / final · ${waitPost} faktur tie menunggu posting alokasi` : "sementara / final", tone: waitPost ? "warn" : "plain" },
       { title: "Faktur LB masuk", value: `${inv} dari ${bs.length}`, sub: inv < bs.length ? "costing belum bisa final" : "semua masuk", tone: inv < bs.length ? "warn" : "plain" },
       { title: "WP belum masuk", value: String(bs.length - wp), sub: bs.length - wp ? "biaya/kg batch itu masih estimasi" : "semua batch punya WP", tone: bs.length - wp ? "bad" : "plain" }];
   }
