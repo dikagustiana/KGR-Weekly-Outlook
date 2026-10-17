@@ -82,7 +82,7 @@ const STD_UNITS: [string, string][] = [["Kepala", "Kepala"], ["Ceker", "Ceker"],
  */
 export async function loadV5BatchCosts(sb: Supa, from: string, today: string): Promise<V5BatchCost[]> {
   const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, week_id, date, status, batch_ref, lb_kg, lb_price, freight, maklon, out_karkas_fresh, out_karkas_frozen, wp_received_at, invoice_status")
-    .is("deleted_at", null).is("superseded_at", null).gte("date", from).order("date").range(a, b));
+    .is("deleted_at", null).is("superseded_at", null).gte("date", from).order("date").order("id").range(a, b));
   if (!batches.length) return [];
   const ids = batches.map((b) => String(b.id));
   const weekIds = [...new Set(batches.map((b) => String(b.week_id)))];
@@ -90,10 +90,10 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     // K42: batch and week ids in chunks of 200 (URL length); every row page by page
     inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("allocation_run").select("batch_id, posted_at, run_at").in("batch_id", part).eq("status", "posted").order("id").range(a, b))),
     inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", part).is("deleted_at", null).order("id").range(a, b))),
-    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("parameter").select("week_id, freight_plan_per_kg_lb, maklon_per_kg_processed, target_shrink, lb_price_today, wp_due_hours, wp_due_time").in("week_id", part).range(a, b))),
-    fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, weight_class, price, decided_at").gte("date", from).order("decided_at", { ascending: false }).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("weight_class", "STD").eq("cut_pattern", "karkas").is("deleted_at", null).range(a, b)),
-    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("week").select("id, week_start").in("id", part).range(a, b))),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("parameter").select("week_id, freight_plan_per_kg_lb, maklon_per_kg_processed, target_shrink, lb_price_today, wp_due_hours, wp_due_time").in("week_id", part).order("week_id").range(a, b))),
+    fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, weight_class, price, decided_at").gte("date", from).order("decided_at", { ascending: false }).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("weight_class", "STD").eq("cut_pattern", "karkas").is("deleted_at", null).order("id").range(a, b)),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("week").select("id, week_start").in("id", part).order("id").range(a, b))),
   ]);
   const postedIds = new Set(posted.map((r) => String(r.batch_id)));
   // the WIB date of the (latest) posting = the date the cost becomes final (K22)
@@ -108,8 +108,8 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
   // reference prices: last week's locked price list (K24), else the batch week's reference prices
   const prevWeeks = [...new Set([...weekStart.values()].map((w) => addDays(w, -7)))];
   const [lists, refPrices] = await Promise.all([
-    inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).is("deleted_at", null).range(a, b))),
-    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", part).range(a, b))),
+    inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).is("deleted_at", null).order("key").order("week_start").range(a, b))),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", part).order("key").order("week_id").range(a, b))),
   ]);
   const yieldOf = (k: string) => s(yields.find((y) => String(y.key) === k)?.yield_pct);
   const out: V5BatchCost[] = [];

@@ -68,7 +68,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
       const d = must(await sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("date").lte("date", today).order("date", { ascending: false }).limit(1).maybeSingle(), "harga lantai (tanggal mart)") as Row | null;
       const date = s(d?.date);
       if (date) {
-        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).range(a, b));
+        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).order("date").order("key").range(a, b));
         ctx.floors = Object.fromEntries(rows.filter((r) => s(r.price_floor)).map((r) => [String(r.key), String(r.price_floor)]));
       } else ctx.floors = {};
     }
@@ -79,7 +79,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   }
   if (kind === "costing_wp" || kind === "supplier_invoice") {
     const rows = await fetchAll<Row>((a, b) => sb.from("batch").select("batch_ref, date, lb_kg, status").is("deleted_at", null).is("superseded_at", null)
-      .not("batch_ref", "is", null).gte("date", addDays(today, -60)).lte("date", addDays(today, 7)).order("date").range(a, b));
+      .not("batch_ref", "is", null).gte("date", addDays(today, -60)).lte("date", addDays(today, 7)).order("date").order("id").range(a, b));
     const seen = new Set<string>();
     ctx.batches = [];
     // an actual batch wins over the planned one of the same reference
@@ -92,7 +92,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
     ctx.batches.sort((a, b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref));
   }
   if (kind === "supplier_invoice") {
-    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).range(a, b));
+    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).order("id").range(a, b));
     const by = new Map<string, ReturnType<typeof D>>();
     for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0")));
     ctx.glByDoc = Object.fromEntries([...by].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, v.toFixed(2)]));
@@ -100,14 +100,14 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   if (kind === "fixed_cost") {
     const [coa, sched] = await Promise.all([
       fetchAll<Row>((a, b) => sb.from("coa_map").select("account").eq("driver_type", "fixed").is("deleted_at", null).order("account").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("code, account, start_date, end_date").eq("active", true).is("deleted_at", null).order("start_date").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("code, account, start_date, end_date").eq("active", true).is("deleted_at", null).order("start_date").order("id").range(a, b)),
     ]);
     ctx.fixedAccounts = coa.map((c) => String(c.account));
     ctx.fixedSchedule = sched.map((r) => ({ code: s(r.code), account: s(r.account), start: String(r.start_date), end: s(r.end_date) }));
   }
   if (kind === "lb_supply") {
     const lead = Number(par.lead_time_days ?? 1);
-    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").range(a, b));
+    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").order("size_code").order("week_start").range(a, b));
     ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: s(r.kg_lb) ?? "0" }));
   }
   return ctx;
@@ -184,7 +184,7 @@ function factReaders(sb: Supa): Record<string, FactOf> {
     budget: async (ref) => ((await exists(sb.from("budget").select("id", { count: "exact", head: true }).eq("month", `${ref}-01`).is("deleted_at", null), "tugas budget")) ? { done: "passed" } : none),
     po_lines: async (ref) => {
       const ship = addDays(ref, 1);
-      const lines = await fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null).range(a, b));
+      const lines = await fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null).order("id").range(a, b));
       if (!lines.length) return none;
       const items = await inChunks([...new Set(lines.map((l) => String(l.item_code)))], async (part) => mustRows<Row>(await sb.from("item_map").select("item_code, item_name, key, size_kg").in("item_code", part), "tugas po_lines item_map"));
       const it = new Map(items.map((i) => [String(i.item_code), i]));
@@ -202,7 +202,7 @@ export async function buildInputDay(sb: Supa, date: string): Promise<string> {
   if (!(await v5InputOn(sb))) return "v5_input mati";
   const rs = await rules(sb);
   const bs = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, date, status").is("deleted_at", null).is("superseded_at", null)
-    .gte("date", addDays(date, -1)).lte("date", addDays(date, 1)).range(a, b));
+    .gte("date", addDays(date, -1)).lte("date", addDays(date, 1)).order("id").range(a, b));
   const inst = instancesDue(rs, date, {
     cutDates: [...new Set(bs.map((b) => String(b.date)))],
     batches: bs.filter((b) => b.status === "Aktual").map((b) => ({ ref: s(b.batch_ref) ?? String(b.id), date: String(b.date) })),
@@ -321,7 +321,7 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   if (role === "sales" || role === "commercial_lead") {
     // K42: every PO line of the week, page by page
     const po = await fetchAll<Row>((a, b) => sb.from("sales_line").select("kg").eq("status", "Order").is("deleted_at", null).gte("delivery_date", ws).lte("delivery_date", addDays(ws, 6)).order("id").range(a, b));
-    const unsized = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").range(a, b));
+    const unsized = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").order("ship_date").order("size_code").order("week_start").range(a, b));
     const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
     const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;

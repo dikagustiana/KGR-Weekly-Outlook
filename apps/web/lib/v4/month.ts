@@ -96,9 +96,9 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const cutOff = opts.cutOff ?? cutOffOf(first, today, s(outlook?.cut_off_date));
   const from = addDays(cutOff, -42) < first ? addDays(cutOff, -42) : first;
   const [gl, coa, evRows] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("cost_event").select("date, pl_line, amount").is("deleted_at", null).gte("date", first).lte("date", last).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).order("account").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("cost_event").select("date, pl_line, amount").is("deleted_at", null).gte("date", first).lte("date", last).order("id").range(a, b)),
   ]);
   const glRows = gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) }));
   const coaRows = coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line), segment: s(c.segment) }));
@@ -150,8 +150,8 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const summary = monthSummaryV4(plan.rows, first, tolerance, isWorkingDay);
 
   const [saved, budgetRows] = await Promise.all([
-    outlook ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(outlook.id)).is("deleted_at", null).range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+    outlook ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(outlook.id)).is("deleted_at", null).order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
   ]);
   const latestV = budgetRows.reduce((m, r) => Math.max(m, Number(r.version)), 0);
   const budget: BudgetRow[] = budgetRows.filter((r) => Number(r.version) === latestV).map((r) => ({ segment: String(r.segment), metric: String(r.metric) as BudgetRow["metric"], value: String(r.value) }));
@@ -180,7 +180,7 @@ const numEq = (a: unknown, b: unknown) => (a === null || a === undefined || a ==
 /** Register of the month: new engine rows inserted, a changed value supersedes the agreed row; agreed rows with the same value stay. */
 export async function syncRegister(sb: Supa, first: string, register: RegisterRow[]): Promise<void> {
   const mo = await ensureOutlook(sb, first);
-  const saved = await fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).range(a, b));
+  const saved = await fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).order("id").range(a, b));
   // manual and kalibrasi rows are not the engine's to write or supersede
   const foreign = new Set(saved.filter((x) => String(x.source) !== "engine" && String(x.status) !== "superseded").map((x) => String(x.code)));
   for (const r of register) {

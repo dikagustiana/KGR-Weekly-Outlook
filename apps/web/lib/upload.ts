@@ -132,7 +132,7 @@ async function activeRows(sb: Supa, table: string, weekId: string, filter?: (q: 
   return fetchAll<Row>((f, t) => {
     let q: any = sb.from(table).select("*").eq("week_id", weekId).is("deleted_at", null);
     if (filter) q = filter(q);
-    return q.order("seq").range(f, t);
+    return q.order("seq").order("id").range(f, t);
   });
 }
 
@@ -286,7 +286,7 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       t.notes.push(`Mengganti ${existing.length} baris stok awal minggu ini`);
     } else if (set.target === "gl_line") {
       t.label = "Jurnal (GL)";
-      const old = await fetchAll<Row>((f, tt) => sb.from("gl_line").select("*").is("deleted_at", null).gte("date", from).lte("date", to).order("seq").range(f, tt));
+      const old = await fetchAll<Row>((f, tt) => sb.from("gl_line").select("*").is("deleted_at", null).gte("date", from).lte("date", to).order("seq").order("id").range(f, tt));
       const byKey = new Map(old.filter((e) => e.line_key).map((e) => [String(e.line_key), e]));
       const legacyGl = old.filter((e) => !e.line_key);
       const seen = new Set<string>();
@@ -437,7 +437,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
   const v3 = v3Kind(kind);
   if (v3) {
     if (!isModuleOn(settings[v3.module], viewer.role) || !v3.roles.includes(viewer.role)) throw new WriteError(`Modul ${v3.module} belum aktif untuk peran Anda`);
-    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
+    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").order("upload_id").range(f, t));
     const r = await v3.commit({ sb, viewer, week, uploadId, rows });
     // K39: a stock card of date d moves the update date of its open week to d + 1
     const moved = kind === "stock_card" ? await advanceUpdateDate(sb, await listWeeks(sb), r.dates) : "";
@@ -457,7 +457,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
     const r = await loadWeekInputs(sb, inputs, { source: "Manual", master: true, uploadId, note: `Impor workbook ${up.file_name}` });
     counts.inserted = Object.values(r.counts).reduce((a, b) => a + b, 0);
   } else {
-    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
+    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").order("upload_id").range(f, t));
     const sets = new Map<string, Row[]>();
     for (const r of rows) sets.set(r.target, [...(sets.get(r.target) ?? []), r.data]);
     const plan = await planUpload(sb, week, kind as UploadKind, [...sets.entries()].map(([target, rs]) => ({ target: target as StagedSet["target"], rows: rs })), viewer);

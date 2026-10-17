@@ -68,11 +68,11 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const horizon = addDays(date, 7);
   const [lines, allocations, blasts, param, prices] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, status, date, delivery_date, demand_status, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, sales_rep, document_ref, item_code, key_manual")
-      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).range(a, b)),
+      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).order("id").range(a, b)),
     week ? sb.from("parameter").select("cut_off_time, blast_cost_per_kg").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
-    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)) : Promise.resolve([] as Row[]),
+    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)) : Promise.resolve([] as Row[]),
   ]);
   const keyFor = (r: Row) => keyOf.get(String(r.id)) ?? s(r.key_manual) ?? "";
   const toOrder = (r: Row): DayOrder => ({

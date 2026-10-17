@@ -23,8 +23,8 @@ registerV3Kind({
     const issues = [...p.issues];
     const ok = p.rows.filter((r) => !r.issues.length);
     const pos = [...new Set(ok.map((r) => String(r.values.po_ref).trim()))];
-    const lines = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, po_ref, item_code, delivery_date, kg, fulfilled_kg, cancelled_kg, status").in("po_ref", c).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).order("delivery_date").range(a, b))) : [];
-    const done = lines.length ? await inChunks(lines.map((l) => String(l.id)), (c) => fetchAll<Row>((a, b) => sb.from("delivery").select("sales_line_id, document_ref").in("sales_line_id", c).is("deleted_at", null).range(a, b))) : [];
+    const lines = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, po_ref, item_code, delivery_date, kg, fulfilled_kg, cancelled_kg, status").in("po_ref", c).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).order("delivery_date").order("id").range(a, b))) : [];
+    const done = lines.length ? await inChunks(lines.map((l) => String(l.id)), (c) => fetchAll<Row>((a, b) => sb.from("delivery").select("sales_line_id, document_ref").in("sales_line_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const recorded = new Set(done.map((x) => `${String(x.sales_line_id)}|${s(x.document_ref) ?? ""}`));
     // outstanding per line, reduced as the rows of this file take it
     const left = new Map<string, Decimal>(lines.map((l) => [String(l.id), outstandingKg({ kg: String(l.kg), fulfilled_kg: s(l.fulfilled_kg), cancelled_kg: s(l.cancelled_kg) })]));

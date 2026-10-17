@@ -62,8 +62,8 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   // journal from 6 weeks before the cut-off (the run-rate looks back 20 working days, across the month start)
   const from = addDays(cutOff, -42) < first ? addDays(cutOff, -42) : first;
   const [gl, coa] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).order("account").range(a, b)),
   ]);
   const glRows = gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) }));
   const coaRows = coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line) }));
@@ -122,8 +122,9 @@ export async function writeMonthMart(sb: Supa, st: MonthState): Promise<{ writte
   }
   try {
     await writeEngineAssumptions(sb, st);
-  } catch {
-    // admin / finance only (RLS); other roles keep the mart already written by the rebuild
+  } catch (e) {
+    // admin / finance only (RLS); other roles keep the mart already written by the rebuild. Any other error stops (K56).
+    if (!/row-level security|permission denied/i.test((e as Error).message)) throw e;
   }
   return { written, deleted };
 }
@@ -176,7 +177,7 @@ registerBuilder({
 
 /** Reads for /m/[month]: the mart rows of the month (engine sums them). */
 export async function plDaily(sb: Supa, first: string): Promise<PlDailyRow[]> {
-  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").range(a, b));
+  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").order("basis").order("pl_line").range(a, b));
   return rows.map((r) => ({ date: String(r.date), pl_line: String(r.pl_line), basis: r.basis as PlDailyRow["basis"], actual: r.actual === null ? null : D(String(r.actual)), forecast: r.forecast === null ? null : D(String(r.forecast)), anomaly: r.anomaly === true }));
 }
 
@@ -267,10 +268,10 @@ export async function monthView(sb: Supa, first: string): Promise<MonthView> {
   if (!mo) return { versions: [], adjustments: [], accuracy: [], assumptions: [], bridge: null, controls: monthlyControls({ bridge: null }) };
   const id = String((mo as Row).id);
   const [versions, adjustments, acc, assumptions] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).order("metric").order("month_outlook_id").order("scope").order("version").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("id").range(a, b)),
   ]);
   const v1 = versions.find((v) => v.version === "V1"), v2 = versions.find((v) => v.version === "V2");
   const days = (v: Row | undefined) => ((v?.snapshot as { days?: VersionDay[] } | undefined)?.days ?? []);

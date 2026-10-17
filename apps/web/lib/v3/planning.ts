@@ -70,23 +70,23 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   const ws = week.week_start, we = addDays(ws, 6);
   const hFrom = addDays(ws, -56), hTo = addDays(ws, -1);
   const [items, orders, forecasts, param, keys, prices, classes, yields, subs, cap, lb, plans, hist, outs, reasons] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, date, delivery_date, demand_status, item_code, key_manual, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, po_date, sales_rep")
-      .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).range(a, b)),
+      .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
     sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle(),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price, replacement_buy_price").eq("week_id", week.id).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class").order("key").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price, replacement_buy_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").order("code").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct, effective_from, effective_to, note").is("deleted_at", null)
-      .lte("effective_from", ws).order("effective_from").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("substitution").select("key_demand, key_substitute, priority, max_pct").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("capacity").select("date, cut_capacity_head, chiller_kg, abf_kg").gte("date", ws).lte("date", we).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("lb_supply").select("*").gte("date", ws).lte("date", we).is("deleted_at", null).order("date").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason").eq("week_start", ws).is("deleted_at", null).range(a, b)),
+      .lte("effective_from", ws).order("effective_from").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("substitution").select("key_demand, key_substitute, priority, max_pct").is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("capacity").select("date, cut_capacity_head, chiller_kg, abf_kg").gte("date", ws).lte("date", we).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("lb_supply").select("*").gte("date", ws).lte("date", we).is("deleted_at", null).order("date").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).order("date").order("key").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
   ]);
   // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
   const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
@@ -95,9 +95,9 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   const stockDate = addDays(ws, -1);
   const sd = must(await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle(), "planning.lot_balance_daily");
   const sdate = sd ? String((sd as Row).date) : null;
-  const lots = sdate ? await fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, free_kg, age_days").eq("date", sdate).gt("free_kg", 0).range(a, b)) : [];
+  const lots = sdate ? await fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, free_kg, age_days").eq("date", sdate).gt("free_kg", 0).order("date").order("lot_ref").range(a, b)) : [];
   const latest = plans[0];
-  const planDays = latest ? await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", String(latest.id)).order("date").range(a, b)) : [];
+  const planDays = latest ? await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", String(latest.id)).order("date").order("id").range(a, b)) : [];
   // the latest yield row per (class, pattern, key) effective on the week start
   const ym = new Map<string, Row>();
   for (const y of yields) if (!y.effective_to || String(y.effective_to) >= ws) ym.set(`${y.weight_class}|${y.cut_pattern}|${y.key}`, y);
@@ -110,7 +110,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   const v5c = must(await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle(), "planning.v5_commercial");
   if (((v5c as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true) {
     // PRD v5.1 K41: a refused read is an error, not "no commitment"; K46: the engine keeps the highest locked version
-    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b));
+    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).order("id").range(a, b));
     const extra = commitmentDemand({
       weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
       commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
@@ -310,8 +310,8 @@ export async function buildDemandDay(sb: Supa, date: string): Promise<string> {
 /** plan_variance_daily rows of the week: Aktual batches (head count, SKU output mapped to production units) vs plan_day. */
 export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[]> {
   const ws = src.week.week_start, we = addDays(ws, 6);
-  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).range(a, b));
-  const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).range(a, b))) : [];
+  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).order("id").range(a, b));
+  const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
   const dateOf = new Map(batches.map((b) => [String(b.id), String(b.date)]));
   const rows = planVarianceDaily({
     planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
@@ -347,7 +347,7 @@ registerBuilder({ module: "m3_planning", name: "demand", begin: async () => { bu
 
 /** Reads for /w/[week]/demand: the data mart rows of the week. */
 export async function demandWeekly(sb: Supa, weekStart: string): Promise<Row[]> {
-  return fetchAll<Row>((a, b) => sb.from("demand_weekly").select("*").eq("week_start", weekStart).order("key").range(a, b));
+  return fetchAll<Row>((a, b) => sb.from("demand_weekly").select("*").eq("week_start", weekStart).order("key").order("week_start").range(a, b));
 }
 
 // ------------------------------------------------------------------------------------------------ plan writes (PPIC)
@@ -417,10 +417,10 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string)
   const p = proposePlan(src, { classCode: s(plan.weight_class) });
   const block = ppicBlockers([...ppicWeekControls(src, p, week.update_date), c45], "copy");
   if (block.length) throw new WriteError(`Belum bisa disalin ke batch: ${block.map((b) => `${b.code} ${b.status}`).join(", ")}`);
-  const days = await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", planId).gt("head_count", 0).order("date").range(a, b));
+  const days = await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", planId).gt("head_count", 0).order("date").order("id").range(a, b));
   const cls = defaultClass(src, s(plan.weight_class));
   const ref = (d: string) => `PLAN-${week.week_start}-v${plan.version}-${d}`;
-  const old = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref").eq("week_id", week.id).eq("status", "Rencana").like("batch_ref", `PLAN-${week.week_start}-%`).is("deleted_at", null).range(a, b));
+  const old = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref").eq("week_id", week.id).eq("status", "Rencana").like("batch_ref", `PLAN-${week.week_start}-%`).is("deleted_at", null).order("id").range(a, b));
   if (old.length) {
     const ids = old.map((o) => String(o.id));
     for (let i = 0; i < ids.length; i += 200) {
@@ -463,7 +463,7 @@ export function weekPlanningControls(src: PlanningSources, today: string): Contr
 // ------------------------------------------------------------------------------------------------ uploads (PRD v3 §5)
 
 async function itemKeys(sb: Supa): Promise<(km: string | null, ic: string | null) => string> {
-  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b));
+  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b));
   return keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
 }
 
@@ -491,7 +491,7 @@ registerV3Kind({
       ok.push({ target: "po", data: { ...v, demand_status: st, week_id: w.id, week_start: w.week_start, key: keyOf(v.key_manual, v.item_code), line_key: `${base}|${i}` } });
     }
     const pos = [...new Set(ok.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const have = new Set(existing.map((e) => String(e.line_key)));
     const p = plan0("sales_line", "PO lines (Order)", [`${pos.length} PO`]);
     p.inserts = ok.filter((r) => !have.has(String(r.data.line_key))).length;
@@ -506,7 +506,7 @@ registerV3Kind({
     const settings = await moduleSettingsOf(sb);
     const { covered } = await floorGuard(sb, viewer, settings, rows.map((r) => ({ key: s(r.data.key), customer: s(r.data.customer), price: s(r.data.price), kg: s(r.data.kg), date: s(r.data.delivery_date) })));
     const pos = [...new Set(rows.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
     const dates = new Set<string>();

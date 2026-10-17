@@ -60,9 +60,9 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   const horizon = addDays(date, 13 * 7 + 7);
   const [accounts, bal, plans, sched] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("bank_account").select("*").order("account_no").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("cash_daily").select("date, account_no, opening, closing").is("deleted_at", null).lte("date", date).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("cash_daily_plan").select("*").is("deleted_at", null).gte("date", addDays(date, -31)).lte("date", horizon).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("*").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("cash_daily").select("date, account_no, opening, closing").is("deleted_at", null).lte("date", date).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("cash_daily_plan").select("*").is("deleted_at", null).gte("date", addDays(date, -31)).lte("date", horizon).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("*").is("deleted_at", null).order("id").range(a, b)),
   ]);
   const balances: CashBalance[] = bal.map((b) => ({ date: String(b.date), account_no: String(b.account_no), opening: s(b.opening), closing: String(b.closing) }));
   const planRows = plans.map((p) => ({ id: String(p.id), date: String(p.date), account_no: s(p.account_no), cf_category: s(p.cf_category), description: s(p.description), amount: String(p.amount), status: s(p.status), fixed_cost_schedule_id: s(p.fixed_cost_schedule_id) }));
@@ -89,7 +89,7 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
       depr = sum(rows.filter((x) => x.pl_line === "Depreciation & amortisation").map((x) => (x.actual ?? D(0)).plus(x.forecast ?? D(0))));
     }
     // PRD v4 §3.2 / §6.3: the 12 months rest on the month's outlook of pl_daily_v4; without it the projection is "tidak tersedia"
-    const v4 = await fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", firstOfMonth(date)).lte("date", monthEnd(date)).range(a, b));
+    const v4 = await fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", firstOfMonth(date)).lte("date", monthEnd(date)).order("basis").order("date").order("pl_line").order("segment").range(a, b));
     if (v4.length) {
       const pr = plRowsFromMart(v4 as never);
       const sm = monthSummaryV4(pr, firstOfMonth(date), "0.10");
@@ -119,8 +119,8 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   if (r) {
     const from = addDays(date, -90), to = addDays(date, -1);
     const [gl, coa] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", to).range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", to).order("id").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).order("account").range(a, b)),
     ]);
     const rows = actualDaily({ gl: gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) })), coa: coa.map((x) => ({ account: String(x.account), pl_line: s(x.pl_line) })), from, to });
     const daily = dailyTotals(rows);

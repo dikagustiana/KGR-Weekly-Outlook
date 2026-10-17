@@ -117,24 +117,30 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
   let done = 0, failed = 0;
   const notes: string[] = [];
   if (byDate.size) for (const b of orderedBuilders()) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
+  // K42: the ids of one date in chunks of 200 (URL length); the first error message, or null
+  const mark = async (ids: string[], patch: Record<string, string>): Promise<string | null> => {
+    for (let i = 0; i < ids.length; i += 200) {
+      const r = await sb.from("rebuild_queue").update(patch).in("id", ids.slice(i, i + 200));
+      if (r.error) return r.error.message;
+    }
+    return null;
+  };
   const startedAt = Date.now();
   let processed = 0;
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
     if (budgetMs && Date.now() - startedAt > budgetMs) break;
-    for (let i = 0; i < ids.length; i += 200) {
-      const up = await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
-      if (up.error) throw new WriteError(`rebuild_queue running: ${up.error.message}`);
-    }
+    const fail = await mark(ids, { status: "running", started_at: new Date().toISOString() });
+    if (fail) throw new WriteError(`rebuild_queue running: ${fail}`);
     try {
       const msg = await rebuildDay(sb, date, settings);
-      const fin = await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" }).in("id", ids);
-      if (fin.error) throw new WriteError(`rebuild_queue done: ${fin.error.message}`);
+      const finFail = await mark(ids, { status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" });
+      if (finFail) throw new WriteError(`rebuild_queue done: ${finFail}`);
       done += ids.length;
       processed += 1;
       notes.push(`${date}: ${msg.length ? msg.join("; ") : "tidak ada modul aktif"}`);
     } catch (e) {
-      const f = await sb.from("rebuild_queue").update({ status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) }).in("id", ids);
-      if (f.error) notes.push(`${date}: GAGAL menandai failed: ${f.error.message}`);
+      const f = await mark(ids, { status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) });
+      if (f) notes.push(`${date}: GAGAL menandai failed: ${f}`);
       failed += ids.length;
       processed += 1;
       notes.push(`${date}: GAGAL ${(e as Error).message}`);

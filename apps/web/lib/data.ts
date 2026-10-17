@@ -101,7 +101,7 @@ export async function loadWeek(sb: Supa, weekStart: string): Promise<LoadedWeek 
   const [param, keys, prices, items, coa, opening, sales, receipts, batches, tb, runrate, cashPlan, supSales, supRec] = await Promise.all([
     sb.from("parameter").select("*").eq("week_id", wid).maybeSingle(),
     fetchAll<Row>((f, t) => sb.from("sku_key").select("*").eq("active", true).order("sort_order").order("key").range(f, t)),
-    fetchAll<Row>((f, t) => sb.from("sku_price").select("*").eq("week_id", wid).range(f, t)),
+    fetchAll<Row>((f, t) => sb.from("sku_price").select("*").eq("week_id", wid).order("key").order("week_id").range(f, t)),
     fetchAll<Row>((f, t) => active(sb.from("item_map").select("item_code, item_name, key")).order("item_code").range(f, t)),
     fetchAll<Row>((f, t) => active(sb.from("coa_map").select("*")).order("account").range(f, t)),
     byWeek("opening_stock", (q) => q.is("superseded_at", null)),

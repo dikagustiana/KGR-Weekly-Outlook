@@ -36,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Lint scripts fail on a violating file and pass on a clean one
+        run: bash scripts/test-lint.sh
       - name: K41 fail-closed reads
         run: bash scripts/lint-k41.sh
       - name: K42 pagination and chunking

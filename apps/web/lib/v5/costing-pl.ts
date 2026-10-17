@@ -16,11 +16,11 @@ const s = (v: unknown): string | null => (v === null || v === undefined || v ===
 /** Idle capacity per day of [from, to] (P&L sign) for every overhead rate with a basis that overlaps it. */
 export async function idleCostRows(sb: Supa, from: string, to: string): Promise<{ date: string; amount: string }[]> {
   const rates = await fetchAll<Row>((a, b) => sb.from("overhead_rate").select("period_start, period_end, basis_kg, rate_per_kg_lb")
-    .is("deleted_at", null).not("basis_kg", "is", null).lte("period_start", to).gte("period_end", from).range(a, b));
+    .is("deleted_at", null).not("basis_kg", "is", null).lte("period_start", to).gte("period_end", from).order("id").range(a, b));
   if (!rates.length) return [];
   const lo = rates.map((r) => String(r.period_start)).sort()[0], hi = rates.map((r) => String(r.period_end)).sort().reverse()[0];
   const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("date, status, lb_kg").eq("cost_mode", "own")
-    .is("deleted_at", null).is("superseded_at", null).gte("date", lo).lte("date", hi).range(a, b));
+    .is("deleted_at", null).is("superseded_at", null).gte("date", lo).lte("date", hi).order("id").range(a, b));
   // kg LB per day: the Aktual batches of the day, else its plan (Rencana)
   const kg = new Map<string, { aktual: Decimal; rencana: Decimal; hasAktual: boolean }>();
   for (const b of batches) {

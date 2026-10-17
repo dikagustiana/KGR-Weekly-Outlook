@@ -24,7 +24,7 @@ export async function BiayaV4({ first, viewer }: { first: string; viewer: Viewer
   const { weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const d = await loadMonthDrivers(sb, first, jakartaToday());
-  const events = await fetchAll<Row>((a, b) => sb.from("cost_event").select("*").is("deleted_at", null).gte("date", d.first).lte("date", d.last).order("date").range(a, b));
+  const events = await fetchAll<Row>((a, b) => sb.from("cost_event").select("*").is("deleted_at", null).gte("date", d.first).lte("date", d.last).order("date").order("id").range(a, b));
   const tot = fixedTotals(d.fixed);
   const carried = new Set(d.carried.map((c) => c.row.pl_line));
   const month = d.month;
