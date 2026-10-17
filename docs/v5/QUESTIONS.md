@@ -103,6 +103,8 @@ Q-v5-35. Kartu "Spot fresh hari ini" di tile "Dari Commercial" dan kalimat stok 
 
 Q-v5-36. Stok bebas di layar = `free_kg` mart Commercial (saldo lot − reservasi alokasi), seperti v4 M7. Komitmen minggu depan tidak dikurangkan dari stok hari ini; komitmen terkunci menjadi demand `Confirmed` di rencana Senin (K26) sebesar kg yang belum tertutup PO minggu itu, ditempatkan pada hari Senin. Baris komitmen tidak membawa ukuran, jadi di PPIC v5 dihitung kelas STD (C50).
 
+**Amandemen PRD v5.1 (17 Okt 2026, Bab 1.3):** default implementasi, **menyimpang dari PRD v5 §4.6** (stok bebas dikurangi komitmen terkunci minggu depan). Dibuka kembali sebagai O16; default sementara tetap: tidak dikurangi.
+
 Q-v5-37. Key komitmen dan price list = SKU dasar (`RPA|Karkas`); fresh kg → `|Fresh`, frozen kg → `|Frozen`. Harga di form komitmen menjadi `price_list_week.price_fresh` minggu depan saat Kepala Sales mengunci; `price_frozen` tidak diisi dari form (mockup hanya punya satu kolom harga). Costing minggu depan memakai harga itu (v5/1, K24).
 
 Q-v5-38. Tarif simpan harian = beban "Storage Expenses" jurnal bulan lalu ÷ nilai stok (Σ `cost_ma` `sku_balance_daily`) pada akhir bulan lalu ÷ hari bulan itu. PRD memakai persediaan neraca (3.532,6 jt Agustus); app memakai mart stok yang mewakili angka yang sama. Tanpa jurnal atau mart bulan lalu, kartu menulis "tarif simpan belum ada". Sales tidak melihat tarif (jurnal bukan untuk Sales).
@@ -118,6 +120,8 @@ Q-v5-41. C51 "kelas terdaftar" = kelas di `weight_class` yang sudah diberi angka
 Q-v5-42. SheetJS: `xlsx@0.18.5` dipasang di `apps/web` sesuai PRD §12.4. Versi ini punya CVE-2023-30533 (prototype pollution saat membaca file buatan) dan CVE-2024-22363 (ReDoS), diperbaiki di 0.19.3 / 0.20.2; `packages/parsers` memakai 0.20.3 dari cdn.sheetjs.com. Di jalur Input file hanya dibaca di browser pengunggahnya sendiri; server menerima grid, tidak mem-parse xlsx. Usul: naikkan web ke tarball 0.20.3 yang sama saat cdn.sheetjs.com terjangkau dari lingkungan build (di sini diblok, sehingga `pnpm add` tidak bisa me-resolve ulang lockfile; entri 0.18.5 dibangkitkan pnpm di salinan scratch lalu disisipkan, `--frozen-lockfile --lockfile-only` lolos). Build mini tidak membaca .xls (BIFF): layar meminta simpan ulang sebagai .xlsx atau tempel dari Excel; .csv dan tempel TSV tanpa library.
 
 Q-v5-43. Template PO menambah kolom opsional `ukuran` (tidak ada di tabel §4.9) supaya baris karkas tanpa ukuran bisa dilengkapi lewat file (tindakan journey N). Ukuran: kolom `ukuran` → `item_map.size_kg` → nama item ("Uk 1.3"). Yang wajib ukuran: `RPA|Karkas|Fresh` dan `RPA|Karkas|n/a` (mockup); karkas frozen tidak.
+
+**Amandemen PRD v5.1 (Bab 1.3):** "wajib ukuran" berarti baris karkas RPA tanpa ukuran = fail (kode 67c7f03, golden B.5). Dibuka sebagai O15; default baru = warn C50 dan baris tersimpan dengan `size_kg` null (dihitung STD), di belakang `parameter.po_unsized_mode` (`warn` | `fail`, default `warn`). Dibangun di v5.1 irisan 4 (R33); sampai irisan itu kode masih fail.
 
 Q-v5-44. Baris PO di bawah lantai lolos cek (`warn`), tetapi saat simpan dengan `m7_approval` hidup baris itu tidak ditulis: permintaan approval pending dibuat (`floorGuard`, C38) dan guard database v4 tetap menolak Order di bawah lantai tanpa approval. Setelah Kepala Sales menyetujui, upload ulang menulis baris itu (kunci baris sama). Lantai cek = `commercial_daily.price_floor` (yang dibaca guard database); bila Sales tidak boleh melihat biaya (`sales_sees_cost` false) cek lantai menjadi `info` di browser dan server.
 
@@ -135,6 +139,8 @@ Q-v5-49. "Lihat sebagai" (K37) mengikuti Bab 8: Admin, Management, Direktur Oper
 
 Q-v5-50. Tile simulasi dan "Perlu keputusan" memakai 5 baris (mockup: baris 9–11, 3 baris). Pada skala huruf v4 (baris 76 px) tabel SKU simulasi dan status putaran tidak muat dalam 3 baris, dan journey K meminta keputusan + pemilik terbaca tanpa scroll. Tile v4 di bawahnya turun 5 baris dan urutannya tetap v4; tile tren revenue/GP per minggu dan demand per kelas di tile "Demand dan rencana potong" (mockup baris 16–18, 30–33) belum ada di v4 dan tidak dibangun di irisan ini.
 
+**Amandemen PRD v5.1 (Bab 1.3):** tata letak ini diputuskan implementasi, bukan pemilik; dibuka sebagai O17. Tidak diubah di v5.1 sampai pemilik memutuskan; klaim journey K "tanpa scroll" dicabut dari bukti.
+
 Q-v5-51. Simulasi: basis kebutuhan = kebutuhan PO per kelas dari loader PPIC v5 (K28, yield placeholder sampai PPIC mengisi), basis batch = blok 2 v1 (`batchBasisInputs`). Tombol harga 20.000–26.000 per 1.000 + harga hari ini + harga yang sudah diputuskan; harga terpilih default = keputusan untuk potong besok, lalu harga hari ini. Keputusan dari Manajemen = untuk tanggal potong besok, harga yang sedang dicoba, volume opsional, tanpa kelas (O2).
 
 Q-v5-52. "Perlu keputusan" dibentuk dari data: harga LB besok belum diputuskan; batch rencana di atas kebutuhan (downgrade vs batas `threshold`); permintaan diskon pending terbesar (Kepala Sales); kas terendah minggu ini negatif (Direksi). Mockup menulis "Pinjaman afiliasi 1.200,0 jt": jumlah pinjaman butuh rencana pendanaan per tanggal yang belum ada di mart kas, jadi yang tampil titik terendah kas.
@@ -145,7 +151,23 @@ Q-v5-53. Label sumber K36 dipasang pada angka utama: Manajemen (kartu Outlook mi
 
 Q-v5-54. Tanggal data (`dataToday`): tanggal update minggu terakhir, atau hari ini bila datanya sudah terkini. Rebuild bulanan (cut-off), loader Manajemen v5 (tanggal potong, keputusan, putaran), Kas, Stok per SKU, Komersial, Outlook bulan dan tanggal default "Bangun ulang" memakainya, sama seperti engine mingguan memakai `update_date` sebagai hari ini. Tenggat, status terlambat, cut-off jam dan stempel waktu tetap memakai jam. Tanpa ini data contoh 24–30 Agu yang dibuka 16 Okt menampilkan potong 17/10, Agustus seluruhnya jurnal dan hari 27–31 Agu kosong.
 
+**Amandemen PRD v5.1 (K38):** tanggal data hanya untuk membaca mart dan menentukan cut-off aktual/outlook. Tanggal potong keputusan harga LB (jam dinding + 1), keputusan, jendela tugas dan grid Input, status putaran, tenggat, cut-off jam, stempel waktu, dan spot memakai jam dinding WIB lewat `clock()` (`apps/web/lib/clock.ts`). Dibangun di v5.1 irisan 2 (R10); sampai irisan itu kode masih memakai tanggal data untuk tanggal potong dan keputusan.
+
 Q-v5-55. Hari kas tanpa satu pun saldo rekening (template kas harian belum di-upload; `cash_position_daily.accounts = 0`) bukan saldo Rp 0: Minggu ini memakai arus kas mingguan, halaman Kas menulis "belum diisi" untuk saldo dan proyeksinya. Keputusan "Pendanaan kas" memakai saldo tanpa pendanaan afiliasi (kolom `closing_without_affiliate`, atau `weekCash.lowestWithoutAffiliate`), sesuai teksnya.
 
 Q-v5-56. Tile yang modulnya aktif tetapi data mart-nya belum dibangun tetap di tempatnya dengan teks "belum dibangun" dan langkahnya (Admin, halaman Modul); tile yang modulnya mati tetap tidak ditampilkan. Baris grid minimal 76 px dan tumbuh mengikuti tile tertinggi; isi tile tidak lagi di-scroll atau terpotong. `.headline` dan `.card` dari stylesheet v1 tidak berlaku di dalam grid v4.
 
+**Amandemen PRD v5.1 (Bab 1.3):** grid `minmax(76px, auto)` menyimpang dari PRD v4 §5.3 "baris 76px" dan diputuskan implementasi; dibuka sebagai O18. Default sementara tetap `minmax`; menjadi amandemen v4 §5.3 bila pemilik menyetujui.
+
+## Pertanyaan terbuka PRD v5.1 (O15–O20)
+
+Dari PRD v5.1 Bab 6: dibangun di belakang parameter, tidak difinalkan implementasi. Kolom "Kode" = keadaan di `67c7f03`.
+
+| # | Pertanyaan | Default sementara | Pemilik | Kode |
+|---|---|---|---|---|
+| O15 | Baris PO karkas tanpa ukuran: warn + tersimpan STD (K33/C50) atau fail (journey N/B.5)? | warn (`parameter.po_unsized_mode`) | Sales + PPIC | fail; default warn dibangun di irisan 4 (R33) |
+| O16 | Stok bebas di Commercial dikurangi komitmen terkunci minggu depan (§4.6) atau tidak (Q-v5-36)? | tidak dikurangi; **ditandai menyimpang dari §4.6** | Kepala Sales + Finance | tidak dikurangi |
+| O17 | Journey K: laba rugi di baris 4–7 membuat "Perlu keputusan" di bawah fold 1366×768. Pindah keputusan ke baris 4 kanan (laba rugi lebar 7), default laba rugi collapsed, atau terima scroll? | tidak diubah; klaim journey K "tanpa scroll" dicabut dari bukti sampai diputuskan | Pemilik produk | keputusan di baris 8–12 |
+| O18 | Grid v4 §5.3 "baris 76px" vs `minmax(76px, auto)` PR #31 | tetap `minmax`; dicatat sebagai amandemen v4 §5.3 bila disetujui | Pemilik produk | `minmax(76px, auto)` |
+| O19 | Baris "Beban tetap belum dijurnal" positif di minggu posting gaji (kumulatif, benar per bulan) vs distribusi ulang per hari | tetap kumulatif; catatan tile menjelaskan | Finance | kumulatif; catatan tile belum menjelaskan angka positif (v5.1 §3.11) |
+| O20 | C58: supply tanpa kelas (O2 satu harga) dihitung untuk semua kelas proporsional, atau diabaikan? | diabaikan + C58 menyebut "n kg tanpa kelas" | PPIC + Purchasing | diabaikan, tanpa menyebut kg tanpa kelas (v5.1 §3.11) |

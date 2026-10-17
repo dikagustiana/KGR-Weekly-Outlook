@@ -2,6 +2,8 @@
 
 Semua irisan Bab 10 sudah dibangun, satu PR per irisan. Semua flag `v5_*` mati secara default; selama mati layar v4 tetap bekerja, `computeWeek` tidak disentuh, parity 17.161/17.161 dan snapshot v1 byte-identik di setiap commit. Tidak ada SQL yang dijalankan ke KGR-OS (`pczjhmzpkknzkziipvit`); perintah di bawah dijalankan manusia.
 
+**Diamendemen oleh `docs/PRD-v5.1.md` (17 Okt 2026).** Review kode v5 menemukan bahwa putaran mingguan belum berjalan di database sungguhan dengan role selain Admin. Klaim gate dan journey di bawah sudah diturunkan (bagian "Status gate dan journey"); yang belum terpenuhi tercatat di bagian "Belum terpenuhi".
+
 ## PR
 
 | Irisan | PR | Status | Isi |
@@ -43,6 +45,8 @@ Prasyarat v4: `v4_design`, `m1_costing`, `m2_ledger`, `m3_planning`, `m4_monthly
 6. `v5_management` — terakhir (membaca semua di atas).
 
 Flag bisa dihidupkan per role lebih dulu (`{"enabled": true, "roles": ["admin"]}`) untuk uji di production.
+
+**K53 (PRD v5.1): `roles` membatasi layar, bukan mart.** Builder menulis kolom v5 bila flag `enabled` secara global. Pembaca mart (Commercial, Manajemen, P&L) memakai kolom v5 hanya bila flag aktif untuk role yang membuka layar (`isModuleOn(flag, viewer.role)`). View `commercial_daily_sales_v5` menyembunyikan `cost_per_kg` bila `parameter.sales_sees_cost = false`. Di `67c7f03` aturan ini belum ditegakkan seluruhnya; view dibenahi di v5.1 irisan 1 (R8), pembaca di irisan 4 (R28).
 
 ## Lampiran B dan C
 
@@ -93,6 +97,37 @@ Detail dan pertanyaan implementasi Q-v5-1 sampai Q-v5-53: `docs/v5/QUESTIONS.md`
 | Finance | pengecualian tertulis MA vs HPP 88,2% (Q69 v4, O13) |
 | Admin | user dan password untuk role baru: Direktur Operasional (`operations_director`), Kepala Sales (`commercial_lead`) dan Cost Accounting bila belum ada — dibuat di Admin → Pengguna, tidak di repo |
 | Pemilik produk | merge PR #27–#30, menerapkan migrasi di KGR-OS, menghidupkan flag |
+
+## Status gate dan journey (koreksi PRD v5.1)
+
+Klaim di `docs/v5/irisan-<n>.md` tidak diubah (riwayat), tetapi statusnya diturunkan sebagai berikut. Statusnya baru naik bila sudah diuji di PostgREST sungguhan dengan role sebenarnya (PRD v5.1 Bab 5).
+
+| Gate / journey | Klaim di dokumen irisan | Status |
+|---|---|---|
+| G13 / journey L (putaran satu minggu) | irisan-4, irisan-6 | lulus pada fixture dengan role Admin; diuji ulang di v5.1 irisan 3 (L, Commercial ↔ PPIC) dan irisan 4 |
+| journey K (Manajemen) | irisan-6, termasuk "terbaca tanpa scroll" | lulus pada fixture dengan role Admin; klaim "tanpa scroll" dicabut sampai O17 diputuskan |
+| journey M (Direktur Operasional, harga LB) | irisan-6 | lulus pada fixture dengan role Admin; diuji ulang di irisan 4 |
+| journey N (Sales, PO) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 4 (O15) |
+| journey O (Cost Accounting, WP) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 2 dan 4 |
+| journey P (Finance, kelengkapan dan rilis) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 1 (T8) |
+
+Uji PR #31 (`docs/v5/perbaikan-produksi.md`) memakai PostgREST lokal, tetapi hanya dengan role Admin dan hanya membuka halaman; journey di atas tidak dijalankan.
+
+## Belum terpenuhi (PRD v5.1 §3.11)
+
+Menunggu keputusan pemilik (PRD v5.1 Bab 6). Statusnya **belum terpenuhi**, bukan default:
+
+- tata letak journey K, "Perlu keputusan" di bawah fold 1366×768 (O17);
+- grid `minmax(76px, auto)` vs v4 §5.3 "baris 76px" (O18);
+- stok bebas Commercial dikurangi komitmen terkunci minggu depan, §4.6 (O16);
+- "Beban tetap belum dijurnal" positif di minggu posting (O19);
+- C58 untuk supply tanpa kelas (O20);
+- K27 pola potong dan fresh/frozen per SKU;
+- tile §6.1 baris 16–18 dan 30–33 (tren revenue/GP per minggu, demand per kelas);
+- form parameter O8;
+- bacaan parsial §8 (Q-v5-49);
+- cron harian (Q-v5-46);
+- COGS forecast dari `planCost` (Q-v5-25).
 
 ## Bukti per irisan
 
