@@ -107,7 +107,7 @@ server-port = $E2E_PGRST_PORT
 log-level = "warn"
 CONF
 e2e_log "[up] PostgREST di port $E2E_PGRST_PORT (db-max-rows=$E2E_DB_MAX_ROWS; jam dinding: PostgREST bukan proses faketime, binari statis)"
-nohup "$E2E_PGRST_BIN" "$E2E_WORK/postgrest.conf" >"$E2E_WORK/log/postgrest.log" 2>&1 &
+setsid nohup "$E2E_PGRST_BIN" "$E2E_WORK/postgrest.conf" >"$E2E_WORK/log/postgrest.log" 2>&1 </dev/null &
 echo $! >"$E2E_WORK/pids/postgrest.pid"
 
 wait_http() { # name url [seconds]
@@ -121,7 +121,7 @@ wait_http PostgREST "http://127.0.0.1:$E2E_PGRST_PORT/" 30 || { tail -20 "$E2E_W
 
 # ---------------------------------------------------------------------------------------------------- mock Supabase origin
 e2e_log "[up] mock Supabase di $E2E_SUPA_URL (/rest/v1 → PostgREST, /auth/v1, /storage/v1)"
-E2E_PGRST_URL="http://127.0.0.1:$E2E_PGRST_PORT" nohup node "$E2E_HERE/mock-supa.mjs" >"$E2E_WORK/log/mock.log" 2>&1 &
+E2E_PGRST_URL="http://127.0.0.1:$E2E_PGRST_PORT" setsid nohup node "$E2E_HERE/mock-supa.mjs" >"$E2E_WORK/log/mock.log" 2>&1 </dev/null &
 echo $! >"$E2E_WORK/pids/mock.pid"
 wait_http "mock Supabase" "$E2E_SUPA_URL/__e2e/health" 30 || { tail -20 "$E2E_WORK/log/mock.log" >&2; exit 1; }
 
@@ -137,7 +137,7 @@ e2e_log "[up] next start di port $E2E_APP_PORT (faketime; NEXT_PUBLIC_SUPABASE_U
   # shellcheck disable=SC2046
   NODE_ENV=production NEXT_PUBLIC_SUPABASE_URL="$E2E_SUPA_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$E2E_ANON_KEY" \
   SUPABASE_SERVICE_ROLE_KEY="$E2E_SERVICE_KEY" CRON_SECRET="$E2E_CRON_SECRET" NEXT_TELEMETRY_DISABLED=1 \
-  nohup env $("$CLOCK" env) "$E2E_ROOT/apps/web/node_modules/.bin/next" start -p "$E2E_APP_PORT" -H 127.0.0.1 >"$E2E_WORK/log/app.log" 2>&1 &
+  setsid nohup env $("$CLOCK" env) "$E2E_ROOT/apps/web/node_modules/.bin/next" start -p "$E2E_APP_PORT" -H 127.0.0.1 >"$E2E_WORK/log/app.log" 2>&1 </dev/null &
   echo $! >"$E2E_WORK/pids/app.pid"
 )
 wait_http "next start" "$E2E_BASE_URL/login" 90 || { tail -30 "$E2E_WORK/log/app.log" >&2; exit 1; }
