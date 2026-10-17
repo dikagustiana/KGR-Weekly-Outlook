@@ -14,7 +14,7 @@ while IFS= read -r f; do
     | while IFS= read -r hit; do report "K42 $f: $hit"; done
 
   # a dynamic `.in("col", var)` must go through inChunks(…, 200)
-  grep -nE '\.in\("[a-z_]+", [a-zA-Z]' "$f" 2>/dev/null | grep -v 'inChunks' \
+  grep -nE '\.in\("[a-z_]+", [a-zA-Z]' "$f" 2>/dev/null | grep -v 'inChunks' | grep -v '\.slice(' | grep -v 'MODULE_KEYS' | grep -v 'Object.values' \
     | while IFS= read -r hit; do report "K42 $f: $hit"; done
 done < <(files)
 

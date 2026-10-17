@@ -8,6 +8,7 @@ import { D, addDays, firstOfMonth, jakartaToday } from "@kgr/engine";
 import { budgetMonthFirst, normBudgetMetric, normDayBasis, parseV3Table } from "@kgr/parsers";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, type Row } from "../v3/uploads";
+import { inChunks, mustRows } from "../loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -29,10 +30,10 @@ registerV3Kind({
     const issues = [...p.issues];
     const ok = p.rows.filter((r) => !r.issues.length);
     const accounts = [...new Set(ok.map((r) => String(r.values.account).trim()))];
-    const { data: coaRows } = accounts.length ? await sb.from("coa_map").select("account, name, pl_line, driver_type").in("account", accounts).is("deleted_at", null) : { data: [] };
-    const coa = new Map(((coaRows ?? []) as Row[]).map((c) => [String(c.account), c]));
-    const { data: have } = accounts.length ? await sb.from("fixed_cost_schedule").select("id, code, account, amount_per_month, start_date, end_date, version, day_basis").in("account", accounts).is("deleted_at", null) : { data: [] };
-    const existing = new Map(((have ?? []) as Row[]).filter((h) => s(h.code)).map((h) => [String(h.code), h]));
+    const coaRows = accounts.length ? await inChunks(accounts, async (c) => mustRows(await sb.from("coa_map").select("account, name, pl_line, driver_type").in("account", c).is("deleted_at", null), "uploads-month.coa")) : [];
+    const coa = new Map((coaRows as Row[]).map((c) => [String(c.account), c]));
+    const have = accounts.length ? await inChunks(accounts, async (c) => mustRows(await sb.from("fixed_cost_schedule").select("id, code, account, amount_per_month, start_date, end_date, version, day_basis").in("account", c).is("deleted_at", null), "uploads-month.fixed_cost")) : [];
+    const existing = new Map((have as Row[]).filter((h) => s(h.code)).map((h) => [String(h.code), h]));
 
     const rows: { target: string; data: Row }[] = [];
     const seen: { account: string; start: string; end: string | null; line: number }[] = [];
@@ -113,9 +114,9 @@ registerV3Kind({
       rows.push({ target: "budget", data: { month, segment, metric, value: D(String(v.value)).toFixed(2) } });
     }
     const months = [...new Set(rows.map((r) => String(r.data.month)))].sort();
-    const { data: have } = months.length ? await sb.from("budget").select("month, version, segment, metric, value").in("month", months).is("deleted_at", null) : { data: [] };
+    const have = months.length ? await inChunks(months, async (c) => mustRows(await sb.from("budget").select("month, version, segment, metric, value").in("month", c).is("deleted_at", null), "uploads-month.budget")) : [];
     const byMonth = new Map<string, Row[]>();
-    for (const h of (have ?? []) as Row[]) byMonth.set(String(h.month), [...(byMonth.get(String(h.month)) ?? []), h]);
+    for (const h of have as Row[]) byMonth.set(String(h.month), [...(byMonth.get(String(h.month)) ?? []), h]);
     let inserts = 0, unchanged = 0;
     const notes: string[] = [];
     for (const m of months) {

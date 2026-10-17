@@ -126,8 +126,11 @@ export async function allocateDay(sb: Supa, viewer: Viewer, date: string): Promi
     if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
   }
   if (stale.length) {
-    const e = await sb.from("allocation").update({ deleted_at: new Date().toISOString(), deleted_by: viewer.email }).in("id", stale.map((a) => String(a.id)));
-    if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
+    const ids = stale.map((a) => String(a.id));
+    for (let i = 0; i < ids.length; i += 200) {
+      const e = await sb.from("allocation").update({ deleted_at: new Date().toISOString(), deleted_by: viewer.email }).in("id", ids.slice(i, i + 200));
+      if (e.error) throw new WriteError(`allocation: ${e.error.message}`);
+    }
   }
   const un = d.proposal.unallocated.length;
   return `${rows.length} alokasi FEFO ditulis${stale.length ? `, ${stale.length} alokasi lama dilepas` : ""}${un ? ` — ${un} baris PO belum tertutup stok` : ""}`;

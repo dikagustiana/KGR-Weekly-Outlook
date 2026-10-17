@@ -349,8 +349,10 @@ registerV3Kind({
       // WP rows that are no longer in the file, and the reconstructed (backfill) rows the WP now replaces
       const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key ?? ""}|${o.item_code ?? ""}`)) || o.source === "manual").map((o) => String(o.id));
       if (gone.length) {
-        const e = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone);
-        if (e.error) throw new WriteError(e.error.message);
+        for (let i = 0; i < gone.length; i += 200) {
+          const e = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone.slice(i, i + 200));
+          if (e.error) throw new WriteError(e.error.message);
+        }
         deleted += gone.length;
       }
       // cost lines (Ops, document = PI ref); replaced by the PI upload of the same document (cost_pool_pi)
@@ -386,7 +388,7 @@ registerV3Kind({
     const res = parseV3Table("cost_pool_pi", sheets);
     const ok = res.rows.filter((r) => !r.issues.length);
     const docs = ok.map((r) => r.values.document_ref).filter((x): x is string => !!x);
-    const ex = docs.length ? mustRows(await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", docs).is("deleted_at", null), "costing.cost_pool_line_docs") as Row[] : [];
+    const ex = docs.length ? await inChunks(docs, async (c) => mustRows(await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", c).is("deleted_at", null), "costing.cost_pool_line_docs")) : [];
     const p = plan0("cost_pool_line", "Cost pool (PI)");
     for (const r of ok) {
       const hit = ex.find((e) => e.document_ref === r.values.document_ref);

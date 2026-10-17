@@ -422,8 +422,11 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string)
   const ref = (d: string) => `PLAN-${week.week_start}-v${plan.version}-${d}`;
   const old = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref").eq("week_id", week.id).eq("status", "Rencana").like("batch_ref", `PLAN-${week.week_start}-%`).is("deleted_at", null).range(a, b));
   if (old.length) {
-    const e = await sb.from("batch").update({ deleted_at: new Date().toISOString() }).in("id", old.map((o) => String(o.id)));
-    if (e.error) throw new WriteError(`batch: ${e.error.message}`);
+    const ids = old.map((o) => String(o.id));
+    for (let i = 0; i < ids.length; i += 200) {
+      const e = await sb.from("batch").update({ deleted_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
+      if (e.error) throw new WriteError(`batch: ${e.error.message}`);
+    }
   }
   const rows = days.map((d, i) => {
     const lb = src.lbSupply.find((x) => String(x.date) === String(d.date) && (x.status === "confirmed" || x.status === "received"));
@@ -522,8 +525,11 @@ registerV3Kind({
     }
     const gone = existing.filter((e) => !rows.some((r) => r.data.line_key === e.line_key));
     if (gone.length) {
-      const e = await sb.from("sales_line").update({ deleted_at: new Date().toISOString() }).in("id", gone.map((g) => String(g.id)));
-      if (e.error) throw new WriteError(`sales_line: ${e.error.message}`);
+      const ids = gone.map((g) => String(g.id));
+      for (let i = 0; i < ids.length; i += 200) {
+        const e = await sb.from("sales_line").update({ deleted_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
+        if (e.error) throw new WriteError(`sales_line: ${e.error.message}`);
+      }
     }
     await consumeApprovals(sb, covered, null);
     return { inserted, updated, deleted: gone.length, dates: [...dates], message: "PO lines disimpan (Order)" };

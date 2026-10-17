@@ -121,8 +121,10 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
   let processed = 0;
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
     if (budgetMs && Date.now() - startedAt > budgetMs) break;
-    const up = await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids);
-    if (up.error) throw new WriteError(`rebuild_queue running: ${up.error.message}`);
+    for (let i = 0; i < ids.length; i += 200) {
+      const up = await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
+      if (up.error) throw new WriteError(`rebuild_queue running: ${up.error.message}`);
+    }
     try {
       const msg = await rebuildDay(sb, date, settings);
       const fin = await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" }).in("id", ids);
