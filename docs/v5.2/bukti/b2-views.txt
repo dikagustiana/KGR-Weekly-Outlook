@@ -1,0 +1,287 @@
+# v5.2 B2 — daftar kolom dua view Sales sebelum (origin/main) dan sesudah (cabang): \d+
+# tanggal: 2026-10-17 16:26 UTC · origin/main 3efb3db · cabang migrasi+tes 2989277
+
+################ commercial_daily_sales di b2_main_probe (origin/main, tanpa v52)
+                               View "public.commercial_daily_sales"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+View definition:
+ SELECT date,
+    key,
+    group_code,
+    form,
+    free_fresh_kg,
+    free_frozen_kg,
+    oldest_age_days,
+    hours_to_cutoff,
+    cost_per_kg_ma,
+    price_floor,
+    price_list,
+    margin_per_kg_list,
+    realized_price_7d,
+    margin_per_kg_realized,
+    holding_loss_per_day,
+    downgrade_risk_rp,
+    urgency,
+    priority_score,
+    rank,
+    ordered_today_kg
+   FROM commercial_daily c
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND (a.key IS NULL OR a.key = c.key))));
+Options: security_barrier=true
+
+hak akses anon: tidak ada · authenticated: INSERT,SELECT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
+
+################ commercial_daily_sales di b2_dev (cabang, dengan v52)
+                               View "public.commercial_daily_sales"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+    c.holding_loss_per_day,
+    c.downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+hak akses anon: tidak ada · authenticated: INSERT,SELECT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
+
+################ commercial_daily_sales_v5 di b2_main_probe (origin/main, tanpa v52)
+                             View "public.commercial_daily_sales_v5"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+ cost_per_kg            | numeric(18,4) |           |          |         | main     | 
+ cost_status            | text          |           |          |         | extended | 
+ cost_check             | boolean       |           |          |         | plain    | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+    c.cost_per_kg_ma,
+    c.price_floor,
+    c.price_list,
+    c.margin_per_kg_list,
+    c.realized_price_7d,
+    c.margin_per_kg_realized,
+    c.holding_loss_per_day,
+    c.downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg,
+        CASE
+            WHEN s.sees THEN c.cost_status
+            ELSE NULL::text
+        END AS cost_status,
+        CASE
+            WHEN s.sees THEN c.cost_check
+            ELSE NULL::boolean
+        END AS cost_check
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), true) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND (a.key IS NULL OR base_key(a.key) = base_key(c.key)))));
+Options: security_barrier=true
+
+hak akses anon: tidak ada · authenticated: INSERT,SELECT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
+
+################ commercial_daily_sales_v5 di b2_dev (cabang, dengan v52)
+                             View "public.commercial_daily_sales_v5"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+ cost_per_kg            | numeric(18,4) |           |          |         | main     | 
+ cost_status            | text          |           |          |         | extended | 
+ cost_check             | boolean       |           |          |         | plain    | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+    c.holding_loss_per_day,
+    c.downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg,
+        CASE
+            WHEN s.sees THEN c.cost_status
+            ELSE NULL::text
+        END AS cost_status,
+        CASE
+            WHEN s.sees THEN c.cost_check
+            ELSE NULL::boolean
+        END AS cost_check
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+hak akses anon: tidak ada · authenticated: INSERT,SELECT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER
+
+################ perbandingan kolom (urutan, nama, tipe) origin/main vs cabang
+commercial_daily_sales: IDENTIK (20 kolom)
+commercial_daily_sales_v5: IDENTIK (23 kolom)

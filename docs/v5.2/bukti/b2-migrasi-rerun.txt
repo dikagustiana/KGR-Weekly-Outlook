@@ -1,0 +1,102 @@
+# v5.2 B2 — tiga migrasi v52 (meta, security, release) dijalankan ULANG di DB yang sudah memuatnya (b2_rls: semua migrasi + seed + test:rls sudah lewat)
+# tanggal: 2026-10-17 16:25 UTC · cabang v5.2/b2-security-release @ 2989277
+
+## sebelum (registry, sidik md5 definisi fungsi/view/policy dan ACL)
+5.1.0|2026-10-17 16:25:07.005127+00|-|postgres
+5.2.0|2026-10-17 16:25:07.006125+00|-|postgres
+5.2.1|2026-10-17 16:25:07.082429+00|-|postgres
+5.2.2|2026-10-17 16:25:07.140881+00|-|postgres
+definisi md5: c246170072e3f4fb2a18da6c06af606b
+acl md5:      e1c1d008e571b4a84529c6d37af46636
+release_override_policy baris: 37 (C55: {finance})
+schema_version(): 5.2.2
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000100_v52_meta.sql  (putaran kedua)
+  psql:supabase/migrations/20261025000100_v52_meta.sql:16: NOTICE:  relation "schema_registry" already exists, skipping
+  CREATE TABLE
+  COMMENT
+  ALTER TABLE
+  REVOKE
+  REVOKE
+  GRANT
+  GRANT
+  DO
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  INSERT 0 0
+  INSERT 0 0
+  exit=0
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000200_v52_security.sql  (putaran kedua)
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  CREATE FUNCTION
+  REVOKE
+  CREATE FUNCTION
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  CREATE VIEW
+  REVOKE
+  GRANT
+  CREATE VIEW
+  REVOKE
+  GRANT
+  REVOKE
+  ALTER POLICY
+  ALTER POLICY
+  ALTER POLICY
+  CREATE VIEW
+  REVOKE
+  GRANT
+  CREATE FUNCTION
+  REVOKE
+  CREATE FUNCTION
+  REVOKE
+  ALTER POLICY
+  CREATE FUNCTION
+  CREATE FUNCTION
+  REVOKE
+  ALTER POLICY
+  ALTER POLICY
+  CREATE FUNCTION
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  REVOKE
+  ALTER POLICY
+  INSERT 0 0
+  exit=0
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000300_v52_release.sql  (putaran kedua)
+  psql:supabase/migrations/20261025000300_v52_release.sql:20: NOTICE:  column "note" of relation "release" already exists, skipping
+  ALTER TABLE
+  COMMENT
+  INSERT 0 0
+  CREATE FUNCTION
+  REVOKE
+  CREATE FUNCTION
+  REVOKE
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  CREATE FUNCTION
+  REVOKE
+  GRANT
+  INSERT 0 0
+  exit=0
+
+## sesudah
+5.1.0|2026-10-17 16:25:07.005127+00|-|postgres
+5.2.0|2026-10-17 16:25:07.006125+00|-|postgres
+5.2.1|2026-10-17 16:25:07.082429+00|-|postgres
+5.2.2|2026-10-17 16:25:07.140881+00|-|postgres
+definisi md5: c246170072e3f4fb2a18da6c06af606b
+acl md5:      e1c1d008e571b4a84529c6d37af46636
+release_override_policy baris: 37 (C55: {finance})
+schema_version(): 5.2.2
