@@ -18,7 +18,7 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
 import { consumeApprovals, floorGuard } from "./discount";
 import { parseSetting, MODULE_KEYS, type ModuleSettings } from "../modules-core";
-import { must, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 
 /** Module flags read with the caller's client (uploads run outside the page cache). */
 async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
@@ -311,7 +311,7 @@ export async function buildDemandDay(sb: Supa, date: string): Promise<string> {
 export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[]> {
   const ws = src.week.week_start, we = addDays(ws, 6);
   const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).range(a, b));
-  const outs = batches.length ? await fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", batches.map((x) => String(x.id))).is("deleted_at", null).range(a, b)) : [];
+  const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).range(a, b))) : [];
   const dateOf = new Map(batches.map((b) => [String(b.id), String(b.date)]));
   const rows = planVarianceDaily({
     planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
@@ -488,7 +488,7 @@ registerV3Kind({
       ok.push({ target: "po", data: { ...v, demand_status: st, week_id: w.id, week_start: w.week_start, key: keyOf(v.key_manual, v.item_code), line_key: `${base}|${i}` } });
     }
     const pos = [...new Set(ok.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
     const have = new Set(existing.map((e) => String(e.line_key)));
     const p = plan0("sales_line", "PO lines (Order)", [`${pos.length} PO`]);
     p.inserts = ok.filter((r) => !have.has(String(r.data.line_key))).length;
@@ -503,7 +503,7 @@ registerV3Kind({
     const settings = await moduleSettingsOf(sb);
     const { covered } = await floorGuard(sb, viewer, settings, rows.map((r) => ({ key: s(r.data.key), customer: s(r.data.customer), price: s(r.data.price), kg: s(r.data.kg), date: s(r.data.delivery_date) })));
     const pos = [...new Set(rows.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
     const dates = new Set<string>();

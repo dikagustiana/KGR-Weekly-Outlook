@@ -59,8 +59,8 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
     .eq("week_id", week.id).is("deleted_at", null).is("superseded_at", null).order("date").order("seq").range(f, t))) as unknown as BatchRow[];
   const ids = batches.map((b) => b.id);
   const [outs, runs, keys, prices, param] = await Promise.all([
-    ids.length ? fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", ids).is("deleted_at", null).order("kg", { ascending: false }).range(f, t)) : Promise.resolve([]),
-    ids.length ? fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", ids).neq("status", "superseded").order("run_at", { ascending: false }).range(f, t)) : Promise.resolve([]),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", c).is("deleted_at", null).order("kg", { ascending: false }).range(f, t))) : Promise.resolve([]),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", c).neq("status", "superseded").order("run_at", { ascending: false }).range(f, t))) : Promise.resolve([]),
     fetchAll<Row>((f, t) => sb.from("sku_key").select("key, group_code, decision_group, cut_component, segment").range(f, t)),
     fetchAll<Row>((f, t) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(f, t)),
     sb.from("parameter").select("by_product_method, yield_gap_tolerance, avg_lb_kg_default, selling_cost_per_kg").eq("week_id", week.id).maybeSingle(),
@@ -68,11 +68,11 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
   const latestRun = new Map<string, RunRow>();
   for (const r of runs as unknown as RunRow[]) if (!latestRun.has(r.batch_id)) latestRun.set(r.batch_id, r);
   const runIds = [...latestRun.values()].map((r) => r.id);
-  const lines = runIds.length ? ((await fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", runIds).order("allocated_cost", { ascending: false }).range(f, t))) as unknown as LineRow[]) : [];
+  const lines = runIds.length ? ((await inChunks(runIds, (c) => fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", c).order("allocated_cost", { ascending: false }).range(f, t)))) as unknown as LineRow[]) : [];
   const m = monthBounds(week.week_start);
   const mEnd = monthBounds(week.week_end).end;
   const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").range(f, t))) as unknown as PoolRow[];
-  const poolLines = pools.length ? ((await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", pools.map((p) => p.id)).is("deleted_at", null).order("date").range(f, t))) as unknown as PoolLineRow[]) : [];
+  const poolLines = pools.length ? ((await inChunks(pools.map((p) => p.id), (c) => fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", c).is("deleted_at", null).order("date").range(f, t)))) as unknown as PoolLineRow[]) : [];
   const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).range(f, t))) as unknown as RateRow[];
   const group = <T,>(xs: T[], k: (x: T) => string) => {
     const g = new Map<string, T[]>();
