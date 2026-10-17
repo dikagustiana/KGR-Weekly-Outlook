@@ -11,6 +11,8 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { fetchAll, listWeeks } from "../data";
+import { inChunks, must, tileData } from "../loader";
+import { fail, type Failed } from "../v4/tile-errors";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "../v3/uploads";
 import { computeDemand, loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, type PlanningSources } from "../v3/planning";
@@ -23,8 +25,8 @@ const FALLBACK = "STD";
 const BY_PRODUCTS = ["HJA (Hati/Jantung/Ampela)", "Usus", "Kepala", "Ceker", "Lemak"];
 
 export async function v5PpicOn(sb: Supa): Promise<boolean> {
-  const { data } = await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle();
-  return ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle(), "app_setting v5_ppic_class") as Row | null;
+  return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
 }
 
 export interface ClassSources {
@@ -45,7 +47,8 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const ids = lines0.map((o) => o.id);
   const [items, sized, classes, map] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, item_name, size_kg").is("deleted_at", null).range(a, b)),
-    ids.length ? fetchAll<Row>((a, b) => sb.from("sales_line").select("id, size_kg").in("id", ids).not("size_kg", "is", null).range(a, b)) : Promise.resolve([] as Row[]),
+    // K42: the ids of a week's karkas lines go in chunks of 200 (URL length)
+    inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, size_kg").in("id", part).not("size_kg", "is", null).order("id").range(a, b))),
     fetchAll<Row>((a, b) => sb.from("weight_class").select("code, min_kg, max_kg, avg_kg, sort_order").order("sort_order").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("size_class_map").select("size_kg, weight_class, effective_from, effective_to").is("deleted_at", null).lte("effective_from", ws).order("effective_from").range(a, b)),
   ]);
@@ -97,14 +100,23 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
   const w = src.week, ws = w.week_start, we = addDays(ws, 6);
   const cs = await loadClassDemand(sb, src);
   const next = addDays(ws, 7);
-  const [decision, commits, lists, plans, param] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, price, decided_at").gte("date", ws).lte("date", we).order("decided_at", { ascending: false }).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("sales_commitment").select("status").eq("week_start", next).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("surplus_response").select("plan_week_id").range(a, b)).catch(() => [] as Row[]),
-    sb.from("parameter").select("commitment_lock_dow, commitment_lock_time, cut_off_time").eq("week_id", w.id).maybeSingle(),
+  // PRD v5.1 K41: each read feeds named tiles; a failure shows there instead of a fallback price or "belum"
+  const failed: Failed = {};
+  const [decisionT, fromT, paramT] = await Promise.all([
+    tileData("ppic: keputusan harga LB", () => fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, price, decided_at").gte("date", ws).lte("date", we).order("decided_at", { ascending: false }).range(a, b))),
+    tileData("ppic: dari Commercial", async () => {
+      const [commits, lists, plans] = await Promise.all([
+        fetchAll<Row>((a, b) => sb.from("sales_commitment").select("status").eq("week_start", next).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("price_list_week").select("locked_at").eq("week_start", next).range(a, b)),
+        src.plans[0] ? fetchAll<Row>((a, b) => sb.from("surplus_response").select("plan_week_id").eq("plan_week_id", String(src.plans[0].id)).range(a, b)) : Promise.resolve([] as Row[]),
+      ]);
+      return { commits, lists, plans };
+    }),
+    tileData("ppic: parameter minggu", async () => (must(await sb.from("parameter").select("commitment_lock_dow, commitment_lock_time, cut_off_time").eq("week_id", w.id).maybeSingle(), "parameter") ?? {}) as Row),
   ]);
-  const p = (param.data ?? {}) as Row;
+  const decision = fail(failed, ["c-biaya", "c-rencana"], decisionT, []);
+  const { commits, lists, plans } = fail(failed, ["dari-commercial"], fromT, { commits: [] as Row[], lists: [] as Row[], plans: [] as Row[] });
+  const p = fail(failed, ["dari-commercial", "t-hari-ini"], paramT, {} as Row);
   const lbDecided = s(decision[0]?.price);
   const lbPrice = lbDecided ?? (src.v1.lbPriceToday && src.v1.lbPriceToday !== "0" ? src.v1.lbPriceToday : null);
   const price = (k: string) => src.prices.get(k) ?? null;
@@ -166,6 +178,7 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     block6: result.block6, canPlan: x.canPlan,
     saveBlockers: block(ppicBlockers(controls, "save")),
     copyBlockers: [...block(ppicBlockers(controls, "copy")), ...(c58.status === "LULUS" ? [] : [`C58 ${c58.status}`])],
+    failed,
   };
 }
 

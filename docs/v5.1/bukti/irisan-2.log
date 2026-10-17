@@ -1,0 +1,38 @@
+# irisan 2 — 2026-10-17T03:45:10.777Z (jam dinding mesin); jam uji DB: 2026-08-27 09:04 WIB
+SETUP: tanggal update minggu 24 Agu dimundurkan ke 26 Agu dan output batch 26 Agu dihapus (soft) — keadaan sebelum WP batch itu masuk; antrean rebuild kosong
+    costacc@t  POST /login (server action) → HTTP 303
+O0 costacc@t — Input → Perbarui status tugas (rebuild 7 hari s.d. jam uji, tanpa output batch 26 Agu)
+    costacc@t  GET /input → HTTP 200
+    costacc@t  POST /input (server action) → HTTP 200
+    pesan: Tugas diperbarui: 7 hari. 2026-08-21: monthly: bulan 2026-08: cut-off 2026-08-25, 269 baris (24 ditulis, 10 dihapus); ledger: sebelum stok awal; scorecard: scor
+    sebelum WP: update_date 2026-08-26; lot asal 26/08 RPA: estimasi 29; Karkas fresh commercial_daily 26/08: estimasi 38448, 27/08: rencana 38594
+    lead@t  POST /login (server action) → HTTP 303
+    lead@t  GET /komersial → HTTP 200
+    lead@t /komersial: 16 baris stok; RPA: 13
+O1 costacc@t — Input → WP potong: tempel WP batch 126/PO/KGR/08/2026 (7 SKU) → cek → simpan
+    costacc@t  GET /input?panel=costing_wp → HTTP 200
+    cek: ✓ Kolom wajib lengkap lolos ✓ Kode SKU terpetakan 7 dari 7 baris lolos · C56 ✕ Batch 126/PO/KGR/08/2026 kg_lb atau ekor kosong isi di baris pertama
+    costacc@t  POST /input (server action) → HTTP 200
+    pesan: 7 dari 7 baris lolos cek; 7 baru, 0 diubah. Lot batch 126/PO/KGR/08/2026 → sementara; PPIC dan Commercial membaca biaya baru setelah rebuild. tanggal update minggu 2026-08-24: 2026-08-26 → 2026-08-27. Rebuild: 2 selesai.
+O2 DB sesudah upload (dibaca postgres)
+    update_date 2026-08-27 (K39: 26 Agu → 27 Agu) sesuai
+    batch 126/PO/KGR/08/2026: wp_received_at=2026-08-27 09:04, costing_status=uploaded
+    antrean rebuild sejak upload (trigger + K40): 26/08 done (batch update), 27/08 done (upload v5 costing_wp)
+    sesudah WP: lot asal 26/08 RPA: sementara 29; Karkas fresh commercial_daily 26/08: sementara 39121, 27/08: estimasi 39234
+    hasil: status lot 26/08 berubah ke sementara; biaya Karkas fresh 27/08 berubah (rencana 38594 → estimasi 39234)
+    lead@t  POST /login (server action) → HTTP 303
+O3 lead@t — Commercial membaca biaya baru
+    lead@t  GET /komersial → HTTP 200
+    Karkas frozen: biaya sebelum "estimasi 34.196" → sesudah "estimasi 34.020"
+    hasil: 1 SKU dari batch 26 Agu tampil dengan biaya baru di Commercial (sesuai)
+O4 finance@t — satu tabel ditolak untuk role aplikasi (SETUP: revoke select on cash_position_daily from authenticated)
+    finance@t  POST /login (server action) → HTTP 303
+    finance@t  GET /minggu-ini/2026-08-24 → HTTP 200
+    tile error: c-kas: Gagal memuat data tile ini: minggu ini: kas (cash_position_daily) — cash_position_daily: permission denied for table cash_position_daily | kas: Gagal memuat data tile ini: minggu ini: kas (cash_position_daily) — cash_position_daily: permission denied for table cash_position_daily
+    tile lain tetap dirender: 22 dari 24
+    hasil: hanya tile kas dalam state error dengan pesan PostgREST (sesuai)
+    SETUP: grant select on cash_position_daily dikembalikan
+O5 opsdir@t — Manajemen · Minggu ini pada jam dinding (DB: 2026-10-17 10:45 WIB), update_date minggu 2026-08-27
+    form keputusan: date=2026-10-18; tombol "Putuskan Rp 24.600 untuk potong 18/10"
+    catatan simulasi: Data per 27 Agu · potong Min 18/10. Harga dan volume live bird diputuskan Direktur Operasional. Simulasi, bukan rekomendasi. Sumber: WP sementara · Cost Accounting · 27 Agu 09.04
+    hasil: tanggal potong = jam dinding + 1 (2026-10-18), kedua tanggal disebut (sesuai)

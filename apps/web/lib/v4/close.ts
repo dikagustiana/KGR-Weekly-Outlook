@@ -15,6 +15,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks } from "../data";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -65,9 +66,9 @@ export interface FinalPreview {
 async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
   const last = monthEnd(first);
   const st = await computeMonthV4(sb, first, addDays(last, 1), settings, { cutOff: last });
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   const moId = (mo as Row | null)?.id ? String((mo as Row).id) : null;
-  const adj = moId ? ((await sb.from("closing_adjustment").select("code, pl_line, amount").eq("month_outlook_id", moId).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[] : [];
+  const adj = moId ? mustRows<Row>(await sb.from("closing_adjustment").select("code, pl_line, amount").eq("month_outlook_id", moId).eq("posted", true).is("deleted_at", null), "closing_adjustment") : [];
   const adjustments = adj.map((a) => ({ code: String(a.code), pl_line: String(a.pl_line), amount: String(a.amount) }));
   const rows = st.plan.rows.filter((r) => r.actual !== null);
   return { state: st, controls: await finalControlsV4(sb, st, settings), adjustments, totals: finalTotalsV4({ rows, adjustments }) };
@@ -82,7 +83,7 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const today = jakartaToday();
   if (today <= last) throw new WriteError(`FINAL dikunci setelah akhir bulan (${last})`);
   const p = await finalPreview(sb, first, settings);
-  const { data: ov } = await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:FINAL`).is("deleted_at", null);
+  const ov = mustRows<Row>(await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:FINAL`).is("deleted_at", null), "release_override");
   const verdict = releaseVerdict({ controls: p.controls.map((c) => ({ code: c.code, status: c.status })), mandatory: monthMandatory("FINAL"), overrides: ((ov ?? []) as { code: string }[]).map((r) => r.code), strict: true });
   if (!verdict.ok) throw new WriteError(`FINAL ditolak: ${verdict.rejections.map((r) => `${r.code} ${r.status}`).join("; ")}`);
   const st = p.state;
@@ -106,11 +107,11 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
 
   // calibration for the next month (proposals; Finance agrees them before that month's V1)
   const mo = await ensureOutlook(sb, first);
-  const { data: v1 } = await sb.from("month_outlook_version").select("revenue, gp").eq("month_outlook_id", String(mo.id)).eq("version", "V1").maybeSingle();
+  const v1 = must(await sb.from("month_outlook_version").select("revenue, gp").eq("month_outlook_id", String(mo.id)).eq("version", "V1").maybeSingle(), "month_outlook_version") as Row | null;
   const v1r = v1 as Row | null;
   const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: D(String(v1r.gp ?? 0)).minus(t.after.gp).toFixed(2) } : null });
   const next = await ensureOutlook(sb, addDays(last, 1));
-  const have = ((await sb.from("assumption_register").select("code").eq("month_outlook_id", String(next.id)).eq("source", "kalibrasi").neq("status", "superseded").is("deleted_at", null)).data ?? []) as Row[];
+  const have = mustRows<Row>(await sb.from("assumption_register").select("code").eq("month_outlook_id", String(next.id)).eq("source", "kalibrasi").neq("status", "superseded").is("deleted_at", null), "assumption_register");
   const fresh = cal.filter((r) => !have.some((h) => String(h.code) === r.code));
   if (fresh.length) {
     const e = await sb.from("assumption_register").insert(fresh.map((r) => ({ month_outlook_id: next.id, code: r.code, name: r.name, value_num: r.value_num, basis: r.basis, owner: r.owner, status: "proposed", source: "kalibrasi" })));
@@ -126,10 +127,10 @@ let builtAcc = new Set<string>();
 
 /** forecast_accuracy_daily of a month that has FINAL: every V1 / V2 forecast day against the FINAL day. */
 async function buildAccuracy(sb: Supa, first: string): Promise<string> {
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   if (!mo) return `akurasi ${first.slice(0, 7)}: belum ada outlook`;
   const id = String((mo as Row).id);
-  const versions = ((await sb.from("month_outlook_version").select("version, snapshot").eq("month_outlook_id", id)).data ?? []) as Row[];
+  const versions = mustRows<Row>(await sb.from("month_outlook_version").select("version, snapshot").eq("month_outlook_id", id), "month_outlook_version");
   const fin = versions.find((v) => v.version === "FINAL");
   if (!fin) return `akurasi ${first.slice(0, 7)}: FINAL belum dikunci`;
   const finDays = ((fin.snapshot as { days?: VersionDayV4[] } | null)?.days ?? []);
@@ -176,7 +177,7 @@ export interface CloseViewV4 {
 /** DI-01 pairs from the ledger mart (lot_movement with revenue_date), for DOs delivered in `month`. */
 async function unbilledOf(sb: Supa, month: string) {
   const rows = await fetchAll<Row>((a, b) => sb.from("lot_movement").select("document_ref, key, kg, date, revenue_date, cost_ma, cost_ma_revenue").eq("type", "out_sale")
-    .gte("revenue_date", month).lte("revenue_date", monthEnd(month)).gt("date", monthEnd(month)).range(a, b)).catch(() => [] as Row[]);
+    .gte("revenue_date", month).lte("revenue_date", monthEnd(month)).gt("date", monthEnd(month)).range(a, b));
   const r = unbilledRevaluation({
     month,
     pairs: rows.filter((x) => x.cost_ma_revenue !== null && x.cost_ma !== null).map((x) => ({
@@ -191,7 +192,7 @@ async function unbilledOf(sb: Supa, month: string) {
 export async function closeViewV4(sb: Supa, first: string, settings: ModuleSettings): Promise<CloseViewV4> {
   const last = monthEnd(first);
   const afterMonthEnd = jakartaToday() > last;
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   const id = (mo as Row | null)?.id ? String((mo as Row).id) : null;
   const [adjustments, vs] = id ? await Promise.all([
     fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").range(a, b)),
@@ -221,8 +222,8 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const tot = (rs: Row[], k: string) => rs.some((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0)).toFixed(2) : null;
     daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff") ?? "0", diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
   }
-  const { data: nextMo } = await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle();
-  const cal = (nextMo as Row | null)?.id ? ((await sb.from("assumption_register").select("id, code, name, value_num, status").eq("month_outlook_id", String((nextMo as Row).id)).eq("source", "kalibrasi").is("deleted_at", null).order("code")).data ?? []) as Row[] : [];
+  const nextMo = must(await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle(), "month_outlook") as Row | null;
+  const cal = nextMo?.id ? mustRows<Row>(await sb.from("assumption_register").select("id, code, name, value_num, status").eq("month_outlook_id", String(nextMo.id)).eq("source", "kalibrasi").is("deleted_at", null).order("code"), "assumption_register") : [];
   const unbilled = (await Promise.all([unbilledOf(sb, firstOfMonth(addDays(first, -1))), unbilledOf(sb, first)])).filter((u) => u.dos > 0);
   return {
     first, last, afterMonthEnd, adjustments, versions, hasFinal: !!fin, preview, accuracy, daily, unbilled,

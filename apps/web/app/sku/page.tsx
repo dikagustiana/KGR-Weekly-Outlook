@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { clock } from "@/lib/clock";
 import { D, isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
@@ -6,13 +7,12 @@ import { Card, N, Td } from "@/components/ui";
 import { SKU_READERS, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { rekonSplitForWeek, skuBalances } from "@/lib/v3/ledger";
-import { computeForWeek, dataToday } from "@/lib/data";
+import { computeForWeek } from "@/lib/data";
 import { bsInventoryYesterday } from "@/lib/v3/week";
 import { tgl } from "@/lib/fmt";
 import { currentView } from "@/lib/view-server";
 
 export const dynamic = "force-dynamic";
-
 
 type R = Record<string, unknown>;
 
@@ -22,7 +22,7 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   const { viewer, weeks, week } = await plainContext(sp.week);
   const mgmt = (await currentView(viewer)) === "management";
   const sb = await supabaseServer();
-  const want = sp.date && isISODate(sp.date) ? sp.date : await dataToday(sb);
+  const want = sp.date && isISODate(sp.date) ? sp.date : (await clock(sb)).data;
   const { date, rows } = await skuBalances(sb, want);
   const group = sp.group ?? "";
   const form = sp.form ?? "";

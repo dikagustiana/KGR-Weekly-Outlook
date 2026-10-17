@@ -18,6 +18,7 @@ import type { CaraHitungContent } from "@/components/v4/CaraHitung";
 import type { TilePos } from "@/components/v4/Tile";
 import { mingguIniV5, type MingguIniV5Pl } from "../v5/pl-tiles";
 import { managementV5, type ManagementV5Input } from "../v5/management";
+import { withFailures, type Failed } from "./tile-errors";
 
 export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
@@ -54,6 +55,8 @@ export interface TileModel {
   /** Choices in the tile header (links; the page reads the query string), e.g. "Actual vs run-rate / Per minggu". */
   views?: { label: string; options: SlicerOption[]; current: string }[];
   content: TileContent;
+  /** PRD v5.1 K41: the read behind this tile failed; the tile shows this message (state error), the page stays. */
+  error?: string;
 }
 
 export interface MingguIniModel {
@@ -100,6 +103,8 @@ export interface MingguIniInput {
   v5Pl?: MingguIniV5Pl | null;
   /** PRD v5 §6.1 (flag v5_management): LB simulation, decisions, loop status, source labels; absent = v4 / v5_pl. */
   v5Mgmt?: ManagementV5Input | null;
+  /** PRD v5.1 K41: tile id → message of the read that failed. */
+  failed?: Failed;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
@@ -466,7 +471,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
 
   const withPl = x.v5Pl ? mingguIniV5(tiles, { v5: x.v5Pl, weekStart: x.week.start, split: x.mode === "aktual" }) : tiles;
   // v5/6: the simulation and the decisions take the three rows after the P&L tile (rows 9–11 of the mockup)
-  return { title: "Minggu ini", week: x.week.start, tiles: x.v5Mgmt ? managementV5(withPl, x.v5Mgmt, { at: x.v5Pl ? 8 : 4 }) : withPl, hidden };
+  const all = x.v5Mgmt ? managementV5(withPl, x.v5Mgmt, { at: x.v5Pl ? 8 : 4 }) : withPl;
+  return { title: "Minggu ini", week: x.week.start, tiles: withFailures(all, x.failed), hidden };
 }
 
 function lowestOf(days: { date: string; closing: string | null }[]): { date: string; balance: Decimal; average: Decimal } | null {

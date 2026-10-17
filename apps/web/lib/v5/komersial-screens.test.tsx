@@ -19,7 +19,7 @@ const input = (filter: "all" | "hari" | "batas" | "below" = "all", over: Partial
   const all = stockSellRows(items, rate);
   const deadline = commitmentDeadline("2026-08-31", 5, "17:00");
   return {
-    today: "2026-08-27", roleLabel: "Kepala Sales", sales: false, base: "/komersial", filter, stockDate: "2026-08-26", rows: filterRows(all, filter), summary: stockSummary(all), holdingRate: rate,
+    today: "2026-08-27", spotToday: true, roleLabel: "Kepala Sales", sales: false, base: "/komersial", filter, stockDate: "2026-08-26", rows: filterRows(all, filter), summary: stockSummary(all), holdingRate: rate,
     approvalsWaiting: 0, cutOffTime: "14.00",
     commitment: { weekStart: "2026-08-31", weekEnd: "2026-09-06", deadline: "Jum 28/08 17.00", canEdit: true, canLock: true, priceListLocked: false,
       rows: [{ key: "RPA|Karkas", thisWeekKg: D("17346"), fresh: null, frozen: null, price: "36705", status: "belum diisi", version: null }, { key: "RPA|Usus", thisWeekKg: D("2174"), fresh: "2000", frozen: null, price: "1500", status: "draft", version: 1 }] },

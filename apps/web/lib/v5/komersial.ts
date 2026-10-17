@@ -7,6 +7,7 @@ import type { ControlV3, Decimal, SpotRow, StockFilter, StockSellRow, StockSumma
 import { jtV4, minus, num, pctV4, tglShort } from "../fmt";
 import type { Col, TRow } from "@/components/v4/Table";
 import type { TilePos } from "@/components/v4/Tile";
+import { withFailures, type Failed } from "../v4/tile-errors";
 import type { TileModel } from "../v4/minggu-ini";
 
 export interface CommitmentRow {
@@ -21,7 +22,12 @@ export interface CommitmentRow {
 }
 
 export interface KomersialV5Input {
+  /** The data date the stock is read on (K38). */
   today: string;
+  /** "Spot hari ini": the data is today's on the wall clock (K38); spot is recorded on the wall date only. */
+  spotToday: boolean;
+  /** K41: tile id → message of the read that failed. */
+  failed?: Failed;
   roleLabel: string;
   sales: boolean;
   base: string;
@@ -128,5 +134,5 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     note: "Penjualan spot dicatat tanpa nomor PO dan masuk scorecard. Sisa yang belum laku saat cut-off diblast oleh PPIC.",
     content: { type: "table", cols: sCols, rows: x.spot.map((r) => ({ id: r.key, redNeg: true, cells: { s: skuLabel(r.key), kg: kg(r.free_kg), f: rp(r.floor), r: rp(r.price_ref), z: rp(r.price_frozen), d: r.downgrade === null ? "" : `${jtV4(r.downgrade.neg())} jt`, n: r.belowCost ? "acuan di bawah biaya: butuh approval" : "" } })) },
   });
-  return { title: "Commercial", tiles };
+  return { title: "Commercial", tiles: withFailures(tiles, x.failed) };
 }

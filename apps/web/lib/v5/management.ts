@@ -4,12 +4,13 @@
  * decisions waiting this week with their owner, the status of the weekly loop (§3.2), and the source label of the main
  * numbers (K36). Numbers come from the engine and the marts; this file places and words them.
  */
-import { D, type Decimal, type LivebirdSimulation } from "@kgr/engine";
+import { D, addDays, type Decimal, type LivebirdSimulation } from "@kgr/engine";
 import { ROLE_LABEL, type Role } from "../roles";
 import { jtV4, minus, num, pctV4 } from "../fmt";
 import { K25_DECIDER } from "./k25";
 import type { Col, TRow } from "@/components/v4/Table";
 import type { TileModel } from "../v4/minggu-ini";
+import { withFailures, type Failed } from "../v4/tile-errors";
 
 export type SimBasis = "need" | "batch";
 
@@ -28,17 +29,24 @@ export interface ManagementV5Input {
     result: LivebirdSimulation | null;
     /** Latest decision for the next cut date (K25), shown next to the simulation. */
     decided: { date: string; price: Decimal; by: string | null } | null;
+    /** Tomorrow on the wall clock (K38): the date the decision form records. */
     cutDate: string;
+    /** The date the data stands on; named next to the cut date when they differ (K38). */
+    dataDate: string;
     href: (basis: SimBasis, price: Decimal) => string;
   };
   decisions: DecisionLine[];
   loop: LoopLine[];
   /** K36 per card id (c-outlook, c-stok, c-kas, c-bulan, c-solvabilitas) and the P&L tile. */
   sources: Record<string, SourceLabel>;
+  /** K41: tile id → message of the read that failed (sim-lb, keputusan). */
+  failed?: Failed;
 }
 
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const dm = (d: string) => `${DAYS[new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.slice(8, 10))}/${d.slice(5, 7)}`;
+const MON = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const dmShort = (d: string) => `${Number(d.slice(8, 10))} ${MON[Number(d.slice(5, 7)) - 1]}`;
 const rp = (v: Decimal | null | undefined) => (v === null || v === undefined ? "belum ada" : minus(num(v, 0)));
 const kg = (v: Decimal) => num(v, 0);
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -93,7 +101,8 @@ export interface LoopFacts {
   planNext: { version: number | null };
   costing: { sementara: number; final: number; wpLate: string[] };
   lb: { cutDate: string; price: Decimal | null };
-  freeStock: { kg: Decimal; value: Decimal } | null;
+  /** null = no Commercial mart yet; error = the mart could not be read (K41). */
+  freeStock: { kg: Decimal; value: Decimal } | { error: string } | null;
 }
 
 /** "Status putaran" (§3.2): the hand-overs of the week, each as the data says. */
@@ -103,7 +112,7 @@ export function loopLines(f: LoopFacts): LoopLine[] {
     { label: "Rencana PPIC minggu depan", value: f.planNext.version !== null ? `versi ${f.planNext.version} tersimpan` : f.commitment.locked ? "belum disusun" : "menunggu komitmen", late: false },
     { label: `Harga LB potong ${dm(f.lb.cutDate)}`, value: f.lb.price ? `Rp ${rp(f.lb.price)} · Direktur Operasional` : "belum diputuskan", late: false },
     { label: "Costing batch minggu ini", value: `${f.costing.sementara} sementara, ${f.costing.final} final${f.costing.wpLate.length ? ` · WP ${f.costing.wpLate.join(", ")} terlambat` : ""}`, late: f.costing.wpLate.length > 0 },
-    { label: "Stok bebas belum ke PO", value: f.freeStock ? `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt` : "belum ada mart Commercial", late: false },
+    { label: "Stok bebas belum ke PO", value: !f.freeStock ? "belum ada mart Commercial" : "error" in f.freeStock ? `gagal dimuat (${f.freeStock.error})` : `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt`, late: !!f.freeStock && "error" in f.freeStock },
   ];
 }
 
@@ -141,7 +150,8 @@ export function managementV5(tiles: TileModel[], x: ManagementV5Input, opts: { a
       sources: [{ label: "Basis", value: s.basis === "need" ? "PO kirim di horizon per kelas, yield per kelas (placeholder sampai diisi PPIC)" : "batch rencana di horizon (blok 2), karkas berisiko frozen" }, { label: "Harga list", value: "harga acuan minggu ini" }],
       status: "simulasi; keputusan oleh Direktur Operasional (K25)",
     },
-    note: `${K25_DECIDER} Simulasi, bukan rekomendasi.` + (s.decided ? ` Keputusan potong ${dm(s.decided.date)}: Rp ${rp(s.decided.price)}${s.decided.by ? ` (${s.decided.by})` : ""}.` : ""),
+    note: (s.dataDate && s.cutDate && addDays(s.cutDate, -1) !== s.dataDate ? `Data per ${dmShort(s.dataDate)} · potong ${dm(s.cutDate)}. ` : "")
+      + `${K25_DECIDER} Simulasi, bukan rekomendasi.` + (s.decided ? ` Keputusan potong ${dm(s.decided.date)}: Rp ${rp(s.decided.price)}${s.decided.by ? ` (${s.decided.by})` : ""}.` : ""),
     content: s.result && row ? {
       type: "kpis",
       controls: [
@@ -172,5 +182,5 @@ export function managementV5(tiles: TileModel[], x: ManagementV5Input, opts: { a
       limit: 20,
     },
   });
-  return withSources(out, x.sources);
+  return withFailures(withSources(out, x.sources), x.failed);
 }

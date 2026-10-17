@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { clock } from "@/lib/clock";
 import { isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
@@ -14,7 +15,6 @@ import { v4On } from "@/lib/v4/nav";
 import { TilePage } from "@/components/v4/TilePage";
 import { loadKas } from "@/lib/v4/kas-data";
 import { kasModel } from "@/lib/v4/kas";
-import { dataToday } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ export default async function KasPage({ searchParams }: { searchParams: Promise<
   // PRD v4 §6.3 (flag v4_design): tiles read from the cash marts; the v3 page below stays for everyone else
   if (v4On(await moduleSettings(), v.role)) {
     const kb = await supabaseServer();
-    const model = kasModel(await loadKas(kb, { today: await dataToday(kb), sp }));
+    const model = kasModel(await loadKas(kb, { today: (await clock(kb)).data, sp }));
     return (
       <Shell viewer={viewer} weeks={weeks} week={week} active="/kas">
         <h1 className="sr-only">{model.title}</h1>
@@ -36,7 +36,7 @@ export default async function KasPage({ searchParams }: { searchParams: Promise<
   }
   const mgmt = (await currentView(viewer)) === "management";
   const sb = await supabaseServer();
-  const date = sp.date && isISODate(sp.date) ? sp.date : await dataToday(sb);
+  const date = sp.date && isISODate(sp.date) ? sp.date : (await clock(sb)).data;
   const st = await loadCash(sb, date, { m4: await moduleEnabled("m4_monthly", v) });
   const sol = st.solvency;
   return (

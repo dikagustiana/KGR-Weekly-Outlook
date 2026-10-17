@@ -5,12 +5,14 @@ import {
   KINDS, kindDef, parseUpload, parseWeekWorkbook, readWorkbook, type Mapping, type ParseResult, type StagedSet, type UploadKind,
 } from "@kgr/parsers";
 import type { Supa } from "./supabase";
-import { fetchAll, loadWeek, type WeekRow } from "./data";
+import { fetchAll, listWeeks, loadWeek, type WeekRow } from "./data";
 import { applyChanges, loadWeekInputs, WriteError } from "./write";
 import type { Viewer } from "./session";
 import { isModuleOn, type ModuleSettings } from "./modules-core";
 import { V3_KINDS, v3Kind } from "./v3/uploads";
-import { queueRebuild } from "./rebuild";
+import { queueThroughNote } from "./rebuild";
+import { must } from "./loader";
+import { advanceUpdateDate } from "./update-date";
 import "./v3/costing";
 
 type Row = Record<string, unknown>;
@@ -437,11 +439,14 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
     if (!isModuleOn(settings[v3.module], viewer.role) || !v3.roles.includes(viewer.role)) throw new WriteError(`Modul ${v3.module} belum aktif untuk peran Anda`);
     const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
     const r = await v3.commit({ sb, viewer, week, uploadId, rows });
-    await queueRebuild(sb, r.dates, `upload ${kind}`);
-    await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: r.inserted, updated: r.updated, deleted: r.deleted }).eq("id", uploadId);
-    return `Disimpan: ${r.inserted} baris baru, ${r.updated} diubah, ${r.deleted} dihapus (soft). ${r.message}`;
+    // K39: a stock card of date d moves the update date of its open week to d + 1
+    const moved = kind === "stock_card" ? await advanceUpdateDate(sb, await listWeeks(sb), r.dates) : "";
+    const queue = await queueThroughNote(sb, r.dates, `upload ${kind}`);
+    must(await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: r.inserted, updated: r.updated, deleted: r.deleted }).eq("id", uploadId), "upload committed");
+    return `Disimpan: ${r.inserted} baris baru, ${r.updated} diubah, ${r.deleted} dihapus (soft). ${r.message}${moved ? ` ${moved}.` : ""}${queue}`;
   }
   let counts = { inserted: 0, updated: 0, deleted: 0, superseded: 0 };
+  const journalDates: string[] = [], touched: string[] = [];
   if (kind === "workbook") {
     if (viewer.role !== "admin") throw new WriteError("Hanya Admin");
     const dl = await sb.storage.from("uploads").download(up.file_path);
@@ -465,15 +470,22 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
         if (!("source" in row)) row.source = kindDef(kind as UploadKind).source;
         return row;
       });
+      const ds = ins.map((x) => String(x.date ?? "")).filter(Boolean);
+      touched.push(...ds);
+      if (t.table === "gl_line") journalDates.push(...ds);
       const r = await applyChanges(sb, t.table, ins, t.updates, t.deletes, t.supersede);
       counts = { inserted: counts.inserted + r.inserted, updated: counts.updated + r.updated, deleted: counts.deleted + r.deleted, superseded: counts.superseded + r.superseded };
     }
-    if (plan.weekFlag !== undefined) await sb.from("week").update({ opening_stock_flag: plan.weekFlag }).eq("id", week.id);
+    if (plan.weekFlag !== undefined) must(await sb.from("week").update({ opening_stock_flag: plan.weekFlag }).eq("id", week.id), "week opening_stock_flag");
   }
-  await sb.from("upload").update({
+  // K39: a journal of date d moves the update date of its open week to d + 1
+  const moved = kind === "accurate_journal" && journalDates.length ? await advanceUpdateDate(sb, await listWeeks(sb), journalDates) : "";
+  // K40: the trigger queues the dates of the rows; the app closes the range up to the data date
+  const queue = await queueThroughNote(sb, touched, `upload ${kind}`);
+  must(await sb.from("upload").update({
     status: "committed", committed_at: new Date().toISOString(), inserted: counts.inserted, updated: counts.updated, deleted: counts.deleted,
-  }).eq("id", uploadId);
-  return `Disimpan: ${counts.inserted} baris baru, ${counts.updated} diubah, ${counts.deleted} dihapus (soft), ${counts.superseded} baris Ops diganti.`;
+  }).eq("id", uploadId), "upload committed");
+  return `Disimpan: ${counts.inserted} baris baru, ${counts.updated} diubah, ${counts.deleted} dihapus (soft), ${counts.superseded} baris Ops diganti.${moved ? ` ${moved}.` : ""}${queue}`;
 }
 
 export { mondayOf };

@@ -35,7 +35,7 @@ const loop0: LoopFacts = {
 const mgmt = (basis: SimBasis = "need", price = today, over: Partial<ManagementV5Input> = {}): ManagementV5Input => ({
   sim: {
     basis, available: ["need", "batch"], labels: { need: "Kebutuhan PO: 18.358 kg LB (3 kelas)", batch: "Batch rencana di input: 27.219 kg LB" }, price, todayPrice: today, prices,
-    result: sims[basis], decided: null, cutDate: "2026-08-28", href: (b, p) => `/minggu-ini/2026-08-24?${b === "batch" ? "sim=batch&" : ""}lb=${p.toFixed(0)}`,
+    result: sims[basis], decided: null, cutDate: "2026-08-28", dataDate: "2026-08-27", href: (b, p) => `/minggu-ini/2026-08-24?${b === "batch" ? "sim=batch&" : ""}lb=${p.toFixed(0)}`,
   },
   decisions: decisionLines({
     lb: { cutDate: "2026-08-28", decided: false, today, breakevenNeed: sims.need.breakeven },

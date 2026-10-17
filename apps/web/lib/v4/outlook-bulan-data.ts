@@ -8,6 +8,7 @@ import { D, accuracyV4, addDays, firstOfMonth, isCogsLine, isRevenueLine, monthE
 import type { FixedSource } from "../v5/pl-tiles";
 import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
+import { must, mustRows } from "../loader";
 import type { AccuracyInput, OutlookBulanInput, VersionRow } from "./outlook-bulan";
 import { isModuleOn, type ModuleSettings } from "../modules-core";
 import type { Role } from "../roles";
@@ -38,7 +39,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
   pl?: string | null; cm?: string | null;
 }): Promise<{ input: OutlookBulanInput; extra: OutlookBulanExtra }> {
   const first = firstOfMonth(x.first), last = monthEnd(first);
-  const { data: mo } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "month_outlook");
   const outlook = (mo as Row | null) ?? null;
   const moId = s(outlook?.id);
 
@@ -51,7 +52,8 @@ export async function loadOutlookBulan(sb: Supa, x: {
     sb.from("month_outlook").select("month").order("month", { ascending: false }).limit(12),
     sb.from("week").select("id").lte("week_start", last).order("week_start", { ascending: false }).limit(1).maybeSingle(),
   ]);
-  const { data: par } = param.data ? await sb.from("parameter").select("runrate_window_days, forecast_tolerance_pct").eq("week_id", String((param.data as Row).id)).maybeSingle() : { data: null };
+  const wk = must(param, "week (parameter)") as Row | null;
+  const par = wk ? must(await sb.from("parameter").select("runrate_window_days, forecast_tolerance_pct").eq("week_id", String(wk.id)).maybeSingle(), "parameter") : null;
 
   const p = (par ?? {}) as Row;
   const tolerance = s(p.forecast_tolerance_pct) ?? "0.10";
@@ -79,7 +81,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
   }
   const rows = rowsRaw.length ? plRowsFromMart(rowsRaw as never) : null;
 
-  const lock = (lockRow.data ?? null) as Row | null;
+  const lock = must(lockRow, "data_status month_lock") as Row | null;
   let lockNote: { blockers?: LockBlocker[]; controls?: { code: string; status: string }[]; cutOff?: string; lockDate?: string } = {};
   try { lockNote = lock?.note ? JSON.parse(String(lock.note)) : {}; } catch { lockNote = {}; }
   const lastActual = rows ? rows.filter((r) => r.actual !== null).reduce<string>((m, r) => (r.date > m ? r.date : m), "") : "";
@@ -93,7 +95,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
   const latestV = budRows.reduce((m, r) => Math.max(m, Number(r.version)), 0);
   const budgetRows: BudgetRow[] = budRows.filter((r) => Number(r.version) === latestV).map((r) => ({ segment: String(r.segment), metric: String(r.metric) as BudgetRow["metric"], value: String(r.value) }));
 
-  const monthSet = new Set<string>([first, ...((monthsRows.data ?? []) as Row[]).map((m) => String(m.month))]);
+  const monthSet = new Set<string>([first, ...mustRows<Row>(monthsRows, "month_outlook (bulan)").map((m) => String(m.month))]);
   const months = [...monthSet].sort().slice(-6).map((m) => ({ first: m, href: `/m/${m.slice(0, 7)}` }));
 
   // accuracy of the last month with a FINAL version
@@ -128,11 +130,11 @@ export async function loadOutlookBulan(sb: Supa, x: {
   const on = { m6: isModuleOn(x.settings.m6_cash, x.role) };
   let solvency: OutlookBulanInput["solvency"] = null;
   if (on.m6) {
-    const [{ data: sv }, { data: cash }] = await Promise.all([
+    const [svR, cashR] = await Promise.all([
       sb.from("solvency_monthly").select("*").lte("month", last).order("month", { ascending: false }).limit(1).maybeSingle(),
       sb.from("cash_position_daily").select("date, total_closing").not("total_closing", "is", null).lte("date", x.today < last ? x.today : last).order("date", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    const v = sv as Row | null;
+    const v = must(svR, "solvency_monthly") as Row | null, cash = must(cashR, "cash_position_daily");
     if (v && v.equity !== null && v.paid_in_capital !== null) {
       solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), cash: s((cash as Row | null)?.total_closing) };
     }

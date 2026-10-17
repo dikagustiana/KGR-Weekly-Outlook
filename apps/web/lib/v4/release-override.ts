@@ -29,7 +29,7 @@ export async function addOverride(sb: Supa, viewer: Viewer, x: { scopeKind: Over
 export async function withdrawOverride(sb: Supa, viewer: Viewer, id: string): Promise<string> {
   const { data, error } = await sb.from("release_override").update({ deleted_at: new Date().toISOString(), deleted_by: viewer.email }).eq("id", id).is("deleted_at", null).select("code");
   if (error) throw new WriteError(error.message);
-  const rows = (data ?? []) as { code: string }[];
+  const rows = data as { code: string }[];
   if (!rows.length) throw new WriteError("Override tidak ditemukan, atau peran Anda tidak boleh menariknya");
   return `Override ${rows[0].code} ditarik`;
 }

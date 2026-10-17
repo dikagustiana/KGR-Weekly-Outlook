@@ -17,6 +17,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
+import { mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -134,7 +135,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
 
   const drivers = settings.m5_drivers?.enabled ? await loadMonthDrivers(sb, first, addDays(cutOff, 1)) : null;
   const lastWeek = weeks[weeks.length - 1];
-  const rrTable = lastWeek ? ((await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id)).data ?? []) as Row[] : [];
+  const rrTable = lastWeek ? mustRows<Row>(await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id), "runrate") : [];
   const opex: OpexInputV4 = {
     fixed: (drivers?.fixed ?? []).map((f) => ({ pl_line: f.pl_line, scheduled: f.scheduled, actual_mtd: f.actual_mtd, day_basis: f.day_basis, missing: f.missing.length > 0 })),
     runrateActual: runrateActualLines({ gl: glRows, coa: coaRows, from: first, to: cutOff, events }),
@@ -225,9 +226,9 @@ registerBuilder({
   begin: async (sb) => {
     builtMonths = new Set();
     builderToday = await dataToday(sb);
-    const { data } = await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl"]);
+    const flags = mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl"]), "app_setting");
     builderSettings = {};
-    for (const r of (data ?? []) as Row[]) builderSettings[r.key as "m5_drivers" | "v5_pl"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
+    for (const r of flags) builderSettings[r.key as "m5_drivers" | "v5_pl"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
   },
   build: async (sb, date) => {
     const m = firstOfMonth(date);

@@ -1,4 +1,5 @@
 import { monthEnd } from "@kgr/engine";
+import { clock } from "@/lib/clock";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
@@ -13,14 +14,13 @@ import { agreeV4Action, budgetV4Action, cutOffV4Action, lockV4Action, overrideMo
 import { OverridePanel } from "@/components/v4/OverridePanel";
 import { releaseContext } from "@/lib/release";
 import type { Viewer } from "@/lib/session";
-import { dataToday } from "@/lib/data";
 
 /** PRD v4 §6.2 Manajemen · Outlook bulan (flag v4_design): tiles for everyone, the Finance panel only for Finance and Admin. */
 export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = null }: { first: string; viewer: Viewer; versi: string | null; pl?: string | null; cm?: string | null }) {
   const { weeks, week } = await plainContext();
   const settings = await moduleSettings();
   const sb = await supabaseServer();
-  const today = await dataToday(sb);
+  const today = (await clock(sb)).data;
   const view = await currentView(viewer);
   const { input, extra } = await loadOutlookBulan(sb, { first, today, role: viewer.role, settings, selected: versi, pl, cm });
   const model = outlookBulanModel(input);

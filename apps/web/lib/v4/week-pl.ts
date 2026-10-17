@@ -6,7 +6,7 @@ import "server-only";
  */
 import { addDays, computeWeek, mondayOf, plRowsByKey, plRowsToMart, weekPlDaily } from "@kgr/engine";
 import type { Supa } from "../supabase";
-import { loadWeek } from "../data";
+import { fetchAll, loadWeek } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { v5CostingPlRows } from "../v5/costing-pl";
 
@@ -32,10 +32,8 @@ export async function buildWeekPl(sb: Supa, date: string): Promise<string> {
 
 registerBuilder({ module: "v4_design", unless: "m4_monthly", name: "pl minggu", begin: async () => { built = new Set(); }, build: buildWeekPl });
 
-/** Rows of the week for the management view (the 7 days of the week). */
+/** Rows of the week for the management view (the 7 days of the week); every page of them (K42), errors thrown (K41). */
 export async function weekPlRows(sb: Supa, weekStart: string): Promise<Record<string, unknown>[]> {
-  const { data, error } = await sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly")
-    .gte("date", weekStart).lte("date", addDays(weekStart, 6)).order("date").limit(5000);
-  if (error) return [];
-  return (data ?? []) as Record<string, unknown>[];
+  return fetchAll<Record<string, unknown>>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly")
+    .gte("date", weekStart).lte("date", addDays(weekStart, 6)).order("date").order("segment").order("pl_line").order("basis").range(a, b));
 }

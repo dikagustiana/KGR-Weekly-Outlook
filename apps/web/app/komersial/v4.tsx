@@ -6,11 +6,11 @@ import { moduleSettings } from "@/lib/modules";
 import { isModuleOn } from "@/lib/modules-core";
 import { supabaseServer } from "@/lib/supabase";
 import { currentView } from "@/lib/view-server";
-import { dataToday, fetchAll, listWeeks } from "@/lib/data";
+import { fetchAll, listWeeks } from "@/lib/data";
+import { clock } from "@/lib/clock";
 import { commercialMart, computeCommercial } from "@/lib/v3/commercial";
 import { assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
 import { weekFloorControls } from "@/lib/v3/discount";
-import { jakartaNow } from "@/lib/v3/allocation";
 import { komersialModel, type ApprovalRow } from "@/lib/v4/komersial";
 import { num } from "@/lib/fmt";
 import type { Viewer } from "@/lib/session";
@@ -25,8 +25,9 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   const sb = await supabaseServer();
   const settings = await moduleSettings();
   const mgmt = (await currentView(viewer)) === "management";
-  const now = jakartaNow();
-  const today = await dataToday(sb, now.date);
+  // K38: the mart as of the data date; the spot cut-off and the day spot is recorded on the wall clock
+  const c = await clock(sb);
+  const today = c.data;
   const sales = viewer.role === "sales";
   const mart = await commercialMart(sb, today, sales);
   const { data: asg } = await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email);
@@ -53,7 +54,7 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   ].map((c) => ({ code: c.code, name: c.name, status: c.status, action: [c.action, c.detail.slice(0, 4).join(", ")].filter(Boolean).join(": ") })) : null;
   const model = komersialModel({
     today, date: mart.date, role: viewer.role, rows, unassigned: sales && own.length === 0, approvals, controls,
-    spot: { enabled: p.spot_enabled === true, cutOffTime: String(p.cut_off_time ?? "14:00"), now: now.time, canRecord: !mgmt && ["admin", "sales", "commercial_lead"].includes(viewer.role), clock: now.date },
+    spot: { enabled: p.spot_enabled === true, cutOffTime: String(p.cut_off_time ?? "14:00"), now: c.now.slice(11, 16), canRecord: !mgmt && ["admin", "sales", "commercial_lead"].includes(viewer.role), clock: c.wall },
   });
 
   const extras: Record<string, ReactNode> = {};

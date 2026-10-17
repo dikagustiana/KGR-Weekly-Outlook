@@ -11,6 +11,7 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { fetchAll, type WeekRow } from "../data";
+import { inChunks, must, mustRows } from "../loader";
 import type { Row } from "../v3/uploads";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -72,12 +73,13 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
   const ids = batches.map((b) => String(b.id));
   const weekIds = [...new Set(batches.map((b) => String(b.week_id)))];
   const [posted, wp, params, decisions, yields, weeks] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("allocation_run").select("batch_id, posted_at, run_at").in("batch_id", ids).eq("status", "posted").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", ids).is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("parameter").select("week_id, freight_plan_per_kg_lb, maklon_per_kg_processed, target_shrink, lb_price_today, wp_due_hours, wp_due_time").in("week_id", weekIds).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, weight_class, price, decided_at").gte("date", from).order("decided_at", { ascending: false }).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("weight_class", "STD").eq("cut_pattern", "karkas").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("week").select("id, week_start").in("id", weekIds).range(a, b)),
+    // K42: batch and week ids in chunks of 200 (URL length); every row page by page
+    inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("allocation_run").select("batch_id, posted_at, run_at").in("batch_id", part).eq("status", "posted").order("id").range(a, b))),
+    inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", part).is("deleted_at", null).order("id").range(a, b))),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("parameter").select("week_id, freight_plan_per_kg_lb, maklon_per_kg_processed, target_shrink, lb_price_today, wp_due_hours, wp_due_time").in("week_id", part).range(a, b))),
+    fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, weight_class, price, decided_at").gte("date", from).order("decided_at", { ascending: false }).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("weight_class", "STD").eq("cut_pattern", "karkas").is("deleted_at", null).range(a, b)),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("week").select("id, week_start").in("id", part).range(a, b))),
   ]);
   const postedIds = new Set(posted.map((r) => String(r.batch_id)));
   // the WIB date of the (latest) posting = the date the cost becomes final (K22)
@@ -92,8 +94,8 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
   // reference prices: last week's locked price list (K24), else the batch week's reference prices
   const prevWeeks = [...new Set([...weekStart.values()].map((w) => addDays(w, -7)))];
   const [lists, refPrices] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", prevWeeks).not("locked_at", "is", null).range(a, b)).catch(() => [] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", weekIds).range(a, b)),
+    inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).range(a, b))),
+    inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", part).range(a, b))),
   ]);
   const yieldOf = (k: string) => s(yields.find((y) => String(y.key) === k)?.yield_pct);
   const out: V5BatchCost[] = [];
@@ -172,10 +174,10 @@ export async function v5LedgerCosts(sb: Supa, from: string, today: string, lates
 export async function v5CostingControls(sb: Supa, week: WeekRow, today: string, nowIso: string): Promise<ControlV3[]> {
   const costs = await loadV5BatchCosts(sb, week.week_start, today);
   const inWeek = costs.filter((c) => c.date && c.date >= week.week_start && c.date <= week.week_end);
-  const { data: bs } = await sb.from("batch").select("batch_ref, status, date").eq("week_id", week.id).is("deleted_at", null);
-  const statusOf = new Map(((bs ?? []) as Row[]).map((b) => [String(b.batch_ref), s(b.status)]));
-  const { data: par } = await sb.from("parameter").select("cost_anomaly_ratio").eq("week_id", week.id).maybeSingle();
-  const decisions = ((await sb.from("lb_price_decision").select("date, weight_class").gte("date", week.week_start).lte("date", week.week_end)).data ?? []) as Row[];
+  const bs = mustRows<Row>(await sb.from("batch").select("batch_ref, status, date").eq("week_id", week.id).is("deleted_at", null), "C53 batch");
+  const statusOf = new Map(bs.map((b) => [String(b.batch_ref), s(b.status)]));
+  const par = must(await sb.from("parameter").select("cost_anomaly_ratio").eq("week_id", week.id).maybeSingle(), "C54 parameter");
+  const decisions = mustRows<Row>(await sb.from("lb_price_decision").select("date, weight_class").gte("date", week.week_start).lte("date", week.week_end), "C57 lb_price_decision");
   return [
     c53({ now: nowIso, batches: inWeek.map((c) => ({ ref: c.batch_ref, status: statusOf.get(c.batch_ref) ?? null, dueAt: c.dueAt, wpReceivedAt: c.wpReceivedAt })) }),
     c54({ ratio: s((par as Row | null)?.cost_anomaly_ratio) ?? "3", rows: inWeek.flatMap((c) => (c.result?.lines ?? []).map((l) => ({ key: `${l.key} (${c.batch_ref})`, costPerKg: l.costPerKg?.toFixed(2) ?? null, priceRef: l.priceRef?.toFixed(2) ?? null }))) }),

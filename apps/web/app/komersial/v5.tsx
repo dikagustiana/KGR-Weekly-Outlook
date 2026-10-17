@@ -1,8 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { moduleEnabled } from "@/lib/modules";
 import { withSources } from "@/lib/v5/management";
-import { loadSources, sourcesFor } from "@/lib/v5/management-data";
-import { jakartaNow } from "@/lib/v3/allocation";
+import { sourcesOf } from "@/lib/v5/management-data";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
 import { plainContext } from "@/lib/page";
@@ -17,8 +16,6 @@ import type { ReactNode } from "react";
 import { spotSaleAction } from "./actions";
 import { answerSurplusAction, lockCommitmentsAction, saveCommitmentsAction } from "./actions-v5";
 
-const nowWib = () => { const n = jakartaNow(); return `${n.date}T${n.time}:00+07:00`; };
-
 /** PRD v5 §6.2 Commercial (flag v5_commercial): stock to sell, commitments for PPIC, PPIC's surplus, spot. */
 export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: StockFilter }) {
   const { weeks, week } = await plainContext();
@@ -27,7 +24,7 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
   const input = await loadKomersialV5(sb, viewer, filter);
   const model0 = komersialV5Model(input);
   // PRD v5 K36 (flag v5_management): the source label under the main numbers
-  const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, sourcesFor("commercial", await loadSources(sb, nowWib()))) } : model0;
+  const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("commercial", sb)) } : model0;
   const extras: Record<string, ReactNode> = {};
   const c = input.commitment;
   const open = c.rows.some((r) => r.status !== "locked");
@@ -63,7 +60,7 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
     );
   }
   // spot sales are recorded on the clock's day (spotSaleAction): not from a screen that shows an older data date
-  if (!mgmt && input.spot.length && ["admin", "sales", "commercial_lead"].includes(viewer.role) && input.today === jakartaNow().date) {
+  if (!mgmt && input.spot.length && ["admin", "sales", "commercial_lead"].includes(viewer.role) && input.spotToday) {
     extras["t-spot"] = (
       <div className="actionbar">
         <ActionForm v4="primary" action={spotSaleAction} submit="Catat spot" className="tile-form">

@@ -1,0 +1,51 @@
+# gates v5.1/2-clock-rebuild — 2026-10-17T03:45:58Z; PostgreSQL 16 lokal (bukan KGR-OS); Node v22.22.0; pnpm 10.28.0
+== pnpm test
+packages/engine test:  Test Files  25 passed (25)
+packages/engine test:       Tests  350 passed | 1 todo (351)
+packages/parsers test:  Test Files  3 passed (3)
+packages/parsers test:       Tests  23 passed (23)
+apps/web test:  Test Files  25 passed (25)
+apps/web test:       Tests  167 passed (167)
+exit=0
+== pnpm typecheck
+  packages/parsers typecheck: Done
+  apps/web typecheck$ tsc --noEmit
+  apps/web typecheck: Done
+exit=0
+== pnpm parity
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+exit=0
+== pnpm snapshot:diff
+diff vs baseline (without block2.action, block7[].audience, controls_v3 (v3), costing (v3), ledger (v3), demand (v3), plan (v3), allocation (v3), monthly (v3), drivers (v3), cash (v3), ccc (v3), solvency (v3), commercial (v3)): EMPTY — byte-identical
+exit=0
+== pnpm test:rls (DATABASE_URL = DB lokal baru kgr_gates_18290)
+> kgr-weekly-outlook@ test:rls /home/user/KGR-Weekly-Outlook
+RLS-RESULTS (rolled back): sales insert order: OK;
+RLS-RESULTS v3 (rolled back): admin set flag rows=1;
+RLS-RESULTS v3 F1 (rolled back): ca insert cost_pool: OK;
+RLS-RESULTS v3 F2 (rolled back): sales read lot=0;
+RLS-RESULTS v3 F3a (rolled back): sales insert PO line: OK;
+RLS-RESULTS v3 F3b (rolled back): ppic allocate: OK;
+RLS-RESULTS v3 F4a (rolled back): finance insert schedule: O
+RLS-RESULTS v3 F4b (rolled back): finance lock V1: OK;
+RLS-RESULTS v3 F5 (rolled back): finance cash_daily: OK;
+RLS-RESULTS v3 F6a (rolled back): sales read commercial_dail
+RLS-RESULTS v3 F6b (rolled back): sales file requests: OK;
+RLS-RESULTS v4 irisan 0 G2 (rolled back): admin mart_replace
+RLS-RESULTS v4 irisan 0 K7/S5/§4.2 (rolled back): sales del
+RLS-RESULTS v4 irisan 1 (rolled back): v4_design default ena
+RLS-RESULTS v4 irisan 2 (rolled back): finance budget v1: OK
+RLS-RESULTS v4 irisan 3 (rolled back): ppic reason C41: OK;
+RLS-RESULTS v4 irisan 4a (rolled back): sales release_week: 
+RLS-RESULTS v4 irisan 4b (rolled back): batch 3 Nov cost_mod
+RLS-RESULTS v4 irisan 5 (rolled back): sales sees assigned S
+RLS-RESULTS v5/0 (rolled back): opsdir decides LB price: OK;
+RLS-RESULTS v5/1 (rolled back): v5/1 columns=7;
+RLS-RESULTS v5/5 (rolled back): grid due_at column=1;
+RLS-RESULTS v5.1/1 (rolled back): v5.1 columns=4;
+test:rls OK
+exit=0
+== lint
+K38 rg "jakartaNow\(\)|dataToday\(" apps/web/lib/v5 apps/web/app: 0 file
+K41 rg (PRD K41) apps/web/lib/v5 apps/web/lib/v4: 0 hit
+K42 rg "\.limit\((1[0-9]{3}|[2-9][0-9]{3,})\)" apps/web: 0 hit

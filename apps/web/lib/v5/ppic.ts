@@ -11,10 +11,13 @@ import { jtV4, minus, num, pctV4, tglShort } from "../fmt";
 import type { Col, TRow } from "@/components/v4/Table";
 import type { TilePos } from "@/components/v4/Tile";
 import type { TileModel } from "../v4/minggu-ini";
+import { withFailures, type Failed } from "../v4/tile-errors";
 
 export interface PpicClassInfo { code: string; min_kg: string | null; max_kg: string | null; avg_kg: string | null }
 
 export interface PpicV5Input {
+  /** PRD v5.1 K41: tile id → message of the read that failed. */
+  failed?: Failed;
   week: { start: string; end: string; update: string };
   base: string;
   versi: "need" | "batch";
@@ -223,5 +226,5 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
       { id: "t", cells: { k: "Target", lb: "", sh: b6 ? pctV4(b6.target.shrink) : "", y: b6 ? pctV4(b6.target.karkasYield) : "", c: "" } },
     ] },
   });
-  return { title: "PPIC · Rencana", tiles };
+  return { title: "PPIC · Rencana", tiles: withFailures(tiles, x.failed) };
 }

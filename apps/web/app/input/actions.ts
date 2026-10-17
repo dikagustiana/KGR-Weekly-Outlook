@@ -9,9 +9,10 @@ import { addDays, isISODate, mondayOf } from "@kgr/engine";
 import { requireModuleAction, moduleSettings } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { WriteError } from "@/lib/write";
-import { processRebuildQueue, queueRebuild } from "@/lib/rebuild";
+import { processRebuildQueue, queueThrough } from "@/lib/rebuild";
 import { addOverride } from "@/lib/v4/release-override";
-import { jakartaNow } from "@/lib/v3/allocation";
+import { clock } from "@/lib/clock";
+import { mustRows } from "@/lib/loader";
 import { UploadRejected, isUploadKind, parseGridPayload } from "@/lib/v5/input-check";
 import { saveUploadV5 } from "@/lib/v5/input-save";
 import { insertLbDecision } from "@/lib/v5/lb-decision";
@@ -46,9 +47,9 @@ export async function remindAction(_: ActionState, form: FormData): Promise<Acti
     const ws = String(form.get("week_start") ?? "");
     if (!isISODate(ws) || mondayOf(ws) !== ws) throw new WriteError("Minggu tidak valid");
     const sb = await supabaseServer();
-    const n = jakartaNow(), now = `${n.date}T${n.time}:00+07:00`;
-    const { data } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", ws).lte("date", form.get("week_end") ? String(form.get("week_end")) : ws);
-    const red = ((data ?? []) as Row[]).filter((c) => c.status === "late" || (c.status === "not_due" && c.due_at && Date.parse(String(c.due_at)) <= Date.parse(now)));
+    const now = (await clock(sb)).now;
+    const cells = mustRows<Row>(await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", ws).lte("date", form.get("week_end") ? String(form.get("week_end")) : ws), "input_completeness_daily");
+    const red = cells.filter((c) => c.status === "late" || (c.status === "not_due" && c.due_at && Date.parse(String(c.due_at)) <= Date.parse(now)));
     if (!red.length) return { ok: "Tidak ada sel merah; tidak ada pengingat yang dikirim." };
     const e = await sb.from("input_reminder").insert(red.map((c) => ({ date: c.date, kind: c.kind, owner_role: c.owner_role, note: c.note ?? null })));
     if (e.error) throw new WriteError(e.error.message);
@@ -86,9 +87,10 @@ export async function refreshTasksAction(_: ActionState): Promise<ActionState> {
   try {
     await requireModuleAction("v5_input", ["admin", "finance", "inventory_accounting", "sales", "ppic", "purchasing", "commercial_lead", "cost_accounting"]);
     const sb = await supabaseServer();
-    const t = jakartaNow().date;
+    // K38: the task window is on the wall clock
+    const t = (await clock(sb)).wall;
     const days = Array.from({ length: 7 }, (_, i) => addDays(t, -i));
-    await queueRebuild(sb, days, "tugas input");
+    await queueThrough(sb, days, "tugas input");
     const r = await processRebuildQueue(await moduleSettings());
     revalidatePath("/input");
     return { ok: `Tugas diperbarui: ${r.done} hari${r.failed ? `, ${r.failed} gagal` : ""}. ${r.notes.slice(0, 1).join("")}`.trim() };
