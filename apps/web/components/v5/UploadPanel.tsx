@@ -10,7 +10,8 @@ import { UPLOAD_TEMPLATES, parseCsv, parseTsv, templateGrid, validateUpload, typ
 import { workbookGrid, type SheetLib } from "@/lib/v5/upload-grid";
 
 export type ActionState = { ok?: string; error?: string };
-const ICON = { ok: "✓", warn: "!", fail: "✕", info: "i" } as const;
+/** PRD v5.1 R36 (v4 §5.1 rule 3): the level of a check in words, no icon and no colour. */
+const CHECK_LEVEL = { ok: "", warn: "catatan:", fail: "ditahan:", info: "" } as const;
 const LEVEL = { ok: "lolos", warn: "catatan", fail: "gagal" } as const;
 
 async function sheetLib(): Promise<SheetLib & { write: (wb: unknown, o: { type: "array"; bookType: "xlsx" }) => ArrayBuffer; utils: SheetLib["utils"] & { aoa_to_sheet(r: unknown[][]): unknown; book_new(): unknown; book_append_sheet(wb: unknown, ws: unknown, n: string): void } }> {
@@ -78,7 +79,7 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
         <>
           <p className="note">{src.sample ? "contoh" : src.name} · {r.total} baris dibaca</p>
           <ul className="upl-checks">
-            {r.checks.map((c, i) => <li key={i} data-level={c.level}><span aria-hidden="true">{ICON[c.level]}</span> <b>{c.title}</b> {c.detail} <span className="note">{c.result}{c.code ? ` · ${c.code}` : ""}</span></li>)}
+            {r.checks.map((c, i) => <li key={i} data-level={c.level}>{CHECK_LEVEL[c.level] ? <span>{CHECK_LEVEL[c.level]} </span> : null}<b>{c.title}</b> {c.detail} <span className="note">{c.result}{c.code ? ` · ${c.code}` : ""}</span></li>)}
           </ul>
           {r.rows.length ? (
             <table className="v4t" aria-label="Baris upload">

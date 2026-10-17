@@ -2,6 +2,31 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.1-4] Flag per role, C57/C58 PPIC, upload 0.xxx dan O15, UI §5.1/§6.5/K20 (docs/PRD-v5.1.md irisan 4)
+
+### Added
+- `k25On` / `k25Enabled` (K54); "modul belum aktif" in the loop status; C58 reason form on Rencana v5; "mulai" (since) of `v5_costing` in Admin → Modul; `lib/v5/cost-status.ts`; tests `flags-matrix`, `ppic-v51`, `ui-v51`; journeys K, M, N, O and the flag matrix on PostgREST (`docs/v5.1/journey-K-M-N-O.md`).
+
+### Changed
+- O15 (`parameter.po_unsized_mode`, default `warn`): a karkas PO line without size is saved with `size_kg` null (STD) instead of held. **Golden `fixtures/upload-samples/expected.json` (po_lines) changed**, per line:
+  - `ok_count`: 4 → 5; `ok_lines`: [3, 4, 5, 6] → [2, 3, 4, 5, 6]
+  - check C50 "Ukuran karkas RPA terisi": level `fail` → `warn`; result "1 baris" → "1 baris → STD" (detail "4 dari 5 baris karkas" unchanged)
+  - row KGR26.00341 (Ayam Karkas Mix): level `fail` → `warn`; action "ukuran karkas kosong: isi kolom ukuran (Uk 0.8–1.5)" → "ukuran karkas kosong: isi kolom ukuran atau biarkan STD"
+  - summary "4 dari 7 baris bisa disimpan (6.783,6 kg dari 7.764,9 kg)…" → "5 dari 7 baris bisa disimpan (7.594,9 kg dari 7.764,9 kg)…"
+  - fingerprint `v1:1228f59d23ef0f1d01b19519db11` → `v1:1711b979cb3b661b9269a7d0d5ef`
+  - costing_wp and yield_matrix unchanged. Mode `fail` keeps the v5 result (tested).
+- Input status in words (no icons, no colour sentences), also in the upload check list; nav item Input has its own id (Upload v4 stays next to it).
+- Outlook bulan: NIBT after fixed costs on the Actual, Forecast and Outlook cards; accuracy rows "NIBT jurnal" / "NIBT + beban tetap" (flag `v5_pl`).
+- Production without `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` stops with a message (no silent pilot project).
+- The lot revaluation (K22) starts at `v5_costing.value.since` only; no fallback to the date the flag changed.
+
+### Fixed
+- K25 (simulation, no recommendation) followed `v5_costing` only and ignored the role on the Outlook page; Komersial and Manajemen read the v5 cost columns for every role once the flag was on globally.
+- "Salin ke batch rencana" ignored C57; C58 had no reason form on the v5 page.
+- "0.715" was read as 715; karkas sizes 1,25 and 1,30 were merged into one "Uk 1.3"; a WP batch with different kg LB per row was saved.
+- PPIC headline counted STD as a weight class; the cash card lost the line without affiliate loans when the cash mart was used; the Minggu ini segment and stock tables and the PPIC batch tile wrote a fixed cost status.
+- A month lock could read the ledger run kept from an earlier rebuild; archived price list rows were read.
+
 ## [v5.1-3] Missing ≠ 0 di costing dan P&L, kunci komitmen satu transaksi (docs/PRD-v5.1.md irisan 3)
 
 ### Added

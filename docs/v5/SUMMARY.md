@@ -37,7 +37,7 @@ v5/2, v5/3, v5/4 dan v5/6 tanpa migrasi. Semua migrasi hanya menambah dan bisa d
 
 Prasyarat v4: `v4_design`, `m1_costing`, `m2_ledger`, `m3_planning`, `m4_monthly`, `m6_cash`, `m7_commercial` (dan `m7_approval` untuk C38). Lalu, satu per satu, masing-masing diikuti Admin → Modul → "Bangun ulang data mart" untuk periode berjalan:
 
-1. `v5_costing` — biaya + status di ledger, Commercial, P&L (bila revaluasi dihitung sejak tanggal tertentu: `{"enabled": true, "since": "YYYY-MM-DD"}`).
+1. `v5_costing` — biaya + status di ledger, Commercial, P&L. Sejak PRD v5.1 R40, tanggal mulai **wajib** diisi di Admin → Modul (kolom "mulai", `{"enabled": true, "since": "YYYY-MM-DD"}`). Tanpa tanggal itu revaluasi lot K22 tidak berjalan, dan halaman Costing menyebutnya.
 2. `v5_pl` — beban tetap dan laba rugi dua tampilan (Finance mengisi jadwal beban tetap bulan berjalan dulu).
 3. `v5_ppic_class` — setelah PPIC mengisi rentang/rata-rata K/S/B, peta ukuran → kelas, yield per kelas; Purchasing supply per kelas.
 4. `v5_commercial` — setelah `sales_assignment` lengkap.
@@ -46,7 +46,7 @@ Prasyarat v4: `v4_design`, `m1_costing`, `m2_ledger`, `m3_planning`, `m4_monthly
 
 Flag bisa dihidupkan per role lebih dulu (`{"enabled": true, "roles": ["admin"]}`) untuk uji di production.
 
-**K53 (PRD v5.1): `roles` membatasi layar, bukan mart.** Builder menulis kolom v5 bila flag `enabled` secara global. Pembaca mart (Commercial, Manajemen, P&L) memakai kolom v5 hanya bila flag aktif untuk role yang membuka layar (`isModuleOn(flag, viewer.role)`). View `commercial_daily_sales_v5` menyembunyikan `cost_per_kg` bila `parameter.sales_sees_cost = false`. Di `67c7f03` aturan ini belum ditegakkan seluruhnya; view dibenahi di v5.1 irisan 1 (R8), pembaca di irisan 4 (R28).
+**K53 (PRD v5.1): `roles` membatasi layar, bukan mart.** Builder menulis kolom v5 bila flag `enabled` secara global. Pembaca mart (Commercial, Manajemen, P&L) memakai kolom v5 hanya bila flag aktif untuk role yang membuka layar (`isModuleOn(flag, viewer.role)`). View `commercial_daily_sales_v5` menyembunyikan `cost_per_kg` bila `parameter.sales_sees_cost = false`. Di `67c7f03` aturan ini belum ditegakkan seluruhnya; view dibenahi di v5.1 irisan 1 (R8), pembaca di irisan 4 (R28: `commercialMart(…, v5)` per role, K25 dari `k25On`). Baris v5 di `pl_daily_v4` adalah baris laba rugi perusahaan, bukan kolom, dan tidak disaring per role (Q-v5.1-23).
 
 ## Lampiran B dan C
 
@@ -97,6 +97,10 @@ Detail dan pertanyaan implementasi Q-v5-1 sampai Q-v5-53: `docs/v5/QUESTIONS.md`
 | Finance | pengecualian tertulis MA vs HPP 88,2% (Q69 v4, O13) |
 | Admin | user dan password untuk role baru: Direktur Operasional (`operations_director`), Kepala Sales (`commercial_lead`) dan Cost Accounting bila belum ada — dibuat di Admin → Pengguna, tidak di repo |
 | Pemilik produk | merge PR #27–#30, menerapkan migrasi di KGR-OS, menghidupkan flag |
+| Pemilik produk (v5.1) | sign-off dan merge PR v5.1 berurutan (#33 → #34 → #35 → irisan 4); menjalankan `docs/v5.1/kgr-os-migrasi-v51.sql` di KGR-OS sesudah sign-off irisan 1 |
+| Pemilik produk (v5.1 R40) | Vercel Production berisi `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` sebelum irisan 4 di-merge (fail-fast) |
+| Admin (v5.1 R40) | Admin → Modul → `v5_costing` → "mulai" = tanggal pertama v5 costing berjalan |
+| Pemilik produk (v5.1) | navigasi Finance 8 item (Input dan Upload) vs batas 7 v4 §5.4 (Q-v5.1-25); O15–O20 |
 
 ## Status gate dan journey (koreksi PRD v5.1)
 
@@ -104,14 +108,36 @@ Klaim di `docs/v5/irisan-<n>.md` tidak diubah (riwayat), tetapi statusnya dituru
 
 | Gate / journey | Klaim di dokumen irisan | Status |
 |---|---|---|
-| G13 / journey L (putaran satu minggu) | irisan-4, irisan-6 | lulus pada fixture dengan role Admin; diuji ulang di v5.1 irisan 3 (L, Commercial ↔ PPIC) dan irisan 4 |
-| journey K (Manajemen) | irisan-6, termasuk "terbaca tanpa scroll" | lulus pada fixture dengan role Admin; klaim "tanpa scroll" dicabut sampai O17 diputuskan |
-| journey M (Direktur Operasional, harga LB) | irisan-6 | lulus pada fixture dengan role Admin; diuji ulang di irisan 4 |
-| journey N (Sales, PO) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 4 (O15) |
-| journey O (Cost Accounting, WP) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 2 dan 4 |
-| journey P (Finance, kelengkapan dan rilis) | irisan-5 | lulus pada fixture dengan role Admin; diuji ulang di irisan 1 (T8) |
+| G13 / journey L (putaran satu minggu) | irisan-4, irisan-6 | v5.1 irisan 3: langkah Commercial ↔ PPIC lulus di PostgREST lokal dengan lead@t, sales@t, ppic@t, finance@t (`docs/v5.1/journey-L.md`); satu putaran utuh berurutan belum dijalankan (T7 sebagian) |
+| journey K (Manajemen) | irisan-6, termasuk "terbaca tanpa scroll" | v5.1 irisan 4: PostgREST lokal, mgmt@t: headline, 5 kartu, laba rugi dengan NIBT setelah beban tetap, 0 tombol tulis; "Perlu keputusan" di y = 835 px pada 768 px (dicatat, tanpa klaim, O17) |
+| journey M (Direktur Operasional, harga LB) | irisan-6 | v5.1 irisan 4: PostgREST lokal, opsdir@t: simulasi berubah per harga, keputusan tersimpan, batch 28/08 memakai harga keputusan (costacc@t); C57 tetap menahan salin batch karena 27/08 belum diputuskan |
+| journey N (Sales, PO) | irisan-5 | v5.1 irisan 4: PostgREST lokal, sales@t: tanpa ukuran → STD (O15 warn), di bawah lantai → approval, baris lolos tersimpan, demand PPIC berubah (ppic@t) |
+| journey O (Cost Accounting, WP) | irisan-5 | v5.1 irisan 2 dan 4: PostgREST lokal, costacc@t: kg LB tidak konsisten ditahan (R34); kode tak dikenal + selisih hasil potong → dua baris ditahan, alasan, lot estimasi → sementara, Commercial (lead@t) biaya baru |
+| journey P (Finance, kelengkapan dan rilis) | irisan-5 | v5.1 irisan 1: PostgREST lokal, finance@t + ppic@t (T8, `docs/v5.1/journey-P.md`) |
+
+### PRD v5.1 T7–T12
+
+| T | Status (lingkungan, role) |
+|---|---|
+| T7 putaran dengan role sebenarnya | sebagian: langkah putaran lulus per journey di PostgREST lokal dengan 6 user + mgmt@t (L, M, N, O, P); satu putaran utuh berurutan belum |
+| T8 rilis K35/K45 | lulus di PostgREST lokal, finance@t (journey P, irisan 1) |
+| T9 tidak ada 0 untuk missing | lulus: tes unit per kasus (allocateBatch, plTable, kartu Kas, Outlook bulan); PostgREST lokal finance@t (Outlook bulan "Kas belum diisi") |
+| T10 error tidak ditelan | lulus: lint K41 = 0; PostgREST lokal finance@t (tile kas state error saat select dicabut, irisan 2) |
+| T11 kombinasi flag | lulus: `flags-matrix.test.tsx` + PostgREST lokal 8 kombinasi × admin@t/sales@t/mgmt@t × 8 halaman, 0 error |
+| T12 engine dan snapshot | lulus: parity 17161/17161, snapshot:diff EMPTY, golden v1 dan B.1–B.5 tetap; golden yang berubah hanya `upload-samples` PO (O15, CHANGELOG [v5.1-4]) |
 
 Uji PR #31 (`docs/v5/perbaikan-produksi.md`) memakai PostgREST lokal, tetapi hanya dengan role Admin dan hanya membuka halaman; journey di atas tidak dijalankan.
+
+## Default O15–O20 yang dipakai (PRD v5.1 Bab 6, belum difinalkan)
+
+| # | Default yang berjalan |
+|---|---|
+| O15 | `parameter.po_unsized_mode = 'warn'`: karkas tanpa ukuran tersimpan STD dengan catatan C50; `'fail'` menahan baris |
+| O16 | stok bebas Commercial tidak dikurangi komitmen terkunci (menyimpang dari §4.6) |
+| O17 | tata letak Manajemen tidak diubah; posisi "Perlu keputusan" hanya dicatat |
+| O18 | grid tetap `minmax(76px, auto)`; grafik mengisi tinggi tile (R40) |
+| O19 | "Beban tetap belum dijurnal" tetap kumulatif per bulan |
+| O20 | supply tanpa kelas diabaikan C58 (belum disebut "n kg tanpa kelas" di detail C58; §3.11) |
 
 ## Belum terpenuhi (PRD v5.1 §3.11)
 

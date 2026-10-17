@@ -1,0 +1,35 @@
+# T11 matriks flag — 2026-10-17T04:55:12.535Z (jam dinding mesin); jam uji DB 2026-08-27 10:02 WIB; v4 dan m* hidup
+(1) v5 semua mati: v5_commercial=false v5_costing=false v5_input=false v5_management=false v5_pl=false v5_ppic_class=false
+    admin      k25=0 v5cost=0 | /minggu-ini/2026-08-24 200 | /komersial 200 | /w/2026-08-24/rencana 200 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 rek | /w/2026-08-24/print 200 rek
+    sales      k25=0 v5cost=0 | /minggu-ini/2026-08-24 404 | /komersial 200 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 rek | /w/2026-08-24/print 200 rek
+    management k25=0 v5cost=0 | /minggu-ini/2026-08-24 200 | /komersial 200 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200 rek
+(2) v5_costing: v5_commercial=false v5_costing=true v5_input=false v5_management=false v5_pl=false v5_ppic_class=false
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(3) v5_costing + v5_pl: v5_commercial=false v5_costing=true v5_input=false v5_management=false v5_pl=true v5_ppic_class=false
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(4) + v5_ppic_class: v5_commercial=false v5_costing=true v5_input=false v5_management=false v5_pl=true v5_ppic_class=true
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(5) + v5_commercial: v5_commercial=true v5_costing=true v5_input=false v5_management=false v5_pl=true v5_ppic_class=true
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(6) + v5_input: v5_commercial=true v5_costing=true v5_input=true v5_management=false v5_pl=true v5_ppic_class=true
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 200 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 200 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 200 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(7) semua hidup: v5_commercial=true v5_costing=true v5_input=true v5_management=true v5_pl=true v5_ppic_class=true
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 200 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=1 v5cost=1 | /minggu-ini/2026-08-24 404 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 404 | /input 200 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    management k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 200 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200
+(8) semua hidup, roles [admin]: v5_commercial=true[["admin"]] v5_costing=true[["admin"]] v5_input=true[["admin"]] v5_management=true[["admin"]] v5_pl=true[["admin"]] v5_ppic_class=true[["admin"]]
+    admin      k25=1 v5cost=1 | /minggu-ini/2026-08-24 200 | /komersial 200 biaya-v5 | /w/2026-08-24/rencana 200 | /input 200 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200 | /w/2026-08-24/print 200
+    sales      k25=0 v5cost=0 | /minggu-ini/2026-08-24 404 | /komersial 200 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 404 | /w/2026-08-24/outlook 200 rek | /w/2026-08-24/print 200 rek
+    management k25=0 v5cost=0 | /minggu-ini/2026-08-24 200 | /komersial 200 | /w/2026-08-24/rencana 404 | /input 404 | /m/2026-08 200 | /kas 200 | /w/2026-08-24/outlook 200→/minggu-ini/2026-08-24 | /w/2026-08-24/print 200 rek
+SETUP dikembalikan: v5_commercial=true v5_costing=true v5_input=true v5_management=true v5_pl=true v5_ppic_class=true
+RINGKASAN: 8 kombinasi × 3 role × 8 halaman = 192 buka; error (5xx / tile error): 0; rekomendasi LB saat K25: 0; biaya v5 untuk Sales tanpa v5_costing: 0
