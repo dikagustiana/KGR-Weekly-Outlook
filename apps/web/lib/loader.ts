@@ -10,7 +10,7 @@ export const SCHEMA_ERROR_CODES = ["42703", "42883", "42P01", "PGRST202", "PGRST
 export const isSchemaError = (code: string | undefined): boolean => !!code && (SCHEMA_ERROR_CODES as readonly string[]).includes(code);
 
 export class LoaderError extends Error {
-  constructor(readonly where: string, message: string, readonly schema = false) {
+  constructor(readonly where: string, message: string, readonly schema = false, readonly code?: string) {
     super(`${where}: ${message}`);
     this.name = "LoaderError";
   }
@@ -20,13 +20,13 @@ type Res<T> = { data: T | null; error: { message: string; code?: string } | null
 
 /** The data of a PostgREST result, or LoaderError(where). `null` stays null (maybeSingle without a row). */
 export function must<T>(res: Res<T>, where: string): T | null {
-  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code));
+  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
   return res.data;
 }
 
 /** The rows of a list result (PostgREST returns [] for none), or LoaderError(where). */
 export function mustRows<T = Record<string, unknown>>(res: Res<T[]>, where: string): T[] {
-  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code));
+  if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
   return res.data ?? [];
 }
 

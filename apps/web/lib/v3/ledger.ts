@@ -10,7 +10,8 @@ import {
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
-import { fetchAll, listWeeks, type WeekRow } from "../data";
+import { fetchAll, fetchAllOrMissing, listWeeks, type WeekRow } from "../data";
+import { mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -56,10 +57,10 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     fetchAll<Row>((a, b) => sb.from("stock_card_snapshot").select("date, item_code, kg, value").is("deleted_at", null).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("allocation_run").select("id, batch:batch_id(batch_ref), allocation_line(key, kg, allocated_cost)").eq("status", "posted").range(a, b)),
     // M3 allocations (F3b): which lot a PO line / DO takes. Missing table (M3 not migrated) = none.
-    fetchAll<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]),
+    fetchAllOrMissing<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).range(a, b), "ledger.allocation"),
   ]);
   // K7 (PRD v4 irisan 3): deliveries recorded on open PO lines; missing table (v4 not migrated) = none
-  const deliveries = await fetchAll<Row>((a, b) => sb.from("delivery").select("id, sales_line_id, date, kg, document_ref").is("deleted_at", null).gte("date", first.week_start).order("date").range(a, b)).catch(() => [] as Row[]);
+  const deliveries = await fetchAllOrMissing<Row>((a, b) => sb.from("delivery").select("id, sales_line_id, date, kg, document_ref").is("deleted_at", null).gte("date", first.week_start).order("date").range(a, b), "ledger.delivery");
   // M1 specific cost per batch × key (posted allocations), used as the lot's SI cost; MA stays on the GRN cost
   const si = new Map<string, { kg: ReturnType<typeof D>; cost: ReturnType<typeof D> }>();
   for (const r of allocs) {
@@ -130,8 +131,8 @@ async function ledgerAllocations(sb: Supa, rows: Row[], sales: LedgerInputs["sal
   const lost = [...new Set(rows.map((r) => String(r.sales_line_id)).filter((id) => !active.has(id)))];
   const moved = new Map<string, string>();
   for (let i = 0; i < lost.length; i += 200) {
-    const { data } = await sb.from("sales_line").select("id, document_ref, item_code, key_manual").in("id", lost.slice(i, i + 200));
-    for (const o of (data ?? []) as Row[]) {
+    const data = mustRows(await sb.from("sales_line").select("id, document_ref, item_code, key_manual").in("id", lost.slice(i, i + 200)), "ledger.lost_sales");
+    for (const o of data as Row[]) {
       const to = sales.find((x) => x.status === "Aktual" && x.document_ref === s(o.document_ref) && (x.item_code ?? "").toUpperCase() === (s(o.item_code) ?? "").toUpperCase());
       if (to) moved.set(String(o.id), to.ref);
     }
@@ -297,7 +298,7 @@ export async function ledgerForWeek(sb: Supa, week: WeekRow, bsYesterday: string
   if (!src) return null;
   const led = computeLedger(src.inputs);
   const date = addDays(week.update_date, -1);
-  const fixes = ((await sb.from("data_fix").select("fix_id, amount, status").eq("week_id", week.id).eq("fix_id", "D3")).data ?? []) as Row[];
+  const fixes = mustRows(await sb.from("data_fix").select("fix_id, amount, status").eq("week_id", week.id).eq("fix_id", "D3"), "ledgerForWeek.data_fix") as Row[];
   const reconciling = fixes.filter((x) => x.status !== "applied" && x.amount !== null).map((x) => ({ label: String(x.fix_id), amount: String(x.amount) }));
   const r = ledgerControlsAt(src, led, date, bsYesterday, reconciling);
   return { controls: r.controls, balance: r.balance, date };
