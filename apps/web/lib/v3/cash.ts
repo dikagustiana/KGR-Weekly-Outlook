@@ -26,6 +26,13 @@ async function v5PlOn(sb: Supa): Promise<boolean> {
   return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
 }
 
+/** R66 (K63): the costing-rows mode of v5_pl — 'cogs' (default) or 'memo' (the v5 rows leave COGS for a memo block). */
+export async function v5CostingMode(sb: Supa): Promise<"cogs" | "memo"> {
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  const mode = (data?.value as { costing_rows_mode?: string } | undefined)?.costing_rows_mode;
+  return mode === "memo" ? "memo" : "cogs";
+}
+
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: Decimal | null | undefined) => (x === null || x === undefined ? null : toFixedString(x, 2));
 
