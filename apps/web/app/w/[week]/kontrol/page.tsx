@@ -6,7 +6,7 @@ import { Badge, Card, Msg, N } from "@/components/ui";
 import { can } from "@/lib/roles";
 import { overrideAction, release } from "./actions";
 import { OverridePanel } from "@/components/v4/OverridePanel";
-import { releaseContext } from "@/lib/release";
+import { c53Of, k35Message, k35State, releaseContext } from "@/lib/release";
 import { addDays, releaseVerdict, v1Codes } from "@kgr/engine";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleSettings } from "@/lib/modules";
@@ -31,8 +31,12 @@ export default async function KontrolPage({ params }: PageProps) {
   const v3 = await v3ForWeek(sb, ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result);
   // PRD v4 §7.2: the same verdict public.release_week applies in the release transaction
   const rc = await releaseContext(sb, "week", week, week, addDays(week, 6));
-  const verdict = releaseVerdict({ controls: v1Codes(c.controls), mandatory: null, overrides: rc.overrides.map((o) => o.code), strict: rc.strict, staleDates: rc.staleDates, policy: rc.policy });
-  const label = (code: string, status: string) => code === "STALE" ? `STALE: mart belum dibangun ulang untuk ${rc.staleDates.join(", ")}` : `${code} ${status}: ${c.controls.find((x) => `C${x.no}` === code)?.name ?? ""}`;
+  // v5.1 K47: C53 of the v3 controls counts like a v1 control (and is overridden here by Finance); K35 / K45 from the grid
+  const c53 = c53Of(v3.snapshot);
+  const verdict = releaseVerdict({ controls: [...v1Codes(c.controls), ...c53], mandatory: null, overrides: rc.overrides.map((o) => o.code), strict: rc.strict, staleDates: rc.staleDates, policy: rc.policy });
+  const k35 = await k35State(sb, week, rc.overrides.map((o) => o.code));
+  const label = (code: string, status: string) => code === "STALE" ? `STALE: mart belum dibangun ulang untuk ${rc.staleDates.join(", ")}`
+    : `${code} ${status}: ${c.controls.find((x) => `C${x.no}` === code)?.name ?? c53.find((x) => x.code === code)?.name ?? ""}`;
   return (
     <WeekShell ctx={ctx} active="kontrol">
       <h1>Kontrol — cek sebelum outlook dikirim</h1>
@@ -61,18 +65,19 @@ export default async function KontrolPage({ params }: PageProps) {
       </Card>
       {v3.controls.length ? (
         <Card title="Kontrol modul v3 (C21–C40)">
-          <p className="muted">Kontrol modul yang aktif. Tidak memengaruhi status rilis mingguan; C24 dipakai rilis bulanan.</p>
+          <p className="muted">Kontrol modul yang aktif. Tidak memengaruhi rilis mingguan, kecuali C53 (WP lewat tenggat, PRD v5.1 K47); C24 dipakai rilis bulanan.</p>
           <ControlsV3Table controls={v3.controls} management={ctx.view === "management"} />
         </Card>
       ) : null}
       <Card title="Rilis outlook">
-        {!verdict.ok ? <Msg kind="err">Rilis ditolak: {verdict.rejections.map((r) => `${r.code} ${r.status}`).join(", ")}.</Msg> : c.overall !== "LULUS" ? <Msg kind="info">Rilis diizinkan dengan peringatan ({c.counts.PERIKSA} PERIKSA, {c.counts["BELUM DIISI"]} BELUM DIISI{rc.overrides.length ? `, ${rc.overrides.length} override` : ""}).</Msg> : <Msg kind="ok">Semua kontrol LULUS.</Msg>}
+        {!verdict.ok ? <Msg kind="err">Rilis ditolak: {verdict.rejections.map((r) => `${r.code} ${r.status}`).join(", ")}.</Msg> : k35 && !k35.ok ? null : c.overall !== "LULUS" ? <Msg kind="info">Rilis diizinkan dengan peringatan ({c.counts.PERIKSA} PERIKSA, {c.counts["BELUM DIISI"]} BELUM DIISI{rc.overrides.length ? `, ${rc.overrides.length} override` : ""}).</Msg> : <Msg kind="ok">Semua kontrol LULUS.</Msg>}
+        {k35 && !k35.ok ? <Msg kind="err">{k35Message(k35)}</Msg> : null}
         {rc.strict && (verdict.rejections.length || rc.overrides.length) ? (
           <OverridePanel rejections={verdict.rejections.map((r) => ({ code: r.code, label: label(r.code, r.status), overridable: r.overridable }))} overrides={rc.overrides}
             policy={rc.policy} role={ctx.viewer.role} action={overrideAction} hidden={{ week }} />
         ) : null}
         {canRelease ? (
-          <ActionForm action={release} submit="Rilis outlook (simpan snapshot JSON + PDF)" confirm="Rilis outlook minggu ini sekarang?" disabled={!verdict.ok}>
+          <ActionForm action={release} submit="Rilis outlook (simpan snapshot JSON + PDF)" confirm="Rilis outlook minggu ini sekarang?" disabled={!verdict.ok || (k35 !== null && !k35.ok)}>
             <input type="hidden" name="week" value={week} />
           </ActionForm>
         ) : <p className="muted">Rilis dilakukan oleh Admin atau Finance.</p>}

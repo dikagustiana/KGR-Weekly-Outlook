@@ -2,6 +2,18 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.1-1] Rilis K35/C53, akses, base_key, K32 di RLS (docs/PRD-v5.1.md irisan 1)
+
+### Added
+- Migrations `20261024000100_v51_release.sql` (`base_key`, `release_week` with K44/K45/K47, `needs_rebuild` on five v5 tables), `20261024000200_v51_security.sql` (base-key guards, view and Sales read policies, `tg_sales_line_scope`, `sales_sees_cost` in the v5 Sales view, `price_list_week.deleted_at`, lower-case assignment e-mail), `20261024000300_v51_params.sql` (`advance_update_date`, `lock_commitments`, `price_list_week.price_frozen_source`, `parameter.po_unsized_mode`); KGR-OS bundle `docs/v5.1/kgr-os-migrasi-v51.sql`.
+- RLS block v5.1/1; screen test of the Minggu ini role guard; PO upload scope test.
+
+### Fixed
+- The release task no longer counts as a red cell of its own release (K44); a week without completeness grid is not released (K45); C53 holds the release like a v1 control and is overridden by Finance on the Kontrol page (K47).
+- C53 compared ISO times as strings (`…Z` vs `…+07:00`); now as instants (R4).
+- Minggu ini opened for every role with `v4_design`; now admin, management, operations director and finance only (K48).
+- A partial PO file soft-deleted other customers' lines under the same PO number (R7); Sales could write PO lines outside their assignment through the API (K49).
+
 ## [v5-6.1] Perbaikan setelah uji pada salinan KGR-OS
 
 ### Fixed

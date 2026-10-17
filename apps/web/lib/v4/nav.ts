@@ -69,6 +69,13 @@ export const WORKSPACE: Record<Role, Def[]> = {
 
 export const NAV_MAX = 7;
 
+/**
+ * PRD v5.1 K48: the roles that open Manajemen · Minggu ini (cash, P&L, the LB price simulation and the input status of
+ * every owner). Other roles get a 404 even with the URL, also when v4_design is on for them.
+ */
+export const MINGGU_INI_ROLES: readonly Role[] = ["admin", "management", "operations_director", "finance"];
+export const mingguIniAllowed = (role: Role) => MINGGU_INI_ROLES.includes(role);
+
 export function v4Nav(role: Role, settings: ModuleSettings, ctx: V4NavCtx): V4NavItem[] {
   const out: V4NavItem[] = [];
   for (const d of WORKSPACE[role] ?? []) {

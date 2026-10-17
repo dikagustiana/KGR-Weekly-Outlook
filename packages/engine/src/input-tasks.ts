@@ -7,7 +7,8 @@
  *   belum + past the due time = terlambat (late)
  *
  * The completeness grid (`input_completeness_daily`) is input × date of the tasks due that day; a red (late) cell of
- * the week being released holds the release unless Finance records a K35 override with a reason.
+ * the week being released holds the release unless Finance records a K35 override with a reason. The release task
+ * itself is a task but not a cell (PRD v5.1 K44): the release is what completes it, so it never holds the release.
  */
 import { addDays, type ISODate } from "./dates";
 
@@ -84,11 +85,14 @@ export function effectiveStatus(t: Pick<InputTask, "status" | "due_at">, now: st
 
 export interface CompletenessCell { date: ISODate; kind: string; owner_role: string; status: CellStatus; due_at: string | null; note: string | null }
 
+/** Task kinds that are not inputs of the release and have no grid cell (K44). */
+export const NOT_IN_GRID: ReadonlySet<string> = new Set(["release_week"]);
+
 /** Grid cells of the tasks: per due date × input, the worst instance (late > noted > not yet due > passed). */
 export function completenessCells(tasks: InputTask[], rules: TaskRule[], now: string): CompletenessCell[] {
   const owner = new Map(rules.map((r) => [r.kind, r.owner_role]));
   const groups = new Map<string, InputTask[]>();
-  for (const t of tasks) groups.set(`${t.due_date}|${t.rule_kind}`, [...(groups.get(`${t.due_date}|${t.rule_kind}`) ?? []), t]);
+  for (const t of tasks.filter((q) => !NOT_IN_GRID.has(q.rule_kind))) groups.set(`${t.due_date}|${t.rule_kind}`, [...(groups.get(`${t.due_date}|${t.rule_kind}`) ?? []), t]);
   const out: CompletenessCell[] = [];
   for (const [k, ts] of groups) {
     const [date, kind] = k.split("|");
@@ -106,9 +110,15 @@ export function effectiveCell(c: Pick<CompletenessCell, "status" | "due_at">, no
   return c.status === "not_due" && c.due_at !== null && Date.parse(now) >= Date.parse(c.due_at) ? "late" : c.status;
 }
 
-/** K35: the red cells of the week being released; the release passes when there are none or Finance gave a K35 override. */
-export function k35(x: { cells: CompletenessCell[]; weekStart: ISODate; now: string; override: boolean }): { ok: boolean; red: CompletenessCell[] } {
+/**
+ * K35: the red cells of the week being released; the release passes when there are none or Finance gave a K35
+ * override. Without any cell of the week (grid not built) it does not pass (K45), override or not. Cells of the
+ * release task stored before K44 are ignored.
+ */
+export function k35(x: { cells: CompletenessCell[]; weekStart: ISODate; now: string; override: boolean }): { ok: boolean; red: CompletenessCell[]; built: boolean } {
   const end = addDays(x.weekStart, 6);
-  const red = x.cells.filter((c) => c.date >= x.weekStart && c.date <= end && effectiveCell(c, x.now) === "late");
-  return { ok: red.length === 0 || x.override, red };
+  const week = x.cells.filter((c) => c.date >= x.weekStart && c.date <= end && !NOT_IN_GRID.has(c.kind));
+  const red = week.filter((c) => effectiveCell(c, x.now) === "late");
+  if (!week.length) return { ok: false, red, built: false };
+  return { ok: red.length === 0 || x.override, red, built: true };
 }

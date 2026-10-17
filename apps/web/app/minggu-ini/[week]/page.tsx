@@ -5,7 +5,7 @@ import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
 import { moduleSettings } from "@/lib/modules";
-import { v4On } from "@/lib/v4/nav";
+import { mingguIniAllowed, v4On } from "@/lib/v4/nav";
 import { loadMingguIni } from "@/lib/v4/minggu-ini-data";
 import { mingguIniModel } from "@/lib/v4/minggu-ini";
 import { num } from "@/lib/fmt";
@@ -18,7 +18,8 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   const { week } = await params;
   const sp = await searchParams;
   const ctx = await weekContext(week);
-  if (!v4On(await moduleSettings(), ctx.viewer.role)) notFound();
+  // PRD v5.1 K48: only the management roles and Finance, before anything is loaded
+  if (!mingguIniAllowed(ctx.viewer.role) || !v4On(await moduleSettings(), ctx.viewer.role)) notFound();
   const input = await loadMingguIni(ctx, sp);
   const model = mingguIniModel(input);
   // PRD v5 journey M (flag v5_management): the operations director decides the price tried in the simulation (K25)

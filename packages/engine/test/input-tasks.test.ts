@@ -76,7 +76,23 @@ describe("grid kelengkapan dan K35", () => {
     expect(k35({ cells, weekStart: "2026-08-24", now: now0, override: true }).ok).toBe(true);
     // after 16.00 the journal of the 27th is red too
     expect(k35({ cells, weekStart: "2026-08-24", now: "2026-08-27T16:30:00+07:00", override: false }).red.map((c) => c.kind)).toEqual(["costing_wp", "gl_daily"]);
-    // another week: nothing red
-    expect(k35({ cells, weekStart: "2026-08-31", now: now0, override: false })).toEqual({ ok: true, red: [] });
+    // another week without any cell: the grid is not built, which holds the release even with an override (K45)
+    expect(k35({ cells, weekStart: "2026-08-31", now: now0, override: false })).toEqual({ ok: false, red: [], built: false });
+    expect(k35({ cells, weekStart: "2026-08-31", now: now0, override: true }).ok).toBe(false);
+  });
+
+  it("K44: the release task has no cell and never holds the release", () => {
+    const rel: TaskRule = { kind: "release_week", title: "Rilis mingguan", owner_role: "finance", due_rule: "week_start + 3 days 17:00", impact_text: "" };
+    const all = [...rules, rel];
+    const ts = ["2026-08-24", "2026-08-25", "2026-08-26", "2026-08-27"].flatMap((d) => instancesDue(all, d, { cutDates: [], batches: [] }))
+      .map((i) => taskOf(i, i.kind === "release_week" ? { done: null } : { done: "passed" }, "2026-08-27T18:00:00+07:00"));
+    // the task is there and late at 18.00 Thursday
+    expect(ts.find((t) => t.rule_kind === "release_week")).toMatchObject({ ref: "2026-08-24", status: "late" });
+    const grid = completenessCells(ts, all, "2026-08-27T18:00:00+07:00");
+    expect(grid.some((c) => c.kind === "release_week")).toBe(false);
+    expect(k35({ cells: grid, weekStart: "2026-08-24", now: "2026-08-27T18:00:00+07:00", override: false })).toEqual({ ok: true, red: [], built: true });
+    // a release cell stored before K44 is ignored as well
+    const old = [...grid, { date: "2026-08-27", kind: "release_week", owner_role: "finance", status: "late" as const, due_at: "2026-08-27T17:00:00+07:00", note: null }];
+    expect(k35({ cells: old, weekStart: "2026-08-24", now: "2026-08-27T18:00:00+07:00", override: false }).ok).toBe(true);
   });
 });

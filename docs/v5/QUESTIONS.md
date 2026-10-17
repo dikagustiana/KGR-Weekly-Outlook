@@ -171,3 +171,29 @@ Dari PRD v5.1 Bab 6: dibangun di belakang parameter, tidak difinalkan implementa
 | O18 | Grid v4 §5.3 "baris 76px" vs `minmax(76px, auto)` PR #31 | tetap `minmax`; dicatat sebagai amandemen v4 §5.3 bila disetujui | Pemilik produk | `minmax(76px, auto)` |
 | O19 | Baris "Beban tetap belum dijurnal" positif di minggu posting gaji (kumulatif, benar per bulan) vs distribusi ulang per hari | tetap kumulatif; catatan tile menjelaskan | Finance | kumulatif; catatan tile belum menjelaskan angka positif (v5.1 §3.11) |
 | O20 | C58: supply tanpa kelas (O2 satu harga) dihitung untuk semua kelas proporsional, atau diabaikan? | diabaikan + C58 menyebut "n kg tanpa kelas" | PPIC + Purchasing | diabaikan, tanpa menyebut kg tanpa kelas (v5.1 §3.11) |
+
+## Pelaksanaan PRD v5.1 (Q-v5.1-n)
+
+Keputusan yang diambil saat membangun PRD v5.1 tanpa sign-off per irisan (instruksi pemilik "selesai sampe beres", 17 Okt 2026). Semua menunggu konfirmasi pemilik di PR masing-masing; tidak ada yang di-merge.
+
+Q-v5.1-1. Nomor migrasi (pertanyaan PR #32): semua objek skema v5.1 ada di irisan 1, dalam tiga file `20261024000100_v51_release.sql`, `…0200_v51_security.sql`, `…0300_v51_params.sql` (rentang `202610240001..03` Bab 0). File ketiga memuat skema irisan 2–4 (`advance_update_date` K39, `lock_commitments` + `price_list_week.price_frozen_source` K46, `parameter.po_unsized_mode` O15) supaya KGR-OS cukup sekali menjalankan bundel `docs/v5.1/kgr-os-migrasi-v51.sql` (tiga file, bukan dua seperti checklist). Irisan 2–4 tidak menambah migrasi.
+
+Q-v5.1-2. R3 dibangun harfiah lewat `release_rejections(controls_v3, ['C53'], …)`: C53 BELUM DIISI menahan rilis hanya saat `v4_release` hidup (mode ketat, sama dengan BELUM DIISI kontrol v1); dengan `v4_release` mati hanya GAGAL yang menahan, dan C53 tidak pernah GAGAL. Halaman Kontrol menghitung verdict yang sama (v1 + C53) sehingga override C53 dicatat Finance dari panel override yang sudah ada.
+
+Q-v5.1-3. K43 ikut diterapkan pada dua policy baca Sales (`sales_commitment_read`, `discount_approval_sales_scope`, lewat `alter policy`): tanpa itu Sales dengan assignment `RPA|Karkas|Fresh` bisa menulis komitmen `RPA|Karkas` tetapi tidak bisa membacanya kembali. Akibat K43 "di kedua sisi": assignment `RPA|Karkas|Fresh` juga mencakup `RPA|Karkas|Frozen`. View v1/v4 `commercial_daily_sales` tidak diubah (masih key persis); loader Commercial v5 mencocokkan key dasar seperti view v5.
+
+Q-v5.1-4. K49 (`tg_sales_line_scope`): key baris = `key_manual`, kalau kosong key `item_map` dari `item_code`; assignment `customer` kosong = semua pelanggan, `key` kosong = semua SKU; baris tanpa pelanggan (spot) hanya dicek key-nya.
+
+Q-v5.1-5. R7 menyebut `line_key like upload_prefix%`, tetapi `line_key` PO tidak punya prefiks upload (`<po_ref>|<item_code>|<n>`). Yang dibangun (`lib/v5/po-lines.ts`, dipakai `input-save.ts`): baris lama yang boleh diganti / dihapus = line key berawalan `<po_ref>|` (kanal upload PO), pasangan (PO, pelanggan) ada di file, dan untuk Sales pelanggan miliknya. Tes `apps/web/lib/v5/input-save.test.ts` menguji fungsi itu (file parsial tidak menghapus pelanggan lain di nomor PO yang sama).
+
+Q-v5.1-6. R9 mengasumsikan `sales_assignment.email` tersimpan huruf kecil; di v5 tidak ada yang menjamin. Migrasi 0200 menambah trigger yang menulis email huruf kecil dan sekali `update` baris lama (satu-satunya perubahan data di migrasi v5.1; guard DB sudah membandingkan `lower(email)`).
+
+Q-v5.1-7. R40: `price_list_week` belum punya `deleted_at`; migrasi 0200 menambah `deleted_at`, `deleted_by`. Admin boleh mengisi `deleted_at` pada baris komitmen atau price list yang terkunci asal kolom lain tidak berubah (tidak membuka kunci). Pembaca `price_list_week` menyaring `deleted_at is null` di irisan 4.
+
+Q-v5.1-8. `lock_commitments`: menolak (22023) bila minggu itu tidak punya draft; baris price list yang sudah terkunci untuk key itu tidak ditimpa walau versi komitmen baru dikunci (K24: price list terkunci tidak berubah) — untuk menggantinya Admin mengarsip baris itu (R40) lalu kunci berikutnya menulis harga baru. "sku_price frozen minggu berjalan" = `sku_price` minggu sebelum minggu komitmen (`p_week_start − 7`), key `base_key(key)|Frozen`.
+
+Q-v5.1-9. Pesan K45 sama di DB dan app ("… Admin → Modul → Perbarui status tugas"), sesuai R2. Finance juga bisa membangun grid dari Input → "Perbarui status tugas" (dipakai journey P).
+
+Q-v5.1-10. Sel `release_week` yang tersimpan sebelum K44 diabaikan oleh `k35()` dan `release_week()`; builder grid tidak lagi menulisnya. `k35()` mengembalikan `built: false` untuk minggu tanpa sel, dan override K35 tidak melewati K45.
+
+Q-v5.1-11. Journey P (T8) di stack lokal: fixture asli mengosongkan total Accurate (`accurate_sales_kg`, `accurate_opening_stock_value` = null di `fixtures/week-2026-08-24/parameters.json`), jadi dengan `v4_release` hidup (seperti KGR-OS) C8 dan C9 BELUM DIISI menahan rilis apa pun keadaan K35. "Rilis tanpa override" dijalankan dengan `v4_release` mati di DB lokal; langkah P6 menunjukkan dengan `v4_release` hidup penolakannya hanya C8/C9 (perlu angka Accurate dari Inventory Accounting atau override Finance), bukan K35. Jam uji (faketime) Senin 24 Agu 10.30 WIB: pada 27 Agu 09.00 (Bab 5.2) fixture punya 13 sel merah karena input pemilik v5 (alokasi, keputusan dan supply LB, kartu stok harian) tidak ada di workbook; minggu dengan semua input terisi dibangun oleh journey L (irisan 3).

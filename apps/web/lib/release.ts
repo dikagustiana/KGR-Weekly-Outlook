@@ -27,6 +27,26 @@ export async function releaseContext(sb: Supa, scopeKind: "week" | "month", scop
   };
 }
 
+/** K45: the text of public.release_week for a week without completeness grid. */
+export const K45_MESSAGE = "Rilis ditolak — K35: grid kelengkapan belum dibangun; Admin → Modul → Perbarui status tugas";
+
+/** C53 of the v3 controls of a week (PRD v5.1 K47): a release control like the v1 ones; [] while v5_costing is off. */
+export const c53Of = (v3: { controls_v3?: unknown }) => ((v3.controls_v3 ?? []) as { code: string; status: string; name?: string }[]).filter((c) => c.code === "C53");
+
+/** K35 / K45 of a week (flag v5_input), as public.release_week sees it now; null with the flag off. */
+export async function k35State(sb: Supa, weekStart: string, overrides: string[]) {
+  if (!(await v5InputOn(sb))) return null;
+  const { data: cells } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6));
+  const n = jakartaNow();
+  return k35({
+    cells: ((cells ?? []) as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
+    weekStart, now: `${n.date}T${n.time}:00+07:00`, override: overrides.includes("K35"),
+  });
+}
+
+export const k35Message = (k: NonNullable<Awaited<ReturnType<typeof k35State>>>) => !k.built ? K45_MESSAGE
+  : `Rilis ditolak — K35 kelengkapan data merah: ${k.red.map((c) => `${c.kind} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`).join(", ")}. Lengkapi input, atau Finance mencatat alasan di layar Input ("Rilis dengan alasan").`;
+
 /**
  * Release = frozen snapshot (JSON + PDF) of the computed outlook. The rule of PRD v4 §7.2 is checked here first (so no
  * file is stored for a release that will be refused) and again by public.release_week inside the release
@@ -37,24 +57,21 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
   if (!loaded) throw new WriteError("Minggu tidak ada");
   const result = computeWeek(loaded.inputs);
   const rc = await releaseContext(sb, "week", weekStart, weekStart, addDays(weekStart, 6));
-  const verdict = releaseVerdict({ controls: v1Codes(result.controls.controls), mandatory: null, overrides: rc.overrides.map((o) => o.code), strict: rc.strict, staleDates: rc.staleDates, policy: rc.policy });
-  if (!verdict.ok) {
-    const name = (code: string) => result.controls.controls.find((c) => `C${c.no}` === code)?.name ?? (code === "STALE" ? `mart belum dibangun ulang (${rc.staleDates.join(", ")})` : code);
-    throw new WriteError(`Rilis ditolak — ${verdict.rejections.map((r) => `${r.code} ${r.status}: ${name(r.code)}${r.overridable ? " (bisa override dengan alasan dan bukti)" : ""}`).join("; ")}`);
-  }
-  // PRD v5 K35 (flag v5_input): red cells of the completeness grid hold the release unless Finance recorded K35;
-  // public.release_week checks the same in the release transaction
-  if (await v5InputOn(sb)) {
-    const { data: cells } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6));
-    const n = jakartaNow();
-    const v = k35({
-      cells: ((cells ?? []) as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
-      weekStart, now: `${n.date}T${n.time}:00+07:00`, override: rc.overrides.some((o) => o.code === "K35"),
-    });
-    if (!v.ok) throw new WriteError(`Rilis ditolak — K35 kelengkapan data merah: ${v.red.map((c) => `${c.kind} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`).join(", ")}. Lengkapi input, atau Finance mencatat alasan di layar Input ("Rilis dengan alasan").`);
-  }
   // v3 module outputs (only modules that are on) under their own keys; all flags off = the v1 snapshot byte for byte
   const v3 = await v3ForWeek(sb, loaded.week, moduleSettingsGlobal(await moduleSettings()), result);
+  // PRD v5.1 K47: C53 of the v3 controls (WP past its deadline; there while v5_costing is on) holds the release like a
+  // v1 control, lifted by a Finance override in strict mode; public.release_week checks the same
+  const c53 = c53Of(v3.snapshot);
+  const verdict = releaseVerdict({ controls: [...v1Codes(result.controls.controls), ...c53], mandatory: null, overrides: rc.overrides.map((o) => o.code), strict: rc.strict, staleDates: rc.staleDates, policy: rc.policy });
+  if (!verdict.ok) {
+    const name = (code: string) => result.controls.controls.find((c) => `C${c.no}` === code)?.name ?? c53.find((c) => c.code === code)?.name
+      ?? (code === "STALE" ? `mart belum dibangun ulang (${rc.staleDates.join(", ")})` : code);
+    throw new WriteError(`Rilis ditolak — ${verdict.rejections.map((r) => `${r.code} ${r.status}: ${name(r.code)}${r.overridable ? " (bisa override dengan alasan dan bukti)" : ""}`).join("; ")}`);
+  }
+  // PRD v5 K35 (flag v5_input): red cells of the completeness grid hold the release unless Finance recorded K35, and a
+  // week without any grid row is not released (v5.1 K45); public.release_week checks the same in the release transaction
+  const k = await k35State(sb, weekStart, rc.overrides.map((o) => o.code));
+  if (k && !k.ok) throw new WriteError(k35Message(k));
   const json = snapshotJsonV3(result, v3.snapshot);
   const sha = createHash("sha256").update(json).digest("hex");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
