@@ -10,7 +10,8 @@
 --   * v5_input on: a week without any grid row is refused (K45, as v5.1); every date ws … min(ws+6, today WIB − 1)
 --     needs at least one cell (O28b) — "grid belum dibangun untuk <tanggal>"; missing days and red cells are lifted by
 --     Finance's override K35.
---   * the DB's C53 is compared with the snapshot's; a difference is written to release.note (new column).
+--   * the DB's C53 is compared with the snapshot's; a difference (and what an override K35 lifted) is written to
+--     release.note (new column).
 -- release_month (same signature): V1 with C55 not LULUS in the snapshot is refused in every mode unless Finance
 --   recorded override C55 for the month's V1 (O32b; policy row C55 added here, migrations only by O38).
 -- Registers schema version 5.2.2.
@@ -131,6 +132,8 @@ begin
       if not k35_lifted then
         if gaps is not null then bad := concat_ws('; ', bad, 'K35: grid belum dibangun untuk ' || gaps); end if;
         if red is not null then bad := concat_ws('; ', bad, 'K35 kelengkapan data merah: ' || red); end if;
+      elsif gaps is not null or red is not null then
+        diff := concat_ws('; ', diff, 'K35 dilepas override: ' || concat_ws(' | ', 'grid belum dibangun ' || gaps, 'merah ' || red));
       end if;
     end if;
   end if;

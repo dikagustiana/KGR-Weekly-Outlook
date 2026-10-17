@@ -5,7 +5,8 @@
 --   advance_update_date (forward, GUC kgr.advance set by that function). Policies week_upd / week_upd_v3 unchanged
 --   (docs/v5.2/b2-week-writers.md: other week columns are written by non-admin roles).
 -- A-REL-2 / B-REL-4: the two Sales views hide every cost-derived column (MA cost, floor, margins, v5 cost) when the
---   week's sales_sees_cost is false or the week has no parameter row; same column lists, names and types.
+--   week's sales_sees_cost is false or the week has no parameter row; same column lists, names and types. rpc floor_of
+--   (price_floor of any key) is no longer executable by clients.
 -- A-REL-3: plan_week_class and demand_class_weekly are not read by Sales; surplus_response is read by Sales only for
 --   assigned keys; view surplus_for_sales_v52 gives Sales the surplus of their keys (limited columns).
 -- A-REL-4: tg_sales_line_scope checks the row before (OLD) and after (NEW) an update or soft delete; a line without
@@ -39,7 +40,7 @@ grant execute on function public.assignment_covers(text, text) to authenticated;
 create or replace function public.norm_code(p text) returns text
 language sql immutable parallel safe set search_path = '' as $$
   select upper(regexp_replace(p,
-    '^[\u0009-\u000d    -     　﻿]+|[\u0009-\u000d    -     　﻿]+$',
+    '^[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+|[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]+$',
     '', 'g'))
 $$;
 revoke all on function public.norm_code(text) from public, anon;
@@ -159,6 +160,11 @@ create or replace view public.commercial_daily_sales_v5 with (security_barrier =
                     where a.active and lower(a.email) = public.current_email() and public.assignment_covers(a.key, c.key)));
 revoke all on public.commercial_daily_sales_v5 from public, anon;
 grant select on public.commercial_daily_sales_v5 to authenticated;
+
+-- Found while reviewing A-REL-2: floor_of(key, date) hands price_floor to any signed-in user through rpc, whatever the
+-- week's sales_sees_cost and the viewer's assignment. Only the SECURITY DEFINER triggers of C38 call it (they run as the
+-- owner), the app never does, so clients lose execute (the owner and the service role keep it).
+revoke execute on function public.floor_of(text, date) from authenticated;
 
 -------------------------------------------------------------------------------- A-REL-3 Sales read scope of planning
 alter policy plan_week_class_read on public.plan_week_class
