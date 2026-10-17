@@ -37,6 +37,9 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | B0 | sebagian | backup `bak_20261017t1539`; B0-5 flag, O36 since, B0-6 (42) selesai. B0-2 (D2), B0-3 (D1), B0-7/8 menunggu |
 | Merge #37 | **selesai** | `0055cb7` (CI run 39020687202 engine ✓ rls ✓) |
 | Merge #38 | **selesai** | audit R41–R47 → perbaikan cron (middleware + client service), sisa K41 (20 hit), R44 tolak lebih awal, tes bukti (`fail-closed.test.ts` 18 + `Shell.test.tsx` 2). CI run 39047258171 engine ✓ lint ✓ rls ✓. Merge `a84b64c`; deploy Production sukses 17 Okt 16.01 UTC (GitHub Deployments 7142110692) |
+| B6 B-R89 `coa_map` | **selesai** | diterapkan 23.21 WIB (backup `bak_20261017t1620`), `docs/v5.2/coa-fix.md` |
+| B6 sumber data Agu–Sep | ditemukan di repo | GL `Agt 26` (2.431 baris) dan `Sep 26` (1.930 baris) di workbook FS v2; GL KGR-OS 1–26 Agu adalah ekspor lama (5 tanggal berbeda) → B-R90 mengganti rentang 1–31 Agu. FINAL bulan butuh app terhadap KGR-OS (D2/D3) |
+| BT-1 | PR #40 | parser GL gagal-tertutup; backtest dari sumber repo |
 | B1 data master | sebagian | `kgr-os-master.sql` (sha256 `6dcadd03…afb1`): jadwal beban tetap Agu–Sep diterapkan 23.04 WIB sesudah uji kering + backup `bak_20261017t1603`. K/S/B, yield kelas, size_class_map, kapasitas, C8/C9, users: D5/D7/D8 |
 
 ## Berikutnya
