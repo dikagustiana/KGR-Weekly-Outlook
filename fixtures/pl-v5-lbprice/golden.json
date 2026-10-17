@@ -1,0 +1,25 @@
+{
+  "tariff_per_kg_lb": "2552.0000",
+  "value_per_kg_lb": "26590.00",
+  "k_base": "0.9985708913",
+  "cost_per_kg_base": {
+    "RPA|Karkas|Fresh": "35948.55",
+    "RPA|Kepala|Fresh": "8987.14",
+    "RPA|Ceker|Fresh": "11982.85",
+    "RPA|Usus|Fresh": "6990.00",
+    "RPA|HJA (Hati/Jantung/Ampela)|Fresh": "19971.42",
+    "RPA|Lemak|Fresh": "5991.43"
+  },
+  "cost_per_kg_up": {
+    "RPA|Karkas|Fresh": "37302.44",
+    "RPA|Kepala|Fresh": "9325.61",
+    "RPA|Ceker|Fresh": "12434.15",
+    "RPA|Usus|Fresh": "7253.25",
+    "RPA|HJA (Hati/Jantung/Ampela)|Fresh": "20723.58",
+    "RPA|Lemak|Fresh": "6217.07"
+  },
+  "gp_forecast_base": "5282049.64",
+  "gp_forecast_up": "1807059.04",
+  "gp_forecast_delta": "-3474990.60",
+  "check_delta_formula": "-3474990.60"
+}

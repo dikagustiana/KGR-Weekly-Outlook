@@ -1,0 +1,55 @@
+{
+  "fixture": "pl-v5-lbprice",
+  "month": "2026-08-01",
+  "cut_off": "2026-08-26",
+  "week_fixture": "week-2026-08-24",
+  "tariff": {
+    "freight_plan_per_kg_lb": "1000",
+    "maklon_per_kg_processed": "1600",
+    "target_shrink": "0.03"
+  },
+  "yields_std": {
+    "RPA|Karkas|Fresh": "0.70",
+    "RPA|Kepala|Fresh": "0.04",
+    "RPA|Ceker|Fresh": "0.03",
+    "RPA|Usus|Fresh": "0.03",
+    "RPA|HJA (Hati/Jantung/Ampela)|Fresh": "0.02",
+    "RPA|Lemak|Fresh": "0.01"
+  },
+  "ref_prices": {
+    "RPA|Karkas|Fresh": "36000",
+    "RPA|Kepala|Fresh": "9000",
+    "RPA|Ceker|Fresh": "12000",
+    "RPA|Usus|Fresh": "7000",
+    "RPA|HJA (Hati/Jantung/Ampela)|Fresh": "20000",
+    "RPA|Lemak|Fresh": "6000"
+  },
+  "orders": [
+    {
+      "date": "2026-08-27",
+      "key": "RPA|Karkas|Fresh",
+      "kg": "1000",
+      "price": "38000"
+    },
+    {
+      "date": "2026-08-27",
+      "key": "RPA|Kepala|Fresh",
+      "kg": "200",
+      "price": "9500"
+    },
+    {
+      "date": "2026-08-28",
+      "key": "RPA|Karkas|Fresh",
+      "kg": "1500",
+      "price": "38000"
+    },
+    {
+      "date": "2026-08-29",
+      "key": "RPA|Lemak|Fresh",
+      "kg": "100",
+      "price": "6500"
+    }
+  ],
+  "lb_price_base": "24000",
+  "lb_price_up": "25000"
+}
