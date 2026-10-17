@@ -90,7 +90,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     const keyed = r.records.map((q) => ({ q, line_key: keyOf(q) }));
     const pos = [...new Set(r.records.map((q) => v(q, "po_ref")).filter((p): p is string => !!p))];
     // R7: only this channel's lines of the PO × customer pairs in the file (and, for Sales, of their customers)
-    const found = pos.length ? await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, customer").eq("status", "Order").in("po_ref", pos).is("deleted_at", null).range(a, b)) : [];
+    const found = pos.length ? await inChunks(pos, (chunk) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, customer").eq("status", "Order").in("po_ref", chunk).is("deleted_at", null).range(a, b))) : [];
     const existing = poLinesInScope(found, r.records.map((q) => ({ po_ref: v(q, "po_ref"), customer: v(q, "customer") })), customers);
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
@@ -128,8 +128,11 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     const inFile = new Set(keyed.map((k) => k.line_key));
     const gone = existing.filter((e) => !inFile.has(String(e.line_key)));
     if (gone.length) {
-      const e = await sb.from("sales_line").update({ deleted_at: new Date().toISOString() }).in("id", gone.map((g) => String(g.id)));
-      if (e.error) throw new WriteError(`sales_line: ${e.error.message}`);
+      const ids = gone.map((g) => String(g.id));
+      for (let i = 0; i < ids.length; i += 200) {
+        const e = await sb.from("sales_line").update({ deleted_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
+        if (e.error) throw new WriteError(`sales_line: ${e.error.message}`);
+      }
     }
     return { inserted, updated, held, dates, note: `Demand PPIC diperbarui${toApproval ? `; ${toApproval} baris di bawah lantai ke approval Kepala Sales (C38)` : ""}${gone.length ? `; ${gone.length} baris PO lama dihapus (soft)` : ""}.` };
   },
@@ -159,7 +162,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
       const old = mustRows<Row>(await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", bid).is("deleted_at", null), `WP batch ${ref} output lama`);
       const keep = new Set([...agg.keys()]);
       const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key}|${o.item_code}`)) || o.source === "manual").map((o) => String(o.id));
-      if (gone.length) { const d = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone); if (d.error) throw new WriteError(d.error.message); }
+      if (gone.length) { for (let i = 0; i < gone.length; i += 200) { const d = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone.slice(i, i + 200)); if (d.error) throw new WriteError(d.error.message); } }
       const u = await sb.from("batch").update({ costing_status: "uploaded" }).eq("id", bid);
       if (u.error) throw new WriteError(`batch ${ref}: ${u.error.message}`);
       dates.push(String((b as Row).date));
