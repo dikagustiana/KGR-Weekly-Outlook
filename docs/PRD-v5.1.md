@@ -1,3 +1,5 @@
+Diamendemen oleh docs/PRD-v5.2-A-kode.md dan -B-db.md sejak 17 Okt 2026; lihat Bab 1.3.
+
 # PRD v5.1 — Perbaikan hasil review v5 (K35, akses, costing, jam data, DB sungguhan)
 
 Status: Draft untuk review pemilik produk, lalu handoff ke Claude Code · Owner: Dika (Group Project Finance, SAMB) · Tanggal: 17 Okt 2026 (WIB)

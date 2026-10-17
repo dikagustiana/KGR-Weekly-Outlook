@@ -119,11 +119,11 @@ Klaim di `docs/v5/irisan-<n>.md` tidak diubah (riwayat), tetapi statusnya dituru
 
 | T | Status (lingkungan, role) |
 |---|---|
-| T7 putaran dengan role sebenarnya | sebagian: langkah putaran lulus per journey di PostgREST lokal dengan 6 user + mgmt@t (L, M, N, O, P); satu putaran utuh berurutan belum |
-| T8 rilis K35/K45 | lulus di PostgREST lokal, finance@t (journey P, irisan 1) |
+| T7 putaran dengan role sebenarnya | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase |
+| T8 rilis K35/K45 | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase |
 | T9 tidak ada 0 untuk missing | lulus: tes unit per kasus (allocateBatch, plTable, kartu Kas, Outlook bulan); PostgREST lokal finance@t (Outlook bulan "Kas belum diisi") |
 | T10 error tidak ditelan | lulus: lint K41 = 0; PostgREST lokal finance@t (tile kas state error saat select dicabut, irisan 2) |
-| T11 kombinasi flag | lulus: `flags-matrix.test.tsx` + PostgREST lokal 8 kombinasi × admin@t/sales@t/mgmt@t × 8 halaman, 0 error |
+| T11 kombinasi flag | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase (matriks hanya 3 role, A-UI-18) |
 | T12 engine dan snapshot | lulus: parity 17161/17161, snapshot:diff EMPTY, golden v1 dan B.1–B.5 tetap; golden yang berubah hanya `upload-samples` PO (O15, CHANGELOG [v5.1-4]) |
 
 Uji PR #31 (`docs/v5/perbaikan-produksi.md`) memakai PostgREST lokal, tetapi hanya dengan role Admin dan hanya membuka halaman; journey di atas tidak dijalankan.
@@ -154,6 +154,19 @@ Menunggu keputusan pemilik (PRD v5.1 Bab 6). Statusnya **belum terpenuhi**, buka
 - bacaan parsial §8 (Q-v5-49);
 - cron harian (Q-v5-46);
 - COGS forecast dari `planCost` (Q-v5-25).
+
+## Belum terpenuhi v5.2 (PRD v5.2-A §3.7)
+
+Dicatat sebagai "belum terpenuhi" untuk v5.2-A; tidak dikerjakan di irisan A0–A6:
+
+- K27 pola potong dan fresh/frozen per SKU (tahap 2; O33, ⛓ B-R85);
+- tren revenue/GP per minggu dan tile demand per kelas §6.1;
+- form parameter O8;
+- bacaan parsial §8 (Q-v5-49);
+- editor `size_class_map`;
+- grafik utang afiliasi vs ekuitas dan neraca ringkas §4.8;
+- tugas jawab surplus dan konsumsinya;
+- O17 (tata letak K) dan O18 (grid).
 
 ## Bukti per irisan
 

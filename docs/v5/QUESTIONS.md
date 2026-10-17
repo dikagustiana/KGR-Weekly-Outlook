@@ -172,6 +172,28 @@ Dari PRD v5.1 Bab 6: dibangun di belakang parameter, tidak difinalkan implementa
 | O19 | Baris "Beban tetap belum dijurnal" positif di minggu posting gaji (kumulatif, benar per bulan) vs distribusi ulang per hari | tetap kumulatif; catatan tile menjelaskan | Finance | kumulatif; catatan tile belum menjelaskan angka positif (v5.1 §3.11) |
 | O20 | C58: supply tanpa kelas (O2 satu harga) dihitung untuk semua kelas proporsional, atau diabaikan? | diabaikan + C58 menyebut "n kg tanpa kelas" | PPIC + Purchasing | diabaikan, tanpa menyebut kg tanpa kelas (v5.1 §3.11) |
 
+## Pertanyaan terbuka PRD v5.2-A (O21–O33)
+
+Dari PRD v5.2-A Bab 6: dibangun di belakang parameter, tidak difinalkan implementasi. Rekomendasi = pendapat peninjau, bukan keputusan. Pertanyaan yang perubahannya di DB dirujuk ke PRD v5.2-B dengan nomor yang sama.
+
+| # | Pertanyaan | Pilihan | Rekomendasi | Pemilik |
+|---|---|---|---|---|
+| O21 | Assignment `…\|Fresh` ikut mencakup `…\|Frozen` (Q-v5.1-3)? | (a) ya, seperti sekarang; (b) persis: `base_key` hanya untuk assignment tanpa akhiran | **(b)**: K32 per SKU. Assignment tanpa akhiran tetap mencakup keduanya. Perubahan di DB (B-R83) | Kepala Sales |
+| O22 | C53 BELUM DIISI menahan rilis hanya di mode ketat (Q-v5.1-2)? | (a) hanya ketat; (b) selalu saat `v5_costing` hidup | **(b)**: K47 tidak menyebut mode; production ketat juga. Perubahan di DB (B-R84) | Finance |
+| O23 | Nav Finance 8 item (Q-v5.1-25) | (a) batas 8 untuk Finance; (b) Upload masuk panel Input | **(b)** (R77) | Pemilik produk |
+| O24 | Selisih costing dan biaya idle di P&L | (a) di COGS seperti sekarang; (b) baris memo di bawah NIBT jurnal + "NIBT manajemen" | **(b)**: kolom "jurnal" harus = FS (R66) | Finance |
+| O25 | FS diimpor sebagai acuan, atau app menghitung sendiri lalu dibandingkan | (a) impor saja; (b) hitung saja; (c) keduanya: impor acuan, app menghitung, C59 membandingkan | **(c)** (K62) | Finance |
+| O26 | Toleransi C59 | ±Rp 1 / ±Rp 1.000 / % | **±Rp 1** untuk total, sama dengan C49 | Finance |
+| O27 | Tingkat detail rekonsiliasi dan bulan sebelum Agustus | (a) baris Management Report; (b) per akun TB; (c) sampai rincian FA/prepaid/AR/AP/stok | **(a) dulu, lalu (b)**. Sebelum Agustus di luar cakupan; saldo awal = TB 31 Jul | Finance |
+| O28 | Rilis sebelum semua hari minggu itu punya sel K35 | (a) boleh; (b) wajib sel s.d. `min(ws+6, wall−1)`; rilis lebih awal butuh override | **(b)** (B-R84) | Finance |
+| O29 | Flag v5 di production selama v5.2 | (a) semua hidup untuk semua role (sekarang); (b) `v5_*` `roles: ["admin"]` sampai T19 lulus | **(b)** (PRD B, B-R80) | Pemilik produk |
+| O30 | Jadwal cron | harian 05.00 WIB / tiap jam | harian dulu (batas plan Vercel); antrean juga diproses inline | Pemilik produk |
+| O31 | `lock_commitments` dengan harga berbeda per ukuran pada key yang sama | (a) tolak; (b) rata-rata tertimbang kg; (c) harga ukuran terbesar | **(a)** (B-R83) | Kepala Sales |
+| O32 | C55 ditegakkan di `release_month` V1 (DB) | (a) hanya app (K47); (b) DB | **(b)** (B-R84) | Finance |
+| O33 | K27 tahap 2: pola potong dan fresh/frozen per SKU di rencana | (a) di v5.2; (b) PRD berikutnya | **(b)**: selesaikan putaran STD/kelas dulu (R52) | PPIC |
+
+Keputusan lama yang masih terbuka, dengan rekomendasi: **O15** tetap `warn`; **O16** kurangi komitmen terkunci yang belum tertutup PO, sesuai §4.6; **O17** default laba rugi collapsed di ≤ 768 px; **O18** terima `minmax`, amandemen v4 §5.3; **O19** catatan tile; **O20** "n kg tanpa kelas" (R50); **O13** tulis pengecualian 88,2% dan tutup tes `todo`.
+
 ## Pelaksanaan PRD v5.1 (Q-v5.1-n)
 
 Keputusan yang diambil saat membangun PRD v5.1 tanpa sign-off per irisan (instruksi pemilik "selesai sampe beres", 17 Okt 2026). Semua menunggu konfirmasi pemilik di PR masing-masing; tidak ada yang di-merge.
@@ -206,11 +228,11 @@ Q-v5.1-14. "Perbarui status tugas" (Input) memakai `queueThrough` untuk 7 hari j
 
 Q-v5.1-15. K39 di wizard v4: jurnal (`accurate_journal`, tanggal baris `gl_line` yang disisipkan) dan kartu stok (`stock_card`); di Input v5: WP (`costing_wp`, tanggal batch). Bila RPC gagal, upload tetap tersimpan dan pesannya menyebut "TIDAK dimajukan (…)".
 
-Q-v5.1-16. Lint K41 hanya menangkap pola tertentu; di file yang disentuh irisan ini semua bacaan `const { data } = await …` tanpa cek error juga diganti `must()`. Halaman `app/**` di luar `lib/v4`, `lib/v5` tidak disisir.
+Q-v5.1-16. Lint K41 hanya menangkap pola tertentu; di file yang disentuh irisan ini semua bacaan `const { data } = await …` tanpa cek error juga diganti `must()`. Halaman `app/**` di luar `lib/v4`, `lib/v5` tidak disisir. **Dicabut PRD v5.2-A §1.3, diganti K56 (lint K41 seluruh `apps/web/**` + CI).**
 
-Q-v5.1-17. K51 "lines = unique(K29 ∪ jadwal bulan ini)" dibaca: baris jadwal yang berlaku di bulan itu ∪ baris K29 yang **tidak punya jadwal sama sekali**. Baris K29 yang punya jadwal tetapi tidak berlaku bulan itu (sewa mulai Sep / Nov) tidak diambil dari FINAL bulan lalu: union harfiah menambah sewa Juli 3,3 jt ke Agustus dan mengubah golden B.2 (beban tetap −87,0 → −90,3 jt), yang dilarang R19. Baris tanpa jadwal dan tanpa FINAL: nominal null, sumber "belum ada", tanpa baris `fixed_estimate`. `plTable` menulis "Beban tetap" dan "NIBT setelah beban tetap" null hanya bila **semua** baris null; bila sebagian, total = Σ yang ada dan C55 PERIKSA menyebut baris yang kosong.
+Q-v5.1-17. K51 "lines = unique(K29 ∪ jadwal bulan ini)" dibaca: baris jadwal yang berlaku di bulan itu ∪ baris K29 yang **tidak punya jadwal sama sekali**. Baris K29 yang punya jadwal tetapi tidak berlaku bulan itu (sewa mulai Sep / Nov) tidak diambil dari FINAL bulan lalu: union harfiah menambah sewa Juli 3,3 jt ke Agustus dan mengubah golden B.2 (beban tetap −87,0 → −90,3 jt), yang dilarang R19. Baris tanpa jadwal dan tanpa FINAL: nominal null, sumber "belum ada", tanpa baris `fixed_estimate`. `plTable` menulis "Beban tetap" dan "NIBT setelah beban tetap" null hanya bila **semua** baris null; bila sebagian, total = Σ yang ada dan C55 PERIKSA menyebut baris yang kosong. **Diganti PRD v5.2-A R59 (baris K29 keluar hanya bila semua jadwalnya belum mulai).**
 
-Q-v5.1-18. K50 di jalur lama: kolom `allocation_line.cost_per_kg` NOT NULL, jadi builder M1 (v3) dan `computeWeek` v1 tetap memakai `allocateBatch` tanpa `nullMissing` (biaya 0 + baris issue, golden tidak berubah); jalur v5 (`planCost`, `lib/v5/costing.ts`) memakai null. Harga acuan 0 dihitung kosong. Ledger tidak punya kolom `cost_check`: batch final dengan SKU tanpa harga acuan menjaga lot-nya `sementara` (ada WP) atau `estimasi`; alasannya ("harga acuan kosong: <key>") tampil di layar Costing, dan C54 menyebut SKU itu "biaya belum ada". Tanpa harga LB sama sekali (keputusan, harga batch, `lb_price_today` kosong atau 0) tidak ada biaya rencana; batch itu masuk C57 ("batch …: harga LB belum ada").
+Q-v5.1-18. K50 di jalur lama: kolom `allocation_line.cost_per_kg` NOT NULL, jadi builder M1 (v3) dan `computeWeek` v1 tetap memakai `allocateBatch` tanpa `nullMissing` (biaya 0 + baris issue, golden tidak berubah); jalur v5 (`planCost`, `lib/v5/costing.ts`) memakai null. Harga acuan 0 dihitung kosong. Ledger tidak punya kolom `cost_check`: batch final dengan SKU tanpa harga acuan menjaga lot-nya `sementara` (ada WP) atau `estimasi`; alasannya ("harga acuan kosong: <key>") tampil di layar Costing, dan C54 menyebut SKU itu "biaya belum ada". Tanpa harga LB sama sekali (keputusan, harga batch, `lb_price_today` kosong atau 0) tidak ada biaya rencana; batch itu masuk C57 ("batch …: harga LB belum ada"). **Diganti PRD v5.2-A R61 (akibat ledger).**
 
 Q-v5.1-19. K52 di builder kas: NIBT setelah beban tetap memakai catatan builder bulan (`data_status month_lock`, `note.fixed`). Catatan tanpa `fixed` (bulan dibangun saat `v5_pl` mati atau belum dibangun) = NIBT setelah beban tetap tidak diketahui → `basis_nibt` null → kartu "belum ada (NIBT bulan ini belum bisa dihitung)", bukan NIBT tanpa beban tetap. Kartu "Bulan sampai ekuitas negatif" (Minggu ini, Kas, Outlook bulan) membedakan: angka / "tidak berlaku (laba)" (basis ≥ 0, juga data v4 tanpa basis) / "belum ada" (basis null).
 
@@ -222,7 +244,7 @@ Q-v5.1-22. R21: saldo bank terbawa ke hari berikutnya (`balancesOn`), jadi hari 
 
 Q-v5.1-23. R28 / K53 dibaca begini. (a) Pembaca mart Commercial (`commercialMart`, Komersial v4/v5, Manajemen stok bebas) mengambil kolom v5 hanya bila `v5_costing` aktif untuk role yang membuka. Bila tidak, nilainya null dan layar memakai biaya MA seperti v4. (b) Baris v5 di `pl_daily_v4` ("Selisih costing", "Biaya kapasitas idle") adalah baris laba rugi perusahaan, bukan kolom. Baris itu ditulis builder bila flag hidup global dan tidak disaring per role. (c) "Status putaran" menulis "modul belum aktif" menurut flag global (proses berjalan atau tidak), bukan role pembaca. (d) PDF rilis memakai K25 role yang merilis (sama dengan "Unduh PDF" orang itu).
 
-Q-v5.1-24. R29: C57 untuk "Salin ke batch rencana" diambil dari `v5CostingControls`, sama dengan kontrol rilis. C57 hanya ada saat `v5_costing` hidup. Tanggal potongnya adalah batch minggu itu dari `update_date` ke depan. Form Manajemen memutuskan tanggal potong besok (jam dinding + 1, K38), sehingga batch hari ini yang belum diputuskan menahan salin sampai keputusannya ada. Journey M menunjukkan C57 tetap BELUM DIISI setelah 28/08 diputuskan, karena 27/08 (batch 128 Rencana) belum. `reasonAction` menolak alasan untuk C57.
+Q-v5.1-24. R29: C57 untuk "Salin ke batch rencana" diambil dari `v5CostingControls`, sama dengan kontrol rilis. C57 hanya ada saat `v5_costing` hidup. Tanggal potongnya adalah batch minggu itu dari `update_date` ke depan. Form Manajemen memutuskan tanggal potong besok (jam dinding + 1, K38), sehingga batch hari ini yang belum diputuskan menahan salin sampai keputusannya ada. Journey M menunjukkan C57 tetap BELUM DIISI setelah 28/08 diputuskan, karena 27/08 (batch 128 Rencana) belum. `reasonAction` menolak alasan untuk C57. **Diganti PRD v5.2-A K58 (C57 di semua jalur salin, satu gate).**
 
 Q-v5.1-25. R35: dengan Input dan Upload sebagai dua item, Finance punya 8 item navigasi. Batas v4 §5.4 adalah 7, sehingga Upload Finance terpotong dari baris menu. Wizard v4 Finance (budget, kas harian, jadwal beban tetap v4) tetap bisa dibuka lewat `/w/<minggu>/upload`. **Perlu keputusan pemilik:** naikkan batas untuk Finance, atau pilih item yang turun dari baris.
 
