@@ -98,7 +98,7 @@ export const KINDS: KindDef[] = [
       F("account", "Akun", "text", ["no akun", "kode akun", "nomor akun", "account no", "account", "akun"], true),
       F("account_name", "Nama akun", "text", ["nama akun", "account name", "nama perkiraan"]),
       F("description", "Keterangan", "text", ["keterangan", "deskripsi", "description", "memo", "catatan"]),
-      F("debit", "Debit", "number", ["debit", "debet", "dr"]), F("credit", "Kredit", "number", ["kredit", "credit", "cr"]),
+      F("debit", "Debit", "number", ["debit", "debet", "dr", "nilai debit", "nilai debet"]), F("credit", "Kredit", "number", ["kredit", "credit", "cr", "nilai kredit", "nilai credit"]),
       F("party", "Pihak", "text", ["pihak", "party", "nama pelanggan pemasok", "pelangganpemasok", "nama"])],
   },
   {

@@ -102,6 +102,18 @@ describe("Accurate exports", () => {
     expect(sum.equals(exp)).toBe(true);
   });
 
+  it("General Ledger 'Daftar Histori GL' header (Nilai Debit / Nilai Kredit, kolom berselang kosong) → debit/credit terpetakan", () => {
+    const rows = [
+      ["", "Tanggal", "", "Tipe Sumber", "", "No. Sumber", "", "No. Akun", "", "Nama Akun", "", "Keterangan", "", "Nilai Debit", "", "Nilai Kredit"],
+      ["", "01 Sep 2026", "", "Bukti Jurnal", "", "MJ26090001", "", "5100014", "", "Other COGS", "", "desc", "", "307500,00", "", "0,00"],
+    ];
+    const r = parseUpload("accurate_journal", xlsx(rows));
+    expect(r.detected).not.toBeNull();
+    expect(r.sets[0].rows.length).toBe(1);
+    expect(r.sets[0].rows[0].debit).toBe("307500.00");
+    expect(r.sets[0].rows[0].credit).toBe("0.00");
+  });
+
   it("Trial balance from debit/credit columns must sum to zero", () => {
     const r = parseUpload("accurate_tb", xlsx([["No. Akun", "Nama Akun", "Debit", "Kredit"], ["1101001", "Kas", 100, null], ["2101001", "Utang", null, 90]]));
     expect(r.sets[0].rows.map((t) => t.balance)).toEqual(["100", "-90"]);
