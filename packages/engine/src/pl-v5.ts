@@ -49,7 +49,10 @@ export function fixedNominals(x: {
   // without any schedule row falls back to the last FINAL month, else "belum ada"
   const scheduled = new Set(x.schedule.filter((r) => r.active).map((r) => r.pl_line));
   const inForce = new Set(inMonth.map((r) => r.pl_line));
-  const lines = [...new Set([...inMonth.map((r) => r.pl_line), ...(x.defaultLines ?? FIXED_LINES_K29).filter((l) => inForce.has(l) || !scheduled.has(l))])];
+  // R59: a scheduled line whose rows all ended before the month falls back to FINAL (estimasi), unlike a not-started
+  // line (rent from November), which is simply absent in October.
+  const ended = new Set(x.schedule.filter((r) => r.active && r.end_date !== null && r.end_date < first).map((r) => r.pl_line));
+  const lines = [...new Set([...inMonth.map((r) => r.pl_line), ...(x.defaultLines ?? FIXED_LINES_K29).filter((l) => inForce.has(l) || !scheduled.has(l) || ended.has(l))])];
   return lines.map((pl_line): FixedNominal => {
     const rows = inMonth.filter((r) => r.pl_line === pl_line && monthlyAmount(r) !== null);
     if (rows.length) {
