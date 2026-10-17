@@ -188,7 +188,7 @@ export async function v5LedgerCosts(sb: Supa, from: string, today: string, lates
     sb.from("parameter").select("revaluation_sold_mode").eq("week_id", latestWeekId).maybeSingle(),
     sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(),
   ]);
-  const mode = s((par.data as Row | null)?.revaluation_sold_mode) === "restate_sale_date" ? "restate_sale_date" : "cogs_line";
+  const mode = s((must(par, "v5LedgerCosts.parameter") as Row | null)?.revaluation_sold_mode) === "restate_sale_date" ? "restate_sale_date" : "cogs_line";
   const f = (must(flag, "app_setting v5_costing") ?? {}) as Row;
   const since = sinceOf(f.value);
   return { batches, statusByBatch: new Map(batches.map((b) => [b.batch_ref, b.status])), mode, since };

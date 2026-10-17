@@ -13,6 +13,7 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import type { ModuleSettings } from "../modules-core";
 import { fetchAll, type WeekRow } from "../data";
+import { mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "./uploads";
@@ -87,8 +88,8 @@ export async function floorGuard(sb: Supa, viewer: Viewer, settings: ModuleSetti
  */
 export async function consumeApprovals(sb: Supa, approvalIds: string[], salesLineId: string | null): Promise<void> {
   if (salesLineId) {
-    const { data } = await sb.from("discount_approval").select("id").eq("sales_line_id", salesLineId).limit(1);
-    if ((data ?? []).length) return;
+    const data = mustRows(await sb.from("discount_approval").select("id").eq("sales_line_id", salesLineId).limit(1), "consumeApprovals.discount_approval");
+    if (data.length) return;
   }
   for (const id of approvalIds) {
     const e = salesLineId
@@ -130,8 +131,8 @@ export async function computeScorecard(sb: Supa, weekStart: string): Promise<Ret
     fetchAll<Row>((a, b) => sb.from("blast_event").select("key_from, kg, rp_downgrade").eq("reason", "cutoff").is("deleted_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("discount_approval").select("requested_by, total_below").eq("status", "approved").gte("decided_at", weekStart).lte("decided_at", `${we}T23:59:59`).range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).range(a, b)),
-    // spot sales (K8): channel 'spot', any status; a missing column (v4 not migrated) = none
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, sales_rep").eq("channel", "spot").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)).catch(() => [] as Row[]),
+    // spot sales (K8): channel 'spot', any status; a missing column (v4 not migrated) is a schema error (banner)
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, sales_rep").eq("channel", "spot").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
   ]);
   // rep of a sale: the line's own rep, else the rep assigned to its customer, else to its key
   const byCustomer = new Map(asg.filter((a) => a.customer).map((a) => [String(a.customer).toLowerCase(), String(a.sales_rep)]));
