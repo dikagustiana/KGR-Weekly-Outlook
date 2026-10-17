@@ -18,12 +18,13 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
 import { consumeApprovals, floorGuard } from "./discount";
 import { parseSetting, MODULE_KEYS, type ModuleSettings } from "../modules-core";
+import { must, mustRows } from "../loader";
 
 /** Module flags read with the caller's client (uploads run outside the page cache). */
 async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
-  const { data } = await sb.from("app_setting").select("key, value").in("key", MODULE_KEYS);
+  const data = mustRows(await sb.from("app_setting").select("key, value").in("key", MODULE_KEYS), "moduleSettingsOf.app_setting");
   const out: ModuleSettings = {};
-  for (const r of (data ?? []) as { key: string; value: unknown }[]) out[r.key as keyof ModuleSettings] = parseSetting(r.value);
+  for (const r of data as { key: string; value: unknown }[]) out[r.key as keyof ModuleSettings] = parseSetting(r.value);
   return out;
 }
 
@@ -106,7 +107,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
   }));
   // PRD v5 K26 (flag v5_commercial): the locked commitments of the week are Confirmed demand for the kg the POs do not cover
-  const { data: v5c } = await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle();
+  const v5c = must(await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle(), "planning.v5_commercial");
   if (((v5c as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true) {
     // PRD v5.1 K41: a refused read is an error, not "no commitment"; K46: the engine keeps the highest locked version
     const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b));
@@ -578,7 +579,7 @@ registerV3Kind({
   description: "Kolom: kelas berat, pola potong, SKU (nama SKU / key / komponen), yield (% atau pecahan dari kg LB), berlaku mulai. Baris yang sama (kelas × pola × SKU × mulai) ditimpa.",
   async stage({ sb, sheets }) {
     const res = parseV3Table("yield_matrix", sheets);
-    const classes = new Set(((await sb.from("weight_class").select("code")).data ?? []).map((c: Row) => String(c.code)));
+    const classes = new Set(mustRows(await sb.from("weight_class").select("code"), "planning.weight_class").map((c: Row) => String(c.code)));
     const issues = [...res.issues];
     const ok: { target: string; data: Row }[] = [];
     for (const r of res.rows.filter((x) => !x.issues.length)) {
@@ -611,7 +612,7 @@ registerV3Kind({
     // PRD v5 C51 (flag v5_ppic_class): a supply row of a class that is not registered is not saved
     const { data: flag } = await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle();
     const v5 = ((flag as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
-    const classes = v5 ? new Set(((await sb.from("weight_class").select("code")).data ?? []).map((c: Row) => String(c.code))) : null;
+    const classes = v5 ? new Set(mustRows(await sb.from("weight_class").select("code"), "planning.weight_class").map((c: Row) => String(c.code))) : null;
     for (const r of res.rows.filter((x) => !x.issues.length)) {
       const st = normSupplyStatus(r.values.status);
       if (!st) { issues.push(`Baris ${r.rowNo}: status "${r.values.status}" tidak dikenal`); continue; }

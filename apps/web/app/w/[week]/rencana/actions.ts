@@ -8,6 +8,7 @@ import { getWeek } from "@/lib/data";
 import { approvePlan, copyPlanToBatches, loadPlanning, savePlan } from "@/lib/v3/planning";
 import { c57Of, copyBlockersOf, loadClassDemand, planWeekClassRows } from "@/lib/v5/ppic-data";
 import { WriteError } from "@/lib/write";
+import { must } from "@/lib/loader";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -41,7 +42,7 @@ export async function saveClassPlanAction(_: ActionState, form: FormData): Promi
     const v = await requireModuleAction("v5_ppic_class", ["admin", "ppic"]);
     const { sb, week } = await ctx(form, ["admin", "ppic"]);
     const msg = await savePlan(sb, v, week, { classCode: "STD", supplyCommittedHeads: null, note: "v5: rencana per kelas" });
-    const { data: pw } = await sb.from("plan_week").select("id").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle();
+    const pw = must(await sb.from("plan_week").select("id").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "rencana.plan_week");
     if (!pw) throw new WriteError("plan_week tidak ditemukan setelah disimpan");
     const cs = await loadClassDemand(sb, await loadPlanning(sb, week));
     const rows = planWeekClassRows(String((pw as { id: string }).id), cs.demand);

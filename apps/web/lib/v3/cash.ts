@@ -179,7 +179,7 @@ registerBuilder({
   module: "m6_cash", name: "cash",
   after: ["m4_monthly"],
   begin: async (sb) => {
-    const { data } = await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle();
+    const data = must(await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle(), "cash.m4_monthly");
     m4On = ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
   },
   build: (sb, date) => buildCashDay(sb, date, m4On),
