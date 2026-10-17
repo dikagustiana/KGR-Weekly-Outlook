@@ -47,10 +47,18 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 ## Berikutnya
 
-Sesi 17 Okt dihentikan atas permintaan Dika ("lanjut besok"). Sub-agen (Sonnet) diminta commit WIP + push ke cabangnya: A2 `v5.2/a2-loop` (R48–R58), A3 `v5.2/a3-costing-pl` (R59–R67), A4 `v5.2/a4-fs-recon` (R68; R69 sesudah B-R86), A5 `v5.2/a5-e2e-ci` (harness + job e2e), B5 `v5.2/b5-costing-fs`. Commit berawalan `wip(` = belum direview/lulus. Review tetap oleh agen utama (Opus).
+Sesi 17 Okt dihentikan atas permintaan Dika ("lanjut besok"). Semua sub-agen (Sonnet) menyimpan WIP ke cabangnya; belum ada yang direview Opus. Commit berawalan `wip(` = belum lulus.
+
+| Cabang | Head | Keadaan (laporan agen, belum diverifikasi) | Lanjut dari |
+|---|---|---|---|
+| `v5.2/a2-loop` | `01fcfd7` | R48–R58 berkode + tes; typecheck, web 338, k41/k42 0 hijau. Belum: parity/snapshot (engine `demand.ts`, `upload-validate.ts` disentuh), `a2.md`, CHANGELOG. **Golden B.5 diubah** (C22 6,9% → 17,1%, baris tertahan tidak dihitung) — review khusus. Butuh B-R85: `plan_check_reason.plan_week_id`, `plan_week_class.detail` | gate penuh → tes `splitClassPlan` → docs |
+| `v5.2/a3-costing-pl` | `5e98cb2` | R60–R63, R66, R67 berkode + tes; **typecheck merah** (3 galat di `forecast-cost.test.ts`). Belum: R64 (lint `missing` 132 hit), R65, Q-v5.2-5 `setFlag`, O13, `a3.md`. Butuh: hak Finance untuk override posting alokasi | typecheck → R65 → Q-v5.2-5 → R64 |
+| `v5.2/a4-fs-recon` | `7bb1225` | R68 selesai, gate penuh hijau di `63173f2` (bisa di-merge sendiri). R69 WIP (tes layar belum jalan; butuh B-R86). Temuan Finance: BS MR b.71 laba ditahan awal beda Rp 2,71 dari TB → C59 ekuitas GAGAL tiap bulan | PR R68 dari `63173f2`; R69 sesudah B5 |
+| `v5.2/a5-e2e-ci` | `7015bd9` | R70 tumpukan lokal jalan (PG16 + faketime + PostgREST + mock auth/storage). T7 draf: 28 lulus / 12 gagal. Belum: F19, matriks R72, volume, `run.sh`, job CI `e2e`, `a5.md`. Keputusan perlu: alokasi 27–28 Agu lewat SQL setup atau harga PO dinaikkan (C38) | perbaiki T7 |
+| `v5.2/b5-costing-fs` | `8a2af21` (= main) | belum ada kode | `docs/v5.2/brief-b5.md` (sudah memuat permintaan A2/A3) |
 
 Urutan sesi berikut:
-1. Baca laporan WIP tiap cabang (`git log origin/<cabang>`), lanjutkan agen yang belum selesai di worktree yang sama (`/home/user/wt-*`; bila container baru: `git worktree add` dari cabang remote).
+1. Lanjutkan agen per tabel di atas di worktree yang sama (`/home/user/wt-*`; bila container baru: `git worktree add` dari cabang remote). B5 dulu (jalur kritis A4 R69 dan A2).
 2. Review + PR A2 → merge (tanpa objek DB baru). Review + PR A3, A5, B5. A4 R69 sesudah B5 merge.
 3. Staging (D1): Dika membuat `KGR-OS-staging` (Seoul, Micro) — connector `create_project` timeout 4×. Lalu: migrasi s.d. B2 + seed → test:rls di staging (T21) → bundel v5.1 ke KGR-OS (backup dulu) → T23 uji pulih → bundel B2 ke KGR-OS.
 4. A1b sesudah B2 di KGR-OS: `EXPECTED_SCHEMA` = versi registry; `roles.ts` `update_date` hanya Admin/Finance (Q-v5.2-12); komersial Sales lewat `surplus_for_sales_v52` (Q-v5.2-15), lalu migrasi B berikut mencabut baca `plan_week`/`demand_weekly` untuk Sales.
