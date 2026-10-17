@@ -157,7 +157,8 @@ export function dailyClassPlan(x: { demand: ClassDemand; leadTimeDays: number })
   return dates.map((ship) => {
     const rs = x.demand.rows.filter((r) => r.ship_date === ship);
     const cls = new Map<string, { kg_lb: Decimal; heads: Decimal }>();
-    for (const r of rs.filter((q) => q.mapped)) {
+    // R50: the unmapped (STD) lines are a class of their own for C58 — their kg LB needs supply too
+    for (const r of rs) {
       const o = cls.get(r.weight_class) ?? { kg_lb: ZERO, heads: ZERO };
       cls.set(r.weight_class, { kg_lb: o.kg_lb.plus(r.kg_lb), heads: o.heads.plus(r.heads) });
     }
@@ -209,11 +210,12 @@ export function c58(x: { need: { cut_date: ISODate; weight_class: string; kg_lb:
     const got = sum(s.map((q) => D(q.kg_lb)));
     if (got.lt(D(n.kg_lb))) short.push(`${n.cut_date} ${n.weight_class}: supply ${got.toFixed(0)} < kebutuhan ${D(n.kg_lb).toFixed(0)} kg LB`);
   }
+  const noClass = x.supply.filter((q) => q.weight_class === null).length;
   const status = short.length ? "PERIKSA" : missing && x.need.length ? "BELUM DIISI" : "LULUS";
   return {
     code: "C58", module: "M3", name: "Supply LB per kelas menutup kebutuhan kelas", value: D(short.length), comparator: ZERO, difference: D(short.length), status,
     action: status === "LULUS" ? "" : status === "BELUM DIISI" ? "Purchasing mengisi supply LB per kelas per tanggal potong" : "Tambah supply kelas itu atau tulis alasan sebelum salin ke batch",
-    detail: [...short, ...(missing ? [`${missing} kombinasi tanggal × kelas belum punya supply`] : [])],
+    detail: [...short, ...(missing ? [`${missing} kombinasi tanggal × kelas belum punya supply`] : []), ...(noClass ? [`${noClass} baris supply tanpa kelas diabaikan (O20)`] : [])],
   };
 }
 
