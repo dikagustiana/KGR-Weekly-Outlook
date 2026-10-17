@@ -39,7 +39,7 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   const rows = commercialView(mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: assignedKeysFor(viewer.role, own) });
   const approvalOn = isModuleOn(settings.m7_approval, viewer.role);
   const [reqs, lim] = approvalOn ? await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).limit(200).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).range(a, b)),
     sb.rpc("discount_limit"),
   ]) : [[] as Row[], { data: null }];
   const limit = Number(lim.data ?? 500);

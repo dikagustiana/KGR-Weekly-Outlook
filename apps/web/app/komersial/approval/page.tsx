@@ -19,7 +19,7 @@ export default async function ApprovalPage() {
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
   const [rows, lim] = await Promise.all([
-    fetchAll<Record<string, unknown>>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).limit(200).range(a, b)),
+    fetchAll<Record<string, unknown>>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).range(a, b)),
     sb.rpc("discount_limit"),
   ]);
   const limit = String(lim.data ?? "500");
