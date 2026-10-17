@@ -146,6 +146,14 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
         ...STD_UNITS.map(([unit, sku]) => ({ key: `RPA|${sku}|Fresh`, kg: D(yieldOf(unit) ?? "0").times(kgLb).toFixed(2), priceRef: priceOf(`RPA|${sku}|Fresh`) })),
       ];
     }
+    // R62: a missing yield / tariff / maklon is "belum diisi" (no cost), never Rp 0
+    const needYields = use === "sementara" && wpRows.length ? [] : ["Karkas", ...STD_UNITS.map(([u]) => u)];
+    const missingInputs = [
+      ...needYields.filter((u) => yieldOf(u) === null).map((u) => `yield ${u}`),
+      ...(s(p.freight_plan_per_kg_lb) === null || s(p.freight_plan_per_kg_lb) === "" ? ["tarif freight"] : []),
+      ...(s(p.maklon_per_kg_processed) === null || s(p.maklon_per_kg_processed) === "" ? ["tarif maklon"] : []),
+    ];
+    if (missingInputs.length) { out.push({ ...base, result: null, provisional: null, costByKey: new Map(), lbPriceSource, priceSource: listSource, costCheck: `yield/tarif belum diisi: ${missingInputs.join(", ")}` }); continue; }
     const direct = use === "sementara" && (s(b.freight) || s(b.maklon)) ? D(s(b.freight) ?? "0").plus(D(s(b.maklon) ?? "0")).toFixed(2) : null;
     const tariff = tariffPerKgLb({ freightPerKgLb: s(p.freight_plan_per_kg_lb) ?? "0", maklonPerKgProcessed: s(p.maklon_per_kg_processed) ?? "0", shrink: s(p.target_shrink) ?? "0" });
     const plan = planCost({ status: use, kgLb: kgLb.toFixed(2), lbPrice, tariffPerKgLb: tariff.toFixed(4), directCost: direct, outputs });
