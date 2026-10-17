@@ -17,11 +17,12 @@ files() {
 
 while IFS= read -r f; do
   # 1) `const { data } = await` / `const { data: x } = await` without `error` in the same destructuring
+  #    (auth.getUser is excluded: a null user is the fail-closed "not signed in" state, not a swallowed error)
   while IFS=: read -r ln rest; do
     if ! printf '%s' "$rest" | grep -qE '\{ data(: [A-Za-z0-9_]+)?, error \}'; then
       report "K41 $f:$ln: baca tanpa cek error — $rest"
     fi
-  done < <(grep -nE 'const \{ data(: [A-Za-z0-9_]+)? \} = await' "$f" 2>/dev/null)
+  done < <(grep -nE 'const \{ data(: [A-Za-z0-9_]+)? \} = await' "$f" 2>/dev/null | grep -v '\.auth\.getUser(')
 
   # 2) catch () {   3) .catch(() =>   4) data ?? [])
   grep -nE 'catch \(\) \{|\.catch\(\(\) =>|data \?\? \[\]\)' "$f" 2>/dev/null \

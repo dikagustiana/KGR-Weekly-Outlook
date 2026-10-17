@@ -56,7 +56,7 @@ function cutOffOf(first: string, today: string, override: string | null): string
 
 export async function computeMonth(sb: Supa, monthFirst: string, today: string, settings: ModuleSettings): Promise<MonthState> {
   const first = firstOfMonth(monthFirst), last = monthEnd(first);
-  const { data: mo } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "monthly.month_outlook") as Row | null;
   const outlook = (mo as Row | null) ?? null;
   const cutOff = cutOffOf(first, today, s(outlook?.cut_off_date));
   // journal from 6 weeks before the cut-off (the run-rate looks back 20 working days, across the month start)
@@ -76,7 +76,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
     const c = await computeForWeek(w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
-    const { data: p } = await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle();
+    const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "monthly.parameter") as Row | null;
     const pr = (p ?? {}) as Row;
     tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; v1LockWeek = Number(pr.v1_lock_week ?? v1LockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
@@ -161,7 +161,7 @@ registerBuilder({
   begin: async (sb) => {
     builtMonths = new Set();
     builderToday = await dataToday(sb);
-    const { data } = await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle();
+    const data = must(await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle(), "monthly.m5_drivers") as Row | null;
     builderSettings = { m5_drivers: { enabled: ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true } };
   },
   build: async (sb, date) => {
@@ -181,7 +181,7 @@ export async function plDaily(sb: Supa, first: string): Promise<PlDailyRow[]> {
 }
 
 async function ensureOutlook(sb: Supa, first: string): Promise<Row> {
-  const { data } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const data = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "monthly.month_outlook2") as Row | null;
   if (data) return data as Row;
   const { data: ins, error } = await sb.from("month_outlook").insert({ month: first, status: "open" }).select("*").single();
   if (error) throw new WriteError(`month_outlook: ${error.message}`);
@@ -200,7 +200,7 @@ const canonical = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typ
 /** Lock V1 / V2 (outlook of today's mart) or FINAL (full-month journal + posted adjustments). Immutable, with SHA-256. */
 export async function lockVersion(sb: Supa, viewer: Viewer, first: string, version: "V1" | "V2" | "FINAL", today: string, settings: ModuleSettings): Promise<string> {
   const mo = await ensureOutlook(sb, first);
-  const { data: have } = await sb.from("month_outlook_version").select("version").eq("month_outlook_id", String(mo.id));
+  const have = mustRows(await sb.from("month_outlook_version").select("version").eq("month_outlook_id", String(mo.id)), "monthly.versions2") as Row[];
   const got = new Set(((have ?? []) as Row[]).map((r) => String(r.version)));
   if (got.has(version)) throw new WriteError(`${version} sudah dikunci`);
   const st = await computeMonth(sb, first, version === "FINAL" ? addDays(monthEnd(first), 1) : today, settings);
@@ -263,7 +263,7 @@ export interface MonthView {
 }
 
 export async function monthView(sb: Supa, first: string): Promise<MonthView> {
-  const { data: mo } = await sb.from("month_outlook").select("id").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "monthly.month_outlook_id") as Row | null;
   if (!mo) return { versions: [], adjustments: [], accuracy: [], assumptions: [], bridge: null, controls: monthlyControls({ bridge: null }) };
   const id = String((mo as Row).id);
   const [versions, adjustments, acc, assumptions] = await Promise.all([
