@@ -17,7 +17,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
-import { mustRows } from "../loader";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -90,7 +90,7 @@ function mergeEngine(engine: RegisterRow[], saved: Row[]): RegisterRow[] {
 
 export async function computeMonthV4(sb: Supa, monthFirst: string, today: string, settings: ModuleSettings, opts: { cutOff?: string } = {}): Promise<MonthStateV4> {
   const first = firstOfMonth(monthFirst), last = monthEnd(first);
-  const { data: mo } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const mo = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "month.month_outlook") as Row | null;
   const outlook = (mo as Row | null) ?? null;
   // FINAL passes the month end: the cut-off override of the month is for V1 / V2 only
   const cutOff = opts.cutOff ?? cutOffOf(first, today, s(outlook?.cut_off_date));
@@ -116,7 +116,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
     const c = await computeForWeek(w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
-    const { data: p } = await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle();
+    const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "month.parameter") as Row | null;
     const pr = (p ?? {}) as Row;
     tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; lockWeek = Number(pr.v1_lock_week ?? lockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
@@ -168,7 +168,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
 // ------------------------------------------------------------------------------------------------ mart writes (service role)
 
 export async function ensureOutlook(sb: Supa, first: string): Promise<Row> {
-  const { data } = await sb.from("month_outlook").select("*").eq("month", first).maybeSingle();
+  const data = must(await sb.from("month_outlook").select("*").eq("month", first).maybeSingle(), "month.month_outlook") as Row | null;
   if (data) return data as Row;
   const { data: ins, error } = await sb.from("month_outlook").insert({ month: first, status: "open" }).select("*").single();
   if (error) throw new WriteError(`month_outlook: ${error.message}`);
@@ -258,14 +258,14 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
   // R40 (B.4): the lock reads the ledger as it is now
   resetLedgerRun();
   const mo = await ensureOutlook(sb, first);
-  const { data: have } = await sb.from("month_outlook_version").select("version, snapshot").eq("month_outlook_id", String(mo.id));
+  const have = mustRows(await sb.from("month_outlook_version").select("version, snapshot").eq("month_outlook_id", String(mo.id)), "month.versions") as Row[];
   const got = new Map(((have ?? []) as Row[]).map((r) => [String(r.version), r]));
   if (got.has(version)) throw new WriteError(`${version} sudah dikunci`);
   if (version === "V2" && !got.has("V1")) throw new WriteError("Kunci V1 dulu");
   const today = jakartaToday();
   const st = await computeMonthV4(sb, first, today, settings);
   // PRD v4 §7.2: a control blocker (C33, C34, C49) is lifted by an override of the role the policy names
-  const { data: ov } = await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:${version}`).is("deleted_at", null);
+  const ov = mustRows(await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:${version}`).is("deleted_at", null), "month.release_override") as Row[];
   const lifted = new Set(((ov ?? []) as { code: string }[]).map((r) => r.code));
   const blockers = st.blockers.filter((b) => !lifted.has(b.code));
   if (version === "V1" && blockers.length) throw new WriteError(`V1 belum bisa dikunci:\n${blockers.map((b) => `- ${b.code}: ${b.text}`).join("\n")}`);
@@ -306,7 +306,7 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
 }
 
 export async function agreeAssumption(sb: Supa, viewer: Viewer, id: string, note: string | null): Promise<string> {
-  const { data } = await sb.from("assumption_register").select("*").eq("id", id).maybeSingle();
+  const data = must(await sb.from("assumption_register").select("*").eq("id", id).maybeSingle(), "month.assumption_register") as Row | null;
   const r = data as Row | null;
   if (!r) throw new WriteError("Asumsi tidak ditemukan");
   if (String(r.code).startsWith("anomaly_") && !note) throw new WriteError("Hari anomali butuh alasan (catatan deviasi)");
