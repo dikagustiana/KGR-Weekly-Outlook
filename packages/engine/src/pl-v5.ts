@@ -119,10 +119,11 @@ export interface PlTotalsV5 { revenue: Decimal; cogs: Decimal; gp: Decimal; opex
 const valueOf = (r: PlRowV4) => (r.actual ?? ZERO).plus(r.forecast ?? ZERO);
 
 /** Totals of rows (actual + forecast as they carry them): NIBT according to the journal, the fixed estimate, NIBT after it. */
-export function plTotalsV5(rows: PlRowV4[], pick: (r: PlRowV4) => Decimal = valueOf): PlTotalsV5 {
+export function plTotalsV5(rows: PlRowV4[], pick: (r: PlRowV4) => Decimal = valueOf, mode: "cogs" | "memo" = "cogs"): PlTotalsV5 {
   const j = rows.filter((r) => r.basis !== "fixed_estimate");
   const f = (p: (l: string) => boolean) => sum(j.filter((r) => p(r.pl_line)).map(pick));
-  const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
+  // R66 (K63): in 'memo' the v5 costing rows are not COGS (they move to the memo block)
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l, mode));
   const fixed = sum(rows.filter((r) => r.basis === "fixed_estimate").map(pick));
   const nibt = revenue.plus(cogs).plus(opex);
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt, fixed, nibtAfter: nibt.plus(fixed) };
@@ -218,11 +219,13 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: {
   rows: PlRowV4[]; cutOff: ISODate; budget?: PlBudget | null; split?: boolean; highlight?: ISODate | null;
   /** The fixed nominals of the month (K51); all missing → the fixed row and NIBT after it are null. */
   nominals?: { nominal: unknown }[] | null;
+  /** R66 (K63): 'memo' keeps the v5 costing rows out of COGS. */
+  mode?: "cogs" | "memo";
 }): PlTable {
   const first = firstOfMonth(month), last = monthEnd(month);
   const missing = fixedAllMissing(opts.nominals);
   const rows = opts.rows.filter((r) => r.date >= first && r.date <= last);
-  const inRange = (from: ISODate, to: ISODate) => plTotalsV5(rows.filter((r) => r.date >= from && r.date <= to));
+  const inRange = (from: ISODate, to: ISODate) => plTotalsV5(rows.filter((r) => r.date >= from && r.date <= to), valueOf, opts.mode);
   const kindOf = (from: ISODate, to: ISODate): PlColumn["kind"] => (to <= opts.cutOff ? "actual" : from > opts.cutOff ? "forecast" : "mixed");
   const outlook = inRange(first, last);
   const cols: { col: PlColumn; v: Record<PlRowKey, Decimal | null> }[] = [];
