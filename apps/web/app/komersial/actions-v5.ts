@@ -90,7 +90,7 @@ export async function answerSurplusAction(_: ActionState, form: FormData): Promi
     const kg = num(form.get("absorb_kg")), price = num(form.get("price"));
     if (response === "partial" && kg === null) throw new WriteError("Isi kg yang sanggup diserap");
     const { error } = await sb.from("surplus_response").insert({
-      plan_week_id: String((plan as Row).id), key: "RPA|Karkas", surplus_kg: String(form.get("surplus_kg") ?? "0") || "0", response,
+      plan_week_id: String((plan as Row).id), key: String(form.get("key") ?? ""), surplus_kg: String(form.get("surplus_kg") ?? "0") || "0", response,
       absorb_kg: response === "reduce" ? null : kg, price, note: String(form.get("note") ?? "").trim() || null,
     });
     if (error) throw new WriteError(error.message);
