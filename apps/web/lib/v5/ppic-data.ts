@@ -6,7 +6,7 @@ import "server-only";
  * (planCost mode rencana); C50, C51, C58. The demand builder writes demand_class_weekly; the PPIC page reads this.
  */
 import {
-  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
+  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
   type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type SizedLine, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -67,9 +67,14 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const yieldOf = (cls: string, unit: string) => src.yieldRows.find((y) => y.weight_class === cls && y.cut_pattern === "karkas" && y.key === unit)?.yield_pct ?? null;
   const avg = new Map(classes.map((c) => [String(c.code), s(c.avg_kg)]));
   const { demand: v4 } = computeDemand(src, FALLBACK);
-  const lines: SizedLine[] = lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: o.kg }));
+  // R49 (A-UI-9): the class demand is the open kg (kg − fulfilled − cancelled) × the status weight; netting runs after.
+  const weightOf = (o: (typeof lines0)[number]): string => {
+    const w = o.demand_status === "Tentative" ? src.weights.tentative : o.demand_status === "Forecast" ? src.weights.forecast : "1";
+    return D(o.kg).minus(D(o.fulfilled_kg ?? "0")).minus(D(o.cancelled_kg ?? "0")).times(D(w)).toFixed(2);
+  };
+  const lines: SizedLine[] = lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: weightOf(o) }));
   const demand = toClassLB({
-    lines, netShare: netShareOf(v4.rows),
+    lines,
     setup: { classOf: (sz) => latest.get(sz.toFixed(2)) ?? null, yieldKarkas: (c) => yieldOf(c, "Karkas"), avgKg: (c) => avg.get(c) ?? null, midOffset: SIZE_MID_OFFSET, fallback: FALLBACK },
   });
   const daily = dailyClassPlan({ demand, leadTimeDays: src.leadTimeDays });
