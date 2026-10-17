@@ -102,6 +102,50 @@ describe("Accurate exports", () => {
     expect(sum.equals(exp)).toBe(true);
   });
 
+  it("General Ledger 'Daftar Histori GL' header (Nilai Debit / Nilai Kredit, kolom berselang kosong) → debit/credit terpetakan", () => {
+    const rows = [
+      ["", "Tanggal", "", "Tipe Sumber", "", "No. Sumber", "", "No. Akun", "", "Nama Akun", "", "Keterangan", "", "Nilai Debit", "", "Nilai Kredit"],
+      ["", "01 Sep 2026", "", "Bukti Jurnal", "", "MJ26090001", "", "5100014", "", "Other COGS", "", "desc", "", "307500,00", "", "0,00"],
+    ];
+    const r = parseUpload("accurate_journal", xlsx(rows));
+    expect(r.detected).not.toBeNull();
+    expect(r.sets[0].rows.length).toBe(1);
+    expect(r.sets[0].rows[0].debit).toBe("307500.00");
+    expect(r.sets[0].rows[0].credit).toBe("0.00");
+  });
+
+  it("BT-1: a GL sheet whose debit/credit (or date/account) columns cannot be mapped throws — never debit/credit null", () => {
+    // "Nilai Mutasi D/K" is not a known header: before BT-1 this parsed with debit = credit = null and no issue
+    const unmapped = [["Tanggal", "No. Sumber", "No. Akun", "Nilai Mutasi D", "Nilai Mutasi K"], ["01 Sep 2026", "MJ26090001", "5100014", "307500", "0"]];
+    expect(() => parseUpload("accurate_journal", xlsx(unmapped))).toThrow(/Kolom wajib jurnal tidak terpetakan: Debit, Kredit/);
+    const noAccount = [["Tanggal", "No. Sumber", "Debit", "Kredit"], ["01 Sep 2026", "MJ26090001", "307500", "0"]];
+    expect(() => parseUpload("accurate_journal", xlsx(noAccount))).toThrow(/Kolom wajib jurnal tidak terpetakan: .*Akun/);
+    // a manual mapping that leaves Kredit out is refused the same way
+    expect(() => parseUpload("accurate_journal", xlsx(unmapped), { mapping: { debit: 3, credit: null } })).toThrow(/Kredit/);
+  });
+
+  it("BT-1: the Accurate export with 'Kode Perkiraan' / 'Tanggal Jurnal' / 'Debet' (sheet 'Agt 26' of the FS workbook) maps every GL column", () => {
+    const rows = [["Tanggal Jurnal", "No Jurnal", "Kode Perkiraan", "Nama Perkiraan", "Keterangan", "Debet", "Kredit", "Customers/Vendors Name", "Source Type"],
+      ["01 Aug 2026", "MJ26080001", 5100013, "Other COGS - Handling In", "Uang Bongkar", 102565, 0, null, "Journal Voucher"]];
+    const r = parseUpload("accurate_journal", xlsx(rows));
+    expect(r.sets[0].rows[0]).toMatchObject({ date: "2026-08-01", voucher_no: "MJ26080001", account: "5100013", debit: "102565", credit: "0", voucher_type: "Journal Voucher" });
+  });
+
+  it("BT-1: a GL line with neither debit nor credit is held, and undated lines are reported with their sums and kinds", () => {
+    const rows = [
+      ["Tanggal", "No. Sumber", "Tipe Sumber", "No. Akun", "Nilai Debit", "Nilai Kredit"],
+      ["01 Sep 2026", "MJ1", "Bukti Jurnal", "5100014", "100", "0"],
+      ["01 Sep 2026", "MJ1", "Bukti Jurnal", "2102002", "0", "100"],
+      ["01 Sep 2026", "MJ2", "Bukti Jurnal", "5100014", "", ""],
+      ["", "DI-01", "Penyesuaian", "5100001", "250", "0"],
+      ["", "DI-01", "Penyesuaian", "1104001", "0", "250"],
+    ];
+    const r = parseUpload("accurate_journal", xlsx(rows));
+    expect(r.sets[0].rows.map((x) => x.voucher_no)).toEqual(["MJ1", "MJ1"]);
+    expect(r.issues.join(" ")).toContain("1 baris tanpa debit dan kredit ditahan");
+    expect(r.issues.join(" ")).toContain("2 baris tanpa tanggal diabaikan: Σ debit 250,00, Σ kredit 250,00; tipe Penyesuaian 2");
+  });
+
   it("Trial balance from debit/credit columns must sum to zero", () => {
     const r = parseUpload("accurate_tb", xlsx([["No. Akun", "Nama Akun", "Debit", "Kredit"], ["1101001", "Kas", 100, null], ["2101001", "Utang", null, 90]]));
     expect(r.sets[0].rows.map((t) => t.balance)).toEqual(["100", "-90"]);
@@ -147,8 +191,9 @@ describe("Accurate exports", () => {
     expect(by.receipt_line.reduce((a, x) => a + Number(x.kg), 0)).toBeCloseTo(10495.9, 6);
   });
 
-  it("asks for a manual mapping when required columns are missing", () => {
-    const r = parseUpload("accurate_journal", xlsx([["A", "B"], [1, 2]]));
+  it("asks for a manual mapping when required columns are missing (a journal throws instead, BT-1)", () => {
+    expect(() => parseUpload("accurate_journal", xlsx([["A", "B"], [1, 2]]))).toThrow(/Kolom wajib jurnal tidak terpetakan: Tanggal, Akun, Debit, Kredit/);
+    const r = parseUpload("accurate_tb", xlsx([["A", "B"], [1, 2]]));
     expect(r.detected).toBeNull();
     expect(r.issues[0]).toContain("Kolom wajib tidak ditemukan");
   });
