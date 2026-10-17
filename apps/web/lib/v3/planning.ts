@@ -356,7 +356,7 @@ export async function demandWeekly(sb: Supa, weekStart: string): Promise<Row[]> 
 
 // ------------------------------------------------------------------------------------------------ plan writes (PPIC)
 
-export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { classCode?: string | null; supplyCommittedHeads?: number | null; note?: string | null }): Promise<string> {
+export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { classCode?: string | null; supplyCommittedHeads?: number | null; note?: string | null }): Promise<{ id: string; msg: string }> {
   // C45 (PRD v4 §3.1 P3.3): a plan is not saved on a stock mart older than its inputs (stock date = the Sunday before)
   const c45 = await stockMartControl(sb, addDays(week.week_start, -1));
   if (c45.status === "STALE") throw new WriteError(`C45 STALE: ${c45.action}`);
@@ -388,7 +388,7 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
   const e2 = await sb.from("plan_day").insert(rows);
   if (e2.error) throw new WriteError(`plan_day: ${e2.error.message}`);
   void viewer;
-  return `Rencana v${version}${provisional ? " (yield sementara)" : ""}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}`;
+  return { id, msg: `Rencana v${version}${provisional ? " (yield sementara)" : ""}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}` };
 }
 
 export async function approvePlan(sb: Supa, viewer: Viewer, planId: string): Promise<string> {
