@@ -1,0 +1,55 @@
+{
+ "fixture": "fs-recon-2026-08",
+ "generated_by": "scripts/build_fs_recon.py",
+ "sources": [
+  {
+   "file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx",
+   "sha256": "7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5",
+   "used": "PL - Management Report dan BS - Management Report, kolom Jul/Agu/Sep (label dan nilai dibaca ulang oleh skrip)",
+   "sheets": [
+    "PL - Management Report",
+    "BS - Management Report"
+   ]
+  },
+  {
+   "file": "fixtures/fs-2026-09/inputs.json",
+   "sha256": "5be2855dc944c77022694ba393fd58084e09ffb04f34372add402e239ee1aba4",
+   "used": "baris FS per bulan (pl[].row, bs[].row)"
+  },
+  {
+   "file": "fixtures/fs-2026-09/golden.json",
+   "sha256": "d60e594e770b1a1d6ffaab8ff6e862b0fe1c7e4817486a0861b15674e95b5dc8",
+   "used": "sel-sel FS (sheet!sel) sebagai pembanding nilai"
+  },
+  {
+   "file": "fixtures/week-2026-08-24/gl_lines.json",
+   "sha256": "662be9b8f7d01e54d102624d46aba96f93988e45e7ebdaa5e821b4b5fb1dd097",
+   "used": "jurnal 1–26 Agu 2026 (sisi app: laba rugi dan neraca)"
+  },
+  {
+   "file": "fixtures/week-2026-08-24/coa_map.json",
+   "sha256": "765efd1db0935c498ba152038fd49c5b527f9c8866fa14c9bf1310be022425bd",
+   "used": "pl_line dan bs_line per akun"
+  },
+  {
+   "file": "fixtures/week-2026-08-24/tb_opening.json",
+   "sha256": "06126c0c9a253f5094742004e2c84170448b305df0188362f9dfa425f1aa81e7",
+   "used": "TB 31 Jul 2026 (saldo awal, O27)"
+  },
+  {
+   "file": "fixtures/week-2026-08-24/week.json",
+   "sha256": "c74bb154415b452526f6b1821eca9cc140cb5b7a110800d1db25994051c02cc5",
+   "used": "tanggal TB awal"
+  },
+  {
+   "file": "fixtures/month-2026-08/inputs.json",
+   "sha256": "3d52f9ea33383994cedd2a4643f30237798eaee68528bede2b8292906187ca43",
+   "used": "cut-off 26 Agu (batas jurnal fixture)"
+  },
+  {
+   "file": "fixtures/month-2026-08/golden-v4.json",
+   "sha256": "4b0b87d4f6f1cba2a287f817fb09249c0b16cc4fc66402a2bb22a62d2d0ba2d2",
+   "used": "pembanding independen laba rugi Agustus s.d. 26 Agu (jt Rp)"
+  }
+ ]
+}

@@ -1,0 +1,297 @@
+{
+ "status": "diharapkan, dihitung dari data fixture (bukan angka disesuaikan); selisih 'data belum ada' = data Agustus di fixture belum lengkap",
+ "unit": "Rp",
+ "tolerance": "1",
+ "recons": [
+  {
+   "id": "akhir-bulan",
+   "rows": [
+    {
+     "key": "PL b.12",
+     "fs_line": "Revenue",
+     "app_line": "revenue",
+     "app": "6385876039.00",
+     "fs": "8361760903.00",
+     "selisih": "-1975884864.00",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "PL b.13",
+     "fs_line": "Cost of Sales",
+     "app_line": "cogs",
+     "app": "-6038472784.16",
+     "fs": "-8055051145.97",
+     "selisih": "2016578361.81",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "PL b.15",
+     "fs_line": "GROSS PROFIT",
+     "app_line": "gp",
+     "app": "347403254.84",
+     "fs": "306709757.03",
+     "selisih": "40693497.81",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "PL b.37",
+     "fs_line": "TOTAL OPERATING EXPENSES",
+     "app_line": "opex",
+     "app": "-183890155.67",
+     "fs": "-302908802.02",
+     "selisih": "119018646.35",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada; baris yang FS punya dan jurnal fixture belum punya sama sekali: Salaries and allowance (Rp −85,6 jt), Depreciation & amortisation (Rp −10,4 jt), Interest Expense (Rp −31,9 jt)"
+    },
+    {
+     "key": "PL b.49",
+     "fs_line": "TOTAL OTHER INCOME (EXPENSE)",
+     "app_line": "other",
+     "app": "1736681.53",
+     "fs": "-30318815.52",
+     "selisih": "32055497.05",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada; Interest Expense belum dijurnal (FS Agu: Rp −31,9 jt)"
+    },
+    {
+     "key": "PL b.51",
+     "fs_line": "INCOME (LOSS) BEFORE TAX",
+     "app_line": "nibt",
+     "app": "165249780.70",
+     "fs": "-26517860.51",
+     "selisih": "191767641.21",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.14",
+     "fs_line": "Cash and cash equivalents",
+     "app_line": "kas",
+     "app": "1289251345.68",
+     "fs": "495363150.28",
+     "selisih": "793888195.40",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.17",
+     "fs_line": "Trade Receivables - Third Parties",
+     "app_line": "piutang_pihak_ketiga",
+     "app": "991265050.00",
+     "fs": "511953961.00",
+     "selisih": "479311089.00",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.18",
+     "fs_line": "Trade Receivables - Related Parties",
+     "app_line": "piutang_pihak_berelasi",
+     "app": "0.00",
+     "fs": "0.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.23",
+     "fs_line": "Inventory - Product",
+     "app_line": "persediaan_produk",
+     "app": "1568104888.56",
+     "fs": "1492898044.05",
+     "selisih": "75206844.51",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.24",
+     "fs_line": "Inventory - Trading",
+     "app_line": "persediaan_trading",
+     "app": "2592109530.52",
+     "fs": "2039660533.52",
+     "selisih": "552448997.00",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.47",
+     "fs_line": "Trade Payables - Third Parties",
+     "app_line": "utang_dagang_pihak_ketiga",
+     "app": "-420329749.60",
+     "fs": "56032690.40",
+     "selisih": "-476362440.00",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada; saldo utang dagang app bersaldo debit (Rp −420,3 jt): pembayaran lebih besar dari tagihan yang sudah dijurnal"
+    },
+    {
+     "key": "BS b.48",
+     "fs_line": "Trade Payables - Affiliates",
+     "app_line": "utang_dagang_afiliasi",
+     "app": "0.00",
+     "fs": "0.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.51",
+     "fs_line": "Other Payable - Related Parties",
+     "app_line": "utang_lain_afiliasi",
+     "app": "5600000000.00",
+     "fs": "5627124444.35",
+     "selisih": "-27124444.35",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada"
+    },
+    {
+     "key": "BS b.77",
+     "fs_line": "TOTAL EQUITY",
+     "app_line": "ekuitas",
+     "app": "1804379653.13",
+     "fs": "1612612014.63",
+     "selisih": "191767638.50",
+     "status": "beda",
+     "cause": "data belum ada",
+     "explain": "jurnal fixture baru sampai 26 Agu 2026; transaksi 27–31 Agu dan jurnal penutup bulan belum ada; laba tahun berjalan app memuat jurnal Agu s.d. 26 Agu saja, dan b.71 FS beda Rp 2,71 dari TB (lihat saldo awal)"
+    }
+   ],
+   "summary": {
+    "mapped": 15,
+    "sama": 2,
+    "beda": 13,
+    "missing": 0,
+    "unmapped": 58
+   },
+   "c59": "GAGAL"
+  },
+  {
+   "id": "saldo-awal",
+   "rows": [
+    {
+     "key": "BS b.14",
+     "fs_line": "Cash and cash equivalents",
+     "app_line": "kas",
+     "app": "599841423.68",
+     "fs": "599841423.68",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.17",
+     "fs_line": "Trade Receivables - Third Parties",
+     "app_line": "piutang_pihak_ketiga",
+     "app": "310674730.00",
+     "fs": "310674730.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.18",
+     "fs_line": "Trade Receivables - Related Parties",
+     "app_line": "piutang_pihak_berelasi",
+     "app": "0.00",
+     "fs": "0.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.23",
+     "fs_line": "Inventory - Product",
+     "app_line": "persediaan_produk",
+     "app": "771194644.21",
+     "fs": "771194644.21",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.24",
+     "fs_line": "Inventory - Trading",
+     "app_line": "persediaan_trading",
+     "app": "2124560080.04",
+     "fs": "2124560080.04",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.47",
+     "fs_line": "Trade Payables - Third Parties",
+     "app_line": "utang_dagang_pihak_ketiga",
+     "app": "4172730.00",
+     "fs": "4172730.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.48",
+     "fs_line": "Trade Payables - Affiliates",
+     "app_line": "utang_dagang_afiliasi",
+     "app": "0.00",
+     "fs": "0.00",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.51",
+     "fs_line": "Other Payable - Related Parties",
+     "app_line": "utang_lain_afiliasi",
+     "app": "4429890485.97",
+     "fs": "4429890485.97",
+     "selisih": "0.00",
+     "status": "sama",
+     "cause": null,
+     "explain": ""
+    },
+    {
+     "key": "BS b.77",
+     "fs_line": "TOTAL EQUITY",
+     "app_line": "ekuitas",
+     "app": "1639129872.43",
+     "fs": "1639129875.14",
+     "selisih": "-2.71",
+     "status": "beda",
+     "cause": "selisih",
+     "explain": "selisih seluruhnya dari saldo laba ditahan awal: TB Accurate Rp −2.698.434.668,62, BS - Management Report b.71 Rp −2.698.434.665,91, selisih Rp −2,71; modal disetor b.68 dan laba tahun berjalan b.72 sama (selisih Rp 0,00 dan Rp 0,00). Neraca FS sendiri tidak seimbang: total aset b.41 Rp 6.584.749.133,16 lawan liabilitas + ekuitas b.79 Rp 6.584.749.138,09, selisih Rp −4,93"
+    }
+   ],
+   "summary": {
+    "mapped": 9,
+    "sama": 8,
+    "beda": 1,
+    "missing": 0,
+    "unmapped": 31
+   },
+   "c59": "GAGAL"
+  }
+ ]
+}
