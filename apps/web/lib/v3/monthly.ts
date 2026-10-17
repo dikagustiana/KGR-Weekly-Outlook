@@ -14,6 +14,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -96,7 +97,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const drivers = settings.m5_drivers?.enabled ? await loadMonthDrivers(sb, first, addDays(cutOff, 1)) : null;
   // run-rate opex lines from the v1 run-rate table of the last week in the month (monthly amounts)
   const lastWeek = weeks[weeks.length - 1];
-  const rrRows = lastWeek ? ((await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id)).data ?? []) as Row[] : [];
+  const rrRows = lastWeek ? mustRows(await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id), "monthly.runrate") as Row[] : [];
   const variable = drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && !isCogsLine(String(c.pl_line))).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [];
   const opex = days.length ? opexRemaining({
     fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
@@ -119,7 +120,11 @@ export async function writeMonthMart(sb: Supa, st: MonthState): Promise<{ writte
     const r = await martReplace(sb, "pl_daily", d, rows.filter((x) => x.date === d).map(martRow));
     written += r.written; deleted += r.deleted;
   }
-  await writeEngineAssumptions(sb, st).catch(() => undefined); // admin / finance only (RLS); other roles keep the mart
+  try {
+    await writeEngineAssumptions(sb, st);
+  } catch {
+    // admin / finance only (RLS); other roles keep the mart already written by the rebuild
+  }
   return { written, deleted };
 }
 
@@ -135,8 +140,8 @@ async function writeEngineAssumptions(sb: Supa, st: MonthState): Promise<void> {
     { code: "forecast_tolerance_pct", description: "Toleransi forecast (rentang)", value_text: null, value_num: st.tolerance },
     { code: "v1_lock_date", description: `Kunci V1 (Kamis minggu ke-${st.v1LockWeek})`, value_text: st.v1LockDate, value_num: null },
   ];
-  const { data } = await sb.from("outlook_assumption").select("id, code, value_text, value_num").eq("month_outlook_id", String(mo.id)).eq("source", "engine").is("deleted_at", null);
-  const have = new Map(((data ?? []) as Row[]).map((r) => [String(r.code), r]));
+  const data = mustRows(await sb.from("outlook_assumption").select("id, code, value_text, value_num").eq("month_outlook_id", String(mo.id)).eq("source", "engine").is("deleted_at", null), "monthly.outlook_assumption");
+  const have = new Map((data as Row[]).map((r) => [String(r.code), r]));
   for (const r of rows) {
     const old = have.get(r.code);
     if (old && s(old.value_text) === r.value_text && (old.value_num === null ? null : D(String(old.value_num)).toFixed(6)) === (r.value_num === null ? null : D(r.value_num).toFixed(6))) continue;
@@ -202,7 +207,7 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
   if (version === "V1" && today < st.v1LockDate) throw new WriteError(`V1 dikunci mulai Kamis minggu ke-${st.v1LockWeek} (${st.v1LockDate})`);
   if (version === "V2" && !got.has("V1")) throw new WriteError("Kunci V1 dulu");
   if (version === "FINAL" && today <= monthEnd(first)) throw new WriteError("FINAL dikunci setelah akhir bulan");
-  const adj = version === "FINAL" ? ((await sb.from("closing_adjustment").select("*").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[] : [];
+  const adj = version === "FINAL" ? mustRows(await sb.from("closing_adjustment").select("*").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null), "monthly.closing_adjustment") as Row[] : [];
   const rows = version === "FINAL" ? st.actualRows : [...st.actualRows, ...st.forecastRows];
   const adjRows: PlDailyRow[] = adj.map((a) => ({ date: monthEnd(first), pl_line: String(a.pl_line), basis: "journal", actual: D(String(a.amount)), forecast: null, anomaly: false }));
   const tot = sumRows([...rows, ...adjRows]);
@@ -229,8 +234,8 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
 
 /** After FINAL: accuracy of V1 / V2 (before and after the closing adjustments) and calibration for the next month. */
 async function afterFinal(sb: Supa, mo: Row, first: string, final: { revenue: Decimal; gp: Decimal; nibt: Decimal }, st: MonthState): Promise<void> {
-  const versions = ((await sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", String(mo.id)).neq("version", "FINAL")).data ?? []) as Row[];
-  const adj = ((await sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null)).data ?? []) as Row[];
+  const versions = mustRows(await sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", String(mo.id)).neq("version", "FINAL"), "monthly.versions") as Row[];
+  const adj = mustRows(await sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", String(mo.id)).eq("posted", true).is("deleted_at", null), "monthly.adj_final") as Row[];
   const sumAdj = (p: (l: string) => boolean) => sum(adj.filter((a) => p(String(a.pl_line))).map((a) => D(String(a.amount))));
   const a = accuracy({
     final: { revenue: final.revenue, gp: final.gp, nibt: final.nibt },
