@@ -1,3 +1,5 @@
+Diamendemen oleh docs/PRD-v5.1.md sejak 17 Okt 2026; lihat Bab 1.3.
+
 # PRD v5 — KGR Operating Loop: Manajemen · Commercial · PPIC · Input
 
 Status: Draft untuk review pemilik produk, lalu handoff ke Claude Code · Owner: Dika (Group Project Finance, SAMB) · Tanggal: 16 Okt 2026 (WIB)
