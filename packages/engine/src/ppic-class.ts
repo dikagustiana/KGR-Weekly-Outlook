@@ -71,8 +71,8 @@ export interface ClassDemand {
   unsized: { ship_date: ISODate; kg: Decimal }[];
 }
 
-/** K28: karkas demand per ship date × size → class → kg LB and heads. */
-export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => Num; setup: ClassSetup }): ClassDemand {
+/** K28: karkas demand per ship date × size → class → kg LB and heads. The kg is already the open weighted kg (R49). */
+export function toClassLB(x: { lines: SizedLine[]; setup: ClassSetup }): ClassDemand {
   const s = x.setup;
   const fbYield = s.yieldKarkas(s.fallback);
   const acc = new Map<string, ClassDemandRow>();
@@ -82,13 +82,12 @@ export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => N
     const cls = mappedCls ?? s.fallback;
     // R31: accumulate per size as stored (two decimals); the code is what the screen and the mart key show
     const k = `${l.ship_date}|${size === null ? NO_SIZE : size.toFixed(2)}`;
-    const share = x.netShare ? D(x.netShare(l.key)) : D(1);
     const o = acc.get(k) ?? {
       ship_date: l.ship_date, size_code: sizeCode(size), size_kg: size, weight_class: cls, mapped: mappedCls !== null, yieldFallback: false,
       po_kg: ZERO, net_kg: ZERO, lb_per_head: null, kg_lb: ZERO, heads: ZERO,
     };
     o.po_kg = o.po_kg.plus(D(l.kg));
-    o.net_kg = o.net_kg.plus(D(l.kg).times(share));
+    o.net_kg = o.net_kg.plus(D(l.kg));
     acc.set(k, o);
   }
   const rows = [...acc.values()].map((r) => {
