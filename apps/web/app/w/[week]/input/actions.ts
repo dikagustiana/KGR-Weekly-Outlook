@@ -10,6 +10,7 @@ import { moduleSettings } from "@/lib/modules";
 import { consumeApprovals, floorGuard } from "@/lib/v3/discount";
 import { recordDelivery } from "@/lib/v3/delivery";
 import { jakartaToday } from "@kgr/engine";
+import { must } from "@/lib/loader";
 import { weekIdOf } from "@/lib/rollover";
 
 type Row = Record<string, unknown>;
@@ -57,19 +58,19 @@ export async function saveRow(form: FormData) {
     } catch (e) { back(week, path, (e as Error).message, "err"); }
   }
   if (id) {
-    const { data: old } = await sb.from(def.table).select("*").eq("id", id).maybeSingle();
+    const old = must(await sb.from(def.table).select("*").eq("id", id).maybeSingle(), "input.old");
     if (!old) back(week, path, "Baris tidak ditemukan", "err");
     if (!canWriteRow(v.role, def, old as Row) || !canWriteRow(v.role, def, { ...(old as Row), ...row })) back(week, path, "Peran Anda tidak boleh mengubah baris ini", "err");
     try { await applyChanges(sb, def.table, [], [{ id, ...row }]); await consumeApprovals(sb, covered, id); } catch (e) { back(week, path, (e as Error).message, "err"); }
   } else {
     if (!canWriteRow(v.role, def, { ...row, source: "Manual" })) back(week, path, "Peran Anda tidak boleh menambah baris ini", "err");
     const weekId = await weekIdOf(sb, week);
-    const { data: last } = await sb.from(def.table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle();
+    const last = must(await sb.from(def.table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle(), "input.last");
     const seq = Number((last as Row | null)?.seq ?? 0) + 1;
     try {
       await applyChanges(sb, def.table, [{ ...row, week_id: weekId, seq, source: "Manual" }]);
       if (covered.length) {
-        const { data: ins } = await sb.from(def.table).select("id").eq("week_id", weekId).eq("seq", seq).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const ins = must(await sb.from(def.table).select("id").eq("week_id", weekId).eq("seq", seq).order("created_at", { ascending: false }).limit(1).maybeSingle(), "input.ins");
         await consumeApprovals(sb, covered, ins ? String((ins as Row).id) : null);
       }
     } catch (e) { back(week, path, (e as Error).message, "err"); }
@@ -112,7 +113,7 @@ export async function markDelivered(form: FormData) {
     revalidatePath(`/w/${week}`, "layout");
     back(week, "input/penjualan", msg);
   }
-  const { data: old } = await sb.from("sales_line").select("*").eq("id", id).maybeSingle();
+  const old = must(await sb.from("sales_line").select("*").eq("id", id).maybeSingle(), "input.sales_line");
   if (!old || !canWriteRow(v.role, TABLES.sales_line, { ...(old as Row), status: "Aktual" })) back(week, "input/penjualan", "Tidak berwenang", "err");
   try { await applyChanges(sb, "sales_line", [], [{ id, status: "Aktual", confirmed_by: v.email }]); } catch (e) { back(week, "input/penjualan", (e as Error).message, "err"); }
   revalidatePath(`/w/${week}`, "layout");
@@ -135,7 +136,7 @@ export async function pasteRows(form: FormData) {
   if (!set || set.rows.length === 0) back(week, path, parsed.issues.join("; ") || "Tidak ada baris yang terbaca", "err");
   const sb = await supabaseServer();
   const weekId = await weekIdOf(sb, week);
-  const { data: last } = await sb.from(table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle();
+  const last = must(await sb.from(table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle(), "input.last2");
   let seq = Number((last as Row | null)?.seq ?? 0);
   const rows = set.rows.map((r) => {
     const { _item_name, line_key, ...rest } = r as Row;
