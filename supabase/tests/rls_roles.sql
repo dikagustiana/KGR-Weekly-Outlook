@@ -1778,3 +1778,1023 @@ begin
   select update_date into d from public.week where id = wk2; out := out || 'week update_date ' || to_char(d, 'DD/MM') || case when d = '2032-03-15' then '' else '(!)' end || '; ';
   raise exception 'RLS-RESULTS v5.1/1 (rolled back): %', out;
 end $$;
+
+-- ================================================================================================================
+-- v5.2 B2 (docs/PRD-v5.2-B-db.md B-R82–B-R84, B-R94; probes P1–P16 of docs/v5.2/REVIEW-v5.1.md). Same convention as
+-- above: results in the final error, (!) = unexpected. Every block is self-contained (own users, weeks, keys) and rolls
+-- back. Run against the migrations of origin/main only (without the three v52 files) the blocks of the holes show (!):
+-- that is the proof the hole exists (docs/v5.2/b2.md).
+-- ================================================================================================================
+
+-- B-R82 (K65): schema_registry and schema_version()
+do $$
+declare out text := ''; v text; n int; c boolean;
+begin
+  insert into public.app_user(email, role) values ('b82-fin@x.test','finance'),('b82-adm@x.test','admin');
+
+  perform set_config('request.jwt.claims', '{"email":"b82-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin v := public.schema_version();
+    out := out || 'authenticated reads schema_version=' || coalesce(v, 'null') || case when string_to_array(v, '.')::int[] >= array[5,2,2] then '' else '(!)' end || '; ';
+  exception when others then out := out || 'authenticated schema_version: ERROR(!) ' || sqlerrm || '; '; end;
+  begin select count(*) into n from public.schema_registry;
+    out := out || 'finance reads registry rows=' || n || case when n >= 3 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance reads registry: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.schema_registry (version) values ('9.9.9'); out := out || 'finance insert into registry: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'finance insert into registry: denied; ';
+            when others then out := out || 'finance insert into registry: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"b82-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.schema_registry (version) values ('9.9.9'); out := out || 'admin insert into registry: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'admin insert into registry: denied; ';
+            when others then out := out || 'admin insert into registry: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.schema_registry set bundle_sha256 = 'x'; out := out || 'admin update registry: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'admin update registry: denied; ';
+            when others then out := out || 'admin update registry: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.schema_registry; out := out || 'admin delete registry: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'admin delete registry: denied; ';
+            when others then out := out || 'admin delete registry: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- a signed-in user who is not an app user reads no row (is_app_user)
+  perform set_config('request.jwt.claims', '{"email":"b82-stranger@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin select count(*) into n from public.schema_registry; out := out || 'stranger reads registry rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'stranger reads registry: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- never for anon; the service role writes
+  begin
+    out := out || 'anon: select=' || has_table_privilege('anon', 'public.schema_registry', 'select')::text || ' execute schema_version=' || has_function_privilege('anon', 'public.schema_version()', 'execute')::text
+      || case when has_table_privilege('anon', 'public.schema_registry', 'select') or has_function_privilege('anon', 'public.schema_version()', 'execute') then '(!)' else '' end || '; ';
+    out := out || 'service_role insert=' || has_table_privilege('service_role', 'public.schema_registry', 'insert')::text
+      || case when has_table_privilege('service_role', 'public.schema_registry', 'insert') then '' else '(!)' end || '; ';
+  exception when others then out := out || 'privileges: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- highest version numerically (5.10.0 > 5.9.3), a text row last; SECURITY DEFINER with a fixed search_path
+  begin
+    insert into public.schema_registry (version, applied_at) values ('5.9.3', now() + interval '1 day'), ('5.10.0', now()), ('beta', now() + interval '2 days');
+    v := public.schema_version(); out := out || 'highest=' || coalesce(v, 'null') || case when v = '5.10.0' then '' else '(!)' end || '; ';
+    select p.prosecdef and exists (select 1 from unnest(p.proconfig) x where x = 'search_path=""') into c from pg_proc p where p.oid = 'public.schema_version()'::regprocedure;
+    out := out || 'definer with search_path=""=' || coalesce(c::text, 'null') || case when c then '' else '(!)' end || '; ';
+    select count(*) into n from public.schema_registry where version = '5.1.0';
+    out := out || 'v5.1 recorded as 5.1.0=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'ordering: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B2 B-R82 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-1 / K69 (probes P8, P8b): week.update_date changes only while the week is open, by Admin / Finance, or
+-- forward through advance_update_date; Sales and the other daily roles are refused, also on released and closed weeks
+do $$
+declare out text := ''; n int; i int; e text; d date; wo uuid; wr uuid; wc uuid; roles text[] := array['sales','ppic','purch','lead','ca','ia'];
+begin
+  insert into public.app_user(email, role) values ('b69-sales@x.test','sales'),('b69-ppic@x.test','ppic'),('b69-purch@x.test','purchasing'),
+    ('b69-lead@x.test','commercial_lead'),('b69-ca@x.test','cost_accounting'),('b69-ia@x.test','inventory_accounting'),
+    ('b69-fin@x.test','finance'),('b69-adm@x.test','admin');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-03-07', '2033-03-10', '2033-03-05') returning id into wo;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2033-03-14', '2033-03-17', '2033-03-12', 'released') returning id into wr;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2033-03-21', '2033-03-24', '2033-03-19', 'closed') returning id into wc;
+  delete from public.rebuild_queue where date between '2033-03-07' and '2033-03-27';
+
+  -- P8: none of the daily roles moves update_date of an open week by a direct update
+  i := 0;
+  foreach e in array roles loop
+    i := i + 1;
+    perform set_config('request.jwt.claims', format('{"email":"b69-%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    -- a different date each time, never the current one (the week starts 07/03, its update date is 10/03; the check allows up to 14/03)
+    begin update public.week set update_date = '2033-03-07'::date + case when i < 3 then i else i + 1 end where id = wo; get diagnostics n = row_count;
+      out := out || 'P8 ' || e || ' moves update_date of an open week: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || 'P8 ' || e || ' update_date open week: denied; ';
+              when others then out := out || 'P8 ' || e || ' update_date open week: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  -- P8b: nor on a released or a closed week
+  perform set_config('request.jwt.claims', '{"email":"b69-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set update_date = update_date - 3 where id = wr; get diagnostics n = row_count; out := out || 'P8b sales moves update_date of a released week: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P8b sales update_date released week: denied; ';
+            when others then out := out || 'P8b sales update_date released week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.week set update_date = update_date + 3 where id = wc; get diagnostics n = row_count; out := out || 'P8b sales moves update_date of a closed week: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P8b sales update_date closed week: denied; ';
+            when others then out := out || 'P8b sales update_date closed week: ERROR(!) ' || sqlerrm || '; '; end;
+  -- other columns of week stay closed to Sales as before
+  begin update public.week set note = 'x' where id = wo; get diagnostics n = row_count; out := out || 'sales note: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'sales week note: denied; ';
+            when others then out := out || 'sales week note: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- the same through the RPC: advance_update_date works for the upload owners, forward and inside the week only, open weeks only
+  perform set_config('request.jwt.claims', '{"email":"b69-ia@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin d := public.advance_update_date(wo, '2033-03-11'); out := out || 'ia advance_update_date → ' || to_char(d, 'DD/MM') || case when d = '2033-03-12' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'ia advance_update_date: ERROR(!) ' || sqlerrm || '; '; end;
+  begin d := public.advance_update_date(wo, '2033-03-08'); out := out || 'earlier date keeps ' || to_char(d, 'DD/MM') || case when d = '2033-03-12' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'earlier date: ERROR(!) ' || sqlerrm || '; '; end;
+  begin d := public.advance_update_date(wr, '2033-03-16'); out := out || 'released week keeps ' || to_char(d, 'DD/MM') || case when d = '2033-03-17' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'released week: ERROR(!) ' || sqlerrm || '; '; end;
+  -- a client cannot lean on the GUC of the RPC: backwards and beyond the Monday after the week are refused, also for Sales
+  begin perform set_config('kgr.advance', 'on', true); update public.week set update_date = '2033-03-09' where id = wo; get diagnostics n = row_count;
+    out := out || 'ia with forged GUC moves back: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'ia with forged GUC moves back: denied; ';
+            when others then out := out || 'ia forged GUC back: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform set_config('kgr.advance', 'on', true); update public.week set update_date = '2033-03-20' where id = wo; get diagnostics n = row_count;
+    out := out || 'ia with forged GUC beyond the next Monday: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'ia with forged GUC beyond the next Monday: denied; ';
+            when others then out := out || 'ia forged GUC beyond: ERROR(!) ' || sqlerrm || '; '; end;
+  perform set_config('kgr.advance', 'off', true);
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b69-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform set_config('kgr.advance', 'on', true); update public.week set update_date = '2033-03-13' where id = wo; get diagnostics n = row_count;
+    out := out || 'sales with forged GUC: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'sales with forged GUC: denied; ';
+            when others then out := out || 'sales forged GUC: ERROR(!) ' || sqlerrm || '; '; end;
+  perform set_config('kgr.advance', 'off', true);
+  begin perform public.advance_update_date(wo, '2033-03-12'); out := out || 'sales advance_update_date: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales advance_update_date: denied; ';
+            when others then out := out || 'sales advance_update_date: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- Finance and Admin move it forward or back on an open week (audit_log keeps old and new); not on released / closed weeks
+  perform set_config('request.jwt.claims', '{"email":"b69-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set update_date = '2033-03-09' where id = wo; get diagnostics n = row_count; out := out || 'finance moves back on open week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance moves back on open week: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set update_date = '2033-03-20' where id = wr; get diagnostics n = row_count; out := out || 'finance moves update_date of a released week: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'finance update_date released week: denied; ';
+            when others then out := out || 'finance update_date released week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.week set status = 'released' where id = wo; get diagnostics n = row_count; out := out || 'finance opens→released status rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance status: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set status = 'open' where id = wo; get diagnostics n = row_count; out := out || 'finance released→open status rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance status back: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b69-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set update_date = '2033-03-11' where id = wo; get diagnostics n = row_count; out := out || 'admin moves forward on open week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin moves forward on open week: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set update_date = '2033-03-26' where id = wc; get diagnostics n = row_count; out := out || 'admin moves update_date of a closed week: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin update_date closed week: denied; ';
+            when others then out := out || 'admin update_date closed week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.week set status = 'open' where id = wr; get diagnostics n = row_count; out := out || 'admin reopens a released week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin reopen: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set update_date = '2033-03-18' where id = wr; get diagnostics n = row_count; out := out || 'admin moves update_date once reopened rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin moves update_date once reopened: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.audit_log where table_name = 'week' and row_id in (wo::text, wr::text) and changes ? 'update_date' and actor in ('b69-fin@x.test', 'b69-adm@x.test');
+  out := out || 'audit rows of update_date by finance / admin=' || n || case when n = 3 then '' else '(!)' end || '; ';
+  select update_date into d from public.week where id = wo; out := out || 'open week update_date ' || to_char(d, 'DD/MM') || case when d = '2033-03-11' then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-1 K69 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-2 / B-REL-4 (probe P7): Sales read no cost-derived column of the two commercial views (cost_per_kg_ma,
+-- price_floor, margin_*, and the v5 cost) when the week's sales_sees_cost is false, and none when the week has no
+-- parameter row; the column lists stay as they were; rpc floor_of does not hand the floor to clients
+do $$
+declare out text := ''; n int; r record; cols text; fl numeric;
+  cols_v4 text := 'date:date, key:text, group_code:text, form:text, free_fresh_kg:numeric(12,2), free_frozen_kg:numeric(12,2), oldest_age_days:integer(32,0), hours_to_cutoff:integer(32,0), cost_per_kg_ma:numeric(18,4), price_floor:numeric(18,4), price_list:numeric(18,4), margin_per_kg_list:numeric(18,4), realized_price_7d:numeric(18,4), margin_per_kg_realized:numeric(18,4), holding_loss_per_day:numeric(18,2), downgrade_risk_rp:numeric(18,2), urgency:text, priority_score:numeric(18,2), rank:integer(32,0), ordered_today_kg:numeric(12,2)';
+  cols_v5 text;
+  v text;
+begin
+  cols_v5 := cols_v4 || ', cost_per_kg:numeric(18,4), cost_status:text, cost_check:boolean';
+  insert into public.app_user(email, role) values ('b7-sales@x.test','sales'),('b7-sales2@x.test','sales'),('b7-mgmt@x.test','management'),('b7-adm@x.test','admin');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B7', 'b7-sales@x.test', 'B7-A'), ('B7b', 'b7-sales2@x.test', 'B7-A');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-05-02', '2033-05-05', '2033-04-30'), ('2033-05-09', '2033-05-12', '2033-05-07');
+  insert into public.parameter (week_id, sales_sees_cost) select id, false from public.week where week_start = '2033-05-02' on conflict (week_id) do update set sales_sees_cost = false;
+  insert into public.parameter (week_id, sales_sees_cost) select id, true from public.week where week_start = '2033-05-09' on conflict (week_id) do update set sales_sees_cost = true;
+  -- week 2033-05-02: sales_sees_cost = false; week 2033-05-09: true; week 2033-05-16: no week row at all; week of 2033-05-23: week without parameter row
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-05-23', '2033-05-26', '2033-05-21');
+  delete from public.parameter p using public.week w where p.week_id = w.id and w.week_start = '2033-05-23';
+  insert into public.commercial_daily (date, key, group_code, free_fresh_kg, cost_per_kg_ma, cost_per_kg_si, price_floor, price_list, margin_per_kg_list, realized_price_7d, margin_per_kg_realized,
+                                       holding_loss_per_day, downgrade_risk_rp, cost_per_kg, cost_status, cost_check)
+  values ('2033-05-03', 'B7-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 100, 200, 20900, 'final', true),
+         ('2033-05-10', 'B7-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 100, 200, 20900, 'final', true),
+         ('2033-05-17', 'B7-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 100, 200, 20900, 'final', true),
+         ('2033-05-24', 'B7-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 100, 200, 20900, 'final', true),
+         ('2033-05-03', 'B7-Z', 'G', 10, 31000, 31100, 33000, 36000, 5000, 35500, 4500, 100, 200, 30900, 'final', true);
+
+  perform set_config('request.jwt.claims', '{"email":"b7-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  -- sales_sees_cost = false: v4 view and v5 view
+  begin
+    select count(*) as n, count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) as shown
+      into r from public.commercial_daily_sales where date = '2033-05-03';
+    out := out || 'P7 v4 view sales_sees_cost=false rows=' || r.n || ' cost columns shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'P7 v4 view: ERROR(!) ' || sqlerrm || '; '; end;
+  begin
+    select count(*) as n, count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) + count(cost_per_kg) + count(cost_status) + count(cost_check) as shown,
+           max(price_list) as pl, max(realized_price_7d) as rp, max(ordered_today_kg) as ot
+      into r from public.commercial_daily_sales_v5 where date = '2033-05-03';
+    out := out || 'P7 v5 view sales_sees_cost=false rows=' || r.n || ' cost columns shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end
+      || '; list price and realized price stay=' || coalesce(r.pl::text, 'null') || '/' || coalesce(r.rp::text, 'null') || case when r.pl = 26000 and r.rp = 25500 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'P7 v5 view: ERROR(!) ' || sqlerrm || '; '; end;
+  -- sales_sees_cost = true: the values are there
+  begin
+    select count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) + count(cost_per_kg) as shown into r from public.commercial_daily_sales_v5 where date = '2033-05-10';
+    out := out || 'v5 view sales_sees_cost=true cost columns shown=' || r.shown || case when r.shown = 5 then '' else '(!)' end || '; ';
+    select count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) as shown into r from public.commercial_daily_sales where date = '2033-05-10';
+    out := out || 'v4 view sales_sees_cost=true cost columns shown=' || r.shown || case when r.shown = 4 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sees_cost=true: ERROR(!) ' || sqlerrm || '; '; end;
+  -- B-REL-4: no parameter row for the week (or no week) → hidden
+  begin
+    select count(*) as n, count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) + count(cost_per_kg) + count(cost_status) + count(cost_check) as shown
+      into r from public.commercial_daily_sales_v5 where date = '2033-05-24';
+    out := out || 'P7 v5 view week without parameter row rows=' || r.n || ' cost columns shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+    select count(*) as n, count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) as shown into r from public.commercial_daily_sales where date = '2033-05-24';
+    out := out || 'P7 v4 view week without parameter row cost columns shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+    select count(*) as n, count(cost_per_kg_ma) + count(price_floor) as shown into r from public.commercial_daily_sales_v5 where date = '2033-05-17';
+    out := out || 'P7 v5 view date without a week cost columns shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'B-REL-4: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the other SKU is not in the view (assignment); the table itself is closed to Sales
+  begin select count(*) into n from public.commercial_daily_sales_v5 where key = 'B7-Z'; out := out || 'unassigned SKU rows=' || n || case when n = 0 then '' else '(!)' end || '; '; exception when others then out := out || 'unassigned SKU: ERROR(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.commercial_daily; out := out || 'sales reads table commercial_daily rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  -- rpc floor_of is not a back door to price_floor
+  begin fl := public.floor_of('B7-A', '2033-05-03'); out := out || 'P7 sales rpc floor_of: ALLOWED floor=' || coalesce(fl::text, 'null') || '(!); ';
+  exception when insufficient_privilege then out := out || 'sales rpc floor_of: denied; ';
+            when others then out := out || 'sales rpc floor_of: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- management and admin see everything, in both views, whatever sales_sees_cost says
+  foreach v in array array['b7-mgmt','b7-adm'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', v), true);
+    execute 'set local role authenticated';
+    select count(cost_per_kg_ma) + count(price_floor) + count(margin_per_kg_list) + count(margin_per_kg_realized) + count(cost_per_kg) as shown, count(*) as n into r
+      from public.commercial_daily_sales_v5 where date in ('2033-05-03', '2033-05-24') and key = 'B7-A';
+    out := out || v || ' v5 view cost columns shown=' || r.shown || case when r.n = 2 and r.shown = 10 then '' else '(!)' end || '; ';
+    select count(*) into n from public.commercial_daily_sales where date = '2033-05-03'; out := out || v || ' v4 view rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  end loop;
+  -- a second rep on the same SKU: same rule; floor_of still works inside the C38 triggers (owner), not for the service role revoke
+  perform set_config('request.jwt.claims', '', true);
+  out := out || 'owner floor_of=' || coalesce(public.floor_of('B7-A', '2033-05-03')::text, 'null') || case when public.floor_of('B7-A', '2033-05-03') = 23000 then '' else '(!)' end || '; ';
+
+  -- the column lists (names, order, types) are those of origin/main (docs/v5.2/bukti/b2-views.txt has the \d+ of both)
+  select string_agg(column_name || ':' || data_type || coalesce('(' || numeric_precision || ',' || numeric_scale || ')', ''), ', ' order by ordinal_position) into cols
+    from information_schema.columns where table_schema = 'public' and table_name = 'commercial_daily_sales';
+  out := out || 'v4 view columns unchanged=' || (cols = cols_v4)::text || case when cols = cols_v4 then '' else '(!)' end || '; ';
+  select string_agg(column_name || ':' || data_type || coalesce('(' || numeric_precision || ',' || numeric_scale || ')', ''), ', ' order by ordinal_position) into cols
+    from information_schema.columns where table_schema = 'public' and table_name = 'commercial_daily_sales_v5';
+  out := out || 'v5 view columns unchanged=' || (cols = cols_v5)::text || case when cols = cols_v5 then '' else '(!)' end || '; ';
+  out := out || 'anon on views: v4=' || has_table_privilege('anon', 'public.commercial_daily_sales', 'select')::text || ' v5=' || has_table_privilege('anon', 'public.commercial_daily_sales_v5', 'select')::text
+    || case when has_table_privilege('anon', 'public.commercial_daily_sales', 'select') or has_table_privilege('anon', 'public.commercial_daily_sales_v5', 'select') then '(!)' else '' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-2 B-REL-4 P7 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-3 (probe P1): Sales do not read plan_week_class and demand_class_weekly, and read surplus answers of their
+-- assigned keys only; the surplus of their keys comes through surplus_for_sales_v52 (limited columns)
+do $$
+declare out text := ''; n int; pw uuid; r record; e text; cols text;
+begin
+  insert into public.app_user(email, role) values ('b1-sales@x.test','sales'),('b1-lead@x.test','commercial_lead'),('b1-ppic@x.test','ppic'),
+    ('b1-mgmt@x.test','management'),('b1-fin@x.test','finance'),('b1-adm@x.test','admin');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B1', 'b1-sales@x.test', 'RPA|Karkas');
+  insert into public.plan_week (week_start, version, head_count, surplus_kg_by_key) values ('2033-06-06', 1, 1000, '{"RPA|Karkas|Fresh": 150.5, "Trading|BLP|Frozen": 700}'::jsonb) returning id into pw;
+  insert into public.plan_week_class (plan_week_id, weight_class, kg_lb, heads, fresh_kg_by_key, frozen_kg_by_key) values (pw, 'K', 5000, 1000, '{"Trading|BLP|Frozen": 100}'::jsonb, '{}'::jsonb);
+  insert into public.demand_class_weekly (week_start, ship_date, size_code, size_kg, weight_class, net_kg, kg_lb, heads) values ('2033-06-06', '2033-06-08', '1.2', 1.2, 'K', 1000, 1500, 600);
+  -- answers written as the lead (and one for an own key of the Sales user)
+  perform set_config('request.jwt.claims', '{"email":"b1-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'RPA|Karkas|Fresh', 150.5, 'absorb'), (pw, 'Trading|BLP|Frozen', 700, 'reduce');
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"b1-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.plan_week_class; out := out || 'P1 sales reads plan_week_class rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.demand_class_weekly; out := out || 'P1 sales reads demand_class_weekly rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.surplus_response where key = 'Trading|BLP|Frozen'; out := out || 'P1 sales reads surplus answer of an unassigned key rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.surplus_response where key = 'RPA|Karkas|Fresh'; out := out || 'sales reads surplus answer of an assigned key rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  begin
+    select count(*) as n, min(key) as k, max(plan_surplus_kg) as kg, max(response) as resp into r from public.surplus_for_sales_v52;
+    out := out || 'surplus_for_sales_v52 rows=' || r.n || ' key=' || coalesce(r.k, 'null') || ' plan surplus=' || coalesce(r.kg::text, 'null') || ' answer=' || coalesce(r.resp, 'null')
+      || case when r.n = 1 and r.k = 'RPA|Karkas|Fresh' and r.kg = 150.50 and r.resp = 'absorb' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'surplus_for_sales_v52: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- everybody else reads as before: the planners, management, finance, the lead, admin
+  foreach e in array array['b1-lead','b1-ppic','b1-mgmt','b1-fin','b1-adm'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.plan_week_class; out := out || e || ' reads plan_week_class rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from public.demand_class_weekly; out := out || e || ' demand_class_weekly rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from public.surplus_response; out := out || e || ' surplus answers rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+    begin select count(*) into n from public.surplus_for_sales_v52; out := out || e || ' surplus_for_sales_v52 rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+    exception when others then out := out || e || ' surplus_for_sales_v52: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '', true);
+
+  begin select string_agg(column_name, ',' order by ordinal_position) into cols from information_schema.columns where table_schema = 'public' and table_name = 'surplus_for_sales_v52';
+    out := out || 'surplus_for_sales_v52 columns=' || coalesce(cols, 'null')
+      || case when cols = 'week_start,plan_version,plan_week_id,key,plan_surplus_kg,answered_surplus_kg,response,absorb_kg,price,responded_by,responded_at' then '' else '(!)' end || '; ';
+    out := out || 'anon on surplus_for_sales_v52=' || has_table_privilege('anon', 'public.surplus_for_sales_v52', 'select')::text
+      || case when has_table_privilege('anon', 'public.surplus_for_sales_v52', 'select') then '(!)' else '' end || '; ';
+  exception when others then out := out || 'surplus_for_sales_v52 columns: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-3 P1 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-4 (probe P10): a Sales user cannot take over, blank out or retire another rep's PO line; the line as it was
+-- (OLD) must be in scope as well as the line as it becomes (NEW); a line without customer only as a new spot sale
+do $$
+declare out text := ''; n int; wk uuid; la uuid; lb uuid; lb1 uuid; lb2 uuid; lb3 uuid; lb4 uuid; lc uuid; lc2 uuid; ld uuid; ok boolean;
+begin
+  insert into public.app_user(email, role) values ('b10-s1@x.test','sales'),('b10-s2@x.test','sales'),('b10-s3@x.test','sales'),('b10-adm@x.test','admin');
+  insert into public.sales_assignment (sales_rep, email, customer, key) values ('B10a', 'b10-s1@x.test', 'PT A', null), ('B10b', 'b10-s2@x.test', 'PT B', null),
+    ('B10c', 'b10-s3@x.test', null, 'B10-K1');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-07-04', '2033-07-07', '2033-07-02') returning id into wk;
+  -- the lines as the system wrote them (an upload): rep A's PO, rep B's PO, a line without customer, a line of key K2
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT A', 'B10-K1', 100, 30000, 'po') returning id into la;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT B', 'B10-K1', 100, 30000, 'po') returning id into lb;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT B', 'B10-K1', 100, 30000, 'po') returning id into lb1;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT B', 'B10-K1', 100, 30000, 'po') returning id into lb2;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT B', 'B10-K1', 100, 30000, 'po') returning id into lb3;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT B', 'B10-K1', 100, 30000, 'po') returning id into lb4;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', null, 'B10-K1', 100, 30000, 'po') returning id into lc;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', null, 'B10-K1', 100, 30000, 'po') returning id into lc2;
+  insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price, channel) values (wk, '2033-07-05', 'Order', 'PT C', 'B10-K2', 100, 30000, 'po') returning id into ld;
+
+  perform set_config('request.jwt.claims', '{"email":"b10-s1@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  -- P10: rep A blanks out / takes over / retires the PO of rep B
+  begin update public.sales_line set customer = null where id = lb1; get diagnostics n = row_count; out := out || 'P10 A blanks customer of B''s PO: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P10 A blanks customer of B''s PO: denied; '; when others then out := out || 'P10 blank: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set customer = 'PT A' where id = lb2; get diagnostics n = row_count; out := out || 'P10 A takes over B''s PO: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P10 A takes over B''s PO: denied; '; when others then out := out || 'P10 take over: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set deleted_at = now(), deleted_by = 'b10-s1@x.test' where id = lb3; get diagnostics n = row_count; out := out || 'P10 A retires B''s PO: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P10 A retires B''s PO: denied; '; when others then out := out || 'P10 retire: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set kg = 1 where id = lb4; get diagnostics n = row_count; out := out || 'A changes kg of B''s PO: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'A changes kg of B''s PO: denied; '; when others then out := out || 'kg: ERROR(!) ' || sqlerrm || '; '; end;
+  -- a line without a customer is nobody's: not retired, not claimed, by a rep bound to a customer
+  begin update public.sales_line set deleted_at = now(), deleted_by = 'b10-s1@x.test' where id = lc; get diagnostics n = row_count; out := out || 'P10 A retires a line without customer: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P10 A retires a line without customer: denied; '; when others then out := out || 'retire null: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set customer = 'PT A' where id = lc2; get diagnostics n = row_count; out := out || 'A claims a line without customer: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'A claims a line without customer: denied; '; when others then out := out || 'claim: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-07-06', 'Order', null, 'B10-K1', 5, 30000); out := out || 'A inserts a PO line without customer: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'A inserts a PO line without customer: denied; '; when others then out := out || 'insert null: ERROR(!) ' || sqlerrm || '; '; end;
+  -- own line: change and retire stay possible; a new line for PT A and K1 as before
+  begin update public.sales_line set kg = 90 where id = la; get diagnostics n = row_count; out := out || 'A changes own PO rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'A changes own PO: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-07-06', 'Order', 'PT A', 'B10-K2', 5, 30000); out := out || 'A inserts a PO for PT A: OK; ';
+  exception when others then out := out || 'A inserts a PO for PT A: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set deleted_at = now(), deleted_by = 'b10-s1@x.test' where id = la; get diagnostics n = row_count; out := out || 'A retires own PO rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'A retires own PO: DENIED(!) ' || sqlerrm || '; '; end;
+  -- the function itself: a spot sale without customer is in scope of a customer-bound rep, a PO line is not
+  execute 'reset role';
+  begin
+    ok := public.sales_line_in_scope(null, 'B10-K1', true); out := out || 'new spot sale without customer in scope=' || ok::text || case when ok then '' else '(!)' end || '; ';
+    ok := public.sales_line_in_scope(null, 'B10-K1', false); out := out || 'other change without customer in scope=' || ok::text || case when not ok then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales_line_in_scope: ERROR(!) ' || sqlerrm || '; '; end;
+  -- rep C: key-bound, every customer: the line of another key by update is refused (before and after)
+  perform set_config('request.jwt.claims', '{"email":"b10-s3@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.sales_line set customer = 'PT C2' where id = ld; get diagnostics n = row_count; out := out || 'C edits a line of another key: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'C edits a line of another key: denied; '; when others then out := out || 'C key: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set key_manual = 'B10-K2' where id = lb; get diagnostics n = row_count; out := out || 'C moves a K1 line to K2: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'C moves a K1 line to K2: denied; '; when others then out := out || 'C move: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.sales_line set kg = 77 where id = lb; get diagnostics n = row_count; out := out || 'C edits a K1 line of any customer rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'C edits a K1 line: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  -- admin is not restricted
+  perform set_config('request.jwt.claims', '{"email":"b10-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.sales_line set customer = 'PT Z' where id = lb; get diagnostics n = row_count; out := out || 'admin edits any line rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin edits: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    out := out || 'clients execute sales_line_in_scope=' || has_function_privilege('authenticated', 'public.sales_line_in_scope(text,text,boolean)', 'execute')::text
+      || case when has_function_privilege('authenticated', 'public.sales_line_in_scope(text,text,boolean)', 'execute') then '(!)' else '' end || '; ';
+  exception when others then out := out || 'sales_line_in_scope privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-4 P10 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-7 (probe P13): a Sales user does not overwrite another's surplus answer; responded_by / responded_at are
+-- stamped on every write (insert and update) with the signed-in user
+do $$
+declare out text := ''; n int; pw uuid; r1 uuid; r2 uuid; r3 uuid; who text; t0 timestamptz;
+begin
+  insert into public.app_user(email, role) values ('b13-s1@x.test','sales'),('b13-s2@x.test','sales'),('b13-s3@x.test','sales'),('b13-lead@x.test','commercial_lead'),('b13-adm@x.test','admin');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B13a', 'b13-s1@x.test', 'B13|Karkas'), ('B13b', 'b13-s2@x.test', 'B13|Karkas'), ('B13c', 'b13-s3@x.test', 'B13|Kepala');
+  insert into public.plan_week (week_start, version, head_count, surplus_kg_by_key) values ('2033-08-01', 1, 1000, '{"B13|Karkas|Fresh": 100}'::jsonb) returning id into pw;
+
+  -- the lead's answer
+  perform set_config('request.jwt.claims', '{"email":"b13-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  insert into public.surplus_response (plan_week_id, key, surplus_kg, response, responded_by) values (pw, 'B13|Karkas|Fresh', 100, 'reduce', 'someone.else@x.test') returning id into r1;
+  select responded_by into who from public.surplus_response where id = r1; out := out || 'lead insert stamps responded_by=' || coalesce(who, 'null') || case when who = 'b13-lead@x.test' then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  -- P13: Sales A (assigned) overwrites the lead's answer
+  perform set_config('request.jwt.claims', '{"email":"b13-s1@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.surplus_response set response = 'absorb', absorb_kg = 100 where id = r1; get diagnostics n = row_count;
+    out := out || 'P13 sales overwrites the lead''s answer: rows=' || n || case when n = 0 then ' (refused)' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'P13 sales overwrites the lead''s answer: denied; ';
+            when others then out := out || 'P13 overwrite: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.surplus_response set deleted_at = now() where id = r1; get diagnostics n = row_count;
+    out := out || 'sales retires the lead''s answer: rows=' || n || case when n = 0 then ' (refused)' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'sales retires the lead''s answer: denied; ';
+            when others then out := out || 'retire: ERROR(!) ' || sqlerrm || '; '; end;
+  -- an answer of their own: written with a forged responder, stamped with the real one
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response, responded_by, responded_at) values (pw, 'B13|Karkas|Fresh', 100, 'absorb', 'b13-lead@x.test', '2020-01-01') returning id into r2;
+    select responded_by, responded_at into who, t0 from public.surplus_response where id = r2;
+    out := out || 'sales insert stamps responded_by=' || coalesce(who, 'null') || case when who = 'b13-s1@x.test' and t0 > now() - interval '1 hour' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales insert own answer: DENIED(!) ' || sqlerrm || '; '; end;
+  -- updating the own answer works and keeps the stamp true even when the update names someone else
+  begin update public.surplus_response set absorb_kg = 80, responded_by = 'b13-lead@x.test', responded_at = '2020-01-01' where id = r2; get diagnostics n = row_count;
+    select responded_by, responded_at into who, t0 from public.surplus_response where id = r2;
+    out := out || 'sales updates own answer rows=' || n || ' responded_by=' || coalesce(who, 'null') || case when n = 1 and who = 'b13-s1@x.test' and t0 > now() - interval '1 hour' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales updates own answer: DENIED(!) ' || sqlerrm || '; '; end;
+  -- an unassigned key
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'B13|Kepala|Fresh', 10, 'absorb'); out := out || 'sales answers an unassigned key: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales answers an unassigned key: denied; ';
+            when others then out := out || 'unassigned key: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- Sales B (same key) cannot overwrite A's answer either
+  perform set_config('request.jwt.claims', '{"email":"b13-s2@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.surplus_response set response = 'reduce', absorb_kg = 0 where id = r2; get diagnostics n = row_count;
+    out := out || 'P13 sales B overwrites sales A''s answer: rows=' || n || case when n = 0 then ' (refused)' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'P13 sales B overwrites sales A''s answer: denied; ';
+            when others then out := out || 'B overwrite: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'B13|Karkas|Fresh', 100, 'partial') returning id into r3; out := out || 'sales B adds an own (newer) answer: OK; ';
+  exception when others then out := out || 'sales B adds an own answer: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select absorb_kg, responded_by into n, who from public.surplus_response where id = r2;
+  out := out || 'A''s answer after the attempts: absorb_kg=' || coalesce(n::text, 'null') || ' by ' || coalesce(who, 'null') || case when n = 80 and who = 'b13-s1@x.test' then '' else '(!)' end || '; ';
+
+  -- the lead and the admin may correct any answer; the stamp then names them
+  perform set_config('request.jwt.claims', '{"email":"b13-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.surplus_response set response = 'partial', absorb_kg = 50 where id = r2; get diagnostics n = row_count; select responded_by into who from public.surplus_response where id = r2;
+    out := out || 'lead corrects an answer rows=' || n || ' responded_by=' || coalesce(who, 'null') || case when n = 1 and who = 'b13-lead@x.test' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lead corrects: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b13-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.surplus_response set note = 'dikoreksi' where id = r2; get diagnostics n = row_count; select responded_by into who from public.surplus_response where id = r2;
+    out := out || 'admin updates an answer rows=' || n || ' responded_by=' || coalesce(who, 'null') || case when n = 1 and who = 'b13-adm@x.test' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin updates: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-7 P13 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-8 / O21(b) (probe P6): assignment_covers(a_key, k) = the exact key, or an assignment key without form suffix
+-- for every form of it; a null assignment key = every key; one rule in every guard, policy and view that matches an
+-- assignment (the v4 view included)
+do $$
+declare out text := ''; n int; pw uuid; wk uuid; ok boolean; t record;
+begin
+  insert into public.app_user(email, role) values ('b21-base@x.test','sales'),('b21-fresh@x.test','sales'),('b21-all@x.test','sales'),('b21-lead@x.test','commercial_lead');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B21a', 'b21-base@x.test', 'B21|Karkas'), ('B21b', 'b21-fresh@x.test', 'B21|Karkas|Fresh'), ('B21c', 'b21-all@x.test', null);
+
+  -- the rule itself
+  begin
+    for t in select * from (values
+      ('B21|Karkas', 'B21|Karkas', true), ('B21|Karkas', 'B21|Karkas|Fresh', true), ('B21|Karkas', 'B21|Karkas|Frozen', true), ('B21|Karkas', 'B21|Karkas|n/a', true),
+      ('B21|Karkas', 'B21|Kepala|Fresh', false), ('B21|Karkas', 'B21|Kepala', false), ('B21|Karkas|Fresh', 'B21|Karkas|Fresh', true),
+      ('B21|Karkas|Fresh', 'B21|Karkas|Frozen', false), ('B21|Karkas|Fresh', 'B21|Karkas', false), ('B21|Karkas|Fresh', 'B21|Karkas|n/a', false),
+      (null, 'B21|Anything|Frozen', true), (null, null, true), ('B21|Karkas', null, false), ('B21|Karkas|Fresh', null, false)) as v(a, k, want) loop
+      ok := public.assignment_covers(t.a, t.k);
+      if ok is distinct from t.want then out := out || 'assignment_covers(' || coalesce(t.a, 'null') || ', ' || coalesce(t.k, 'null') || ')=' || coalesce(ok::text, 'null') || '(!); '; end if;
+    end loop;
+    out := out || 'assignment_covers table of 14 cases checked; ';
+  exception when others then out := out || 'assignment_covers: ERROR(!) ' || sqlerrm || '; '; end;
+
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-08-08', '2033-08-11', '2033-08-06') returning id into wk;
+  insert into public.parameter (week_id, sales_sees_cost) values (wk, true) on conflict (week_id) do update set sales_sees_cost = true;
+  insert into public.plan_week (week_start, version, head_count) values ('2033-08-08', 1, 1000) returning id into pw;
+  insert into public.commercial_daily (date, key, group_code, free_fresh_kg, price_floor) values
+    ('2033-08-09', 'B21|Karkas|Fresh', 'G', 5, 20000), ('2033-08-09', 'B21|Karkas|Frozen', 'G', 5, 21000), ('2033-08-09', 'B21|Kepala|Fresh', 'G', 5, 22000);
+  insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-15', 'B21|Karkas|Fresh', 10, 30000), ('2033-08-15', 'B21|Karkas|Frozen', 10, 30000), ('2033-08-15', 'B21|Kepala', 10, 30000);
+  insert into public.discount_approval (key, customer, requested_price, floor_price, rp_per_kg_below, kg, total_below, requested_by) values
+    ('B21|Karkas|Fresh', 'PT A', 19000, 20000, 1000, 10, 10000, 'other@x.test'), ('B21|Karkas|Frozen', 'PT A', 20000, 21000, 1000, 10, 10000, 'other@x.test');
+
+  -- the assignment "B21|Karkas" (base key): every form of Karkas, nothing of Kepala; same in both views, commitments, answers, lines, discounts
+  perform set_config('request.jwt.claims', '{"email":"b21-base@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily_sales; out := out || 'base-key rep: v4 view rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  select count(*) into n from public.commercial_daily_sales_v5; out := out || 'base-key rep: v5 view rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  select count(*) into n from public.sales_commitment; out := out || 'base-key rep reads commitments=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  select count(*) into n from public.discount_approval; out := out || 'base-key rep reads discount requests=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-22', 'B21|Karkas', 5, 30000), ('2033-08-22', 'B21|Karkas|Frozen', 5, 30000); out := out || 'base-key rep commits base and Frozen: OK; ';
+  exception when others then out := out || 'base-key rep commits: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-22', 'B21|Kepala', 5, 30000); out := out || 'base-key rep commits another SKU: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'base-key rep commits another SKU: denied; '; when others then out := out || 'other SKU: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'B21|Karkas|Frozen', 10, 'absorb'); out := out || 'base-key rep answers a Frozen surplus: OK; ';
+  exception when others then out := out || 'base-key rep answers a Frozen surplus: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-08-10', 'Order', 'PT A', 'B21|Karkas|Frozen', 5, 30000); out := out || 'base-key rep orders a Frozen line: OK; ';
+  exception when others then out := out || 'base-key rep orders a Frozen line: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- the assignment "B21|Karkas|Fresh": that SKU only (Fresh does not cover Frozen, nor the base key)
+  perform set_config('request.jwt.claims', '{"email":"b21-fresh@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily_sales; out := out || 'Fresh rep: v4 view rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  select count(*) into n from public.commercial_daily_sales_v5 where key = 'B21|Karkas|Frozen'; out := out || 'P6 Fresh rep sees a Frozen row in the v5 view=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.sales_commitment where key = 'B21|Karkas|Frozen'; out := out || 'P6 Fresh rep reads a Frozen commitment=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  select count(*) into n from public.discount_approval where key = 'B21|Karkas|Frozen'; out := out || 'P6 Fresh rep reads a Frozen discount request=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-29', 'B21|Karkas|Frozen', 5, 30000); out := out || 'P6 Fresh rep commits on Frozen: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'P6 Fresh rep commits on Frozen: denied; '; when others then out := out || 'Frozen commit: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-29', 'B21|Karkas', 5, 30000); out := out || 'P6 Fresh rep commits on the base key: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'P6 Fresh rep commits on the base key: denied; '; when others then out := out || 'base commit: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2033-08-29', 'B21|Karkas|Fresh', 5, 30000); out := out || 'Fresh rep commits on Fresh: OK; ';
+  exception when others then out := out || 'Fresh rep commits on Fresh: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'B21|Karkas|Frozen', 10, 'absorb'); out := out || 'P6 Fresh rep answers a Frozen surplus: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'P6 Fresh rep answers a Frozen surplus: denied; '; when others then out := out || 'Frozen surplus: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-08-10', 'Order', 'PT A', 'B21|Karkas|Frozen', 5, 30000); out := out || 'P6 Fresh rep orders a Frozen line: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'P6 Fresh rep orders a Frozen line: denied; '; when others then out := out || 'Frozen line: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-08-10', 'Order', 'PT A', 'B21|Karkas|Fresh', 5, 30000); out := out || 'Fresh rep orders a Fresh line: OK; ';
+  exception when others then out := out || 'Fresh rep orders a Fresh line: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- the assignment with key null: everything
+  perform set_config('request.jwt.claims', '{"email":"b21-all@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.commercial_daily_sales; out := out || 'null-key rep: v4 view rows=' || n || case when n = 3 then '' else '(!)' end || '; ';
+  select count(*) into n from public.sales_commitment; out := out || 'null-key rep reads commitments=' || n || case when n >= 3 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-8 O21 P6 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-9 (probe P11): a locked price-list row is never edited; the Admin retires it once (deleted_at set, the rest
+-- as it was) and a retired row is neither edited nor revived by anybody, the commercial lead included
+do $$
+declare out text := ''; n int; x numeric; da timestamptz;
+begin
+  insert into public.app_user(email, role) values ('b11-lead@x.test','commercial_lead'),('b11-adm@x.test','admin'),('b11-sales@x.test','sales');
+  insert into public.price_list_week (week_start, key, price_fresh, price_frozen, locked_at, locked_by) values
+    ('2033-09-05', 'B11-A', 25000, 21000, now(), 'b11-lead@x.test'), ('2033-09-05', 'B11-B', 26000, 22000, now(), 'b11-lead@x.test'),
+    ('2033-09-05', 'B11-C', 27000, 23000, now(), 'b11-lead@x.test'), ('2033-09-05', 'B11-D', 28000, 24000, null, null),
+    ('2033-09-05', 'B11-E', 29000, 25000, now(), 'b11-lead@x.test');
+
+  perform set_config('request.jwt.claims', '{"email":"b11-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  -- the Admin retires locked rows A, B and E (R40)
+  begin update public.price_list_week set deleted_at = now(), deleted_by = 'b11-adm@x.test' where week_start = '2033-09-05' and key in ('B11-A', 'B11-B', 'B11-E'); get diagnostics n = row_count;
+    out := out || 'admin retires locked price rows=' || n || case when n = 3 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin retires locked price rows: REJECTED(!) ' || sqlerrm || '; '; end;
+  -- the Admin cannot change the price while retiring, cannot unlock, cannot edit a live locked row
+  begin update public.price_list_week set deleted_at = now(), price_fresh = 1 where week_start = '2033-09-05' and key = 'B11-C'; get diagnostics n = row_count; out := out || 'admin retires and changes the price: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin retires and changes the price: denied; '; when others then out := out || 'retire+price: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set locked_at = null where week_start = '2033-09-05' and key = 'B11-C'; get diagnostics n = row_count; out := out || 'admin unlocks a locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin unlocks a locked row: denied; '; when others then out := out || 'unlock: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set price_fresh = 1 where week_start = '2033-09-05' and key = 'B11-C'; get diagnostics n = row_count; out := out || 'admin edits a live locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin edits a live locked row: denied; '; when others then out := out || 'edit locked: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the retired row stays retired for the Admin as well
+  begin update public.price_list_week set deleted_at = null, deleted_by = null where week_start = '2033-09-05' and key = 'B11-A'; get diagnostics n = row_count; out := out || 'P11 admin revives a retired row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P11 admin revives a retired row: denied; '; when others then out := out || 'admin revive: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set deleted_at = now() + interval '1 day' where week_start = '2033-09-05' and key = 'B11-A'; get diagnostics n = row_count; out := out || 'admin retires a retired row again: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin retires a retired row again: denied; '; when others then out := out || 'retire twice: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  perform set_config('request.jwt.claims', '{"email":"b11-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  -- P11: the lead revives the retired row and puts a new price on it
+  begin update public.price_list_week set deleted_at = null, deleted_by = null, price_fresh = 99999 where week_start = '2033-09-05' and key = 'B11-B'; get diagnostics n = row_count;
+    out := out || 'P11 lead revives a retired row with a new price: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P11 lead revives a retired row with a new price: denied; '; when others then out := out || 'lead revive: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set price_fresh = 99999 where week_start = '2033-09-05' and key = 'B11-E'; get diagnostics n = row_count;
+    out := out || 'P11 lead edits the price of a retired row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P11 lead edits the price of a retired row: denied; '; when others then out := out || 'lead edit retired: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set price_fresh = 99999 where week_start = '2033-09-05' and key = 'B11-C'; get diagnostics n = row_count;
+    out := out || 'lead edits a live locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'lead edits a live locked row: denied; '; when others then out := out || 'lead edit locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set deleted_at = now() where week_start = '2033-09-05' and key = 'B11-C'; get diagnostics n = row_count;
+    out := out || 'lead retires a locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'lead retires a locked row: denied; '; when others then out := out || 'lead retire: ERROR(!) ' || sqlerrm || '; '; end;
+  -- an unlocked row is the lead's to edit and to lock
+  begin update public.price_list_week set price_fresh = 28500 where week_start = '2033-09-05' and key = 'B11-D'; get diagnostics n = row_count;
+    out := out || 'lead edits an unlocked row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lead edits an unlocked row: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.price_list_week set locked_at = now() where week_start = '2033-09-05' and key = 'B11-D'; get diagnostics n = row_count;
+    out := out || 'lead locks an unlocked row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lead locks: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b11-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.price_list_week set price_fresh = 1 where week_start = '2033-09-05' and key = 'B11-D'; get diagnostics n = row_count; out := out || 'sales edits a price row: rows=' || n || case when n = 0 then ' (refused)' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'sales edits a price row: denied; '; when others then out := out || 'sales edit: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select price_fresh, deleted_at into x, da from public.price_list_week where week_start = '2033-09-05' and key = 'B11-B';
+  out := out || 'retired row B stays at ' || x::text || ' retired=' || (da is not null)::text || case when x = 26000 and da is not null then '' else '(!)' end || '; ';
+  select price_fresh, deleted_at into x, da from public.price_list_week where week_start = '2033-09-05' and key = 'B11-E';
+  out := out || 'retired row E stays at ' || x::text || ' retired=' || (da is not null)::text || case when x = 29000 and da is not null then '' else '(!)' end || '; ';
+  select price_fresh, deleted_at into x, da from public.price_list_week where week_start = '2033-09-05' and key = 'B11-A';
+  out := out || 'retired row A stays at ' || x::text || ' retired=' || (da is not null)::text || case when x = 25000 and da is not null then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-9 P11 (rolled back): %', out;
+end $$;
+
+-- B-R83 A-REL-10 / O31(a) (probe P12): lock_commitments refuses a week that has started (unless admin), refuses (23514,
+-- keys listed) a key whose sizes carry different prices, writes one price per key, leaves a retired locked price row alone
+do $$
+declare out text := ''; n int; x numeric; da timestamptz; r text;
+  cur date := date_trunc('week', (now() at time zone 'Asia/Jakarta')::date)::date;
+  nx date := date_trunc('week', date '2033-10-05')::date; nx2 date := date_trunc('week', date '2033-10-05')::date + 7;
+begin
+  insert into public.app_user(email, role) values ('b12-lead@x.test','commercial_lead'),('b12-adm@x.test','admin'),('b12-sales@x.test','sales');
+  delete from public.rebuild_queue where date >= '2020-01-01' and date <= '2020-01-31';
+
+  -- P12: a week that has started. Drafts for two past Mondays and for the running week.
+  insert into public.sales_commitment (week_start, key, fresh_kg, price) values ('2020-01-06', 'B12-P1', 10, 30000), ('2020-01-13', 'B12-P2', 10, 30000), (cur, 'B12-P3', 10, 30000);
+  perform set_config('request.jwt.claims', '{"email":"b12-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments('2020-01-06', '{}'::jsonb); out := out || 'P12 lead locks a past week: LOCKED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P12 lead locks a past week: denied; ';
+            when others then out := out || 'P12 lead past week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin n := public.lock_commitments(cur, '{}'::jsonb); out := out || 'P12 lead locks the running week: LOCKED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P12 lead locks the running week: denied; ';
+            when others then out := out || 'P12 lead running week: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b12-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments('2020-01-13', '{}'::jsonb); out := out || 'sales locks: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales locks: denied; ';
+            when others then out := out || 'sales lock: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  -- the admin corrects a week that has started
+  perform set_config('request.jwt.claims', '{"email":"b12-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments('2020-01-13', '{}'::jsonb); out := out || 'admin locks a past week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin locks a past week: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.sales_commitment where week_start in ('2020-01-06', cur) and status = 'locked'; out := out || 'drafts of the refused weeks locked=' || n || case when n = 0 then '' else '(!)' end || '; ';
+
+  -- P12: one key, two sizes, two prices. Next week: K differs, OK agrees, N has one size, M has a size without price
+  insert into public.sales_commitment (week_start, key, size_kg, fresh_kg, price) values
+    (nx, 'B12-K', 1.0, 10, 100), (nx, 'B12-K', 1.2, 10, 120), (nx, 'B12-OK', 1.0, 10, 90), (nx, 'B12-OK', 1.2, 10, 90), (nx, 'B12-N', null, 10, 50),
+    (nx, 'B12-M', 1.0, 10, null), (nx, 'B12-M', 1.2, 10, 70);
+  perform set_config('request.jwt.claims', '{"email":"b12-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments(nx, '{}'::jsonb); out := out || 'P12 differing prices per size: LOCKED rows=' || n || '(!); ';
+  exception when others then
+    out := out || 'P12 differing prices per size: rejected (' || case when sqlstate = '23514' and sqlerrm like '%B12-K%' and sqlerrm not like '%B12-OK%' and sqlerrm not like '%B12-M%' then '23514, only B12-K named' else sqlstate || ' ' || sqlerrm || '(!)' end || '); ';
+  end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.sales_commitment where week_start = nx and status = 'draft'; out := out || 'drafts after the refusal=' || n || case when n = 7 then '' else '(!)' end || '; ';
+  select count(*) into n from public.price_list_week where week_start = nx; out := out || 'price list rows after the refusal=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  -- the lead aligns the prices: now the week locks and each key has its one price
+  update public.sales_commitment set price = 100 where week_start = nx and key = 'B12-K' and size_kg = 1.2 and status = 'draft';
+  perform set_config('request.jwt.claims', '{"email":"b12-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments(nx, '{}'::jsonb); out := out || 'aligned prices lock rows=' || n || case when n = 7 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'aligned prices: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select string_agg(key || '=' || price_fresh::text, ',' order by key) into r from public.price_list_week where week_start = nx;
+  out := out || 'price list ' || coalesce(r, 'none') || case when r = 'B12-K=100.0000,B12-M=70.0000,B12-N=50.0000,B12-OK=90.0000' then '' else '(!)' end || '; ';
+
+  -- a locked price row that the Admin retired is left alone by the lock (not revived, not repriced)
+  insert into public.price_list_week (week_start, key, price_fresh, price_frozen, locked_at, locked_by, deleted_at, deleted_by) values (nx2, 'B12-R', 31000, 27000, now(), 'b12-lead@x.test', now(), 'b12-adm@x.test');
+  insert into public.sales_commitment (week_start, key, fresh_kg, price) values (nx2, 'B12-R', 10, 130), (nx2, 'B12-S', 10, 140);
+  perform set_config('request.jwt.claims', '{"email":"b12-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.lock_commitments(nx2, '{}'::jsonb); out := out || 'lock beside a retired locked price row rows=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'lock beside a retired row: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select price_fresh, deleted_at into x, da from public.price_list_week where week_start = nx2 and key = 'B12-R';
+  out := out || 'P11 retired price row after the lock stays at ' || coalesce(x::text, 'null') || ' retired=' || (da is not null)::text || case when x = 31000 and da is not null then '' else '(!)' end || '; ';
+  select price_fresh into x from public.price_list_week where week_start = nx2 and key = 'B12-S' and deleted_at is null;
+  out := out || 'new key gets its price=' || coalesce(x::text, 'null') || case when x = 140 then '' else '(!)' end || '; ';
+  out := out || 'anon executes lock_commitments=' || has_function_privilege('anon', 'public.lock_commitments(date,jsonb)', 'execute')::text
+    || case when has_function_privilege('anon', 'public.lock_commitments(date,jsonb)', 'execute') then '(!)' else '' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B2 A-REL-10 O31 P12 (rolled back): %', out;
+end $$;
+
+-- B-R83 B-REL-7: the triggers find a line's SKU through the item map as the engine does (trim of JS white space, upper
+-- case): a code typed in lower case or with spaces is the same SKU, not "no SKU" (a false denial)
+do $$
+declare out text := ''; n int; wk uuid; k text; c text; i int;
+begin
+  insert into public.app_user(email, role) values ('b7x-sales@x.test','sales');
+  -- JLB0593 is RPA|Karkas|Fresh and JLB0092 RPA|Kepala|Fresh in the seed
+  insert into public.sales_assignment (sales_rep, email, key) values ('B7X', 'b7x-sales@x.test', 'RPA|Karkas|Fresh');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2033-11-07', '2033-11-10', '2033-11-05') returning id into wk;
+
+  begin
+    k := public.sales_key(' jlb0593 ', null); out := out || 'sales_key(lower case, spaces)=' || coalesce(k, 'null') || case when k = 'RPA|Karkas|Fresh' then '' else '(!)' end || '; ';
+    k := public.sales_key(E' JLB0593　', null); out := out || 'sales_key(nbsp, ideographic space)=' || coalesce(k, 'null') || case when k = 'RPA|Karkas|Fresh' then '' else '(!)' end || '; ';
+    k := public.sales_key(E'\tJLB0593\n', null); out := out || 'sales_key(tab, newline)=' || coalesce(k, 'null') || case when k = 'RPA|Karkas|Fresh' then '' else '(!)' end || '; ';
+    k := public.sales_key('JLB0593', '  X|Y  '); out := out || 'sales_key(key_manual wins, trimmed)=' || coalesce(k, 'null') || case when k = 'X|Y' then '' else '(!)' end || '; ';
+    k := public.sales_key('   ', null); out := out || 'sales_key(blank)=' || coalesce(k, 'null') || case when k is null then '' else '(!)' end || '; ';
+    k := public.sales_key('NOPE-123', null); out := out || 'sales_key(unknown)=' || coalesce(k, 'null') || case when k is null then '' else '(!)' end || '; ';
+    -- every white-space character JS trim() removes, at both ends, and none in the middle
+    for i in select unnest(array[9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279]) loop
+      c := public.norm_code(chr(i) || 'ab' || chr(i) || 'c' || chr(i));
+      if c is distinct from 'AB' || chr(i) || 'C' then out := out || 'norm_code U+' || to_hex(i) || ' wrong(!); '; end if;
+    end loop;
+    out := out || 'norm_code on 25 white-space characters checked; ';
+    c := public.norm_code(E'​' || 'ab'); out := out || 'norm_code keeps zero-width space=' || (c = E'​' || 'AB')::text || case when c = E'​' || 'AB' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales_key / norm_code: ERROR(!) ' || sqlerrm || '; '; end;
+
+  perform set_config('request.jwt.claims', '{"email":"b7x-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.sales_line (week_id, date, status, customer, item_code, kg, price) values (wk, '2033-11-08', 'Order', 'PT A', ' jlb0593 ', 5, 30000); out := out || 'B-REL-7 assigned SKU typed in lower case with spaces: OK; ';
+  exception when insufficient_privilege then out := out || 'B-REL-7 assigned SKU typed in lower case with spaces: DENIED(!); '; when others then out := out || 'lower case: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, item_code, kg, price) values (wk, '2033-11-08', 'Order', 'PT A', E'JLB0593 ', 5, 30000); out := out || 'B-REL-7 assigned SKU with a trailing nbsp: OK; ';
+  exception when insufficient_privilege then out := out || 'B-REL-7 assigned SKU with a trailing nbsp: DENIED(!); '; when others then out := out || 'nbsp: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, key_manual, kg, price) values (wk, '2033-11-08', 'Order', 'PT A', ' RPA|Karkas|Fresh ', 5, 30000); out := out || 'key_manual with spaces: OK; ';
+  exception when others then out := out || 'key_manual with spaces: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, item_code, kg, price) values (wk, '2033-11-08', 'Order', 'PT A', ' jlb0092 ', 5, 30000); out := out || 'another SKU in lower case: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'another SKU in lower case: denied; '; when others then out := out || 'other SKU: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.sales_line (week_id, date, status, customer, item_code, kg, price) values (wk, '2033-11-08', 'Order', 'PT A', '   ', 5, 30000); out := out || 'blank item code: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'blank item code: denied; '; when others then out := out || 'blank: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B2 B-REL-7 (rolled back): %', out;
+end $$;
+
+-- B-R83 B-REL-2 / O38 (probe P16b): release_override_policy (who may override which control) is changed by migrations
+-- only; the Admin cannot widen it and then override his own release
+do $$
+declare out text := ''; n int; r text[]; wk date := '2033-12-05'; wid uuid; o text := '{"engineVersion":"t","controls":{"overall":"ADA GAGAL","controls":[{"no":8,"status":"LULUS"},{"no":11,"status":"GAGAL"}]}}';
+begin
+  insert into public.app_user(email, role) values ('b16-adm@x.test','admin'),('b16-fin@x.test','finance'),('b16-sales@x.test','sales');
+  insert into public.week (week_start, update_date, tb_opening_date) values (wk, '2033-12-08', '2033-12-03') returning id into wid;
+  delete from public.rebuild_queue where date between wk and wk + 6;
+
+  perform set_config('request.jwt.claims', '{"email":"b16-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  -- the probe: the Admin adds himself to C11, then overrides a failing control of the week
+  begin update public.release_override_policy set allowed_roles = array['finance', 'admin'] where code = 'C11'; get diagnostics n = row_count;
+    out := out || 'P16b admin widens the policy of C11: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'P16b admin widens the policy of C11: denied; '; when others then out := out || 'P16b widen: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', wk::text, 'C11', 'override oleh admin sendiri', 'tidak ada'); out := out || 'P16b admin overrides C11 afterwards: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'P16b admin overrides C11 afterwards: denied; '; when others then out := out || 'P16b override: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override_policy (code, allowed_roles, note) values ('C77', array['admin'], 'x'); out := out || 'admin inserts a policy row: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'admin inserts a policy row: denied; '; when others then out := out || 'insert policy: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.release_override_policy where code = 'C11'; get diagnostics n = row_count; out := out || 'admin deletes a policy row: rows=' || n || case when n = 0 then ' (refused)' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'admin deletes a policy row: denied; '; when others then out := out || 'delete policy: ERROR(!) ' || sqlerrm || '; '; end;
+  out := out || 'authenticated privileges on the policy: insert=' || has_table_privilege('authenticated', 'public.release_override_policy', 'insert')::text || ' update=' || has_table_privilege('authenticated', 'public.release_override_policy', 'update')::text
+    || ' delete=' || has_table_privilege('authenticated', 'public.release_override_policy', 'delete')::text || ' truncate=' || has_table_privilege('authenticated', 'public.release_override_policy', 'truncate')::text
+    || case when has_table_privilege('authenticated', 'public.release_override_policy', 'insert') or has_table_privilege('authenticated', 'public.release_override_policy', 'update')
+                 or has_table_privilege('authenticated', 'public.release_override_policy', 'delete') or has_table_privilege('authenticated', 'public.release_override_policy', 'truncate') then '(!)' else '' end || '; ';
+  begin perform public.release_week(wid, o, encode(sha256(convert_to(o, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'admin releases a week with C11 GAGAL: RELEASED(!); ';
+  exception when others then out := out || 'admin releases a week with C11 GAGAL: rejected; '; end;
+  execute 'reset role';
+  select allowed_roles into r from public.release_override_policy where code = 'C11';
+  out := out || 'policy of C11 stays ' || coalesce(r::text, 'null') || case when r = array['finance'] then '' else '(!)' end || '; ';
+
+  -- everyone still reads the policy; the migration-owned rows are there, C55 (O32b) and C53 / K35 (v5) included
+  perform set_config('request.jwt.claims', '{"email":"b16-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.release_override_policy; out := out || 'sales reads the policy rows>=30=' || (n >= 30)::text || case when n >= 30 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select allowed_roles into r from public.release_override_policy where code = 'C55'; out := out || 'policy of C55=' || coalesce(r::text, 'none') || case when r = array['finance'] then '' else '(!)' end || '; ';
+  select allowed_roles into r from public.release_override_policy where code = 'C53'; out := out || 'policy of C53=' || coalesce(r::text, 'none') || case when r = array['finance'] then '' else '(!)' end || '; ';
+  select allowed_roles into r from public.release_override_policy where code = 'K35'; out := out || 'policy of K35=' || coalesce(r::text, 'none') || case when r = array['finance'] then '' else '(!)' end || '; ';
+
+  -- Finance, the role the policy names, still overrides (the policy is read at the moment of the insert)
+  perform set_config('request.jwt.claims', '{"email":"b16-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', wk::text, 'C11', 'selisih sudah dijelaskan', 'WP-1'); out := out || 'finance overrides C11: OK; ';
+  exception when others then out := out || 'finance overrides C11: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B2 B-REL-2 O38 P16b (rolled back): %', out;
+end $$;
+
+-- B-R84 (K68; probes P2, P3, P4, P5): the database computes C53 (from batch.wp_received_at) and the K35 grid per day; the
+-- client snapshot is evidence, not the verdict; release_month holds V1 on C55; and a complete week is released
+do $$
+declare out text := ''; n int; r text; t text; today date := (now() at time zone 'Asia/Jakarta')::date;
+  w2 uuid; w3 uuid; w3b uuid; w4 uuid; w4b uuid; wok uuid; wcur uuid; cur date := date_trunc('week', (now() at time zone 'Asia/Jakarta')::date)::date;
+  s_nov3 text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]}}';
+  s_lulus text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"LULUS"},{"code":"C54","status":"LULUS"}]}';
+  s_belum text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"BELUM DIISI"}]}';
+  s_gagal text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"GAGAL"}]}';
+  s_plain text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]}}';
+begin
+  insert into public.app_user(email, role) values ('b84-fin@x.test','finance'),('b84-adm@x.test','admin');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-01', '2024-01-04', '2023-12-30') returning id into w2;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-08', '2024-01-11', '2024-01-06') returning id into w3;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-15', '2024-01-18', '2024-01-13') returning id into w3b;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-22', '2024-01-25', '2024-01-20') returning id into w4;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-29', '2024-02-01', '2024-01-27') returning id into w4b;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-05', '2024-02-08', '2024-02-03') returning id into wok;
+  delete from public.rebuild_queue where date between '2024-01-01' and '2024-03-31';
+  update public.app_setting set value = '{"enabled": false}' where key in ('v4_release', 'v5_costing', 'v5_input');
+
+  -- the helper C53 of the tables: Aktual, no WP, past the deadline (cut date + hours/24 rounded, at wp_due_time, WIB)
+  begin
+    insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (w3, '2024-01-09', 'Aktual', 'B84-LATE', 1000);
+    insert into public.batch (week_id, date, status, batch_ref, lb_kg, wp_received_at) values (w3, '2024-01-09', 'Aktual', 'B84-GOT', 1000, '2024-01-10T09:00:00+07');
+    insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (w3, '2024-01-09', 'Rencana', 'B84-PLAN', 1000);
+    r := public.c53_late_batches(w3, '2024-01-10T11:59:00+07'); out := out || 'C53 helper before the deadline=' || coalesce(r, 'none') || case when r is null then '' else '(!)' end || '; ';
+    r := public.c53_late_batches(w3, '2024-01-10T12:01:00+07'); out := out || 'C53 helper after the deadline=' || coalesce(r, 'none') || case when r like 'B84-LATE tenggat 10/01 12.00' then '' else '(!)' end || '; ';
+    insert into public.parameter (week_id, wp_due_hours, wp_due_time) values (w3b, 36, '09:30') on conflict (week_id) do update set wp_due_hours = 36, wp_due_time = '09:30';
+    insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (w3b, '2024-01-16', 'Aktual', 'B84-36H', 1000);
+    r := public.c53_late_batches(w3b, '2024-01-18T09:29:00+07'); out := out || '36 h → 2 days: before=' || coalesce(r, 'none') || case when r is null then '' else '(!)' end || '; ';
+    r := public.c53_late_batches(w3b, '2024-01-18T09:31:00+07'); out := out || '36 h → 2 days: after=' || coalesce(r, 'none') || case when r like 'B84-36H tenggat 18/01 09.30' then '' else '(!)' end || '; ';
+    update public.batch set wp_received_at = '2024-01-19T09:00:00+07' where batch_ref = 'B84-36H';
+    r := public.c53_late_batches(w3b, now()); out := out || 'WP received (even after the deadline) is not "belum diisi" (engine c53)=' || coalesce(r, 'none') || case when r is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'C53 helper: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- P2: v5_costing on, a snapshot without controls_v3 (a forged or old client) is not accepted
+  update public.app_setting set value = '{"enabled": true}' where key = 'v5_costing';
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w2, s_nov3, encode(sha256(convert_to(s_nov3, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P2 snapshot without controls_v3, v5_costing on: RELEASED(!); ';
+  exception when others then out := out || 'P2 snapshot without controls_v3, v5_costing on: rejected (' || case when sqlerrm like '%snapshot tidak lengkap%' then 'snapshot tidak lengkap' else sqlerrm || '(!)' end || '); '; end;
+  begin perform public.release_week(w2, s_lulus, encode(sha256(convert_to(s_lulus, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'complete snapshot, no late batch: released; ';
+  exception when others then out := out || 'complete snapshot, no late batch: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  begin select count(*) into n from public.release r2 where r2.week_id = w2 and r2.note is null; out := out || 'released w/o note=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release.note: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- P3: v4_release off, v5_costing on, a late WP and a snapshot that says C53 LULUS
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w3, s_lulus, encode(sha256(convert_to(s_lulus, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P3 late WP, snapshot says LULUS, v4_release off: RELEASED(!); ';
+  exception when others then out := out || 'P3 late WP, snapshot says LULUS, v4_release off: rejected (' || case when sqlerrm like '%C53 BELUM DIISI%' and sqlerrm like '%B84-LATE%' and sqlerrm not like '%B84-GOT%' then 'C53, only the late batch named' else sqlerrm || '(!)' end || '); '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2024-01-08', 'C53', 'WP B84-LATE sudah dicek manual', 'WP-84'); out := out || 'finance C53 override: OK; ';
+  exception when others then out := out || 'finance C53 override: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(w3, s_lulus, encode(sha256(convert_to(s_lulus, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P3 with the C53 override: released; ';
+  exception when others then out := out || 'P3 with the C53 override: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  begin select note into t from public.release where week_id = w3; out := out || 'release.note=' || coalesce(t, 'null') || case when t like 'K68 C53: DB BELUM DIISI (B84-LATE tenggat%≠ snapshot LULUS%override C53%' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release.note: ERROR(!) ' || sqlerrm || '; '; end;
+  select status into t from public.week where id = w3; out := out || 'week status=' || t || case when t = 'released' then '' else '(!)' end || '; ';
+
+  -- P3b: nothing is late in the tables, but the snapshot itself says C53 BELUM DIISI / GAGAL: held too (O22b), lifted by the override
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w3b, s_belum, encode(sha256(convert_to(s_belum, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P3 snapshot C53 BELUM DIISI, v4_release off: RELEASED(!); ';
+  exception when others then out := out || 'P3 snapshot C53 BELUM DIISI, v4_release off: rejected (' || case when sqlerrm like '%C53 BELUM DIISI (snapshot)%' then 'C53 snapshot' else sqlerrm || '(!)' end || '); '; end;
+  begin perform public.release_week(w3b, s_gagal, encode(sha256(convert_to(s_gagal, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'snapshot C53 GAGAL: RELEASED(!); ';
+  exception when others then out := out || 'snapshot C53 GAGAL: rejected; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2024-01-15', 'C53', 'C53 diperiksa ulang manual', 'WP-85'); out := out || 'finance C53 override: OK; ';
+  exception when others then out := out || 'finance C53 override: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(w3b, s_belum, encode(sha256(convert_to(s_belum, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'snapshot C53 BELUM DIISI with the override: released; ';
+  exception when others then out := out || 'snapshot C53 BELUM DIISI with the override: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  begin select note into t from public.release where week_id = w3b; out := out || 'release.note=' || coalesce(t, 'null') || case when t like 'K68 C53: DB LULUS ≠ snapshot BELUM DIISI%override C53%' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release.note: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- v5_costing off: C53 of the snapshot as in v5.1 (strict mode only), nothing computed from the tables
+  update public.app_setting set value = '{"enabled": false}' where key = 'v5_costing';
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-19', '2024-02-22', '2024-02-17') returning id into wcur;
+  insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (wcur, '2024-02-20', 'Aktual', 'B84-OFF', 1000);
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wcur, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'v5_costing off, late batch, snapshot without controls_v3: released (as v5.1); ';
+  exception when others then out := out || 'v5_costing off: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- P4: v5_input on. One cell on Monday only: the other days of the past week have no grid
+  update public.app_setting set value = '{"enabled": true}' where key = 'v5_input';
+  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-01-22', 'gl_daily', 'inventory_accounting', 'passed');
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w4, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P4 one Monday cell only: RELEASED(!); ';
+  exception when others then out := out || 'P4 one Monday cell only: rejected (' || case when sqlerrm like '%grid belum dibangun untuk 23/01, 24/01, 25/01, 26/01, 27/01, 28/01%' then 'grid belum dibangun untuk 23/01 … 28/01' else sqlerrm || '(!)' end || '); '; end;
+  execute 'reset role';
+  -- two days still missing (27/01, 28/01): the message names exactly those
+  insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, 'gl_daily', 'inventory_accounting', 'passed' from generate_series('2024-01-23'::date, '2024-01-26'::date, interval '1 day') d;
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w4, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P4 grid until Friday: RELEASED(!); ';
+  exception when others then out := out || 'P4 grid until Friday: rejected (' || case when sqlerrm like '%grid belum dibangun untuk 27/01, 28/01%' then '27/01, 28/01' else sqlerrm || '(!)' end || '); '; end;
+  execute 'reset role';
+  insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, 'gl_daily', 'inventory_accounting', 'passed' from generate_series('2024-01-27'::date, '2024-01-28'::date, interval '1 day') d;
+  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-01-26', 'release_week', 'finance', 'late');
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w4, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P4 full grid (release task red): released; ';
+  exception when others then out := out || 'P4 full grid: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  -- a grid with one Monday cell and Finance's override K35: released, and the note says what the override lifted
+  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-01-29', 'gl_daily', 'inventory_accounting', 'passed');
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2024-01-29', 'K35', 'grid minggu ini dibangun manual', 'WP-86'); out := out || 'finance K35 override: OK; ';
+  exception when others then out := out || 'finance K35 override: DENIED(!) ' || sqlerrm || '; '; end;
+  begin perform public.release_week(w4b, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'P4 one Monday cell with the K35 override: released; ';
+  exception when others then out := out || 'P4 with the K35 override: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  begin select note into t from public.release where week_id = w4b; out := out || 'release.note=' || coalesce(t, 'null') || case when t like 'K35 dilepas override: grid belum dibangun 30/01, 31/01, 01/02, 02/02, 03/02, 04/02%' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release.note: ERROR(!) ' || sqlerrm || '; '; end;
+  -- no grid at all stays refused (K45), also with the override
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-26', '2024-02-29', '2024-02-24') returning id into wcur;
+  insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('week', '2024-02-26', 'K35', 'grid minggu ini dibangun manual', 'WP-87');
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wcur, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'no grid at all, with the override: RELEASED(!); ';
+  exception when others then out := out || 'no grid at all, with the override: rejected (' || case when sqlerrm like '%grid kelengkapan belum dibangun%' then 'grid belum dibangun' else sqlerrm || '(!)' end || '); '; end;
+  execute 'reset role';
+  -- the running week: only the days up to yesterday count (today and the days to come have no cell yet)
+  begin
+    delete from public.week where week_start = cur;
+    insert into public.week (week_start, update_date, tb_opening_date) values (cur, cur + 3, cur - 2) returning id into wcur;
+    delete from public.rebuild_queue where date between cur and cur + 6;
+    insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, 'gl_daily', 'inventory_accounting', 'passed' from generate_series(cur::timestamp, greatest(cur, today - 1)::timestamp, interval '1 day') d;
+    perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+    execute 'set local role authenticated';
+    begin perform public.release_week(wcur, s_plain, encode(sha256(convert_to(s_plain, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'running week, cells up to yesterday: released; ';
+    exception when others then out := out || 'running week, cells up to yesterday: REJECTED(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  exception when others then out := out || 'running week: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- P5: release_month V1 with C55 PERIKSA
+  update public.app_setting set value = '{"enabled": false}' where key = 'v5_input';
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  declare
+    m_per text := '{"rule_version":"v5-test","controls":[{"code":"C33","status":"LULUS"},{"code":"C34","status":"LULUS"},{"code":"C49","status":"LULUS"},{"code":"C55","status":"PERIKSA"}]}';
+    m_ok text := '{"rule_version":"v5-test","controls":[{"code":"C33","status":"LULUS"},{"code":"C34","status":"LULUS"},{"code":"C49","status":"LULUS"},{"code":"C55","status":"LULUS"}]}';
+    m_none text := '{"rule_version":"v5-test","controls":[{"code":"C33","status":"LULUS"},{"code":"C34","status":"LULUS"},{"code":"C49","status":"LULUS"}]}';
+  begin
+    begin perform public.release_month('2024-03-01', 'V1', m_per, encode(sha256(convert_to(m_per, 'UTF8')), 'hex'), '2024-03-20', '{"revenue":"1"}'::jsonb, 'v5-test', null, null); out := out || 'P5 V1 with C55 PERIKSA: LOCKED(!); ';
+    exception when others then out := out || 'P5 V1 with C55 PERIKSA: rejected (' || case when sqlerrm like '%C55 PERIKSA%' then 'C55' else sqlerrm || '(!)' end || '); '; end;
+    begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2024-03-01:V1', 'C55', 'beban tetap Maret memakai estimasi, disetujui', 'email 20 Mar'); out := out || 'finance C55 override: OK; ';
+    exception when others then out := out || 'finance C55 override: DENIED(!) ' || sqlerrm || '; '; end;
+    begin perform public.release_month('2024-03-01', 'V1', m_per, encode(sha256(convert_to(m_per, 'UTF8')), 'hex'), '2024-03-20', '{"revenue":"1"}'::jsonb, 'v5-test', null, null); out := out || 'P5 V1 with the C55 override: locked; ';
+    exception when others then out := out || 'P5 V1 with the C55 override: REJECTED(!) ' || sqlerrm || '; '; end;
+    begin perform public.release_month('2024-04-01', 'V1', m_ok, encode(sha256(convert_to(m_ok, 'UTF8')), 'hex'), '2024-04-20', '{"revenue":"1"}'::jsonb, 'v5-test', null, null); out := out || 'V1 with C55 LULUS: locked; ';
+    exception when others then out := out || 'V1 with C55 LULUS: REJECTED(!) ' || sqlerrm || '; '; end;
+    begin perform public.release_month('2024-05-01', 'V1', m_none, encode(sha256(convert_to(m_none, 'UTF8')), 'hex'), '2024-05-20', '{"revenue":"1"}'::jsonb, 'v5-test', null, null); out := out || 'V1 without C55 in the snapshot (v5_pl off): locked; ';
+    exception when others then out := out || 'V1 without C55: REJECTED(!) ' || sqlerrm || '; '; end;
+  end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b84-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2024-06-01:V1', 'C55', 'admin tidak boleh override C55', 'x'); out := out || 'admin C55 override: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'admin C55 override: denied; '; when others then out := out || 'admin C55 override: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.month_outlook_version v join public.month_outlook o on o.id = v.month_outlook_id where o.month in ('2024-03-01', '2024-04-01', '2024-05-01') and v.version = 'V1';
+  out := out || 'V1 rows locked=' || n || case when n = 3 then '' else '(!)' end || '; ';
+
+  -- a complete week, every gate on: v4_release (strict), v5_costing, v5_input, WP in, the whole grid, no pending rebuild
+  update public.app_setting set value = '{"enabled": true}' where key in ('v4_release', 'v5_costing', 'v5_input');
+  insert into public.batch (week_id, date, status, batch_ref, lb_kg, wp_received_at) values (wok, '2024-02-06', 'Aktual', 'B84-OK1', 1000, '2024-02-07T09:00:00+07'), (wok, '2024-02-07', 'Aktual', 'B84-OK2', 1000, '2024-02-08T08:00:00+07');
+  insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, k, 'inventory_accounting', 'passed'
+    from generate_series('2024-02-05'::date, '2024-02-11'::date, interval '1 day') d cross join (values ('gl_daily'), ('stock_daily')) v(k);
+  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-02-08', 'release_week', 'finance', 'late');
+  delete from public.rebuild_queue where date between '2024-02-05' and '2024-02-11';
+  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(wok, s_lulus, encode(sha256(convert_to(s_lulus, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'COMPLETE WEEK, every gate on, no override: released; ';
+  exception when others then out := out || 'COMPLETE WEEK: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin select count(*), max(note) into n, t from public.release where week_id = wok; out := out || 'release rows=' || n || ' note=' || coalesce(t, 'none') || case when n = 1 and t is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release rows: ERROR(!) ' || sqlerrm || '; '; end;
+  select status into t from public.week where id = wok; out := out || 'week status=' || t || case when t = 'released' then '' else '(!)' end || '; ';
+  update public.app_setting set value = '{"enabled": false}' where key in ('v4_release', 'v5_costing', 'v5_input');
+  raise exception 'RLS-RESULTS v5.2 B2 B-R84 P2 P3 P4 P5 (rolled back): %', out;
+end $$;
+
+-- v5.2 B2 hygiene: SECURITY DEFINER with a fixed search_path, nothing of v5.2 for anon, helpers not callable by clients,
+-- no drop or rename of what v5.1 shipped (functions keep their signatures), schema versions in order
+do $$
+declare out text := ''; bad text; n int; f text; sig text[] := array[
+  'public.schema_version()', 'public.assignment_covers(text,text)', 'public.norm_code(text)', 'public.sales_key(text,text)', 'public.advance_update_date(uuid,date)',
+  'public.lock_commitments(date,jsonb)', 'public.release_week(uuid,text,text,text,jsonb)', 'public.release_month(date,text,text,text,date,jsonb,text,jsonb,numeric)',
+  'public.sales_line_in_scope(text,text,boolean)', 'public.c53_late_batches(uuid,timestamptz)', 'public.k35_grid_gaps(date)', 'public.floor_of(text,date)'];
+begin
+  select string_agg(p.oid::regprocedure::text, ', ') into bad from pg_proc p
+   where p.pronamespace = 'public'::regnamespace and p.prosecdef and (p.proconfig is null or not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%'));
+  out := out || 'SECURITY DEFINER functions without a fixed search_path=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+  select string_agg(p.oid::regprocedure::text, ', ') into bad from pg_proc p
+   where p.pronamespace = 'public'::regnamespace and p.prosecdef and has_function_privilege('anon', p.oid, 'execute');
+  out := out || 'SECURITY DEFINER functions executable by anon=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+  -- the functions this release touches: signatures as v5.1 (create or replace keeps one function per name), none for anon
+  foreach f in array sig loop
+    begin
+      if has_function_privilege('anon', f, 'execute') then out := out || f || ' executable by anon(!); '; end if;
+    exception when others then out := out || f || ': MISSING(!); '; end;
+  end loop;
+  select count(*) into n from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('release_week', 'release_month', 'lock_commitments', 'advance_update_date', 'sales_key', 'schema_version', 'assignment_covers', 'norm_code');
+  out := out || 'one function per name (no overload)=' || n || case when n = 8 then '' else '(!)' end || '; ';
+  -- helpers that only the definer functions call are not callable through the API
+  foreach f in array array['public.sales_line_in_scope(text,text,boolean)', 'public.c53_late_batches(uuid,timestamptz)', 'public.k35_grid_gaps(date)', 'public.floor_of(text,date)'] loop
+    begin
+      if has_function_privilege('authenticated', f, 'execute') then out := out || f || ' executable by clients(!); '; end if;
+    exception when others then out := out || f || ': MISSING(!); '; end;
+  end loop;
+  out := out || 'helpers checked for clients; ';
+  -- tables and views: nothing of v5.2 for anon
+  begin
+    select string_agg(x, ', ') into bad from unnest(array['public.schema_registry', 'public.surplus_for_sales_v52', 'public.commercial_daily_sales', 'public.commercial_daily_sales_v5']) x
+     where has_table_privilege('anon', x, 'select') or has_table_privilege('anon', x, 'insert') or has_table_privilege('anon', x, 'update') or has_table_privilege('anon', x, 'delete');
+    out := out || 'tables and views of v5.2 with anon privileges=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'anon table privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the versions in the registry follow each other: v5.2 B2 registers 5.2.0, 5.2.1, 5.2.2
+  begin
+    select string_agg(version, ',' order by version) into bad from public.schema_registry where version in ('5.2.0', '5.2.1', '5.2.2');
+    out := out || 'registry has ' || coalesce(bad, 'none') || case when bad = '5.2.0,5.2.1,5.2.2' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'registry: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B2 hygiene (rolled back): %', out;
+end $$;
