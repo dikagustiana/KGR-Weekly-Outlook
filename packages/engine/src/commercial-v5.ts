@@ -108,7 +108,7 @@ export const baseKey = (key: string) => key.replace(/\|(Fresh|Frozen|n\/a)$/, ""
  * PRD v5.1 K46: one locked version per key (and size) counts, the highest — data from before lock_commitments can hold
  * two locked versions of a key, which would count the commitment twice.
  */
-export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: string; kg: Num }[]; weekStart: ISODate }): OrderLine[] {
+export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: string; kg: Num }[]; weekStart: ISODate }): (OrderLine & { size_kg: Num | null })[] {
   const po = new Map<string, Decimal>();
   for (const o of x.orders) po.set(o.key, (po.get(o.key) ?? ZERO).plus(D(o.kg)));
   const latest = new Map<string, Commitment>();
@@ -117,12 +117,12 @@ export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: 
     const cur = latest.get(id);
     if (!cur || c.version > cur.version) latest.set(id, c);
   }
-  const out: OrderLine[] = [];
+  const out: (OrderLine & { size_kg: Num | null })[] = [];
   for (const c of latest.values()) {
     for (const [form, kg] of [["Fresh", c.fresh_kg], ["Frozen", c.frozen_kg]] as const) {
       const key = `${c.key}|${form}`;
       const extra = max(ZERO, D(kg).minus(po.get(key) ?? ZERO));
-      if (extra.gt(0)) out.push({ ref: `commitment:${key}:v${c.version}`, key, delivery_date: x.weekStart, demand_status: "Confirmed", kg: extra.toFixed(2), price: c.price === null ? null : String(c.price), customer: "komitmen Commercial" });
+      if (extra.gt(0)) out.push({ ref: `commitment:${key}:v${c.version}`, key, delivery_date: x.weekStart, demand_status: "Confirmed", kg: extra.toFixed(2), price: c.price === null ? null : String(c.price), customer: "komitmen Commercial", size_kg: c.size_kg ?? null });
     }
   }
   return out;

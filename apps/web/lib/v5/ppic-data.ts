@@ -47,7 +47,7 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const ws = src.week.week_start;
   const karkasKeys = [...src.keys.entries()].filter(([, k]) => k.segment === "RPA" && k.sku === "Karkas" && k.form !== "frozen").map(([key]) => key);
   const lines0 = src.orders.filter((o) => karkasKeys.includes(o.key) && o.delivery_date);
-  const ids = lines0.map((o) => o.id);
+  const ids = lines0.filter((o) => !o.synthetic).map((o) => o.id);
   const [items, sized, classes, map] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, item_name, size_kg").is("deleted_at", null).order("item_code").range(a, b)),
     // K42: the ids of a week's karkas lines go in chunks of 200 (URL length)
@@ -58,6 +58,7 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const item = new Map(items.map((i) => [String(i.item_code), i]));
   const lineSize = new Map(sized.map((r) => [String(r.id), s(r.size_kg)]));
   const sizeOf = (o: (typeof lines0)[number]): string | null => {
+    if (o.synthetic) return o.size_kg;
     const it = o.item_code ? item.get(o.item_code) : undefined;
     return lineSize.get(o.id) ?? s(it?.size_kg) ?? sizeKgOf(s(it?.item_name))?.toFixed(2) ?? null;
   };
