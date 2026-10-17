@@ -10,6 +10,7 @@ import { parseV3Table } from "@kgr/parsers";
 import { fetchAll } from "../data";
 import { applyChanges, WriteError } from "../write";
 import { plan0, registerV3Kind, type Row } from "../v3/uploads";
+import { must } from "../loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -59,7 +60,7 @@ registerV3Kind({
     const closed: string[] = [];
     for (const r of rows) {
       const id = String(r.data.sales_line_id);
-      const { data: line } = await sb.from("sales_line").select("kg, fulfilled_kg, cancelled_kg, status").eq("id", id).maybeSingle();
+      const line = must(await sb.from("sales_line").select("kg, fulfilled_kg, cancelled_kg, status").eq("id", id).maybeSingle(), "uploads-ppic.sales_line");
       const l = line as Row | null;
       if (!l || l.status !== "Order") continue;
       const chk = deliveryCheck({ kg: String(l.kg), fulfilled_kg: String(l.fulfilled_kg ?? 0), cancelled_kg: String(l.cancelled_kg ?? 0) }, String(r.data.kg));

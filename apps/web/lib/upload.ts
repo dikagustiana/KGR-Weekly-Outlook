@@ -124,7 +124,7 @@ export interface StageResult {
 async function nextSeq(sb: Supa, table: string, weekId: string | null): Promise<number> {
   let q = sb.from(table).select("seq").order("seq", { ascending: false }).limit(1);
   if (weekId) q = q.eq("week_id", weekId);
-  const { data } = await q.maybeSingle();
+  const data = must(await q.maybeSingle(), "upload.nextSeq");
   return Number((data as Row | null)?.seq ?? 0);
 }
 

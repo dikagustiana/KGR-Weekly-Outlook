@@ -13,7 +13,7 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import type { ModuleSettings } from "../modules-core";
 import { fetchAll, type WeekRow } from "../data";
-import { mustRows } from "../loader";
+import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "./uploads";
@@ -45,7 +45,7 @@ async function floors(sb: Supa, keys: string[], date: string): Promise<Map<strin
 }
 
 async function limitRpPerKg(sb: Supa): Promise<string> {
-  const { data } = await sb.rpc("discount_limit");
+  const data = must(await sb.rpc("discount_limit"), "discount.discount_limit") as string | null;
   return data === null || data === undefined ? "500" : String(data);
 }
 

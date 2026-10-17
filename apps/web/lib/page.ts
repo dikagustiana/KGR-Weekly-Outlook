@@ -4,6 +4,7 @@ import { isISODate } from "@kgr/engine";
 import { requireViewer, type Viewer } from "./session";
 import { computeForWeek, weeksCached, type Computed, type WeekRow } from "./data";
 import { supabaseServer } from "./supabase";
+import { must } from "./loader";
 import { currentView } from "./view-server";
 import type { ViewMode } from "./view";
 
@@ -33,9 +34,9 @@ export async function weekContext(weekStart: string): Promise<WeekCtx> {
   const [weeks, computed] = await Promise.all([weeksCached(), computeForWeek(weekStart)]);
   if (!computed) notFound();
   const sb = await supabaseServer();
-  const { data } = await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
-    .eq("week_id", computed.loaded.week.id).order("released_at", { ascending: false }).limit(1).maybeSingle();
-  return { viewer, weeks, week: computed.loaded.week, computed, lastRelease: (data as LastRelease) ?? null, view: await currentView(viewer) };
+  const data = must(await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
+    .eq("week_id", computed.loaded.week.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "page.release") as LastRelease | null;
+  return { viewer, weeks, week: computed.loaded.week, computed, lastRelease: data, view: await currentView(viewer) };
 }
 
 export type PageProps = { params: Promise<{ week: string }>; searchParams: Promise<Record<string, string | undefined>> };
