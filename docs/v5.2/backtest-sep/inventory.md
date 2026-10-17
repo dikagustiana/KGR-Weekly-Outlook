@@ -1,51 +1,60 @@
-# Backtest September 2026 — inventaris & kebenaran FS (Langkah 1)
+# Backtest September 2026 — langkah 1: inventaris dan kebenaran FS
 
-## Lingkungan
+Diperbarui agen Claude, 17 Okt 2026 (container cloud, Node 22, `@kgr/parsers` dengan xlsx 0.18.5 lokal; CI memakai
+0.20.3). Menggantikan versi DeepSeek; koreksinya di `docs/v5.2/audit-handover.md` § Backtest.
 
-- Branch `v5.2/bt-sep` (dari A1 `v5.2/a1-fail-closed`).
-- FS: `09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx` (36 sheet, dibaca openpyxl `data_only`).
-- **Blokir lingkungan (Langkah 2–4):** tidak ada PostgreSQL 16 / Docker / psql di mesin ini. Langkah muat-ke-mesin, rebuild, finalisasi, dan bandingkan belum bisa dijalankan sampai DB lokal tersedia (sama dengan `test:rls`).
+## Sumber
 
-## Sheet FS (36)
-
-`BS - Management Report`, `PL - Management Report`, `PL - Performance`, `DI - Note`, `DI - Sep wp`, `GL Aug Sep`, `GL SUMM`, `TB Accurate`, `PL`, `BS`, `Stock`, `INVENTORY`, `AR`, `AP`, `AP 26`, `FA`, `PREPAID RENT`, `PREPAID OTHER`, `UNEARNED INCOME`, `RETAL DEPOSIT AR`, `RENTAL DEPOSIT AP`, `MANUAL DISPOS`, `Sep 26`, bulan `Jan 26`…`Agt 26`, `Okt 24`…`Des 24`, `Sheet1`, `Slide`.
-
-- `DI - Note` 102×9; `DI - Sep wp` 6326×70; `TB Accurate` 223×40; `Stock` 96×4; `INVENTORY` 3×1.
-
-## Kolom September
-
-`PL/BS - Management Report` kolom **L** = September 2026 (baris 10 tanggal `2026-09-30`).
-
-## Angka cek FS (kolom L) vs `fixtures/fs-2026-09/inputs.json`
-
-| Pos | FS v2 (L) | fixtures | Selisih |
+| Sumber | Lokasi | sha256 | Status |
 |---|---|---|---|
-| Revenue | 5.039,9 jt | 5.039,9 jt | ✓ |
-| GP | −475,4 jt | −475,4 jt | ✓ |
-| NIBT | **−953,9 jt** | −910,1 jt | −43,8 jt ⚠️ |
-| Kas | 103,0 jt | 103,0 jt | ✓ |
-| Ekuitas | **658,7 jt** | 702,6 jt | −43,9 jt ⚠️ |
+| FS v2 (acuan kebenaran) | `reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx` | `7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5` | di repo; sama dengan `fixtures/fs-2026-09/source.json` |
+| GL Agustus | sheet `Agt 26` berkas FS v2 (ekspor Accurate "Kode Perkiraan / Debet / Kredit") | idem | di repo |
+| GL September | sheet `Sep 26` berkas FS v2 (ekspor Accurate "Daftar Histori GL") | idem | di repo |
+| `GL KGR Rev 1.xls`, `GL KGR.xls`, `Detail Sales September.xls`, `Valuation detail.xls`, salinan FS v2 di `Downloads` | mesin Windows DeepSeek | — | **tidak ada** di repo (BUTUH-DIKA D6) |
 
-**Selisih sumber** (bukan bug app): NIBT dan Ekuitas FS v2 berbeda ~43,8 jt dari angka fixtures (yang "perlu dicocokkan ulang ke workbook asli" per REVIEW §7). Kemungkinan fixtures memakai versi FS/DI berbeda. Dicatat, **tidak diakali**. `expected.json` dibangun dari FS v2 (acuan kebenaran), dengan rujukan sel `PL!B12`…`BS!B77`.
+## Angka acuan (`expected.json`, dibangkitkan `tests/backtest/sep-2026/expected.py`)
 
-## Berkas `.xls` (4)
+Kunci = sel sebenarnya (`'PL - Management Report'!L51` dst.; Agustus kolom K, September kolom L).
 
-`GL KGR Rev 1.xls` (input jurnal), `GL KGR.xls` (lama, diff), `Detail Sales September.xls`, `Valuation detail.xls`. Dibaca SheetJS (`.xls` BIFF; openpyxl tidak baca `.xls`). Inventaris sheet per berkas menyusul di `pnpm backtest:sep`.
+| Pos | Agustus | September | Sel (Sep) |
+|---|---|---|---|
+| Revenue | 8.361.760.903,00 | 5.039.854.191,00 | `'PL - Management Report'!L12` |
+| GP | 306.709.757,03 | −475.432.415,26 | L15 |
+| NIBT | −26.517.860,51 | −910.058.539,73 | L51 |
+| Kas | 495.363.150,28 | 102.996.959,86 | `'BS - Management Report'!L14` |
+| Ekuitas | 1.612.612.014,63 | 702.553.474,90 | `'BS - Management Report'!L77` |
 
-## Status
+Angka DeepSeek (NIBT Sep −953,9 jt, ekuitas 658,7 jt) berasal dari salinan lain bernama sama di `Downloads` yang memuat
+tambahan Commission 5.972.329 dan Storage 37.872.684 (lawan Accrued Expenses); total 43.845.013. Acuan v5.2 = berkas
+di repo. Angka tidak diubah.
 
-- [x] Branch + doc + `expected.json` (PL/BS September).
-- [x] Inventaris header 4 berkas `.xls` (SheetJS).
-- [x] Parser `accurate_journal` membaca `GL KGR Rev 1.xls` utuh (lihat bawah).
-- [ ] Cek Σ GL = mutasi TB; revenue Detail Sales = akun revenue GL; Valuation = persediaan BS.
-- [ ] Langkah 2–4 (muat → banding → perbaiki) — **menunggu PostgreSQL 16 + Docker lokal**.
+## GL lewat parser upload app (`tests/backtest/sep-2026/check-gl.ts`)
 
-## Parser check (tanpa DB)
+| Sheet | Baris `gl_line` | Rentang | Σ debit | Σ kredit | Selisih | Tanpa tanggal |
+|---|---|---|---|---|---|---|
+| `Agt 26` | 2.431 | 2026-08-01 → 2026-08-31 | 83.091.306.014,63 | 83.091.306.014,61 | 0,02 | 0 |
+| `Sep 26` | 1.930 | 2026-09-01 → 2026-09-30 | 81.012.804.000,29 | 81.012.804.000,25 | 0,04 | 0 |
 
-- **BT-1 (bug parser, diperbaiki)** — header Accurate `Nilai Debit` / `Nilai Kredit` tidak cocok alias `debit`/`kredit` → debit/kredit jadi null. Tambah alias `nilai debit`/`nilai kredit` (+ `nilai debet`/`nilai credit`). Tes: `parsers.test.ts` "Daftar Histori GL". Commit `2ca9292`.
-- **GL KGR Rev 1.xls** (setelah BT-1): header terdeteksi di baris 5; **1.942 baris**, tanggal `2026-09-01`→`2026-09-30`; Σ debit `81.300.134.506,31` vs Σ kredit `81.300.134.506,27` (**selisih 0,04** — rounding sumber); 52 baris tanpa tanggal (penyesuaian akhir bulan) diabaikan; 0 baris tanpa debit+credit atau tanpa akun.
+- Σ `Agt 26` sama dengan total yang tertulis di baris 2 sheet itu (F2/G2).
+- Tipe `Agt 26`: Journal Voucher 379, Delivery Order 326, Sales Invoice 653, Purchase Payment 269, Sales Receipt 255,
+  Purchase Invoice 393, Receive Items 56, Inventory Adjustment 12, Period End (Depreciation) 88.
+- Tipe `Sep 26`: Bukti Jurnal 331, Faktur Pembelian 488, Pengiriman Pesanan 198, Faktur Penjualan 421, Penerimaan
+  Penjualan 201, Pembayaran Pembelian 218, Penyesuaian Persediaan 2, Penerimaan Barang 69, FA Akuisisi 2.
+- **52 baris tanpa tanggal** yang dilaporkan DeepSeek ada di `GL KGR Rev 1.xls` (1.942 baris, Σ debit
+  81.300.134.506,31), bukan di sheet `Sep 26` (0 baris tanpa tanggal). Selisih kedua sumber: 12 baris dan Σ debit
+  287.330.506,02. Parser kini melaporkan Σ debit/kredit dan tipe baris tanpa tanggal setiap kali ada (BT-1); untuk
+  `GL KGR Rev 1.xls` angka itu menunggu berkasnya (D6).
 
-## Format sumber lain (catatan definisi, bukan bug)
+## BT-1 (bug parser, diperbaiki)
 
-- **Detail Sales September.xls** — "Rincian Penjualan" per faktur: header baris 5 = `No. Faktur`(2) `Tgl Faktur`(4) `Keterangan`(7) `Kuantitas`(9) `Unit`(11) `Jumlah`(13); nama barang (mis. "Ayam Karkas Mix") di baris 6. **Tanpa kolom kode item / pelanggan** — ini sumber **cek revenue** (bukan upload `sales_line`). Parser `accurate_sales` butuh kode item + pelanggan; pemetaan/cocok-cocok perlu disepakati (Q-v5.2 bila jadi input).
-- **Valuation detail.xls** — kartu stok **per item** (bukan flat): `No. Barang`/`Deskripsi Barang` di baris 4–5, lalu header ledger di baris 7 = `Tanggal`(0) `Tipe`(2) `No. Faktur`(6) `Kts. Masuk`(8) `Nilai masuk`(12) `Kts. Keluar`(15) `Nilai keluar`(21) `Kuantitas`(23) `Nilai Akhir`(25). Beda struktur dari parser `accurate_inventory` (yang flat "Kode Barang" per baris). Dipakai untuk **cek nilai stok & HPP**, bukan upload langsung.
+1. Header `Nilai Debit`/`Nilai Kredit` tidak dikenali → debit/kredit null (perbaikan alias DeepSeek, dipertahankan).
+2. **Kolom wajib GL**: tanggal, akun, debit, kredit tidak terpetakan → `ParseError` "Kolom wajib jurnal tidak
+   terpetakan: …" (sebelumnya debit/kredit null tanpa issue). Baris tanpa debit dan kredit ditahan.
+3. Alias Accurate `Kode Perkiraan` (akun) — tanpa itu sheet `Agt 26` ditolak (gagal-tertutup yang benar).
+Tes (`packages/parsers/test/parsers.test.ts`, "BT-1 …") ditulis lebih dulu dan gagal pada kode lama: "expected
+[Function] to throw an error", "expected ['MJ1','MJ1','MJ2'] to deeply equal ['MJ1','MJ1']"; lulus sesudah perbaikan.
+
+## Langkah 2–4
+
+Muat → rebuild → FINAL → bandingkan: bagian dari B6 (PROGRESS). Sumber GL Agustus–September di atas cukup; TB 31 Jul
+dan DI dibaca dari sheet `TB Accurate` dan `DI - Note` berkas yang sama.

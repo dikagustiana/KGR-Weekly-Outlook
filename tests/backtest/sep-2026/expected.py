@@ -1,55 +1,32 @@
-import openpyxl, json, os, datetime
-p = r'C:\Users\USER\Downloads\Back test\09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx'
-wb = openpyxl.load_workbook(p, read_only=True, data_only=True)
+"""Backtest September 2026 — expected PL/BS from the FS workbook IN THE REPO (named source, sha256 recorded).
+Run from the repo root: python3 -I tests/backtest/sep-2026/expected.py
+Cell keys name the real cell: '<sheet>'!<column><row>, September = column L, August = column K (row 10 = month end)."""
+import hashlib, json, os
+import openpyxl
 
-SEP = 12  # 1-based column L = September 2026 (row10 date 2026-09-30)
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+SRC = os.path.join(ROOT, "reference", "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx")
+OUT = os.path.join(ROOT, "docs", "v5.2", "backtest-sep", "expected.json")
+COLS = {"2026-08": ("K", 11), "2026-09": ("L", 12)}
 
-def colval(sheet, row, col):
-    ws = wb[sheet]
-    v = ws.cell(row=row, column=col).value
-    return v
-
-pl = wb['PL - Management Report']
-bs = wb['BS - Management Report']
-
-expected = {
-  "pl_sep": {}, "bs_30sep": {}, "checks": {},
-  "source": "09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx (PL/BS - Management Report, September = kolom L)",
-}
-for r in range(12, 60):
-    label = pl.cell(row=r, column=2).value
-    v = pl.cell(row=r, column=SEP).value
-    if label and v is not None and str(v) not in ("", "0"):
-        expected["pl_sep"][f"PL!B{r}"] = {"label": str(label).strip(), "value": v}
-
-for r in range(14, 80):
-    label = bs.cell(row=r, column=2).value
-    v = bs.cell(row=r, column=SEP).value
-    if label and v is not None and str(v) not in ("", "0"):
-        expected["bs_30sep"][f"BS!B{r}"] = {"label": str(label).strip(), "value": v}
-
-# key checks (from the doc)
-def mv(x):  # millions, 1 decimal
-    return round(float(x)/1e6, 1)
-expected["checks"] = {
-  "revenue_jt": mv(colval('PL - Management Report', 12, SEP)),
-  "cogs_jt": mv(colval('PL - Management Report', 13, SEP)),
-  "gp_jt": mv(colval('PL - Management Report', 15, SEP)),
-  "nibt_jt": mv(colval('PL - Management Report', 51, SEP)),
-  "net_income_jt": mv(colval('PL - Management Report', 58, SEP)),
-  "kas_jt": mv(colval('BS - Management Report', 14, SEP)),
-  "inventory_product_jt": mv(colval('BS - Management Report', 23, SEP)),
-  "inventory_trading_jt": mv(colval('BS - Management Report', 24, SEP)),
-  "equity_jt": mv(colval('BS - Management Report', 77, SEP)),
-}
-
-os.makedirs(r'C:\Users\USER\Documents\KGR-Weekly-Outlook\docs\v5.2\backtest-sep', exist_ok=True)
-with open(r'C:\Users\USER\Documents\KGR-Weekly-Outlook\docs\v5.2\backtest-sep\expected.json', 'w', encoding='utf-8') as f:
-    json.dump(expected, f, indent=1, ensure_ascii=False, default=str)
-
-print("checks:", json.dumps(expected["checks"], ensure_ascii=False))
-print("pl_sep lines:", len(expected["pl_sep"]), "bs_30sep lines:", len(expected["bs_30sep"]))
-print("--- DI - Note sheet names/dims ---")
-for s in ['DI - Note', 'DI - Sep wp', 'TB Accurate', 'Stock', 'INVENTORY']:
-    ws = wb[s]
-    print(s, "dims", ws.max_row, "x", ws.max_column)
+wb = openpyxl.load_workbook(SRC, read_only=True, data_only=True)
+sha = hashlib.sha256(open(SRC, "rb").read()).hexdigest()
+out = {"source": {"file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx", "sha256": sha,
+                  "sheets": ["PL - Management Report", "BS - Management Report"]}, "months": {}}
+for month, (letter, col) in COLS.items():
+    m = {"pl": {}, "bs": {}}
+    for key, sheet, rows in (("pl", "PL - Management Report", range(12, 60)), ("bs", "BS - Management Report", range(12, 80))):
+        ws = wb[sheet]
+        for r in rows:
+            label, v = ws.cell(row=r, column=2).value, ws.cell(row=r, column=col).value
+            if label is not None and isinstance(v, (int, float)):
+                m[key][f"'{sheet}'!{letter}{r}"] = {"row": r, "label": str(label).strip(), "value": round(float(v), 2)}
+    out["months"][month] = m
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
+with open(OUT, "w", encoding="utf-8") as f:
+    json.dump(out, f, indent=1, ensure_ascii=False)
+for month, (letter, _) in COLS.items():
+    pl, bs = out["months"][month]["pl"], out["months"][month]["bs"]
+    g = lambda d, s, r: d.get(f"'{s}'!{letter}{r}", {}).get("value")
+    print(month, "revenue", g(pl, "PL - Management Report", 12), "GP", g(pl, "PL - Management Report", 15),
+          "NIBT", g(pl, "PL - Management Report", 51), "kas", g(bs, "BS - Management Report", 14), "ekuitas", g(bs, "BS - Management Report", 77))

@@ -1,214 +1,734 @@
 {
- "pl_sep": {
-  "PL!B12": {
-   "label": "Revenue",
-   "value": 5039854191
+ "source": {
+  "file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx",
+  "sha256": "7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5",
+  "sheets": [
+   "PL - Management Report",
+   "BS - Management Report"
+  ]
+ },
+ "months": {
+  "2026-08": {
+   "pl": {
+    "'PL - Management Report'!K12": {
+     "row": 12,
+     "label": "Revenue",
+     "value": 8361760903.0
+    },
+    "'PL - Management Report'!K13": {
+     "row": 13,
+     "label": "Cost of Sales",
+     "value": -8055051145.97
+    },
+    "'PL - Management Report'!K15": {
+     "row": 15,
+     "label": "GROSS PROFIT",
+     "value": 306709757.03
+    },
+    "'PL - Management Report'!K18": {
+     "row": 18,
+     "label": "Delivery Expenses - SE",
+     "value": -44489519.0
+    },
+    "'PL - Management Report'!K19": {
+     "row": 19,
+     "label": "Commission Expenses",
+     "value": -962000.0
+    },
+    "'PL - Management Report'!K20": {
+     "row": 20,
+     "label": "Packaging",
+     "value": -11226650.0
+    },
+    "'PL - Management Report'!K21": {
+     "row": 21,
+     "label": "Other selling Expense",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K23": {
+     "row": 23,
+     "label": "Salaries and allowance",
+     "value": -85565549.0
+    },
+    "'PL - Management Report'!K24": {
+     "row": 24,
+     "label": "Storage Expenses",
+     "value": -97510200.0
+    },
+    "'PL - Management Report'!K25": {
+     "row": 25,
+     "label": "Delivery Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K26": {
+     "row": 26,
+     "label": "Maintenance Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K27": {
+     "row": 27,
+     "label": "Communication Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K28": {
+     "row": 28,
+     "label": "Office Transportation expenses",
+     "value": -26194759.0
+    },
+    "'PL - Management Report'!K29": {
+     "row": 29,
+     "label": "Insurance Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K30": {
+     "row": 30,
+     "label": "Rent Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K31": {
+     "row": 31,
+     "label": "Office Supplies Expenses",
+     "value": -6850193.0
+    },
+    "'PL - Management Report'!K32": {
+     "row": 32,
+     "label": "Professional Fee",
+     "value": -10268250.0
+    },
+    "'PL - Management Report'!K33": {
+     "row": 33,
+     "label": "Professional Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K34": {
+     "row": 34,
+     "label": "Depreciation Expenses",
+     "value": -10393461.35
+    },
+    "'PL - Management Report'!K35": {
+     "row": 35,
+     "label": "Tax expenses",
+     "value": -9448220.67
+    },
+    "'PL - Management Report'!K37": {
+     "row": 37,
+     "label": "TOTAL OPERATING EXPENSES",
+     "value": -302908802.02
+    },
+    "'PL - Management Report'!K39": {
+     "row": 39,
+     "label": "OPERATING INCOME",
+     "value": 3800955.01
+    },
+    "'PL - Management Report'!K43": {
+     "row": 43,
+     "label": "Interest Expense",
+     "value": -31911111.0
+    },
+    "'PL - Management Report'!K44": {
+     "row": 44,
+     "label": "Finance Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K45": {
+     "row": 45,
+     "label": "Other Income",
+     "value": 1756321.03
+    },
+    "'PL - Management Report'!K46": {
+     "row": 46,
+     "label": "Other Expense",
+     "value": -164025.55
+    },
+    "'PL - Management Report'!K47": {
+     "row": 47,
+     "label": "Gain (loss) from sell of fixed assets",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K49": {
+     "row": 49,
+     "label": "TOTAL OTHER INCOME (EXPENSE)",
+     "value": -30318815.52
+    },
+    "'PL - Management Report'!K51": {
+     "row": 51,
+     "label": "INCOME (LOSS) BEFORE TAX",
+     "value": -26517860.51
+    },
+    "'PL - Management Report'!K56": {
+     "row": 56,
+     "label": "Income tax expense - net",
+     "value": 0.0
+    },
+    "'PL - Management Report'!K58": {
+     "row": 58,
+     "label": "NET INCOME FOR THE YEAR",
+     "value": -26517860.51
+    }
+   },
+   "bs": {
+    "'BS - Management Report'!K14": {
+     "row": 14,
+     "label": "Cash and cash equivalents",
+     "value": 495363150.28
+    },
+    "'BS - Management Report'!K15": {
+     "row": 15,
+     "label": "Restrictid Time Deposits",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K17": {
+     "row": 17,
+     "label": "Trade Receivables - Third Parties",
+     "value": 511953961.0
+    },
+    "'BS - Management Report'!K18": {
+     "row": 18,
+     "label": "Trade Receivables - Related Parties",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K20": {
+     "row": 20,
+     "label": "Other Receivable - Third Party",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K21": {
+     "row": 21,
+     "label": "Other Receivable - Affiliated Party",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K23": {
+     "row": 23,
+     "label": "Inventory - Product",
+     "value": 1492898044.05
+    },
+    "'BS - Management Report'!K24": {
+     "row": 24,
+     "label": "Inventory - Trading",
+     "value": 2039660533.52
+    },
+    "'BS - Management Report'!K25": {
+     "row": 25,
+     "label": "Prepaid Tax",
+     "value": 168261776.25
+    },
+    "'BS - Management Report'!K26": {
+     "row": 26,
+     "label": "Advance Payment",
+     "value": 985108171.55
+    },
+    "'BS - Management Report'!K27": {
+     "row": 27,
+     "label": "Prepaid Expenses",
+     "value": 1216739997.75
+    },
+    "'BS - Management Report'!K29": {
+     "row": 29,
+     "label": "TOTAL CURRENT ASSETS",
+     "value": 6909985634.4
+    },
+    "'BS - Management Report'!K32": {
+     "row": 32,
+     "label": "Buildings",
+     "value": 1291505000.0
+    },
+    "'BS - Management Report'!K33": {
+     "row": 33,
+     "label": "Office Furniture and Equipment",
+     "value": 239946153.61
+    },
+    "'BS - Management Report'!K35": {
+     "row": 35,
+     "label": "Acc. Depreciation - Buildings",
+     "value": -227416375.13
+    },
+    "'BS - Management Report'!K36": {
+     "row": 36,
+     "label": "Acc. Depreciation - Office Furniture and Equipment",
+     "value": -211063034.57
+    },
+    "'BS - Management Report'!K37": {
+     "row": 37,
+     "label": "Deferred Tax Asset",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K39": {
+     "row": 39,
+     "label": "TOTAL NON CURRENT ASSETS",
+     "value": 1092971743.91
+    },
+    "'BS - Management Report'!K41": {
+     "row": 41,
+     "label": "TOTAL ASSETS",
+     "value": 8002957378.31
+    },
+    "'BS - Management Report'!K45": {
+     "row": 45,
+     "label": "Short-tern Bank Loans",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K47": {
+     "row": 47,
+     "label": "Trade Payables - Third Parties",
+     "value": 56032690.4
+    },
+    "'BS - Management Report'!K48": {
+     "row": 48,
+     "label": "Trade Payables - Affiliates",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K50": {
+     "row": 50,
+     "label": "Other Payable - Third Parties",
+     "value": 616234277.26
+    },
+    "'BS - Management Report'!K51": {
+     "row": 51,
+     "label": "Other Payable - Related Parties",
+     "value": 5627124444.35
+    },
+    "'BS - Management Report'!K53": {
+     "row": 53,
+     "label": "Accrued Expenses - Third Parties",
+     "value": 99998.0
+    },
+    "'BS - Management Report'!K54": {
+     "row": 54,
+     "label": "Accrued Expenses - Related Parties",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K55": {
+     "row": 55,
+     "label": "Unearned Revenue",
+     "value": 61210000.0
+    },
+    "'BS - Management Report'!K56": {
+     "row": 56,
+     "label": "Taxes Payable",
+     "value": 29643958.58
+    },
+    "'BS - Management Report'!K58": {
+     "row": 58,
+     "label": "TOTAL CURRENT LIABILITIES",
+     "value": 6390345368.59
+    },
+    "'BS - Management Report'!K61": {
+     "row": 61,
+     "label": "Employee Benefit Liabilities",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K63": {
+     "row": 63,
+     "label": "TOTAL NON CURRENT LIABILITIES",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K65": {
+     "row": 65,
+     "label": "TOTAL LIABILITIES",
+     "value": 6390345368.59
+    },
+    "'BS - Management Report'!K68": {
+     "row": 68,
+     "label": "Shareholder Equity",
+     "value": 5000000000.0
+    },
+    "'BS - Management Report'!K69": {
+     "row": 69,
+     "label": "Dividend",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K71": {
+     "row": 71,
+     "label": "- Beginning retained earnings",
+     "value": -2698434665.91
+    },
+    "'BS - Management Report'!K72": {
+     "row": 72,
+     "label": "- Current profit or loss",
+     "value": -688953319.46
+    },
+    "'BS - Management Report'!K74": {
+     "row": 74,
+     "label": "- Beginning - OCI",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K75": {
+     "row": 75,
+     "label": "- Current - OCI",
+     "value": 0.0
+    },
+    "'BS - Management Report'!K77": {
+     "row": 77,
+     "label": "TOTAL EQUITY",
+     "value": 1612612014.63
+    },
+    "'BS - Management Report'!K79": {
+     "row": 79,
+     "label": "TOTAL EQUITY AND LIABILITIES",
+     "value": 8002957383.22
+    }
+   }
   },
-  "PL!B13": {
-   "label": "Cost of Sales",
-   "value": -5515286606.260001
-  },
-  "PL!B15": {
-   "label": "GROSS PROFIT",
-   "value": -475432415.2600012
-  },
-  "PL!B18": {
-   "label": "Delivery Expenses - SE",
-   "value": -23367240
-  },
-  "PL!B19": {
-   "label": "Commission Expenses",
-   "value": -11593192.6
-  },
-  "PL!B20": {
-   "label": "Packaging",
-   "value": -5833590
-  },
-  "PL!B23": {
-   "label": "Salaries and allowance",
-   "value": -82677332
-  },
-  "PL!B24": {
-   "label": "Storage Expenses",
-   "value": -192772535.65
-  },
-  "PL!B26": {
-   "label": "Maintenance Expenses",
-   "value": -4007061.06666667
-  },
-  "PL!B28": {
-   "label": "Office Transportation expenses",
-   "value": -11176500
-  },
-  "PL!B30": {
-   "label": "Rent Expenses",
-   "value": -9000
-  },
-  "PL!B31": {
-   "label": "Office Supplies Expenses",
-   "value": -9777000
-  },
-  "PL!B32": {
-   "label": "Professional Fee",
-   "value": -1538461
-  },
-  "PL!B35": {
-   "label": "Tax expenses",
-   "value": -13258267.740000002
-  },
-  "PL!B37": {
-   "label": "TOTAL OPERATING EXPENSES",
-   "value": -356010180.0566667
-  },
-  "PL!B39": {
-   "label": "OPERATING INCOME",
-   "value": -831442595.3166678
-  },
-  "PL!B43": {
-   "label": "Interest Expense",
-   "value": -54022222.22
-  },
-  "PL!B45": {
-   "label": "Other Income",
-   "value": -66995835.19
-  },
-  "PL!B46": {
-   "label": "Other Expense",
-   "value": -1442900
-  },
-  "PL!B49": {
-   "label": "TOTAL OTHER INCOME (EXPENSE)",
-   "value": -122460957.41
-  },
-  "PL!B51": {
-   "label": "INCOME (LOSS) BEFORE TAX",
-   "value": -953903552.7266678
-  },
-  "PL!B58": {
-   "label": "NET INCOME FOR THE YEAR",
-   "value": -953903552.7266678
+  "2026-09": {
+   "pl": {
+    "'PL - Management Report'!L12": {
+     "row": 12,
+     "label": "Revenue",
+     "value": 5039854191.0
+    },
+    "'PL - Management Report'!L13": {
+     "row": 13,
+     "label": "Cost of Sales",
+     "value": -5515286606.26
+    },
+    "'PL - Management Report'!L15": {
+     "row": 15,
+     "label": "GROSS PROFIT",
+     "value": -475432415.26
+    },
+    "'PL - Management Report'!L18": {
+     "row": 18,
+     "label": "Delivery Expenses - SE",
+     "value": -23367240.0
+    },
+    "'PL - Management Report'!L19": {
+     "row": 19,
+     "label": "Commission Expenses",
+     "value": -5620863.6
+    },
+    "'PL - Management Report'!L20": {
+     "row": 20,
+     "label": "Packaging",
+     "value": -5833590.0
+    },
+    "'PL - Management Report'!L21": {
+     "row": 21,
+     "label": "Other selling Expense",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L23": {
+     "row": 23,
+     "label": "Salaries and allowance",
+     "value": -82677332.0
+    },
+    "'PL - Management Report'!L24": {
+     "row": 24,
+     "label": "Storage Expenses",
+     "value": -154899851.65
+    },
+    "'PL - Management Report'!L25": {
+     "row": 25,
+     "label": "Delivery Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L26": {
+     "row": 26,
+     "label": "Maintenance Expenses",
+     "value": -4007061.07
+    },
+    "'PL - Management Report'!L27": {
+     "row": 27,
+     "label": "Communication Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L28": {
+     "row": 28,
+     "label": "Office Transportation expenses",
+     "value": -11176500.0
+    },
+    "'PL - Management Report'!L29": {
+     "row": 29,
+     "label": "Insurance Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L30": {
+     "row": 30,
+     "label": "Rent Expenses",
+     "value": -9000.0
+    },
+    "'PL - Management Report'!L31": {
+     "row": 31,
+     "label": "Office Supplies Expenses",
+     "value": -9777000.0
+    },
+    "'PL - Management Report'!L32": {
+     "row": 32,
+     "label": "Professional Fee",
+     "value": -1538461.0
+    },
+    "'PL - Management Report'!L33": {
+     "row": 33,
+     "label": "Professional Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L34": {
+     "row": 34,
+     "label": "Depreciation Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L35": {
+     "row": 35,
+     "label": "Tax expenses",
+     "value": -13258267.74
+    },
+    "'PL - Management Report'!L37": {
+     "row": 37,
+     "label": "TOTAL OPERATING EXPENSES",
+     "value": -312165167.06
+    },
+    "'PL - Management Report'!L39": {
+     "row": 39,
+     "label": "OPERATING INCOME",
+     "value": -787597582.32
+    },
+    "'PL - Management Report'!L43": {
+     "row": 43,
+     "label": "Interest Expense",
+     "value": -54022222.22
+    },
+    "'PL - Management Report'!L44": {
+     "row": 44,
+     "label": "Finance Expenses",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L45": {
+     "row": 45,
+     "label": "Other Income",
+     "value": -66995835.19
+    },
+    "'PL - Management Report'!L46": {
+     "row": 46,
+     "label": "Other Expense",
+     "value": -1442900.0
+    },
+    "'PL - Management Report'!L47": {
+     "row": 47,
+     "label": "Gain (loss) from sell of fixed assets",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L49": {
+     "row": 49,
+     "label": "TOTAL OTHER INCOME (EXPENSE)",
+     "value": -122460957.41
+    },
+    "'PL - Management Report'!L51": {
+     "row": 51,
+     "label": "INCOME (LOSS) BEFORE TAX",
+     "value": -910058539.73
+    },
+    "'PL - Management Report'!L56": {
+     "row": 56,
+     "label": "Income tax expense - net",
+     "value": 0.0
+    },
+    "'PL - Management Report'!L58": {
+     "row": 58,
+     "label": "NET INCOME FOR THE YEAR",
+     "value": -910058539.73
+    }
+   },
+   "bs": {
+    "'BS - Management Report'!L14": {
+     "row": 14,
+     "label": "Cash and cash equivalents",
+     "value": 102996959.86
+    },
+    "'BS - Management Report'!L15": {
+     "row": 15,
+     "label": "Restrictid Time Deposits",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L17": {
+     "row": 17,
+     "label": "Trade Receivables - Third Parties",
+     "value": 800198009.0
+    },
+    "'BS - Management Report'!L18": {
+     "row": 18,
+     "label": "Trade Receivables - Related Parties",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L20": {
+     "row": 20,
+     "label": "Other Receivable - Third Party",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L21": {
+     "row": 21,
+     "label": "Other Receivable - Affiliated Party",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L23": {
+     "row": 23,
+     "label": "Inventory - Product",
+     "value": 4724212503.35
+    },
+    "'BS - Management Report'!L24": {
+     "row": 24,
+     "label": "Inventory - Trading",
+     "value": 1928193717.73
+    },
+    "'BS - Management Report'!L25": {
+     "row": 25,
+     "label": "Prepaid Tax",
+     "value": 248042907.66
+    },
+    "'BS - Management Report'!L26": {
+     "row": 26,
+     "label": "Advance Payment",
+     "value": 1413493471.55
+    },
+    "'BS - Management Report'!L27": {
+     "row": 27,
+     "label": "Prepaid Expenses",
+     "value": 1317507571.08
+    },
+    "'BS - Management Report'!L29": {
+     "row": 29,
+     "label": "TOTAL CURRENT ASSETS",
+     "value": 10534645140.23
+    },
+    "'BS - Management Report'!L32": {
+     "row": 32,
+     "label": "Buildings",
+     "value": 1291505000.0
+    },
+    "'BS - Management Report'!L33": {
+     "row": 33,
+     "label": "Office Furniture and Equipment",
+     "value": 254946153.61
+    },
+    "'BS - Management Report'!L35": {
+     "row": 35,
+     "label": "Acc. Depreciation - Buildings",
+     "value": -227416375.13
+    },
+    "'BS - Management Report'!L36": {
+     "row": 36,
+     "label": "Acc. Depreciation - Office Furniture and Equipment",
+     "value": -211063034.57
+    },
+    "'BS - Management Report'!L37": {
+     "row": 37,
+     "label": "Deferred Tax Asset",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L39": {
+     "row": 39,
+     "label": "TOTAL NON CURRENT ASSETS",
+     "value": 1107971743.91
+    },
+    "'BS - Management Report'!L41": {
+     "row": 41,
+     "label": "TOTAL ASSETS",
+     "value": 11642616884.14
+    },
+    "'BS - Management Report'!L45": {
+     "row": 45,
+     "label": "Short-tern Bank Loans",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L47": {
+     "row": 47,
+     "label": "Trade Payables - Third Parties",
+     "value": 139076516.4
+    },
+    "'BS - Management Report'!L48": {
+     "row": 48,
+     "label": "Trade Payables - Affiliates",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L50": {
+     "row": 50,
+     "label": "Other Payable - Third Parties",
+     "value": 860802573.3
+    },
+    "'BS - Management Report'!L51": {
+     "row": 51,
+     "label": "Other Payable - Related Parties",
+     "value": 9845918888.89
+    },
+    "'BS - Management Report'!L53": {
+     "row": 53,
+     "label": "Accrued Expenses - Third Parties",
+     "value": -2.0
+    },
+    "'BS - Management Report'!L54": {
+     "row": 54,
+     "label": "Accrued Expenses - Related Parties",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L55": {
+     "row": 55,
+     "label": "Unearned Revenue",
+     "value": 47426515.0
+    },
+    "'BS - Management Report'!L56": {
+     "row": 56,
+     "label": "Taxes Payable",
+     "value": 46838917.33
+    },
+    "'BS - Management Report'!L58": {
+     "row": 58,
+     "label": "TOTAL CURRENT LIABILITIES",
+     "value": 10940063408.92
+    },
+    "'BS - Management Report'!L61": {
+     "row": 61,
+     "label": "Employee Benefit Liabilities",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L63": {
+     "row": 63,
+     "label": "TOTAL NON CURRENT LIABILITIES",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L65": {
+     "row": 65,
+     "label": "TOTAL LIABILITIES",
+     "value": 10940063408.92
+    },
+    "'BS - Management Report'!L68": {
+     "row": 68,
+     "label": "Shareholder Equity",
+     "value": 5000000000.0
+    },
+    "'BS - Management Report'!L69": {
+     "row": 69,
+     "label": "Dividend",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L71": {
+     "row": 71,
+     "label": "- Beginning retained earnings",
+     "value": -2698434665.91
+    },
+    "'BS - Management Report'!L72": {
+     "row": 72,
+     "label": "- Current profit or loss",
+     "value": -1599011859.19
+    },
+    "'BS - Management Report'!L74": {
+     "row": 74,
+     "label": "- Beginning - OCI",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L75": {
+     "row": 75,
+     "label": "- Current - OCI",
+     "value": 0.0
+    },
+    "'BS - Management Report'!L77": {
+     "row": 77,
+     "label": "TOTAL EQUITY",
+     "value": 702553474.9
+    },
+    "'BS - Management Report'!L79": {
+     "row": 79,
+     "label": "TOTAL EQUITY AND LIABILITIES",
+     "value": 11642616883.82
+    }
+   }
   }
- },
- "bs_30sep": {
-  "BS!B14": {
-   "label": "Cash and cash equivalents",
-   "value": 102996959.8599987
-  },
-  "BS!B17": {
-   "label": "Trade Receivables - Third Parties",
-   "value": 800198009
-  },
-  "BS!B23": {
-   "label": "Inventory - Product",
-   "value": 4724212503.349997
-  },
-  "BS!B24": {
-   "label": "Inventory - Trading",
-   "value": 1928193717.7300026
-  },
-  "BS!B25": {
-   "label": "Prepaid Tax",
-   "value": 248042907.66
-  },
-  "BS!B26": {
-   "label": "Advance Payment",
-   "value": 1413493471.55
-  },
-  "BS!B27": {
-   "label": "Prepaid Expenses",
-   "value": 1317507571.0833333
-  },
-  "BS!B29": {
-   "label": "TOTAL CURRENT ASSETS",
-   "value": 10534645140.233332
-  },
-  "BS!B32": {
-   "label": "Buildings",
-   "value": 1291505000
-  },
-  "BS!B33": {
-   "label": "Office Furniture and Equipment",
-   "value": 254946153.61
-  },
-  "BS!B35": {
-   "label": "Acc. Depreciation - Buildings",
-   "value": -227416375.13000005
-  },
-  "BS!B36": {
-   "label": "Acc. Depreciation - Office Furniture and Equipment",
-   "value": -211063034.57000002
-  },
-  "BS!B39": {
-   "label": "TOTAL NON CURRENT ASSETS",
-   "value": 1107971743.91
-  },
-  "BS!B41": {
-   "label": "TOTAL ASSETS",
-   "value": 11642616884.143332
-  },
-  "BS!B47": {
-   "label": "Trade Payables - Third Parties",
-   "value": 139076516.39999962
-  },
-  "BS!B50": {
-   "label": "Other Payable - Third Parties",
-   "value": 860802573.3000004
-  },
-  "BS!B51": {
-   "label": "Other Payable - Related Parties",
-   "value": 9845918888.889997
-  },
-  "BS!B53": {
-   "label": "Accrued Expenses - Third Parties",
-   "value": 43845011
-  },
-  "BS!B55": {
-   "label": "Unearned Revenue",
-   "value": 47426515
-  },
-  "BS!B56": {
-   "label": "Taxes Payable",
-   "value": 46838917.33
-  },
-  "BS!B58": {
-   "label": "TOTAL CURRENT LIABILITIES",
-   "value": 10983908421.919998
-  },
-  "BS!B65": {
-   "label": "TOTAL LIABILITIES",
-   "value": 10983908421.919998
-  },
-  "BS!B68": {
-   "label": "Shareholder Equity",
-   "value": 5000000000
-  },
-  "BS!B71": {
-   "label": "- Beginning retained earnings",
-   "value": -2698434665.91
-  },
-  "BS!B72": {
-   "label": "- Current profit or loss",
-   "value": -1642856872.1866655
-  },
-  "BS!B77": {
-   "label": "TOTAL EQUITY",
-   "value": 658708461.9033346
-  },
-  "BS!B79": {
-   "label": "TOTAL EQUITY AND LIABILITIES",
-   "value": 11642616883.823334
-  }
- },
- "checks": {
-  "revenue_jt": 5039.9,
-  "cogs_jt": -5515.3,
-  "gp_jt": -475.4,
-  "nibt_jt": -953.9,
-  "net_income_jt": -953.9,
-  "kas_jt": 103.0,
-  "inventory_product_jt": 4724.2,
-  "inventory_trading_jt": 1928.2,
-  "equity_jt": 658.7
- },
- "source": "09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx (PL/BS - Management Report, September = kolom L)"
+ }
 }
