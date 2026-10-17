@@ -26,8 +26,8 @@ describe("lockCommitmentsAction calls lock_commitments only (R14)", () => {
     const r = await lockCommitmentsAction({}, form({ week_start: "2026-08-31", "price_frozen|RPA|Sayap": "28.000", "price_frozen|RPA|Karkas": "" }));
     expect(r.ok).toBe("2 draft komitmen dikunci bersama price list minggu depan; harga frozen dari form untuk 1 SKU");
     expect(sb.rpcCalls).toEqual([{ name: "lock_commitments", args: { p_week_start: "2026-08-31", p_price_frozen: { "RPA|Sayap": "28000" } } }]);
-    // no table write of its own: the RPC is the one transaction
-    expect(sb.calls).toEqual([]);
+    // R14: no table write of its own on the commitment tables — the RPC is the one transaction (R54 queues the task date after)
+    expect(sb.calls.filter((c) => c.includes("sales_commitment") || c.includes("price_list_week"))).toEqual([]);
   });
   it("the RPC refuses (a version 2 without a reason): the message, nothing else", async () => {
     sb = fakeSb({ fail: { "rpc:lock_commitments": "Versi baru setelah kunci wajib alasan: RPA|Sayap" } });
