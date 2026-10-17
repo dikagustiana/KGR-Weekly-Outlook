@@ -1,0 +1,93 @@
+# v5.2 B2 — bundel docs/v5.2/kgr-os-migrasi-v52-b2.sql di DB baru (shim + migrasi s.d. 20261024000300 + seed), dijalankan DUA KALI
+# tanggal: 2026-10-17 16:28 UTC · cabang migrasi+tes 2989277 · server: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.
+# perintah per putaran: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b2.sql   (satu transaksi, seperti SQL Editor)
+# sha256 berkas bundel: 4a393b9fc525f210de6f614e6902bb479a4badf4c48f7da4a52f93e746fffd59
+# sha256 tiga migrasi disambung: e33e57167d24b64ddcc38fd95f60ded2cd8defc1bc6639a5a1c64302a5d68c7b
+
+## 0. bundel menolak DB tanpa v5.1 (b2_bundle_pre: migrasi hanya s.d. 20261023000100)
+  psql:docs/v5.2/kgr-os-migrasi-v52-b2.sql:44: ERROR:  Migrasi v5.1 belum lengkap di database ini (docs/v5.1/kgr-os-migrasi-v51.sql dulu, lalu notify pgrst); v5.2 B2 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 11 at RAISE
+  registry di DB itu sesudahnya: t (true = tidak ada, tidak ada yang setengah terpasang)
+
+## sebelum bundel (b2_bundle): v5.1 ada, registry belum ada
+  registry: belum ada · lock_commitments: t
+
+## putaran 1
+   no |                                                   cek                                                   | ada 
+  ----+---------------------------------------------------------------------------------------------------------+-----
+    1 | 0100 schema_registry: RLS, tanpa hak anon, tulis hanya service role                                     | t
+    2 | 0100 schema_version(): definer, search_path kosong, untuk authenticated, bukan anon, = 5.2.2 atau lebih | t
+    3 | 0100 versi 5.1.0 (bundel v5.1), 5.2.0, 5.2.1, 5.2.2 tercatat                                            | t
+    4 | 0200 assignment_covers (O21b)                                                                           | t
+    5 | 0200 tg_week_guard + advance_update_date (K69)                                                          | t
+    6 | 0200 view Sales v4 dan v5: biaya tersembunyi, 20 dan 23 kolom                                           | t
+    7 | 0200 plan_week_class dan demand_class_weekly tidak terbaca Sales; surplus_response per assignment       | t
+    8 | 0200 view surplus_for_sales_v52 (tanpa hak anon)                                                        | t
+    9 | 0200 tg_sales_line_scope menilai OLD dan NEW; sales_key memakai norm_code (B-REL-7)                     | t
+   10 | 0200 jawaban surplus: Sales hanya miliknya, stempel di UPDATE                                           | t
+   11 | 0200 price list terkunci satu arah (A-REL-9)                                                            | t
+   12 | 0200 lock_commitments: minggu berjalan dan harga per ukuran (O31a)                                      | t
+   13 | 0200 release_override_policy hanya lewat migrasi (O38b)                                                 | t
+   14 | 0200 floor_of tidak bisa dipanggil klien                                                                | t
+   15 | 0300 release.note dan kebijakan override C55 (Finance)                                                  | t
+   16 | 0300 release_week menghitung C53 dan grid K35 di DB (K68)                                               | t
+   17 | 0300 release_month menahan V1 pada C55 (O32b)                                                           | t
+   18 | 0300 c53_late_batches dan k35_grid_gaps tidak untuk klien                                               | t
+   19 | semua SECURITY DEFINER di public: search_path tetap                                                     | t
+   20 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                   | t
+   21 | satu fungsi per nama untuk yang diganti (tanpa overload baru)                                           | t
+   22 | bundle_sha256 terisi untuk 5.2.0, 5.2.1, 5.2.2                                                          | t
+   23 | 0200 assignment_covers dipakai guard komitmen, jawaban surplus dan baris PO (O21b)                      | t
+   24 | 0200 assignment_covers dipakai policy baca komitmen dan permintaan diskon (O21b)                        | t
+  (24 rows)
+  
+  exit=0
+  registry:
+    5.1.0 · bundle_sha256=-
+    5.2.0 · bundle_sha256=e33e57167d24b64d…
+    5.2.1 · bundle_sha256=e33e57167d24b64d…
+    5.2.2 · bundle_sha256=e33e57167d24b64d…
+  schema_version(): 5.2.2
+
+## putaran 2
+  psql:docs/v5.2/kgr-os-migrasi-v52-b2.sql:62: NOTICE:  relation "schema_registry" already exists, skipping
+  psql:docs/v5.2/kgr-os-migrasi-v52-b2.sql:552: NOTICE:  column "note" of relation "release" already exists, skipping
+   no |                                                   cek                                                   | ada 
+  ----+---------------------------------------------------------------------------------------------------------+-----
+    1 | 0100 schema_registry: RLS, tanpa hak anon, tulis hanya service role                                     | t
+    2 | 0100 schema_version(): definer, search_path kosong, untuk authenticated, bukan anon, = 5.2.2 atau lebih | t
+    3 | 0100 versi 5.1.0 (bundel v5.1), 5.2.0, 5.2.1, 5.2.2 tercatat                                            | t
+    4 | 0200 assignment_covers (O21b)                                                                           | t
+    5 | 0200 tg_week_guard + advance_update_date (K69)                                                          | t
+    6 | 0200 view Sales v4 dan v5: biaya tersembunyi, 20 dan 23 kolom                                           | t
+    7 | 0200 plan_week_class dan demand_class_weekly tidak terbaca Sales; surplus_response per assignment       | t
+    8 | 0200 view surplus_for_sales_v52 (tanpa hak anon)                                                        | t
+    9 | 0200 tg_sales_line_scope menilai OLD dan NEW; sales_key memakai norm_code (B-REL-7)                     | t
+   10 | 0200 jawaban surplus: Sales hanya miliknya, stempel di UPDATE                                           | t
+   11 | 0200 price list terkunci satu arah (A-REL-9)                                                            | t
+   12 | 0200 lock_commitments: minggu berjalan dan harga per ukuran (O31a)                                      | t
+   13 | 0200 release_override_policy hanya lewat migrasi (O38b)                                                 | t
+   14 | 0200 floor_of tidak bisa dipanggil klien                                                                | t
+   15 | 0300 release.note dan kebijakan override C55 (Finance)                                                  | t
+   16 | 0300 release_week menghitung C53 dan grid K35 di DB (K68)                                               | t
+   17 | 0300 release_month menahan V1 pada C55 (O32b)                                                           | t
+   18 | 0300 c53_late_batches dan k35_grid_gaps tidak untuk klien                                               | t
+   19 | semua SECURITY DEFINER di public: search_path tetap                                                     | t
+   20 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                   | t
+   21 | satu fungsi per nama untuk yang diganti (tanpa overload baru)                                           | t
+   22 | bundle_sha256 terisi untuk 5.2.0, 5.2.1, 5.2.2                                                          | t
+   23 | 0200 assignment_covers dipakai guard komitmen, jawaban surplus dan baris PO (O21b)                      | t
+   24 | 0200 assignment_covers dipakai policy baca komitmen dan permintaan diskon (O21b)                        | t
+  (24 rows)
+  
+  exit=0
+  registry:
+    5.1.0 · bundle_sha256=-
+    5.2.0 · bundle_sha256=e33e57167d24b64d…
+    5.2.1 · bundle_sha256=e33e57167d24b64d…
+    5.2.2 · bundle_sha256=e33e57167d24b64d…
+  schema_version(): 5.2.2
+
+## hasil bundel = hasil migrasi satu per satu
+  definisi md5 bundel (b2_bundle):  c246170072e3f4fb2a18da6c06af606b
+  definisi md5 migrasi (b2_dev):    c246170072e3f4fb2a18da6c06af606b
