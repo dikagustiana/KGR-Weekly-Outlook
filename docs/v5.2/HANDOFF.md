@@ -9,7 +9,7 @@ Dokumen handoff untuk review Opus. Semua cabang ter-push bersih; gate hijau di t
 | A0 (docs) | 100% | `v5.2/a0-docs` | #37 |
 | A1 (fail-closed) | 100% — R41–R47 (gagal-tertutup, builder+cron, K42, lint K41/K42=0) | `v5.2/a1-fail-closed` | #38 |
 | A2 (loop) | 10/11 — R48, R49 (kg berbobot + forecast), R50, R51, R52, R53, R54, R56, R57 | `v5.2/a2-loop` | — |
-| A3 (costing-pl) | 9/9 tersentuh — R59, R60, R61, R62, R63, R64(skrip), R65, R66(utuh), R67(utuh) | `v5.2/a3-costing-pl` | — |
+| A3 (costing-pl) | 9/9 — R59, R60, R61, R62, R63, R64(lint=0), R65, R66(utuh), R67(utuh) | `v5.2/a3-costing-pl` | — |
 | A4 (fs-recon) | 1/2 — R68 `fsRecon` + C59 (pure engine) | `v5.2/a4-fs-recon` | — |
 | A5 (e2e) | 0 — butuh Docker + PostgreSQL 16 | — | — |
 | A6 (UI) | 100% — R75, R76, R77, R78, R79 | `v5.2/a6-ui` | — |
@@ -18,8 +18,8 @@ Dokumen handoff untuk review Opus. Semua cabang ter-push bersih; gate hijau di t
 ## Sisa & penghalang
 
 - **Kode (butuh konteks segar):**
-  - R64 sweep `?? "0"` → null — butuh koordinasi data + tipe + tampilan "belum ada" (terbukti tidak grep-replace: `accuracyV4`/`solvency` mengharapkan `Num`/`string` non-null).
-  - R67 web-adapter — biaya/kg order forecast = `forecastPlanCost` kelas (helper engine sudah ada di A3).
+  - R64 sweep `?? "0"` → null — **SELESAI**: `scripts/lint-missing.sh` = 0 (whitelist bernama + `accuracyV4` null + `affiliate` "belum ada").
+  - R67 web-adapter — **SELESAI**: `forecastPlanCost` (engine) + `forecastCostsOf` (loader) + override hpp di `month.ts`.
   - A2 R58-web — filter `existing` sales by `base_key` (butuh skema key-assignment).
 - **Opus (DB/migrasi/RPC):** R55 (lock-commitments atomik, partial index), R69 (B-R86), `batch.weight_class` (R63).
 - **PostgreSQL/Docker:** A5 (e2e), backtest Langkah 2–4.
