@@ -84,6 +84,11 @@ export async function approvePlanAction(_: ActionState, form: FormData): Promise
 export async function copyPlanAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
     const { sb, week } = await ctx(form, ["admin", "ppic"]);
+    // R51 (K58): the v4 copy uses the same gate as v5 — C42/C45/C46/C47 (re-checked in copyPlanToBatches),
+    // C57 (no reason opens it) and C58 (or a written reason).
+    const src = await loadPlanning(sb, week);
+    const held = copyBlockersOf((await loadClassDemand(sb, src)).controls, await c57Of(sb, src.week), src.reasons);
+    if (held.length) throw new WriteError(`Belum bisa disalin ke batch: ${held.join(", ")}`);
     const msg = await copyPlanToBatches(sb, week, String(form.get("plan_id")));
     done(week.week_start);
     return { ok: msg };
