@@ -394,7 +394,8 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
     if (it) mapped++; else fail("kode tidak dikenal: petakan di master item");
     if (!kg?.gt(0)) fail("kg kosong");
     if (b.found === null) fail(`batch ${ref} tidak ada di data batch`);
-    if (kg?.gt(0)) { b.out = b.out.plus(kg); if (it && /\|Karkas\|/.test(it.key)) b.karkas = b.karkas.plus(kg); }
+    // R58: C22 is judged on the output that will be saved — the rows that pass, not the rejected ones
+    if (kg?.gt(0) && level !== "fail") { b.out = b.out.plus(kg); if (it && /\|Karkas\|/.test(it.key)) b.karkas = b.karkas.plus(kg); }
     rows.push({ ref: code || "—", name: it ? it.name ?? it.key : "(tidak dikenal)", kg: kg?.gt(0) ? f1(kg) : "—", level, action: issues.join("; ") });
     records.push({ line: r.line, level, data: { batch_ref: ref, item_code: code || null, key: it?.key ?? null, item_name: it?.name ?? null, kg: str(kg), kg_lb: str(lb?.gt(0) ? lb : null), heads: str(hd?.gt(0) ? hd : null), batch_date: b.found?.date ?? null } });
   }
