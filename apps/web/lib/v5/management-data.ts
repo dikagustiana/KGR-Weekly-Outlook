@@ -148,7 +148,7 @@ type TaskRef = { kind: string; ref: string; st: TaskStatus };
 
 /** K36 per main screen: which tile carries which source. */
 const SCREEN_SOURCES: Record<"manajemen" | "commercial" | "ppic", Record<string, SourceKey>> = {
-  manajemen: { "c-outlook": "jurnal", "c-stok": "stok", "c-kas": "kas", "c-bulan": "beban_tetap", "sim-lb": "wp" },
+  manajemen: { "c-outlook": "jurnal", "c-stok": "stok", "c-kas": "kas", "c-bulan": "beban_tetap", "sim-lb": "lb" },
   commercial: { "c-stok": "wp", "t-komitmen": "po" },
   ppic: { "c-po": "po", "c-biaya": "lb", "c-batch": "supply" },
 };
