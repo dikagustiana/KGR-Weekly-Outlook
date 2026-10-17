@@ -35,20 +35,20 @@ describe("no LB price anywhere (R18)", () => {
 
 describe("a SKU without reference price (R17)", () => {
   it("the WP batch is sementara with Lemak at null cost and the reason named", async () => {
-    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ parameter: [{ week_id: "w35", lb_price_today: "24600" }] }) }) as never, "2026-08-24", "2026-08-27");
+    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ parameter: [{ week_id: "w35", lb_price_today: "24600", freight_plan_per_kg_lb: "300", maklon_per_kg_processed: "350", target_shrink: "0.03" }] }) }) as never, "2026-08-24", "2026-08-27");
     expect(b.status).toBe("sementara");
     expect(b.result?.lines.find((l) => l.key === "RPA|Lemak|Fresh")?.costPerKg).toBeNull();
     expect(b.costByKey.has("RPA|Lemak|Fresh")).toBe(false);
     expect(b.costCheck).toBe("harga acuan kosong: RPA|Lemak|Fresh");
   });
   it("a posted (M1) batch with an unpriced SKU never turns final: it stays sementara on the v5 cost", async () => {
-    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ parameter: [{ week_id: "w35", lb_price_today: "24600" }], allocation_run: [{ batch_id: "b126", posted_at: "2026-08-28T10:00:00+07:00", run_at: null }] }) }) as never, "2026-08-24", "2026-08-29");
+    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ parameter: [{ week_id: "w35", lb_price_today: "24600", freight_plan_per_kg_lb: "300", maklon_per_kg_processed: "350", target_shrink: "0.03" }], allocation_run: [{ batch_id: "b126", posted_at: "2026-08-28T10:00:00+07:00", run_at: null }] }) }) as never, "2026-08-24", "2026-08-29");
     expect(b.status).toBe("sementara");
     expect(b.result).not.toBeNull();
     expect(b.provisional).toBeNull();
   });
   it("all priced: the posted batch is final and keeps the M1 cost", async () => {
-    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ batch_output_sku: [wp[0]], parameter: [{ week_id: "w35", lb_price_today: "24600" }], allocation_run: [{ batch_id: "b126", posted_at: "2026-08-28T10:00:00+07:00", run_at: null }] }) }) as never, "2026-08-24", "2026-08-29");
+    const [b] = await loadV5BatchCosts(fakeSb({ rows: rows({ batch_output_sku: [wp[0]], parameter: [{ week_id: "w35", lb_price_today: "24600", freight_plan_per_kg_lb: "300", maklon_per_kg_processed: "350", target_shrink: "0.03" }], allocation_run: [{ batch_id: "b126", posted_at: "2026-08-28T10:00:00+07:00", run_at: null }] }) }) as never, "2026-08-24", "2026-08-29");
     expect(b.status).toBe("final");
     expect(b.result).toBeNull();
     expect(b.costCheck).toBeNull();
