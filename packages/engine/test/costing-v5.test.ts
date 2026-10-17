@@ -81,7 +81,13 @@ describe("planCost rules (§4.1)", () => {
     expect(r.missingPrice).toEqual(["C"]);
     expect(r.canBeFinal).toBe(false);
     expect(r.lines[2].costPerKg).toBeNull();
-    expect(planCost({ status: "rencana", kgLb: "1", lbPrice: "1", outputs: [{ key: "C", kg: "1", priceRef: null }] }).k).toBeNull();
+    expect(planCost({ status: "rencana", kgLb: "1", lbPrice: "1", tariffPerKgLb: "0", outputs: [{ key: "C", kg: "1", priceRef: null }] }).k).toBeNull();
+  });
+  it("R62: neither a tariff nor an actual cost is an error, not a tariff of 0", () => {
+    expect(() => planCost({ status: "rencana", kgLb: "1", lbPrice: "1", outputs: [{ key: "C", kg: "1", priceRef: "1" }] })).toThrow(/tarif atau biaya langsung wajib diisi/);
+    expect(() => planCost({ status: "rencana", kgLb: "1", lbPrice: "1", tariffPerKgLb: null, outputs: [] })).toThrow();
+    // the actual cost alone is enough
+    expect(planCost({ status: "sementara", kgLb: "1", lbPrice: "1", directCost: "5", outputs: [{ key: "C", kg: "1", priceRef: "1" }] }).costPool.toFixed(0)).toBe("6");
   });
   it("status of a batch: rencana → estimasi (cut date) → sementara (WP) → final (allocation posted & priced)", () => {
     expect(costStatusOf({ date: "2026-08-28" }, "2026-08-27")).toBe("rencana");

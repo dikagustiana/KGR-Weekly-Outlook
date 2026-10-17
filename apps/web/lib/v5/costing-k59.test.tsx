@@ -14,11 +14,11 @@ const REF = "126/PO/KGR/08/2026";
 const batch = { id: "b126", week_id: "w35", date: "2026-08-26", status: "Aktual", batch_ref: REF, lb_kg: "12089.6", lb_price: null, freight: "5000000", maklon: "4000000", out_karkas_fresh: "5004.7", out_karkas_frozen: "3214.5", wp_received_at: "2026-08-27T09:04:00+07:00", invoice_status: "pending" };
 const wp = [{ batch_id: "b126", key: "RPA|Karkas|Fresh", kg: "5004.7" }, { batch_id: "b126", key: "RPA|Lemak|Fresh", kg: "28.8" }];
 const prices = [{ week_id: "w35", key: "RPA|Karkas|Fresh", ref_sell_price: "36705" }, { week_id: "w35", key: "RPA|Lemak|Fresh", ref_sell_price: "5000" }];
-const base = (over: Record<string, unknown[]> = {}) => ({
+const base = (over: Record<string, Record<string, unknown>[]> = {}) => ({
   batch: [batch], batch_output_sku: wp, parameter: [{ week_id: "w35", lb_price_today: "24600", cost_anomaly_ratio: "3" }],
   lb_price_decision: [], yield_matrix: [], week: [{ id: "w35", week_start: "2026-08-24" }], price_list_week: [], sku_price: prices, allocation_run: [], allocation_line: [], ...over,
 });
-const load = (rows: Record<string, unknown[]>, today = "2026-08-27") => loadV5BatchCosts(fakeSb({ rows }) as never, "2026-08-24", today);
+const load = (rows: Record<string, Record<string, unknown>[]>, today = "2026-08-27") => loadV5BatchCosts(fakeSb({ rows }) as never, "2026-08-24", today);
 
 describe("R60 probe TIED_NO_POSTED: a tied invoice is not final", () => {
   const tied = { batch: [{ ...batch, invoice_status: "tied" }] };

@@ -136,9 +136,11 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
   const rows = x.rows;
   const last = monthEnd(first);
   const cutOff = sel ? sel.cutOff : x.cutOff;
-  const sm = monthSummaryV4(rows, first, x.tolerance);
+  // R66 (K63): the journal columns follow the costing-rows mode of the page (a locked version: the mode it was locked with)
+  const mode = x.v5?.mode ?? "cogs";
+  const sm = monthSummaryV4(rows, first, x.tolerance, undefined, mode);
   const gpPct = sm.outlook.revenue.isZero() ? null : sm.outlook.gp.div(sm.outlook.revenue);
-  const days = versionDaysV4(rows, first, cutOff);
+  const days = versionDaysV4(rows, first, cutOff, mode);
   const anomalyDates = [...new Set(rows.filter((r) => r.anomaly).map((r) => r.date))].sort();
   const hasOpex = rows.some((r) => !isRevenueLine(r.pl_line) && !r.pl_line.startsWith("COGS") && !r.pl_line.startsWith("Other COGS") && r.forecast !== null);
   const status = sel ? "locked" : "draft";

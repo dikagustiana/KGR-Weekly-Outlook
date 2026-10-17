@@ -10,7 +10,7 @@
 import { D, Decimal, ZERO, div, max, sum, type Num } from "./decimal";
 import { addDays, daysInMonth, diffDays, firstOfMonth, type ISODate } from "./dates";
 import type { ControlV3 } from "./controls-v3";
-import { gpPctMtd, isCogsLine, isRevenueLine, monthEnd, runrateRevenue, v1LockDate, type ForecastOrder, type RunRate } from "./monthly";
+import { gpPctMtd, isCogsLine, isOpexLine, isRevenueLine, monthEnd, runrateRevenue, v1LockDate, type CostingRowsMode, type ForecastOrder, type RunRate } from "./monthly";
 import { segmentOfLine, type PlRowV4, type PlSegment } from "./week-outlook";
 
 const SEGMENTS3: Exclude<PlSegment, "Umum">[] = ["LB main", "LB by-product", "Trading"];
@@ -21,10 +21,11 @@ const COGS_LINE: Record<Exclude<PlSegment, "Umum">, string> = { "LB main": "COGS
 
 export interface PlTotalsV4 { revenue: Decimal; cogs: Decimal; gp: Decimal; opex: Decimal; nibt: Decimal }
 
-export function totalsV4(rows: PlRowV4[], v: "actual" | "forecast", basis?: (b: PlRowV4["basis"]) => boolean): PlTotalsV4 {
+export function totalsV4(rows: PlRowV4[], v: "actual" | "forecast", basis?: (b: PlRowV4["basis"]) => boolean, mode: CostingRowsMode = "cogs"): PlTotalsV4 {
   // v5 fixed-cost estimate rows are not journal: never inside the v4 totals (plTotalsV5 adds them, K29)
   const f = (p: (l: string) => boolean) => sum(rows.filter((r) => p(r.pl_line) && r.basis !== "fixed_estimate" && (!basis || basis(r.basis))).map((r) => r[v] ?? ZERO));
-  const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
+  // R66 (K63): in mode 'memo' the two v5 costing rows are in no total (COGS, opex, GP, NIBT)
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => isOpexLine(l, mode));
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt: revenue.plus(cogs).plus(opex) };
 }
 
@@ -277,8 +278,8 @@ export interface MonthSummaryV4 {
 }
 
 /** Everything the page shows from the month's rows (P5, P7): actual to the cut-off + forecast, range on the forecast part only. */
-export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, isWorkingDay: (d: ISODate) => boolean = (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0): MonthSummaryV4 {
-  const actual = totalsV4(rows, "actual"), forecast = totalsV4(rows, "forecast");
+export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, isWorkingDay: (d: ISODate) => boolean = (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0, mode: CostingRowsMode = "cogs"): MonthSummaryV4 {
+  const actual = totalsV4(rows, "actual", undefined, mode), forecast = totalsV4(rows, "forecast", undefined, mode);
   const outlook = addT(actual, forecast);
   const tol = D(tolerance);
   const fRev = rows.filter((r) => r.forecast !== null && isRevenueLine(r.pl_line));
@@ -300,7 +301,7 @@ export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, 
     },
     lastActual, remainingDays: remaining.length, remainingWorkingDays: remaining.filter((d) => isWorkingDay(d)).length,
     bySegment: segs.map((segment) => {
-      const t = addT(totalsV4(rows.filter((r) => r.segment === segment), "actual"), totalsV4(rows.filter((r) => r.segment === segment), "forecast"));
+      const t = addT(totalsV4(rows.filter((r) => r.segment === segment), "actual", undefined, mode), totalsV4(rows.filter((r) => r.segment === segment), "forecast", undefined, mode));
       return { segment, revenue: t.revenue, gp: t.gp };
     }),
   };
@@ -448,7 +449,7 @@ export interface BridgeMetric { from: Decimal; to: Decimal; dActual: Decimal; dV
 export interface BridgeV4 { revenue: BridgeMetric; gp: BridgeMetric; nibt: BridgeMetric }
 
 /** Version days of the month from the rows (what a locked version stores as its snapshot). */
-export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate): VersionDayV4[] {
+export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate, mode: CostingRowsMode = "cogs"): VersionDayV4[] {
   const end = monthEnd(month);
   const out: VersionDayV4[] = [];
   for (let d = firstOfMonth(month); d <= end; d = addDays(d, 1)) {
@@ -460,7 +461,7 @@ export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate):
     const revRows = rs.filter((r) => isRevenueLine(r.pl_line) && r.forecast !== null);
     const kind: VersionDayV4["kind"] = hasActual ? "actual" : revRows.some((r) => r.basis === "po") ? "po" : revRows.some((r) => r.basis === "runrate") ? "runrate" : "none";
     out.push({
-      date: d, kind, revenue: t(isRevenueLine).toFixed(2), cogs: t(isCogsLine).toFixed(2), opex: t((l) => !isRevenueLine(l) && !isCogsLine(l)).toFixed(2),
+      date: d, kind, revenue: t(isRevenueLine).toFixed(2), cogs: t((l) => isCogsLine(l, mode)).toFixed(2), opex: t((l) => isOpexLine(l, mode)).toFixed(2),
       kg: kind === "po" ? sum(revRows.map((r) => r.kg ?? ZERO)).toFixed(2) : null,
     });
   }

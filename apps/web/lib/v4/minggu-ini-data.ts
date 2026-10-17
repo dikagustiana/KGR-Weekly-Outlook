@@ -8,7 +8,7 @@ import { D, addDays, demandTotals, plRowsFromMart, weekCash, type ControlV3 } fr
 import type { WeekCtx } from "../page";
 import { supabaseServer } from "../supabase";
 import { isModuleOn, moduleSettings } from "../modules";
-import { weekPlRows } from "./week-pl";
+import { weekPlMode, weekPlRows } from "./week-pl";
 import { v4On } from "./nav";
 import type { MingguIniInput, StockMart } from "./minggu-ini";
 import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type BudgetRow } from "@kgr/engine";
@@ -43,6 +43,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   const failed: Failed = {};
   const plMart = v4On(settings, role) ? fail(failed, ["headline", "c-outlook", "ch-harian", "ch-bridge", "t-segmen"], await tileData("minggu ini: laba rugi minggu (pl_daily_v4)", () => weekPlRows(sb, w.week_start)), []) : [];
   const plRows = plMart.length ? plRowsFromMart(plMart as never) : null;
+  // R66 (K63): one mode for the weekly P&L, its bridge and the month card (the same as the page Outlook bulan)
+  const costingMode = await weekPlMode(sb, settings, role);
 
   // Δ vs last week: last week's released projection when there is a release, else its journal (weekly P&L)
   let lastWeek: MingguIniInput["lastWeek"] = null;
@@ -126,10 +128,10 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
           const qs = new URLSearchParams(Object.entries({ mode: sp.mode, hari: sp.hari, segmen: sp.segmen, sku: sp.sku, pl: p === "wk" ? undefined : p }).filter((e): e is [string, string] => !!e[1])).toString();
           return `/minggu-ini/${w.week_start}${qs ? `?${qs}` : ""}`;
         };
-        plOut = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href };
+        plOut = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href, mode: costingMode };
       }
       if (v4.length) {
-        const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
+        const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10", undefined, costingMode);
         const latest = bud.reduce((m, x) => Math.max(m, Number(x.version)), 0);
         const budget = latest ? bud.filter((x) => Number(x.version) === latest).map((x) => ({ segment: "Total", metric: String(x.metric) as BudgetRow["metric"], value: String(x.value) })) : [];
         const vb = vsBudget({ outlook: sum.outlook, actual: sum.actual, budget, remainingWorkingDays: sum.remainingWorkingDays });
@@ -201,7 +203,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     base: `/minggu-ini/${w.week_start}`,
     release: ctx.lastRelease ? { releasedAt: ctx.lastRelease.released_at, counts: ctx.lastRelease.controls?.counts ?? null } : null,
     mode, hari: iso(sp.hari), segmen: sp.segmen === "RPA" || sp.segmen === "Trading" ? sp.segmen : null, sku: sp.sku ?? null,
-    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt, failed,
+    on, plRows, costingMode, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt, failed,
     pdfHref: `/api/w/${w.week_start}/pdf`,
   };
 }

@@ -2,6 +2,7 @@
  * Feature flags per module (PRD v3 §4.9, rule: default off). Pure — the flag rows come from `app_setting`.
  * A flag value is {"enabled": bool, "roles"?: Role[]}: no role list = every role that may see the page.
  */
+import type { CostingRowsMode } from "@kgr/engine";
 import type { Role } from "./roles";
 
 export type ModuleKey =
@@ -38,6 +39,14 @@ export interface ModuleSetting {
   enabled: boolean;
   roles?: Role[] | null;
 }
+
+/**
+ * R66 (K63): how the two v5 costing rows ("Selisih costing", "Biaya kapasitas idle") count in the journal columns — field
+ * `costing_rows_mode` of the app_setting v5_pl: 'memo' (they leave COGS and the journal NIBT for a memo block) or 'cogs'
+ * (default, the behaviour of v5). Anything else, or no value, is 'cogs'.
+ */
+export type { CostingRowsMode };
+export const costingModeOf = (value: unknown): CostingRowsMode => ((value as { costing_rows_mode?: unknown } | null | undefined)?.costing_rows_mode === "memo" ? "memo" : "cogs");
 
 export type ModuleSettings = Partial<Record<ModuleKey, ModuleSetting>>;
 

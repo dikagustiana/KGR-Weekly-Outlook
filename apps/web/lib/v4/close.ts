@@ -71,7 +71,7 @@ async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): 
   const adj = moId ? mustRows<Row>(await sb.from("closing_adjustment").select("code, pl_line, amount").eq("month_outlook_id", moId).eq("posted", true).is("deleted_at", null), "closing_adjustment") : [];
   const adjustments = adj.map((a) => ({ code: String(a.code), pl_line: String(a.pl_line), amount: String(a.amount) }));
   const rows = st.plan.rows.filter((r) => r.actual !== null);
-  return { state: st, controls: await finalControlsV4(sb, st, settings), adjustments, totals: finalTotalsV4({ rows, adjustments }) };
+  return { state: st, controls: await finalControlsV4(sb, st, settings), adjustments, totals: finalTotalsV4({ rows, adjustments, mode: st.costingMode }) };
 }
 
 /**
@@ -91,7 +91,9 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const t = p.totals;
   const snapshot = {
     month: first, version: "FINAL", rule_version: RULE_VERSION, cut_off: last, time_zone: "Asia/Jakarta",
-    days: versionDaysV4(rows, first, last), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    days: versionDaysV4(rows, first, last, st.costingMode), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    // R66 (K63): the definition of the journal columns of this FINAL (C59 compares it with the FS), only when it is not the v5 default
+    ...(st.costingMode === "memo" ? { costing_rows_mode: st.costingMode } : {}),
     controls: p.controls.map((c) => ({ code: c.code, status: c.status })),
     totals: Object.fromEntries(Object.entries(t.after).map(([k, v]) => [k, f2(v)])),
     totals_before_adjustments: Object.fromEntries(Object.entries(t.before).map(([k, v]) => [k, f2(v)])),

@@ -415,7 +415,10 @@ export function planCost(x: {
   extraValue?: Num | null;
 }): PlanCostResult {
   const kgLb = D(x.kgLb), lbPrice = D(x.lbPrice), overhead = D(x.overhead ?? 0);
-  const tariffCost = x.directCost !== null && x.directCost !== undefined && x.directCost !== "" ? D(x.directCost) : kgLb.times(D(x.tariffPerKgLb ?? 0));
+  const hasDirect = x.directCost !== null && x.directCost !== undefined && x.directCost !== "";
+  // R62: freight + slaughter fee come from the actual amounts or from the planned tariff, never from an assumed 0
+  if (!hasDirect && (x.tariffPerKgLb === null || x.tariffPerKgLb === undefined || x.tariffPerKgLb === "")) throw new Error("planCost: tarif atau biaya langsung wajib diisi (tidak diasumsikan 0)");
+  const tariffCost = hasDirect ? D(x.directCost!) : kgLb.times(D(x.tariffPerKgLb!));
   const costPool = kgLb.times(lbPrice).plus(tariffCost).plus(overhead);
   const missingPrice: string[] = [];
   const base = x.outputs.map((o) => {
@@ -440,10 +443,35 @@ export function planCost(x: {
 
 /** R67: the standard plan cost per kg of a forecast order — planCost on a 1 kg LB basis (class yield × LB price + tariff). */
 export function forecastPlanCost(x: {
-  lbPrice: Num; tariffPerKgLb: Num | null; overhead?: Num | null; outputs: PlanOutput[];
+  lbPrice: Num; tariffPerKgLb: Num; overhead?: Num | null; outputs: PlanOutput[];
 }): Map<string, Decimal | null> {
   const r = planCost({ status: "estimasi", kgLb: "1", lbPrice: x.lbPrice, tariffPerKgLb: x.tariffPerKgLb, overhead: x.overhead, outputs: x.outputs });
   return new Map(r.lines.map((l) => [l.key, l.costPerKg]));
+}
+
+/**
+ * R67: one cost per kg per key from the plan costs of several classes decided for the same day. A forecast order has no
+ * class, so the classes are averaged by the kg of that key they yield: weight = decided LB volume × the class yield of the
+ * key. A class without a decided volume weighs 1 (every class equal; `equalWeights` says so for the label). A key a class
+ * cannot cost (no reference price) has no blended cost — the caller falls back to the MA cost, labelled.
+ */
+export function blendClassCosts(parts: { volume: Num | null; costs: Map<string, Decimal | null>; yields: Map<string, Num> }[]): { costs: Map<string, Decimal | null>; equalWeights: boolean } {
+  if (parts.length === 1) return { costs: parts[0].costs, equalWeights: false };
+  const equalWeights = parts.some((p) => p.volume === null || p.volume === undefined || p.volume === "");
+  const keys = [...new Set(parts.flatMap((p) => [...p.costs.keys()]))];
+  const costs = new Map<string, Decimal | null>();
+  for (const k of keys) {
+    let num = ZERO, den = ZERO, unknown = false;
+    for (const p of parts) {
+      const c = p.costs.get(k) ?? null, y = p.yields.get(k);
+      if (c === null || y === undefined) { unknown = true; break; }
+      const w = (equalWeights ? D(1) : D(p.volume!)).times(D(y));
+      num = num.plus(w.times(c));
+      den = den.plus(w);
+    }
+    costs.set(k, unknown || den.isZero() ? null : num.div(den));
+  }
+  return { costs, equalWeights };
 }
 
 /** Outputs of the need basis (§4.1, K25): the demanded main products at their reference price and the by-products the kg LB yields. */
