@@ -10,7 +10,7 @@ import { moduleSettings } from "./modules";
 import { moduleSettingsGlobal } from "./rebuild";
 import { v3ForWeek } from "./v3/week";
 import { wallNow } from "./clock";
-import { v5InputOn } from "./v5/input-data";
+import { buildInputDay, v5InputOn } from "./v5/input-data";
 
 /** Overrides and pending rebuilds of a scope, and whether the §7.2 rule is on (flag v4_release). */
 export async function releaseContext(sb: Supa, scopeKind: "week" | "month", scope: string, from: string, to: string) {
@@ -78,6 +78,10 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
   }
   // PRD v5 K35 (flag v5_input): red cells of the completeness grid hold the release unless Finance recorded K35, and a
   // week without any grid row is not released (v5.1 K45); public.release_week checks the same in the release transaction
+  // R79: rebuild the week's completeness grid first, so a just-saved input is not missed by the K35 pre-check
+  if (await v5InputOn(sb)) {
+    for (let i = 0; i < 7; i++) await buildInputDay(sb, addDays(weekStart, i));
+  }
   const k = await k35State(sb, weekStart, rc.overrides.map((o) => o.code));
   if (k && !k.ok) throw new WriteError(k35Message(k));
   const json = snapshotJsonV3(result, v3.snapshot);
