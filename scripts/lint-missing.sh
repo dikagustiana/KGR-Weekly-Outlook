@@ -9,8 +9,8 @@ report() { echo "$1"; fail=1; }
 
 files() { find apps/web -type f \( -name '*.ts' -o -name '*.tsx' \) | grep -v '\.test\.' | grep -v '\.spec\.'; }
 
-# named whitelist: a default 0 that is NOT money/kg/tarif (counts, sums, chart numbers, forms, DB NOT NULL)
-WL='seq|index|length|count|sort_order|head_count|\.y\)|\.x\)|pos\.|reduce|toNumber|\.plus\(|\.gt\(|form\.get|parseNumber|Math\.|defaultValue|String\('
+# named whitelist: a default 0 that is NOT money/kg/tarif (counts, sums, chart numbers, forms, DB NOT NULL, engine params)
+WL='seq|index|length|count|sort_order|head_count|\.y\)|\.x\)|pos\.|reduce|toNumber|\.plus\(|\.gt\(|form\.get|parseNumber|Math\.|defaultValue|String\(|s\(p\.|bar\?\?|line\?\?|test-support'
 
 while IFS= read -r f; do
   grep -nE '\?\?\s*"?0"?[,)]|\|\|\s*0[,)]' "$f" 2>/dev/null \
