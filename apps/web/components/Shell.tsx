@@ -13,6 +13,7 @@ import { jakartaToday } from "@kgr/engine";
 import { V4Frame } from "./v4/Frame";
 import { v4Nav, v4On } from "@/lib/v4/nav";
 import { viewAsActive, viewAsItems } from "@/lib/v5/view-as";
+import { schemaStatus } from "@/lib/schema";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -52,6 +53,9 @@ export async function Shell({
   // R13: the management view renders the reports only (no INPUT / ADMIN groups, Kontrol via the release line)
   const mgmt = view === "management";
   const settings = await moduleSettings();
+  // K57 (R44): one banner in the header when the database schema is behind the code.
+  const schema = await schemaStatus();
+  const schemaBanner = schema ? <div className="banner ADA-GAGAL" role="alert">{schema}</div> : null;
   // PRD v4 irisan 1 (flag v4_design): one navigation row per role, the v4 visual grammar around every page
   if (v4On(settings, viewer.role)) {
     const nav = v4Nav(viewer.role, settings, { week: w ?? null, month: week ? week.update_date.slice(0, 7) : jakartaToday().slice(0, 7), today: jakartaToday() });
@@ -68,6 +72,7 @@ export async function Shell({
         </>}
       >
         {banner}
+        {schemaBanner}
         {children}
       </V4Frame>
     );
@@ -90,6 +95,7 @@ export async function Shell({
         <form action="/auth/signout" method="post"><button className="b sec small">Keluar</button></form>
       </header>
       {banner}
+      {schemaBanner}
       <nav className="nav">
         {w ? REPORTS.filter(([p]) => !(mgmt && p === "kontrol")).map(([p, l]) => (
           <Link key={p} href={`/w/${w}/${p}`} className={active === p ? "on" : ""}>{l}</Link>

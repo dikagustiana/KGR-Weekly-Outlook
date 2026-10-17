@@ -177,6 +177,7 @@ export async function buildCashDay(sb: Supa, date: string, m4: boolean): Promise
 let m4On = false;
 registerBuilder({
   module: "m6_cash", name: "cash",
+  after: ["m4_monthly"],
   begin: async (sb) => {
     const { data } = await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle();
     m4On = ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;

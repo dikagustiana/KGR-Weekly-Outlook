@@ -8,12 +8,13 @@ import "server-only";
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
-import { clock } from "./clock";
+import { clock, wallNow } from "./clock";
 import { inChunks, mustRows } from "./loader";
+import { addDays } from "@kgr/engine";
 import { throughDates } from "./rebuild-dates";
 import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
 import { supabaseService } from "./supabase-service";
-import { BUILDERS } from "./rebuild-registry";
+import { orderedBuilders } from "./rebuild-registry";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
 import "./v3/planning";
@@ -41,7 +42,7 @@ export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
 
 export async function rebuildDay(sb: Supa, date: string, settings: ModuleSettings): Promise<string[]> {
   const out: string[] = [];
-  for (const b of BUILDERS) {
+  for (const b of orderedBuilders()) {
     if (!settings[b.module]?.enabled || (b.unless && settings[b.unless]?.enabled)) continue;
     out.push(`${b.name}: ${await b.build(sb, date)}`);
   }
@@ -82,17 +83,32 @@ export async function queueThroughNote(sb: Supa, affected: string[], reason: str
   }
 }
 
+/** R45 (K61): inline processing from an action is capped to this many dates; the rest stays queued for the cron. */
+export const REBUILD_INLINE_MAX = 7;
+
 /**
  * Process queued dates oldest first (each date once), marking every row done or failed. With every module off the
  * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
- * Without the server key the queue is left alone too, with a note saying why.
+ * Without the server key the queue is left alone too, with a note saying why. K61 (R45): stuck `running` rows are
+ * reset, out-of-window dates are marked done, and inline processing is capped; the rest is left for the cron.
  */
-export async function processRebuildQueue(settings: ModuleSettings, limit = 62): Promise<{ done: number; failed: number; notes: string[] }> {
+export async function processRebuildQueue(settings: ModuleSettings, opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: number; failed: number; notes: string[] }> {
+  const { limit = REBUILD_INLINE_MAX, budgetMs = 0 } = opts;
   const svc = supabaseService();
   const mode = rebuildMode(settings, svc !== null);
   if (mode === "skip") return { done: 0, failed: 0, notes: [] };
   if (mode === "no_key" || !svc) return { done: 0, failed: 0, notes: [REBUILD_NO_KEY] };
   const sb = svc;
+
+  // K61 (R45): a crashed run leaves `running` rows that would block STALE forever — reset them after 15 minutes.
+  const stuck = await sb.from("rebuild_queue").update({ status: "queued", error: "direset: running > 15 menit" }).eq("status", "running").lt("started_at", new Date(Date.now() - 15 * 60_000).toISOString());
+  if (stuck.error) throw new WriteError(`rebuild_queue reset running: ${stuck.error.message}`);
+
+  // K61 (R45): dates beyond the data window (wall clock + 7) are marked done, never built.
+  const beyond = addDays(wallNow().date, 7);
+  const outWin = await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: "di luar jendela data (jam dinding + 7); tidak dibangun" }).eq("status", "queued").gt("date", beyond);
+  if (outWin.error) throw new WriteError(`rebuild_queue luar jendela: ${outWin.error.message}`);
+
   const { data, error } = await sb.from("rebuild_queue").select("id, date").eq("status", "queued").order("date").limit(500);
   if (error) throw new WriteError(error.message);
   const rows = (data ?? []) as { id: string; date: string }[];
@@ -100,19 +116,28 @@ export async function processRebuildQueue(settings: ModuleSettings, limit = 62):
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r.id]);
   let done = 0, failed = 0;
   const notes: string[] = [];
-  if (byDate.size) for (const b of BUILDERS) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
+  if (byDate.size) for (const b of orderedBuilders()) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
+  const startedAt = Date.now();
+  let processed = 0;
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
-    await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids);
+    if (budgetMs && Date.now() - startedAt > budgetMs) break;
+    const up = await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids);
+    if (up.error) throw new WriteError(`rebuild_queue running: ${up.error.message}`);
     try {
       const msg = await rebuildDay(sb, date, settings);
-      await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" }).in("id", ids);
+      const fin = await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" }).in("id", ids);
+      if (fin.error) throw new WriteError(`rebuild_queue done: ${fin.error.message}`);
       done += ids.length;
+      processed += 1;
       notes.push(`${date}: ${msg.length ? msg.join("; ") : "tidak ada modul aktif"}`);
     } catch (e) {
-      await sb.from("rebuild_queue").update({ status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) }).in("id", ids);
+      const f = await sb.from("rebuild_queue").update({ status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) }).in("id", ids);
+      if (f.error) notes.push(`${date}: GAGAL menandai failed: ${f.error.message}`);
       failed += ids.length;
+      processed += 1;
       notes.push(`${date}: GAGAL ${(e as Error).message}`);
     }
   }
+  if (byDate.size > processed) notes.push(`${byDate.size - processed} tanggal tersisa di antrean; dilanjutkan otomatis`);
   return { done, failed, notes };
 }
