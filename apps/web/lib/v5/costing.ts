@@ -81,7 +81,7 @@ const STD_UNITS: [string, string][] = [["Kepala", "Kepala"], ["Ceker", "Ceker"],
  * as the batch header; sementara: the WP rows (batch_output_sku) with the batch's actual freight + slaughter fee.
  */
 export async function loadV5BatchCosts(sb: Supa, from: string, today: string): Promise<V5BatchCost[]> {
-  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, week_id, date, status, batch_ref, lb_kg, lb_price, freight, maklon, out_karkas_fresh, out_karkas_frozen, wp_received_at, invoice_status")
+  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, week_id, date, status, batch_ref, lb_kg, lb_price, freight, maklon, out_karkas_fresh, out_karkas_frozen, wp_received_at, invoice_status, weight_class")
     .is("deleted_at", null).is("superseded_at", null).gte("date", from).order("date").order("id").range(a, b));
   if (!batches.length) return [];
   const ids = batches.map((b) => String(b.id));
@@ -92,7 +92,7 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     inChunks(ids, (part) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", part).is("deleted_at", null).order("id").range(a, b))),
     inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("parameter").select("week_id, freight_plan_per_kg_lb, maklon_per_kg_processed, target_shrink, lb_price_today, wp_due_hours, wp_due_time").in("week_id", part).order("week_id").range(a, b))),
     fetchAll<Row>((a, b) => sb.from("lb_price_decision").select("date, weight_class, price, decided_at").gte("date", from).order("decided_at", { ascending: false }).order("id").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("weight_class", "STD").eq("cut_pattern", "karkas").is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct").eq("cut_pattern", "karkas").is("deleted_at", null).order("id").range(a, b)),
     inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("week").select("id, week_start").in("id", part).order("id").range(a, b))),
   ]);
   const postedIds = new Set(posted.map((r) => String(r.batch_id)));
@@ -111,7 +111,12 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     inChunks(prevWeeks, (part) => fetchAll<Row>((a, b) => sb.from("price_list_week").select("week_start, key, price_fresh, price_frozen").in("week_start", part).not("locked_at", "is", null).is("deleted_at", null).order("key").order("week_start").range(a, b))),
     inChunks(weekIds, (part) => fetchAll<Row>((a, b) => sb.from("sku_price").select("week_id, key, ref_sell_price").in("week_id", part).order("key").order("week_id").range(a, b))),
   ]);
-  const yieldOf = (k: string) => s(yields.find((y) => String(y.key) === k)?.yield_pct);
+  // R63: the effective yield is the batch's class (K/S/B) → fallback STD (the class rows are seeded with STD)
+  const yieldOf = (k: string, cls: string | null): string | null => {
+    const mine = yields.filter((y) => String(y.key) === k);
+    const byClass = cls ? mine.find((y) => String(y.weight_class) === cls) : undefined;
+    return s((byClass ?? mine.find((y) => String(y.weight_class) === "STD"))?.yield_pct);
+  };
   const out: V5BatchCost[] = [];
   for (const b of batches) {
     const id = String(b.id), ref = s(b.batch_ref) ?? id, ws = weekStart.get(String(b.week_id)) ?? "";
@@ -137,19 +142,19 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     if (use === "sementara" && wpRows.length) {
       outputs = wpRows.filter((r) => r.key).map((r) => ({ key: String(r.key), kg: String(r.kg), priceRef: priceOf(String(r.key)) }));
     } else {
-      const karkas = D(yieldOf("Karkas") ?? "0").times(kgLb);
+      const karkas = D(yieldOf("Karkas", s(b.weight_class)) ?? "0").times(kgLb);
       const f = D(s(b.out_karkas_fresh) ?? "0"), z = D(s(b.out_karkas_frozen) ?? "0");
       const share = f.plus(z).isZero() ? D(1) : f.div(f.plus(z));
       outputs = [
         { key: "RPA|Karkas|Fresh", kg: karkas.times(share).toFixed(2), priceRef: priceOf("RPA|Karkas|Fresh") },
         { key: "RPA|Karkas|Frozen", kg: karkas.minus(karkas.times(share)).toFixed(2), priceRef: priceOf("RPA|Karkas|Frozen") },
-        ...STD_UNITS.map(([unit, sku]) => ({ key: `RPA|${sku}|Fresh`, kg: D(yieldOf(unit) ?? "0").times(kgLb).toFixed(2), priceRef: priceOf(`RPA|${sku}|Fresh`) })),
+        ...STD_UNITS.map(([unit, sku]) => ({ key: `RPA|${sku}|Fresh`, kg: D(yieldOf(unit, s(b.weight_class)) ?? "0").times(kgLb).toFixed(2), priceRef: priceOf(`RPA|${sku}|Fresh`) })),
       ];
     }
     // R62: a missing yield / tariff / maklon is "belum diisi" (no cost), never Rp 0
     const needYields = use === "sementara" && wpRows.length ? [] : ["Karkas", ...STD_UNITS.map(([u]) => u)];
     const missingInputs = [
-      ...needYields.filter((u) => yieldOf(u) === null).map((u) => `yield ${u}`),
+      ...needYields.filter((u) => yieldOf(u, s(b.weight_class)) === null).map((u) => `yield ${u}`),
       ...(s(p.freight_plan_per_kg_lb) === null || s(p.freight_plan_per_kg_lb) === "" ? ["tarif freight"] : []),
       ...(s(p.maklon_per_kg_processed) === null || s(p.maklon_per_kg_processed) === "" ? ["tarif maklon"] : []),
     ];
