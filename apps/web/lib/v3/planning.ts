@@ -38,6 +38,9 @@ export interface PoLine extends OrderLine {
   sales_rep: string | null;
   item_code: string | null;
   customer: string | null;
+  /** R48: a line synthesized from a locked commitment (id is not a sales_line id); it carries its own size. */
+  synthetic: boolean;
+  size_kg: string | null;
 }
 
 export interface PlanningSources {
@@ -105,6 +108,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
     demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
     po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
+    synthetic: false, size_kg: null,
   }));
   // PRD v5 K26 (flag v5_commercial): the locked commitments of the week are Confirmed demand for the kg the POs do not cover
   const v5c = must(await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle(), "planning.v5_commercial");
@@ -115,7 +119,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
       weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
       commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
     });
-    poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null })));
+    poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null, synthetic: true, size_kg: s(e.size_kg) })));
   }
   return {
     week,
