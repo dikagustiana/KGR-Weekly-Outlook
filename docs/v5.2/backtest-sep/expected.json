@@ -1,0 +1,214 @@
+{
+ "pl_sep": {
+  "PL!B12": {
+   "label": "Revenue",
+   "value": 5039854191
+  },
+  "PL!B13": {
+   "label": "Cost of Sales",
+   "value": -5515286606.260001
+  },
+  "PL!B15": {
+   "label": "GROSS PROFIT",
+   "value": -475432415.2600012
+  },
+  "PL!B18": {
+   "label": "Delivery Expenses - SE",
+   "value": -23367240
+  },
+  "PL!B19": {
+   "label": "Commission Expenses",
+   "value": -11593192.6
+  },
+  "PL!B20": {
+   "label": "Packaging",
+   "value": -5833590
+  },
+  "PL!B23": {
+   "label": "Salaries and allowance",
+   "value": -82677332
+  },
+  "PL!B24": {
+   "label": "Storage Expenses",
+   "value": -192772535.65
+  },
+  "PL!B26": {
+   "label": "Maintenance Expenses",
+   "value": -4007061.06666667
+  },
+  "PL!B28": {
+   "label": "Office Transportation expenses",
+   "value": -11176500
+  },
+  "PL!B30": {
+   "label": "Rent Expenses",
+   "value": -9000
+  },
+  "PL!B31": {
+   "label": "Office Supplies Expenses",
+   "value": -9777000
+  },
+  "PL!B32": {
+   "label": "Professional Fee",
+   "value": -1538461
+  },
+  "PL!B35": {
+   "label": "Tax expenses",
+   "value": -13258267.740000002
+  },
+  "PL!B37": {
+   "label": "TOTAL OPERATING EXPENSES",
+   "value": -356010180.0566667
+  },
+  "PL!B39": {
+   "label": "OPERATING INCOME",
+   "value": -831442595.3166678
+  },
+  "PL!B43": {
+   "label": "Interest Expense",
+   "value": -54022222.22
+  },
+  "PL!B45": {
+   "label": "Other Income",
+   "value": -66995835.19
+  },
+  "PL!B46": {
+   "label": "Other Expense",
+   "value": -1442900
+  },
+  "PL!B49": {
+   "label": "TOTAL OTHER INCOME (EXPENSE)",
+   "value": -122460957.41
+  },
+  "PL!B51": {
+   "label": "INCOME (LOSS) BEFORE TAX",
+   "value": -953903552.7266678
+  },
+  "PL!B58": {
+   "label": "NET INCOME FOR THE YEAR",
+   "value": -953903552.7266678
+  }
+ },
+ "bs_30sep": {
+  "BS!B14": {
+   "label": "Cash and cash equivalents",
+   "value": 102996959.8599987
+  },
+  "BS!B17": {
+   "label": "Trade Receivables - Third Parties",
+   "value": 800198009
+  },
+  "BS!B23": {
+   "label": "Inventory - Product",
+   "value": 4724212503.349997
+  },
+  "BS!B24": {
+   "label": "Inventory - Trading",
+   "value": 1928193717.7300026
+  },
+  "BS!B25": {
+   "label": "Prepaid Tax",
+   "value": 248042907.66
+  },
+  "BS!B26": {
+   "label": "Advance Payment",
+   "value": 1413493471.55
+  },
+  "BS!B27": {
+   "label": "Prepaid Expenses",
+   "value": 1317507571.0833333
+  },
+  "BS!B29": {
+   "label": "TOTAL CURRENT ASSETS",
+   "value": 10534645140.233332
+  },
+  "BS!B32": {
+   "label": "Buildings",
+   "value": 1291505000
+  },
+  "BS!B33": {
+   "label": "Office Furniture and Equipment",
+   "value": 254946153.61
+  },
+  "BS!B35": {
+   "label": "Acc. Depreciation - Buildings",
+   "value": -227416375.13000005
+  },
+  "BS!B36": {
+   "label": "Acc. Depreciation - Office Furniture and Equipment",
+   "value": -211063034.57000002
+  },
+  "BS!B39": {
+   "label": "TOTAL NON CURRENT ASSETS",
+   "value": 1107971743.91
+  },
+  "BS!B41": {
+   "label": "TOTAL ASSETS",
+   "value": 11642616884.143332
+  },
+  "BS!B47": {
+   "label": "Trade Payables - Third Parties",
+   "value": 139076516.39999962
+  },
+  "BS!B50": {
+   "label": "Other Payable - Third Parties",
+   "value": 860802573.3000004
+  },
+  "BS!B51": {
+   "label": "Other Payable - Related Parties",
+   "value": 9845918888.889997
+  },
+  "BS!B53": {
+   "label": "Accrued Expenses - Third Parties",
+   "value": 43845011
+  },
+  "BS!B55": {
+   "label": "Unearned Revenue",
+   "value": 47426515
+  },
+  "BS!B56": {
+   "label": "Taxes Payable",
+   "value": 46838917.33
+  },
+  "BS!B58": {
+   "label": "TOTAL CURRENT LIABILITIES",
+   "value": 10983908421.919998
+  },
+  "BS!B65": {
+   "label": "TOTAL LIABILITIES",
+   "value": 10983908421.919998
+  },
+  "BS!B68": {
+   "label": "Shareholder Equity",
+   "value": 5000000000
+  },
+  "BS!B71": {
+   "label": "- Beginning retained earnings",
+   "value": -2698434665.91
+  },
+  "BS!B72": {
+   "label": "- Current profit or loss",
+   "value": -1642856872.1866655
+  },
+  "BS!B77": {
+   "label": "TOTAL EQUITY",
+   "value": 658708461.9033346
+  },
+  "BS!B79": {
+   "label": "TOTAL EQUITY AND LIABILITIES",
+   "value": 11642616883.823334
+  }
+ },
+ "checks": {
+  "revenue_jt": 5039.9,
+  "cogs_jt": -5515.3,
+  "gp_jt": -475.4,
+  "nibt_jt": -953.9,
+  "net_income_jt": -953.9,
+  "kas_jt": 103.0,
+  "inventory_product_jt": 4724.2,
+  "inventory_trading_jt": 1928.2,
+  "equity_jt": 658.7
+ },
+ "source": "09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx (PL/BS - Management Report, September = kolom L)"
+}

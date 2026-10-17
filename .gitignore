@@ -10,3 +10,6 @@ coverage/
 .DS_Store
 out/
 __pycache__/
+
+# backtest working files
+backtest-data/
