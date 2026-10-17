@@ -27,7 +27,7 @@ export async function savePlanAction(_: ActionState, form: FormData): Promise<Ac
     const { v, sb, week } = await ctx(form, ["admin", "ppic"]);
     const sup = String(form.get("supply_heads") ?? "").trim();
     const heads = sup === "" ? null : parseNumber(sup);
-    const msg = await savePlan(sb, v, week, { classCode: String(form.get("weight_class") || "") || null, supplyCommittedHeads: heads === null ? null : Math.round(Number(heads)), note: String(form.get("note") ?? "") || null });
+    const { msg } = await savePlan(sb, v, week, { classCode: String(form.get("weight_class") || "") || null, supplyCommittedHeads: heads === null ? null : Math.round(Number(heads)), note: String(form.get("note") ?? "") || null });
     done(week.week_start);
     return { ok: msg };
   } catch (e) { return { error: (e as Error).message }; }
@@ -41,11 +41,9 @@ export async function saveClassPlanAction(_: ActionState, form: FormData): Promi
   try {
     const v = await requireModuleAction("v5_ppic_class", ["admin", "ppic"]);
     const { sb, week } = await ctx(form, ["admin", "ppic"]);
-    const msg = await savePlan(sb, v, week, { classCode: "STD", supplyCommittedHeads: null, note: "v5: rencana per kelas" });
-    const pw = must(await sb.from("plan_week").select("id").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "rencana.plan_week");
-    if (!pw) throw new WriteError("plan_week tidak ditemukan setelah disimpan");
+    const { id, msg } = await savePlan(sb, v, week, { classCode: "STD", supplyCommittedHeads: null, note: "v5: rencana per kelas" });
     const cs = await loadClassDemand(sb, await loadPlanning(sb, week));
-    const rows = planWeekClassRows(String((pw as { id: string }).id), cs.demand);
+    const rows = planWeekClassRows(id, cs.demand);
     if (rows.length) {
       const { error } = await sb.from("plan_week_class").insert(rows);
       if (error) throw new WriteError(`plan_week_class: ${error.message}`);
