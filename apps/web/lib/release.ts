@@ -11,6 +11,7 @@ import { moduleSettingsGlobal } from "./rebuild";
 import { v3ForWeek } from "./v3/week";
 import { wallNow } from "./clock";
 import { v5InputOn } from "./v5/input-data";
+import { assertSchemaCurrent } from "./schema";
 
 /** Overrides and pending rebuilds of a scope, and whether the §7.2 rule is on (flag v4_release). */
 export async function releaseContext(sb: Supa, scopeKind: "week" | "month", scope: string, from: string, to: string) {
@@ -61,6 +62,7 @@ export const k35Message = (k: NonNullable<Awaited<ReturnType<typeof k35State>>>)
  */
 /** `k25`: the PDF writes the live-bird block as a simulation (K25 for the releasing role, K54). */
 export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string, opts: { k25?: boolean } = {}) {
+  await assertSchemaCurrent(sb);
   const loaded = await loadWeek(sb, weekStart);
   if (!loaded) throw new WriteError("Minggu tidak ada");
   const result = computeWeek(loaded.inputs);

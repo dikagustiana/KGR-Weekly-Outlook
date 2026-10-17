@@ -7,7 +7,7 @@ import { Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { mustRows } from "@/lib/loader";
+import { mustRows, must } from "@/lib/loader";
 import { currentView } from "@/lib/view-server";
 import { commercialMart, computeCommercial } from "@/lib/v3/commercial";
 import { URGENCY_LABEL, assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
@@ -38,8 +38,9 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
   const asg = mustRows(await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email), "komersial.assignment") as any[];
   const own = asg as { key: string | null }[];
   const assignedKeys = assignedKeysFor(v.role, own);
-  const { data: par } = week ? await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle() : { data: null };
-  const rows = commercialView(mart.rows, { role: v.role, salesSeesCost: (par as { sales_sees_cost?: boolean } | null)?.sales_sees_cost !== false, assignedKeys });
+  // B-REL-4 (fail-closed): a failed read throws; a week without a parameter row does not show Sales the cost
+  const par = week ? must(await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle(), "komersial.parameter") : null;
+  const rows = commercialView(mart.rows, { role: v.role, salesSeesCost: par !== null && (par as { sales_sees_cost?: boolean }).sales_sees_cost !== false, assignedKeys });
   const showMa = rows.some((r) => r.cost_per_kg_ma !== null);
   const st = !sales && !mgmt ? await computeCommercial(sb, date) : null;
   const urgent = rows.filter((r) => r.urgency === "jual_hari_ini" || r.urgency === "di_atas_umur");

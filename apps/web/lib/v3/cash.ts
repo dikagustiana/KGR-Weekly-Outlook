@@ -177,7 +177,8 @@ export async function buildCashDay(sb: Supa, date: string, m4: boolean): Promise
 let m4On = false;
 registerBuilder({
   module: "m6_cash", name: "cash",
-  after: ["m4_monthly"],
+  // K60 (R45, F19): the solvency basis reads pl_daily_v4 and the month lock note written by these two
+  after: ["monthly v4", "accuracy v4"],
   begin: async (sb) => {
     const data = must(await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle(), "cash.m4_monthly");
     m4On = ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;

@@ -62,7 +62,7 @@ def line_of(text, pos):
 
 
 # ---------------------------------------------------------------- K41
-K41_DESTRUCT = re.compile(r"const \{([^}]*)\} = await ([^;]*)")
+K41_DESTRUCT = re.compile(r"(?:const|let) \{([^}]*)\} = (?:[^;=]*?\? )?await ([^;]*)")
 
 
 def k41(dirs):
@@ -85,6 +85,15 @@ def k41(dirs):
             # 4) data ?? [] after a query
             if re.search(r"\bdata \?\? \[\]", line):
                 rep.check(path, lines, i, "data ?? [] menelan error")
+        # 6) `x.data ?? {}` / `x.data ?? []` on a result whose `x.error` is never looked at in the file
+        for m in re.finditer(r"\b(\w+)\.data \?\? ", text):
+            name = m.group(1)
+            if re.search(r"\b%s\.error\b|must(?:Rows)?\(%s\b|orMissingTable\(%s\b" % (name, name, name), text):
+                continue
+            rep.check(path, lines, line_of(text, m.start()), "%s.data dibaca tanpa cek %s.error" % (name, name))
+        # 7) a write or rpc whose result is thrown away: `await sb.from(…).update(…);` as a statement
+        for m in re.finditer(r"(?m)^[ \t]*(?:await|void) [\w.]+\.(?:from\([^)]*\)[^;]*?\.(?:insert|update|upsert|delete)\(|rpc\()", text):
+            rep.check(path, lines, line_of(text, m.start()), "hasil tulis/rpc dibuang (error tidak dicek)")
         # 2) `catch {` (no binding) whose block does not rethrow
         for m in re.finditer(r"catch (\(\) )?\{", text):
             body = text[m.end():m.end() + 400]
@@ -187,7 +196,7 @@ def k42(dirs):
         lines = text.split("\n")
         builders = []
         # 3) fetchAll / fetchAllOrMissing: the builder orders by a unique key of its table
-        for m in re.finditer(r"\bfetchAll(?:OrMissing)?(?:<[^>()]*>)?\(", text):
+        for m in re.finditer(r"\bfetchAll(?:OrMissing)?(?:<(?:[^<>()]|<[^<>()]*>)*>)?\(", text):
             if text[max(0, m.start() - 9):m.start()] == "function ":
                 continue
             if re.match(r"[a-z]\w*[,)]", text[m.end():]):
@@ -209,7 +218,8 @@ def k42(dirs):
             vm = re.fullmatch(r"\s*([a-z]\w*)\s*", fm.group(1))
             if vm:  # `const table = cond ? "a" : "b";` earlier in the function
                 dm = re.search(r"const %s = ([^;]*);" % vm.group(1), text[max(0, m.start() - 1500):m.start()])
-                tables = re.findall(r'"([a-z_0-9]+)"', dm.group(1)) if dm else []
+                expr = dm.group(1) if dm else ""
+                tables = re.findall(r'"([a-z_0-9]+)"', expr.split("?", 1)[1] if "?" in expr else expr)
             if not tables:
                 # a table chosen at run time: every such caller reads tables keyed by `id`
                 if "id" not in ordered:

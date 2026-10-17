@@ -72,7 +72,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
       si.set(k, { kg: a.kg.plus(D(s(l.kg))), cost: a.cost.plus(D(s(l.allocated_cost))) });
     }
   }
-  const p = (param.data ?? {}) as Row;
+  const p = (must(param, "ledger.parameter") ?? {}) as Row;
   const isLatest = (wid: unknown) => wid === latest.id;
   const keyInfo: LedgerKeyInfo[] = keys.map((k) => ({
     key: String(k.key), form: String(k.key).endsWith("|Fresh") ? "fresh" : "frozen", group_code: s(k.group_code),

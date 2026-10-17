@@ -46,7 +46,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
     fetchAll<Row>((a, b) => sb.from("price_floor_rule").select("key, group_code, markup_rp_per_kg, markup_pct, effective_from").order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep").is("deleted_at", null).gte("week_start", addDays(date, -35)).order("id").range(a, b)),
-    week ? sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
+    week ? sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
   // v5 §4.1 / §4.6 (K17): the cost per kg of the stock is the ledger's lot cost (costing engine), with its status
   const v5 = await v5CostingOn(sb);
@@ -62,7 +62,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
   }
   const hours = new Map<string, number>();
   for (const l of lots) if (l.hours_to_cutoff !== null) hours.set(String(l.key), Math.min(hours.get(String(l.key)) ?? Infinity, Number(l.hours_to_cutoff)));
-  const p = (param.data ?? {}) as Row;
+  const p = (must(param, "commercial.parameter") ?? {}) as Row;
   const blast = s(p.blast_cost_per_kg) ?? "0";
   const rows = commercialRows({
     date, blastCostPerKg: blast, costAnomalyRatio: s(p.cost_anomaly_ratio) ?? "3",

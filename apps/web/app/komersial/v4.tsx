@@ -5,7 +5,7 @@ import { plainContext } from "@/lib/page";
 import { moduleSettings } from "@/lib/modules";
 import { isModuleOn } from "@/lib/modules-core";
 import { supabaseServer } from "@/lib/supabase";
-import { mustRows } from "@/lib/loader";
+import { mustRows, must } from "@/lib/loader";
 import { currentView } from "@/lib/view-server";
 import { fetchAll, listWeeks } from "@/lib/data";
 import { clock } from "@/lib/clock";
@@ -34,15 +34,16 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   const asg = mustRows(await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email), "komersial.assignment") as any[];
   const own = asg as { key: string | null }[];
   const todayWeek = (await listWeeks(sb)).find((w) => w.week_start <= today && w.week_end >= today) ?? null;
-  const { data: par } = todayWeek ? await sb.from("parameter").select("sales_sees_cost, spot_enabled, cut_off_time").eq("week_id", todayWeek.id).maybeSingle() : { data: null };
+  const par = todayWeek ? must(await sb.from("parameter").select("sales_sees_cost, spot_enabled, cut_off_time").eq("week_id", todayWeek.id).maybeSingle(), "komersial.parameter") : null;
   const p = (par ?? {}) as Row;
-  const rows = commercialView(mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: assignedKeysFor(viewer.role, own) });
+  // B-REL-4 (fail-closed): a week without a parameter row does not show Sales the cost
+  const rows = commercialView(mart.rows, { role: viewer.role, salesSeesCost: par !== null && p.sales_sees_cost !== false, assignedKeys: assignedKeysFor(viewer.role, own) });
   const approvalOn = isModuleOn(settings.m7_approval, viewer.role);
   const [reqs, lim] = approvalOn ? await Promise.all([
     fetchAll<Row>((a, b) => sb.from("discount_approval").select("*").order("created_at", { ascending: false }).order("id").range(a, b)),
     sb.rpc("discount_limit"),
-  ]) : [[] as Row[], { data: null }];
-  const limit = Number(lim.data ?? 500);
+  ]) : [[] as Row[], { data: null, error: null }];
+  const limit = Number(must(lim, "komersial.discount_limit") ?? 500);
   const mayDecide = (r: Row) => !mgmt && (viewer.role === "admin" || viewer.role === "finance" || (viewer.role === "commercial_lead" && Number(r.rp_per_kg_below) <= limit));
   const approvals: ApprovalRow[] = reqs.map((r) => ({
     id: String(r.id), key: String(r.key), customer: r.customer === null ? null : String(r.customer), requested_price: String(r.requested_price), floor_price: String(r.floor_price),

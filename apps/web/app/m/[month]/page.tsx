@@ -17,6 +17,7 @@ import { budgetAction, lockAction, rebuildMonthAction } from "./actions";
 import { moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
 import { OutlookBulanV4 } from "./v4";
+import { must } from "@/lib/loader";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function MonthPage({ params, searchParams }: { params: Prom
   const mgmt = (await currentView(viewer)) === "management";
   const sb = await supabaseServer();
   const [rows, mv, mo] = await Promise.all([plDaily(sb, first), monthView(sb, first), sb.from("month_outlook").select("*").eq("month", first).maybeSingle()]);
-  const o = (mo.data ?? null) as R | null;
+  const o = must(mo, "outlook bulan.month_outlook") as R | null;
   const tolerance = String(mv.assumptions.find((a) => a.code === "forecast_tolerance_pct")?.value_num ?? "0.10");
   const sm = monthSummary(rows, first, o ? { revenue: o.budget_revenue as string | null, gp: o.budget_gp as string | null, nibt: o.budget_nibt as string | null } : null, tolerance);
   const days = versionDays(rows, first);

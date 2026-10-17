@@ -60,7 +60,8 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
   try {
     c = await COMMIT[x.kind]({ sb, viewer, r, uploadId, weeks, week, reason, today, customers: ctx.customers ?? "all" });
   } catch (e) {
-    await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
+    const f = await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
+    if (f.error) console.error(`[upload] status gagal tidak tersimpan (${uploadId}): ${f.error.message}`);
     throw e;
   }
   // K39: WP of a batch moves the update date of its open week to the day after the batch

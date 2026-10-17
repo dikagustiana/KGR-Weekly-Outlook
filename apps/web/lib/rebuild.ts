@@ -15,6 +15,7 @@ import { throughDates } from "./rebuild-dates";
 import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
 import { supabaseService } from "./supabase-service";
 import { orderedBuilders } from "./rebuild-registry";
+import { schemaStatusOf } from "./schema";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
 import "./v3/planning";
@@ -29,6 +30,9 @@ import "./v4/uploads-ppic";
 import "./v4/close";
 import "./v5/ppic-data";
 import "./v5/input-data";
+
+// K60 (R45): every builder is registered once the imports above ran; a dependency cycle stops the server here, at start
+orderedBuilders();
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 export { throughDates, QUEUE_THROUGH_MAX_DAYS } from "./rebuild-dates";
@@ -99,6 +103,10 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
   if (mode === "skip") return { done: 0, failed: 0, notes: [] };
   if (mode === "no_key" || !svc) return { done: 0, failed: 0, notes: [REBUILD_NO_KEY] };
   const sb = svc;
+  // K57 (R44): nothing is built against a schema that is behind the code; the rows stay queued and the caller shows
+  // the banner's message (an upload that saved its rows is not reported as failed)
+  const behind = await schemaStatusOf(sb);
+  if (behind) return { done: 0, failed: 0, notes: [behind] };
 
   // K61 (R45): a crashed run leaves `running` rows that would block STALE forever — reset them after 15 minutes.
   const stuck = await sb.from("rebuild_queue").update({ status: "queued", error: "direset: running > 15 menit" }).eq("status", "running").lt("started_at", new Date(Date.now() - 15 * 60_000).toISOString());

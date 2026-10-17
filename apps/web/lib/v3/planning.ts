@@ -91,7 +91,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
   const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
-  const p = (param.data ?? {}) as Row;
+  const p = (must(param, "planning.parameter") ?? {}) as Row;
   const stockDate = addDays(ws, -1);
   const sd = must(await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle(), "planning.lot_balance_daily");
   const sdate = sd ? String((sd as Row).date) : null;

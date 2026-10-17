@@ -79,7 +79,7 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
     for (const x of xs) g.set(k(x), [...(g.get(k(x)) ?? []), x]);
     return g;
   };
-  const p = (param.data ?? {}) as Partial<CostingParams>;
+  const p = (must(param, "costing.parameter") ?? {}) as Partial<CostingParams>;
   return {
     week, batches, outputs: group(outs as unknown as OutputRow[], (o) => o.batch_id), latestRun, lines: group(lines, (l) => l.allocation_run_id),
     pools, poolLines, rates,
@@ -208,7 +208,8 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
   for (const r of drafts) {
     const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
     if (e.error) throw new WriteError(e.error.message);
-    await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    const b = await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    if (b.error) throw new WriteError(b.error.message);
   }
   return `Diposting: ${drafts.length} batch`;
 }

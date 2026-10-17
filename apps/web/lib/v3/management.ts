@@ -45,7 +45,7 @@ export async function managementV3(sb: Supa, week: WeekRow, settings: ModuleSett
   if (on("m4_monthly")) {
     const first = firstOfMonth(week.update_date);
     const [rows, mo] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt, id").eq("month", first).maybeSingle()]);
-    const m = (mo.data ?? null) as Row | null;
+    const m = must(mo, "management.month_outlook") as Row | null;
     if (rows.length) {
       const summary = monthSummary(rows, first, m ? { revenue: m.budget_revenue as string | null, gp: m.budget_gp as string | null, nibt: m.budget_nibt as string | null } : null, "0.10");
       out.month = { first, summary, budget: { revenue: summary.budget.revenue, gp: summary.budget.gp } };

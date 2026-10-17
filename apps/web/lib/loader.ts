@@ -40,7 +40,7 @@ export function orMissingTable<T>(res: Res<T[]>, where: string): T[] {
       console.error(`[schema] ${where}: ${res.error.message}`);
       return [];
     }
-    throw new LoaderError(where, res.error.message, true);
+    throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
   }
   return res.data ?? [];
 }
