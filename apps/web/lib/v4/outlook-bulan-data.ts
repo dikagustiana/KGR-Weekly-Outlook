@@ -8,9 +8,11 @@ import { D, accuracyV4, addDays, firstOfMonth, isCogsLine, isRevenueLine, monthE
 import type { FixedSource } from "../v5/pl-tiles";
 import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
-import { must, mustRows } from "../loader";
+import { must, mustRows, tileData } from "../loader";
 import type { AccuracyInput, OutlookBulanInput, VersionRow } from "./outlook-bulan";
 import { isModuleOn, type ModuleSettings } from "../modules-core";
+import { loadFsReconTile } from "../v5/fs-recon-data";
+import { inFsReconScope } from "../v5/fs-recon";
 import type { Role } from "../roles";
 
 type Row = Record<string, unknown>;
@@ -126,7 +128,13 @@ export async function loadOutlookBulan(sb: Supa, x: {
         const snap = must(await sb.from("month_outlook_version").select("snapshot").eq("month_outlook_id", id).eq("version", version).maybeSingle(), "month_outlook_version snapshot") as Row | null;
         const fe = ((snap?.snapshot ?? null) as { fixed_estimate?: { actual: string | null; forecast: string | null }[] } | null)?.fixed_estimate;
         const fixedOfVersion = fe ? fe.reduce((acc, r) => acc.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).toFixed(2) : null;
-        accuracy = { month: String(f.month_outlook.month), version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion };
+        // R69: C59 of that FINAL month, from its locked snapshot against the imported FS; a failing read is that tile's error only
+        const month = String(f.month_outlook.month);
+        const recon = inFsReconScope(month) ? await tileData("outlook bulan.akurasi C59", () => loadFsReconTile(sb, month, x.today)) : null;
+        accuracy = {
+          month, version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion,
+          fsRecon: recon === null ? null : "ok" in recon ? recon.ok : { error: recon.error },
+        };
       }
     }
   }
