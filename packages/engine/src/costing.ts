@@ -435,6 +435,14 @@ export function planCost(x: {
   };
 }
 
+/** R67: the standard plan cost per kg of a forecast order — planCost on a 1 kg LB basis (class yield × LB price + tariff). */
+export function forecastPlanCost(x: {
+  lbPrice: Num; tariffPerKgLb: Num | null; overhead?: Num | null; outputs: PlanOutput[];
+}): Map<string, Decimal | null> {
+  const r = planCost({ status: "estimasi", kgLb: "1", lbPrice: x.lbPrice, tariffPerKgLb: x.tariffPerKgLb, overhead: x.overhead, outputs: x.outputs });
+  return new Map(r.lines.map((l) => [l.key, l.costPerKg]));
+}
+
 /** Outputs of the need basis (§4.1, K25): the demanded main products at their reference price and the by-products the kg LB yields. */
 export function needBasisOutputs(x: { kgLb: Num; demand: PlanOutput[]; byProducts: { key: string; yield: Num; priceRef: Num | null }[] }): PlanOutput[] {
   return [...x.demand, ...x.byProducts.map((b) => ({ key: b.key, kg: D(x.kgLb).times(D(b.yield)), priceRef: b.priceRef }))];
