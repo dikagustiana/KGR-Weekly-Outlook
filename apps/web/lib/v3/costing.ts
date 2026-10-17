@@ -13,7 +13,7 @@ import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@k
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
-import { inChunks, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
@@ -215,7 +215,7 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise
 
 async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promise<string> {
   const m = monthBounds(date);
-  const { data } = await sb.from("cost_pool").select("id").eq("period_start", m.start).eq("period_end", m.end).eq("mode", mode).is("deleted_at", null).maybeSingle();
+  const data = must(await sb.from("cost_pool").select("id").eq("period_start", m.start).eq("period_end", m.end).eq("mode", mode).is("deleted_at", null).maybeSingle(), "costing.cost_pool") as Row | null;
   if (data) return (data as { id: string }).id;
   const ins = await sb.from("cost_pool").insert({ period_start: m.start, period_end: m.end, mode, description: `Cost pool RPA ${m.start.slice(0, 7)} (${mode})` }).select("id").single();
   if (ins.error) throw new WriteError(`cost_pool: ${ins.error.message}`);
@@ -345,7 +345,7 @@ registerV3Kind({
         if (e.error) throw new WriteError(`batch_output_sku: ${e.error.message}`);
         inserted += outRows.length;
       }
-      const old = ((await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", batchId).is("deleted_at", null)).data ?? []) as Row[];
+      const old = mustRows(await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", batchId).is("deleted_at", null), "costing.batch_output_sku") as Row[];
       // WP rows that are no longer in the file, and the reconstructed (backfill) rows the WP now replaces
       const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key ?? ""}|${o.item_code ?? ""}`)) || o.source === "manual").map((o) => String(o.id));
       if (gone.length) {
@@ -361,7 +361,7 @@ registerV3Kind({
           ...b.costs.map((c, i) => ({ component: costComponentOf(c.label), amount: c.amount, document_ref: c.pi ?? c.document, note: null as string | null, line_key: `${ref}|${i + 1}` })),
           ...(b.cost_bl ? [{ component: "blast" as CostComponent, amount: b.cost_bl, document_ref: null, note: "pool:boneless", line_key: `${ref}|BL` }] : []),
         ];
-        const existing = ((await sb.from("cost_pool_line").select("id, line_key, source").eq("batch_id", batchId).is("deleted_at", null)).data ?? []) as Row[];
+        const existing = mustRows(await sb.from("cost_pool_line").select("id, line_key, source").eq("batch_id", batchId).is("deleted_at", null), "costing.cost_pool_line") as Row[];
         for (const l of lines) {
           const ex = existing.find((e) => e.line_key === l.line_key);
           if (ex && ex.source === "Accurate") continue; // the PI already replaced this line
@@ -386,7 +386,7 @@ registerV3Kind({
     const res = parseV3Table("cost_pool_pi", sheets);
     const ok = res.rows.filter((r) => !r.issues.length);
     const docs = ok.map((r) => r.values.document_ref).filter((x): x is string => !!x);
-    const ex = docs.length ? ((await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", docs).is("deleted_at", null)).data ?? []) as Row[] : [];
+    const ex = docs.length ? mustRows(await sb.from("cost_pool_line").select("document_ref, source").in("document_ref", docs).is("deleted_at", null), "costing.cost_pool_line_docs") as Row[] : [];
     const p = plan0("cost_pool_line", "Cost pool (PI)");
     for (const r of ok) {
       const hit = ex.find((e) => e.document_ref === r.values.document_ref);
@@ -417,7 +417,7 @@ registerV3Kind({
         ? (s(v.component) as CostComponent) : costComponentOf(`${s(v.description) ?? ""} ${s(v.supplier) ?? ""}`);
       const n = (seen.get(doc) ?? 0) + 1;
       seen.set(doc, n);
-      const ex = ((await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null)).data ?? []) as Row[];
+      const ex = mustRows(await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null), "costing.cost_pool_line_doc") as Row[];
       const hit = ex.find((e) => e.source === "Accurate" && e.line_key === `PI|${doc}|${n}`) ?? ex.find((e) => e.source !== "Accurate") ?? null;
       let batchId = hit ? s(hit.batch_id) : null;
       if (!batchId && s(v.batch_ref)) batchId = actual.get(s(v.batch_ref)!) ?? null;
