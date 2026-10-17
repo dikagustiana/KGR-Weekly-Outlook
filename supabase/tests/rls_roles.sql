@@ -2566,10 +2566,10 @@ begin
 end $$;
 
 -- B-R84 (K68; probes P2, P3, P4, P5): the database computes C53 (from batch.wp_received_at) and the K35 grid per day; the
--- client snapshot is evidence, not the verdict; release_month holds V1 on C55; and a complete week is released
+-- client snapshot is evidence, not the verdict; release_month holds V1 on C55 (a complete week is released: next block)
 do $$
 declare out text := ''; n int; r text; t text; today date := (now() at time zone 'Asia/Jakarta')::date;
-  w2 uuid; w3 uuid; w3b uuid; w4 uuid; w4b uuid; wok uuid; wcur uuid; cur date := date_trunc('week', (now() at time zone 'Asia/Jakarta')::date)::date;
+  w2 uuid; w3 uuid; w3b uuid; w4 uuid; w4b uuid; wcur uuid; cur date := date_trunc('week', (now() at time zone 'Asia/Jakarta')::date)::date;
   s_nov3 text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]}}';
   s_lulus text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"LULUS"},{"code":"C54","status":"LULUS"}]}';
   s_belum text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"BELUM DIISI"}]}';
@@ -2582,7 +2582,6 @@ begin
   insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-15', '2024-01-18', '2024-01-13') returning id into w3b;
   insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-22', '2024-01-25', '2024-01-20') returning id into w4;
   insert into public.week (week_start, update_date, tb_opening_date) values ('2024-01-29', '2024-02-01', '2024-01-27') returning id into w4b;
-  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-05', '2024-02-08', '2024-02-03') returning id into wok;
   delete from public.rebuild_queue where date between '2024-01-01' and '2024-03-31';
   update public.app_setting set value = '{"enabled": false}' where key in ('v4_release', 'v5_costing', 'v5_input');
 
@@ -2736,24 +2735,54 @@ begin
   select count(*) into n from public.month_outlook_version v join public.month_outlook o on o.id = v.month_outlook_id where o.month in ('2024-03-01', '2024-04-01', '2024-05-01') and v.version = 'V1';
   out := out || 'V1 rows locked=' || n || case when n = 3 then '' else '(!)' end || '; ';
 
-  -- a complete week, every gate on: v4_release (strict), v5_costing, v5_input, WP in, the whole grid, no pending rebuild
-  update public.app_setting set value = '{"enabled": true}' where key in ('v4_release', 'v5_costing', 'v5_input');
-  insert into public.batch (week_id, date, status, batch_ref, lb_kg, wp_received_at) values (wok, '2024-02-06', 'Aktual', 'B84-OK1', 1000, '2024-02-07T09:00:00+07'), (wok, '2024-02-07', 'Aktual', 'B84-OK2', 1000, '2024-02-08T08:00:00+07');
-  insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, k, 'inventory_accounting', 'passed'
-    from generate_series('2024-02-05'::date, '2024-02-11'::date, interval '1 day') d cross join (values ('gl_daily'), ('stock_daily')) v(k);
-  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-02-08', 'release_week', 'finance', 'late');
-  delete from public.rebuild_queue where date between '2024-02-05' and '2024-02-11';
-  perform set_config('request.jwt.claims', '{"email":"b84-fin@x.test","role":"authenticated"}', true);
-  execute 'set local role authenticated';
-  begin perform public.release_week(wok, s_lulus, encode(sha256(convert_to(s_lulus, 'UTF8')), 'hex'), null, '[]'::jsonb); out := out || 'COMPLETE WEEK, every gate on, no override: released; ';
-  exception when others then out := out || 'COMPLETE WEEK: REJECTED(!) ' || sqlerrm || '; '; end;
-  execute 'reset role';
-  perform set_config('request.jwt.claims', '', true);
-  begin select count(*), max(note) into n, t from public.release where week_id = wok; out := out || 'release rows=' || n || ' note=' || coalesce(t, 'none') || case when n = 1 and t is null then '' else '(!)' end || '; ';
-  exception when others then out := out || 'release rows: ERROR(!) ' || sqlerrm || '; '; end;
-  select status into t from public.week where id = wok; out := out || 'week status=' || t || case when t = 'released' then '' else '(!)' end || '; ';
   update public.app_setting set value = '{"enabled": false}' where key in ('v4_release', 'v5_costing', 'v5_input');
   raise exception 'RLS-RESULTS v5.2 B2 B-R84 P2 P3 P4 P5 (rolled back): %', out;
+end $$;
+
+-- B-R84 positive: a complete week is released with every gate on and no override (Finance, then Admin), the snapshot is
+-- stored as it was sent, and release.note stays empty when the database and the snapshot agree
+do $$
+declare out text := ''; n int; t text; w1 uuid; w2 uuid; sha text;
+  s_ok text := '{"engineVersion":"t","controls":{"overall":"LULUS","controls":[{"no":8,"status":"LULUS"},{"no":11,"status":"LULUS"}]},"controls_v3":[{"code":"C53","status":"LULUS"},{"code":"C54","status":"LULUS"},{"code":"C57","status":"LULUS"}]}';
+begin
+  insert into public.app_user(email, role) values ('b84p-fin@x.test','finance'),('b84p-adm@x.test','admin'),('b84p-sales@x.test','sales');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-05', '2024-02-08', '2024-02-03') returning id into w1;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2024-02-12', '2024-02-15', '2024-02-10') returning id into w2;
+  insert into public.batch (week_id, date, status, batch_ref, lb_kg, wp_received_at) values
+    (w1, '2024-02-06', 'Aktual', 'B84P-1', 1000, '2024-02-07T09:00:00+07'), (w1, '2024-02-07', 'Aktual', 'B84P-2', 1000, '2024-02-08T08:00:00+07'),
+    (w2, '2024-02-13', 'Aktual', 'B84P-3', 1000, '2024-02-14T10:00:00+07');
+  -- the whole grid of both weeks (two kinds a day) and the red release task itself, which is not a cell (K44)
+  insert into public.input_completeness_daily (date, kind, owner_role, status) select d::date, k, 'inventory_accounting', 'passed'
+    from generate_series('2024-02-05'::date, '2024-02-18'::date, interval '1 day') d cross join (values ('gl_daily'), ('stock_daily')) v(k);
+  insert into public.input_completeness_daily (date, kind, owner_role, status) values ('2024-02-08', 'release_week', 'finance', 'late'), ('2024-02-15', 'release_week', 'finance', 'late');
+  delete from public.rebuild_queue where date between '2024-02-05' and '2024-02-18';
+  update public.app_setting set value = '{"enabled": true}' where key in ('v4_release', 'v5_costing', 'v5_input');
+  sha := encode(sha256(convert_to(s_ok, 'UTF8')), 'hex');
+
+  perform set_config('request.jwt.claims', '{"email":"b84p-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w1, s_ok, sha, null, '[]'::jsonb); out := out || 'sales releases: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales releases: denied; '; when others then out := out || 'sales release: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b84p-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w1, s_ok, sha, null, '[]'::jsonb); out := out || 'COMPLETE WEEK by Finance, v4_release + v5_costing + v5_input on, no override: released; ';
+  exception when others then out := out || 'COMPLETE WEEK by Finance: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b84p-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.release_week(w2, s_ok, sha, null, '[]'::jsonb); out := out || 'COMPLETE WEEK by Admin: released; ';
+  exception when others then out := out || 'COMPLETE WEEK by Admin: REJECTED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    select count(*) into n from public.release where week_id in (w1, w2) and snapshot_sha256 = sha and note is null and control_status = 'LULUS';
+    out := out || 'release rows with the sent snapshot, no note=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'release rows: ERROR(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.week where id in (w1, w2) and status = 'released'; out := out || 'weeks released=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  select count(*) into n from public.release where week_id in (w1, w2) and released_by in ('b84p-fin@x.test', 'b84p-adm@x.test'); out := out || 'released_by stamped=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  update public.app_setting set value = '{"enabled": false}' where key in ('v4_release', 'v5_costing', 'v5_input');
+  raise exception 'RLS-RESULTS v5.2 B2 B-R84 positive complete week (rolled back): %', out;
 end $$;
 
 -- v5.2 B2 hygiene: SECURITY DEFINER with a fixed search_path, nothing of v5.2 for anon, helpers not callable by clients,
