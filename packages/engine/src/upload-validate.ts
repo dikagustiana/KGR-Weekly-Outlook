@@ -170,7 +170,11 @@ export function upNum(v: Cell | undefined): Decimal | null {
   let s = String(v).trim().replace(/\s|rp|%/gi, "").replace(/^−/, "-");
   if (!s) return null;
   if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
-  else if (s.includes(",")) s = s.replace(",", ".");
+  else if (s.includes(",")) {
+    // R79: "1,234" (English thousands, comma + 3 digits) is ambiguous — refuse it, never read it as a decimal
+    if (/^-?\d{1,3}(,\d{3})+$/.test(s)) return null;
+    s = s.replace(",", ".");
+  }
   // PRD v5.1 R32: 0.715 is a decimal (a share, a yield), never 715; 1.234 stays a thousands group
   else if (/^-?0\.\d+$/.test(s)) { /* decimal as written */ }
   else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");

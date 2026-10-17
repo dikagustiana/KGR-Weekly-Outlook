@@ -32,6 +32,9 @@ describe("aturan parsing (§4.9)", () => {
     expect(upNum("-0.25")!.toString()).toBe("-0.25");
     expect(upNum("1.234")!.toString()).toBe("1234");
     expect(upNum("12.345,6")!.toString()).toBe("12345.6");
+    // R79: English thousands ("1,234") is ambiguous — refuse it
+    expect(upNum("1,234")).toBeNull();
+    expect(upNum("12,345,678")).toBeNull();
     expect(upNum(null)).toBeNull();
   });
   it("tanggal: YYYY-MM-DD · DD/MM/YYYY · tanggal Excel; bulan", () => {
