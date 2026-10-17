@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
 import { loadFixtureWeek, loadV3Fixture } from "../src/fixtures";
 import {
-  allocateBatch, c53, c54, c57, costingPlRows, costStatusOf, finalLots, idleCostDaily, lowestStatus, needBasisOutputs, planCost, revalueLots, simulateLivebird, tariffPerKgLb,
+  allocateBatch, c53, c54, c57, costingPlRows, costStatusOf, finalLots, forecastPlanCost, idleCostDaily, lowestStatus, needBasisOutputs, planCost, revalueLots, simulateLivebird, tariffPerKgLb,
   type PlanOutput,
 } from "../src/costing";
 import { isCogsLine } from "../src/monthly";
@@ -91,6 +91,13 @@ describe("planCost rules (§4.1)", () => {
     expect(costStatusOf({ date: "2026-08-26", allocationPosted: true, allPriced: true }, "2026-08-27")).toBe("final");
     expect(lowestStatus(["final", "sementara", "estimasi"])).toBe("estimasi");
     expect(lowestStatus([])).toBeNull();
+  });
+  it("R67: forecastPlanCost — the standard cost per kg follows the LB price on a 1 kg LB basis", () => {
+    const outs: PlanOutput[] = [{ key: "RPA|Karkas|Fresh", kg: "0.7", priceRef: "36000" }, { key: "RPA|Lemak|Fresh", kg: "0.1", priceRef: "5000" }];
+    const a = forecastPlanCost({ lbPrice: "24000", tariffPerKgLb: "650", outputs: outs });
+    const b = forecastPlanCost({ lbPrice: "25000", tariffPerKgLb: "650", outputs: outs });
+    expect(a.get("RPA|Karkas|Fresh")).not.toBeNull();
+    expect(b.get("RPA|Karkas|Fresh")!.gt(a.get("RPA|Karkas|Fresh")!)).toBe(true); // LB naik → biaya/kg naik
   });
   it("allocateBatch carries a status (default final)", () => {
     const r = allocateBatch({ batch: { ref: "B", mode: "maklon" }, outputs: [{ ref: "o", kg: "1", price_ref: "1" }], costLines: [{ component: "LB", amount: "1" }], options: { byProductMethod: "joint" } });
