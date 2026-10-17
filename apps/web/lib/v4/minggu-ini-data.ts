@@ -15,7 +15,9 @@ import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type Bu
 import { fetchAll } from "../data";
 import { plDaily } from "../v3/monthly";
 import type { FixedSource } from "../v5/pl-tiles";
-import { loadManagementV5 } from "../v5/management-data";
+import { loadManagementV5, managementFailed } from "../v5/management-data";
+import { LoaderError, must, mustRows, tileData } from "../loader";
+import { fail, type Failed } from "./tile-errors";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -37,15 +39,18 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   const w = ctx.week;
   const yesterday = addDays(w.update_date, -1);
 
-  const plMart = v4On(settings, role) ? await weekPlRows(sb, w.week_start) : [];
+  // PRD v5.1 K41: each read feeds named tiles; a failure shows on those tiles (state error), the page stays
+  const failed: Failed = {};
+  const plMart = v4On(settings, role) ? fail(failed, ["headline", "c-outlook", "ch-harian", "ch-bridge", "t-segmen"], await tileData("minggu ini: laba rugi minggu (pl_daily_v4)", () => weekPlRows(sb, w.week_start)), []) : [];
   const plRows = plMart.length ? plRowsFromMart(plMart as never) : null;
 
   // Δ vs last week: last week's released projection when there is a release, else its journal (weekly P&L)
   let lastWeek: MingguIniInput["lastWeek"] = null;
   const prev = ctx.weeks.find((x) => x.week_start === addDays(w.week_start, -7));
   if (prev) {
-    const { data } = await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle();
-    const lines = ((data as Row | null)?.snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined)?.pnl?.lines;
+    const data = fail(failed, ["c-outlook"], await tileData("minggu ini: rilis minggu lalu", async () =>
+      must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
+    const lines = (data?.snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined)?.pnl?.lines;
     const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
     if (lines && get("GROSS PROFIT") !== null) {
       lastWeek = { revenue: D(get("TOTAL REVENUE") ?? 0), gp: D(get("GROSS PROFIT")!), nibt: D(get("NET INCOME") ?? 0), basis: "rilis" };
@@ -57,31 +62,31 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   }
 
   let stock: StockMart | null = null;
-  if (on.m2) {
-    const { data: last } = await sb.from("sku_balance_daily").select("date").lte("date", yesterday).order("date", { ascending: false }).limit(1).maybeSingle();
-    const date = s((last as Row | null)?.date);
-    if (date) {
-      const [keys, lots] = await Promise.all([
-        sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma").eq("date", date).limit(2000),
-        sb.from("lot_balance_daily").select("key, kg, age_days, cost_per_kg_ma").eq("date", date).limit(5000),
-      ]);
-      const info: StockMart["info"] = {};
-      for (const k of r.stock.rows) info[k.key] = { ordersRest: k.ordersRestOfWeek.toFixed(2), refPrice: k.refPrice === null ? null : k.refPrice.toFixed(2) };
-      stock = {
-        date,
-        keys: ((keys.data ?? []) as Row[]).map((k) => ({ key: String(k.key), over_age_kg: s(k.over_age_kg), cost_per_kg_ma: s(k.cost_per_kg_ma) })),
-        lots: ((lots.data ?? []) as Row[]).map((l) => ({ key: String(l.key), kg: String(l.kg), age_days: l.age_days === null ? null : Number(l.age_days), cost_per_kg_ma: s(l.cost_per_kg_ma) })),
-        info,
-      };
-    }
-  }
+  if (on.m2) stock = fail(failed, ["c-stok", "ch-stok-umur"], await tileData("minggu ini: stok (sku_balance_daily, lot_balance_daily)", async (): Promise<StockMart | null> => {
+    const last = must(await sb.from("sku_balance_daily").select("date").lte("date", yesterday).order("date", { ascending: false }).limit(1).maybeSingle(), "sku_balance_daily") as Row | null;
+    const date = s(last?.date);
+    if (!date) return null;
+    // K42: every row of the day, page by page (no .limit above 1000)
+    const [keys, lots] = await Promise.all([
+      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma").eq("date", date).order("key").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").range(a, b)),
+    ]);
+    const info: StockMart["info"] = {};
+    for (const k of r.stock.rows) info[k.key] = { ordersRest: k.ordersRestOfWeek.toFixed(2), refPrice: k.refPrice === null ? null : k.refPrice.toFixed(2) };
+    return {
+      date,
+      keys: keys.map((k) => ({ key: String(k.key), over_age_kg: s(k.over_age_kg), cost_per_kg_ma: s(k.cost_per_kg_ma) })),
+      lots: lots.map((l) => ({ key: String(l.key), kg: String(l.kg), age_days: l.age_days === null ? null : Number(l.age_days), cost_per_kg_ma: s(l.cost_per_kg_ma) })),
+      info,
+    };
+  }), null);
 
   let cashMart: MingguIniInput["cashMart"] = null, solvency: MingguIniInput["solvency"] = null;
   /** Balances without new affiliate funding, for the decision "Pendanaan kas" (PRD v5 §6.1). */
   let noFunding: { date: string; closing: string | null }[] | null = null;
   if (on.m6) {
-    const { data } = await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date");
-    const rows = (data ?? []) as Row[];
+    const rows = fail(failed, ["c-kas", "kas"], await tileData("minggu ini: kas (cash_position_daily)", async () =>
+      mustRows<Row>(await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date"), "cash_position_daily")), []);
     // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
     if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
       // a day before the first upload stays without a balance (null, never 0) even when later days have one
@@ -89,8 +94,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null }));
       noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }
-    const { data: sv } = await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle();
-    const v = sv as Row | null;
+    const v = fail(failed, ["c-solvabilitas"], await tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
+      must(await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle(), "solvency_monthly") as Row | null), null);
     if (v && v.equity !== null && v.paid_in_capital !== null) {
       solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), interest: null };
     }
@@ -99,70 +104,76 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   let month: MingguIniInput["month"] = null;
   let v5Pl: MingguIniInput["v5Pl"] = null;
   if (on.m4) {
-    const first = firstOfMonth(w.update_date);
-    const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    // "Satu angka": the same mart and the same engine call as the page Outlook bulan (pl_daily_v4, monthSummaryV4, budget)
-    const [v4, bud] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
-    ]);
-    if (v4.length && isModuleOn(settings.v5_pl, role)) {
-      // PRD v5 §4.7: the same month rows with the fixed-cost estimate; cut-off and nominal sources from the month builder
-      const { data: lk } = await sb.from("data_status").select("note").eq("table_name", "month_lock").eq("scope", first).maybeSingle();
-      let note: { cutOff?: string; fixed?: FixedSource[] } = {};
-      try { note = (lk as Row | null)?.note ? JSON.parse(String((lk as Row).note)) : {}; } catch { note = {}; }
-      const pl = sp.pl === "rr" ? "rr" : "wk";
-      const href = (p: "rr" | "wk") => {
-        const qs = new URLSearchParams(Object.entries({ mode: sp.mode, hari: sp.hari, segmen: sp.segmen, sku: sp.sku, pl: p === "wk" ? undefined : p }).filter((e): e is [string, string] => !!e[1])).toString();
-        return `/minggu-ini/${w.week_start}${qs ? `?${qs}` : ""}`;
-      };
-      v5Pl = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href };
-    }
-    if (v4.length) {
-      const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
-      const latest = bud.reduce((m, r) => Math.max(m, Number(r.version)), 0);
-      const budget = latest ? bud.filter((r) => Number(r.version) === latest).map((r) => ({ segment: "Total", metric: String(r.metric) as BudgetRow["metric"], value: String(r.value) })) : [];
-      const vb = vsBudget({ outlook: sum.outlook, actual: sum.actual, budget, remainingWorkingDays: sum.remainingWorkingDays });
-      const line = (m: string) => vb?.lines.find((l) => l.metric === m) ?? null;
-      month = {
-        label: MONTH[Number(first.slice(5, 7)) - 1], revenue: sum.outlook.revenue.toFixed(2), gp: sum.outlook.gp.toFixed(2),
-        gpPct: sum.outlook.revenue.isZero() ? null : sum.outlook.gp.div(sum.outlook.revenue).toFixed(6),
-        budgetRevenue: line("revenue")?.budget.toFixed(2) ?? null, budgetGp: line("gp")?.budget.toFixed(2) ?? null,
-      };
-    } else {
-      const [rows, mo] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt").eq("month", first).maybeSingle()]);
-      const m = (mo.data ?? null) as Row | null;
-      if (rows.length) {
-        const sum = monthSummary(rows, first, m ? { revenue: s(m.budget_revenue), gp: s(m.budget_gp), nibt: s(m.budget_nibt) } : null, "0.10");
-        month = {
+    const mo = fail(failed, ["c-bulan", "t-laba-rugi"], await tileData("minggu ini: outlook bulan (pl_daily_v4, budget)", async () => {
+      const first = firstOfMonth(w.update_date);
+      const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+      let monthOut: MingguIniInput["month"] = null, plOut: MingguIniInput["v5Pl"] = null;
+      // "Satu angka": the same mart and the same engine call as the page Outlook bulan (pl_daily_v4, monthSummaryV4, budget)
+      const [v4, bud] = await Promise.all([
+        fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).order("date").order("segment").order("pl_line").order("basis").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+      ]);
+      if (v4.length && isModuleOn(settings.v5_pl, role)) {
+        // PRD v5 §4.7: the same month rows with the fixed-cost estimate; cut-off and nominal sources from the month builder
+        const lk = must(await sb.from("data_status").select("note").eq("table_name", "month_lock").eq("scope", first).maybeSingle(), "data_status month_lock") as Row | null;
+        let note: { cutOff?: string; fixed?: FixedSource[] } = {};
+        if (lk?.note) {
+          try { note = JSON.parse(String(lk.note)); } catch (e) { throw new LoaderError("data_status month_lock", `catatan bukan JSON (${e instanceof Error ? e.message : String(e)})`); }
+        }
+        const pl = sp.pl === "rr" ? "rr" : "wk";
+        const href = (p: "rr" | "wk") => {
+          const qs = new URLSearchParams(Object.entries({ mode: sp.mode, hari: sp.hari, segmen: sp.segmen, sku: sp.sku, pl: p === "wk" ? undefined : p }).filter((e): e is [string, string] => !!e[1])).toString();
+          return `/minggu-ini/${w.week_start}${qs ? `?${qs}` : ""}`;
+        };
+        plOut = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href };
+      }
+      if (v4.length) {
+        const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
+        const latest = bud.reduce((m, x) => Math.max(m, Number(x.version)), 0);
+        const budget = latest ? bud.filter((x) => Number(x.version) === latest).map((x) => ({ segment: "Total", metric: String(x.metric) as BudgetRow["metric"], value: String(x.value) })) : [];
+        const vb = vsBudget({ outlook: sum.outlook, actual: sum.actual, budget, remainingWorkingDays: sum.remainingWorkingDays });
+        const line = (m: string) => vb?.lines.find((l) => l.metric === m) ?? null;
+        monthOut = {
           label: MONTH[Number(first.slice(5, 7)) - 1], revenue: sum.outlook.revenue.toFixed(2), gp: sum.outlook.gp.toFixed(2),
           gpPct: sum.outlook.revenue.isZero() ? null : sum.outlook.gp.div(sum.outlook.revenue).toFixed(6),
-          budgetRevenue: sum.budget.revenue === null ? null : sum.budget.revenue.toFixed(2), budgetGp: sum.budget.gp === null ? null : sum.budget.gp.toFixed(2),
+          budgetRevenue: line("revenue")?.budget.toFixed(2) ?? null, budgetGp: line("gp")?.budget.toFixed(2) ?? null,
         };
+      } else {
+        const [rows, mo3] = await Promise.all([plDaily(sb, first), sb.from("month_outlook").select("budget_revenue, budget_gp, budget_nibt").eq("month", first).maybeSingle()]);
+        const m = must(mo3, "month_outlook") as Row | null;
+        if (rows.length) {
+          const sum = monthSummary(rows, first, m ? { revenue: s(m.budget_revenue), gp: s(m.budget_gp), nibt: s(m.budget_nibt) } : null, "0.10");
+          monthOut = {
+            label: MONTH[Number(first.slice(5, 7)) - 1], revenue: sum.outlook.revenue.toFixed(2), gp: sum.outlook.gp.toFixed(2),
+            gpPct: sum.outlook.revenue.isZero() ? null : sum.outlook.gp.div(sum.outlook.revenue).toFixed(6),
+            budgetRevenue: sum.budget.revenue === null ? null : sum.budget.revenue.toFixed(2), budgetGp: sum.budget.gp === null ? null : sum.budget.gp.toFixed(2),
+          };
+        }
       }
-    }
+      return { monthOut, plOut };
+    }), { monthOut: null, plOut: null });
+    month = mo.monthOut;
+    v5Pl = mo.plOut;
   }
 
   let demand: MingguIniInput["demand"] = null;
-  if (on.m3) {
-    const [{ data: rows }, { data: plan }, { data: varRows }] = await Promise.all([
+  if (on.m3) demand = fail(failed, ["demand"], await tileData("minggu ini: demand dan rencana potong", async (): Promise<MingguIniInput["demand"]> => {
+    const [rowsR, planR, varR] = await Promise.all([
       sb.from("demand_weekly").select("*").eq("week_start", w.week_start),
       sb.from("plan_week").select("version, head_count").eq("week_start", w.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(),
       sb.from("plan_variance_daily").select("variance_kg").gte("date", w.week_start).lte("date", w.week_end),
     ]);
-    const rs = (rows ?? []) as Row[];
-    if (rs.length) {
-      const t = demandTotals(rs.map((x) => ({ confirmed_kg: s(x.confirmed_kg), tentative_kg: s(x.tentative_kg), forecast_kg: s(x.forecast_kg), weighted_kg: s(x.weighted_kg), stock_free_kg: s(x.stock_free_kg), net_kg: s(x.net_kg) })));
-      const vr = (varRows ?? []) as Row[];
-      demand = {
-        confirmed: t.confirmed.toFixed(2), tentative: t.tentative.toFixed(2), forecast: t.forecast.toFixed(2), weighted: t.weighted.toFixed(2), fromStock: t.stock.toFixed(2), net: t.net.toFixed(2),
-        // heads of the binding main product per cut pattern (K1: by-products never bind), as the demand rebuild wrote them
-        heads: rs.some((x) => x.binding === true && x.heads !== null) ? rs.filter((x) => x.binding === true && x.heads !== null).reduce((a, x) => a + Math.ceil(Number(x.heads)), 0) : null,
-        planHeads: plan ? Number((plan as Row).head_count) : null,
-        variance: vr.length ? vr.reduce((a, x) => a.plus(D(s(x.variance_kg) ?? 0)), D(0)).toFixed(2) : null,
-      };
-    }
-  }
+    const rs = mustRows<Row>(rowsR, "demand_weekly"), plan = must(planR, "plan_week") as Row | null, vr = mustRows<Row>(varR, "plan_variance_daily");
+    if (!rs.length) return null;
+    const t = demandTotals(rs.map((x) => ({ confirmed_kg: s(x.confirmed_kg), tentative_kg: s(x.tentative_kg), forecast_kg: s(x.forecast_kg), weighted_kg: s(x.weighted_kg), stock_free_kg: s(x.stock_free_kg), net_kg: s(x.net_kg) })));
+    return {
+      confirmed: t.confirmed.toFixed(2), tentative: t.tentative.toFixed(2), forecast: t.forecast.toFixed(2), weighted: t.weighted.toFixed(2), fromStock: t.stock.toFixed(2), net: t.net.toFixed(2),
+      // heads of the binding main product per cut pattern (K1: by-products never bind), as the demand rebuild wrote them
+      heads: rs.some((x) => x.binding === true && x.heads !== null) ? rs.filter((x) => x.binding === true && x.heads !== null).reduce((a, x) => a + Math.ceil(Number(x.heads)), 0) : null,
+      planHeads: plan ? Number(plan.head_count) : null,
+      variance: vr.length ? vr.reduce((a, x) => a.plus(D(s(x.variance_kg) ?? 0)), D(0)).toFixed(2) : null,
+    };
+  }), null);
 
   // controls not filled in (v1 list), named without technical sheet names
   const controlsV3: ControlV3[] = r.controls.controls.filter((k) => k.status === "BELUM DIISI").map((k) => ({
@@ -175,7 +186,11 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     const wc = weekCash(r);
     noFunding = [{ date: wc.lowest.date, closing: wc.lowestWithoutAffiliate.toFixed(2) }];
   }
-  const v5Mgmt = isModuleOn(settings.v5_management, role) ? await loadManagementV5(sb, w, r, sp, noFunding) : null;
+  let v5Mgmt: MingguIniInput["v5Mgmt"] = null;
+  if (isModuleOn(settings.v5_management, role)) {
+    const m = await tileData("minggu ini: manajemen v5", () => loadManagementV5(sb, w, r, sp, noFunding));
+    v5Mgmt = "ok" in m ? m.ok : managementFailed(m.error);
+  }
 
   const mode = sp.mode === "aktual" ? "aktual" : "proyeksi";
   const iso = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
@@ -185,7 +200,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     base: `/minggu-ini/${w.week_start}`,
     release: ctx.lastRelease ? { releasedAt: ctx.lastRelease.released_at, counts: ctx.lastRelease.controls?.counts ?? null } : null,
     mode, hari: iso(sp.hari), segmen: sp.segmen === "RPA" || sp.segmen === "Trading" ? sp.segmen : null, sku: sp.sku ?? null,
-    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt,
+    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt, failed,
     pdfHref: `/api/w/${w.week_start}/pdf`,
   };
 }

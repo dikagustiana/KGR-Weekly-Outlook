@@ -9,10 +9,12 @@ import {
   type Decimal, type TaskStatus, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
-import { dataToday, type WeekRow } from "../data";
+import { fetchAll, type WeekRow } from "../data";
+import { clock, taskWindow, type Clock } from "../clock";
+import { must, mustRows, tileData } from "../loader";
+import { fail, type Failed } from "../v4/tile-errors";
 import type { Role } from "../roles";
 import type { Row } from "../v3/uploads";
-import { jakartaNow } from "../v3/allocation";
 import { commercialMart } from "../v3/commercial";
 import { loadPlanning } from "../v3/planning";
 import { stockMartControl } from "../v3/stale";
@@ -23,16 +25,17 @@ const s = (v: unknown): string | null => (v === null || v === undefined || v ===
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: Record<string, string | undefined>, cash: { date: string; closing: string | null }[] | null): Promise<ManagementV5Input> {
-  // the decisions and the loop read as of the date the data stands on (the week's update date); "late" keeps the clock
-  const n = jakartaNow(), now = `${n.date}T${n.time}:00+07:00`;
-  const today = await dataToday(sb, n.date), tomorrow = addDays(today, 1);
-  let ppic: Awaited<ReturnType<typeof loadPpicV5>> | null = null;
-  try {
-    ppic = await loadPpicV5(sb, { src: await loadPlanning(sb, w), result: r, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(w.week_start, -1)) });
-  } catch { ppic = null; }
+  // PRD v5.1 K38: marts are read as of the data date; the cut date of the LB decision is tomorrow on the wall clock,
+  // "late" is against now, and the task window is the one of Input (wall − 13 … wall + 7)
+  const c = await clock(sb);
+  const now = c.now, today = c.data, cutDate = addDays(c.wall, 1);
+  const failed: Failed = {};
+  const ppic = fail(failed, ["sim-lb"], await tileData("manajemen: basis simulasi (PPIC v5)", async () =>
+    loadPpicV5(sb, { src: await loadPlanning(sb, w), result: r, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(w.week_start, -1)) })), null);
   const todayPrice = D(r.block2.lbPriceToday ?? 0).gt(0) ? D(r.block2.lbPriceToday) : null;
-  const { data: dec } = await sb.from("lb_price_decision").select("date, price, decided_by, decided_at").eq("date", tomorrow).order("decided_at", { ascending: false }).limit(1).maybeSingle();
-  const decided = dec ? { date: tomorrow, price: D(String((dec as Row).price)), by: s((dec as Row).decided_by) } : null;
+  const dec = fail(failed, ["sim-lb", "keputusan"], await tileData("manajemen: keputusan harga LB", async () =>
+    must(await sb.from("lb_price_decision").select("date, price, decided_by, decided_at").eq("date", cutDate).order("decided_at", { ascending: false }).limit(1).maybeSingle(), "lb_price_decision") as Row | null), null);
+  const decided = dec ? { date: cutDate, price: D(String(dec.price)), by: s(dec.decided_by) } : null;
 
   // ------------------------------------------------------------ simulation (K25)
   const bases = { need: ppic?.sim?.need ?? null, batch: ppic?.sim?.batch ?? null };
@@ -54,19 +57,19 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     const q = new URLSearchParams([...keep, ...(b === "need" ? [] : [["sim", b]]), ["lb", p.toFixed(0)]]).toString();
     return `/minggu-ini/${w.week_start}?${q}`;
   };
-  const nClasses = ppic ? new Set(ppic.demand.byClass.map((c) => c.weight_class)).size : 0;
+  const nClasses = ppic ? new Set(ppic.demand.byClass.map((x) => x.weight_class)).size : 0;
   const labels: Partial<Record<SimBasis, string>> = {
     ...(bases.need ? { need: `Kebutuhan PO: ${bases.need.kgLb.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} kg LB (${nClasses} kelas)` } : {}),
     ...(bases.batch ? { batch: `Batch rencana di input: ${bases.batch.kgLb.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} kg LB` } : {}),
   };
 
   // ------------------------------------------------------------ decisions waiting
-  const { data: appr } = await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }).limit(20);
-  const ap = (appr ?? []) as Row[];
-  const future = (cash ?? []).filter((c) => c.date >= today && c.closing !== null);
-  const low = future.length ? future.reduce((m, c) => (D(c.closing!).lt(D(m.closing!)) ? c : m)) : null;
+  const ap = fail(failed, ["keputusan"], await tileData("manajemen: permintaan diskon", async () =>
+    mustRows<Row>(await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }).limit(20), "discount_approval")), []);
+  const future = (cash ?? []).filter((x) => x.date >= today && x.closing !== null);
+  const low = future.length ? future.reduce((m, x) => (D(x.closing!).lt(D(m.closing!)) ? x : m)) : null;
   const decisions = decisionLines({
-    lb: { cutDate: tomorrow, decided: !!decided, today: todayPrice, breakevenNeed: need?.breakeven ?? null },
+    lb: { cutDate, decided: !!decided, today: todayPrice, breakevenNeed: need?.breakeven ?? null },
     batch: ppic?.batch && bases.need ? { kgLb: ppic.batch.kgLb, needKgLb: bases.need.kgLb, surplusKg: ppic.batch.surplusKg, downgrade: ppic.batch.downgrade, threshold: ppic.batch.threshold } : null,
     belowFloor: { count: ap.length, top: ap[0] ? { key: String(ap[0].key), kg: D(String(ap[0].kg)), price: D(String(ap[0].requested_price)), floor: D(String(ap[0].floor_price)), totalBelow: D(String(ap[0].total_below ?? 0)) } : null },
     cash: low ? { min: D(low.closing!), date: low.date } : null,
@@ -74,44 +77,56 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
 
   // ------------------------------------------------------------ loop status (§3.2)
   const next = addDays(w.week_start, 7);
-  const [{ data: commits }, { data: par }, { data: plan }, { data: bs }, { data: tasks }] = await Promise.all([
-    sb.from("sales_commitment").select("status").eq("week_start", next).is("deleted_at", null).neq("status", "superseded"),
-    sb.from("parameter").select("commitment_lock_dow, commitment_lock_time").eq("week_id", w.id).maybeSingle(),
-    sb.from("plan_week").select("version").eq("week_start", next).order("version", { ascending: false }).limit(1).maybeSingle(),
-    sb.from("batch").select("batch_ref, wp_received_at, invoice_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
-    sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", addDays(today, -7)).lte("due_date", today),
-  ]);
-  const cs = (commits ?? []) as Row[], p = (par ?? {}) as Row;
-  const deadline = commitmentDeadline(next, Number(p.commitment_lock_dow ?? 5), String(p.commitment_lock_time ?? "17:00"));
+  const win = taskWindow(c);
+  const reads = await tileData("manajemen: status putaran", async () => {
+    const [commits, par, plan, bs, tasks] = await Promise.all([
+      sb.from("sales_commitment").select("status").eq("week_start", next).is("deleted_at", null).neq("status", "superseded"),
+      sb.from("parameter").select("commitment_lock_dow, commitment_lock_time").eq("week_id", w.id).maybeSingle(),
+      sb.from("plan_week").select("version").eq("week_start", next).order("version", { ascending: false }).limit(1).maybeSingle(),
+      sb.from("batch").select("batch_ref, wp_received_at, invoice_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
+      fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)),
+    ]);
+    return {
+      commits: mustRows<Row>(commits, "sales_commitment"), par: (must(par, "parameter") ?? {}) as Row, plan: must(plan, "plan_week") as Row | null,
+      batches: mustRows<Row>(bs, "batch"), tasks,
+    };
+  });
+  const lr = fail(failed, ["keputusan"], reads, { commits: [] as Row[], par: {} as Row, plan: null as Row | null, batches: [] as Row[], tasks: [] as Row[] });
+  const deadline = commitmentDeadline(next, Number(lr.par.commitment_lock_dow ?? 5), String(lr.par.commitment_lock_time ?? "17:00"));
   const dl = deadline.slice(0, 10);
-  const batches = (bs ?? []) as Row[];
-  const ts = ((tasks ?? []) as Row[]).map((t) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, now) }));
+  const ts = lr.tasks.map((t) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, now) }));
   const lateOf = (k: string) => ts.filter((t) => t.kind === k && t.st === "late").map((t) => t.ref);
-  let freeStock: { kg: Decimal; value: Decimal } | null = null;
-  try {
+  const free = await tileData("manajemen: stok bebas (mart Commercial)", async () => {
     const mart = await commercialMart(sb, today, false);
-    if (mart.rows.length) {
-      const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-        key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days),
-        over_age_kg: "0", urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
-      })), null));
-      freeStock = { kg: sum.kg, value: sum.value };
-    }
-  } catch { freeStock = null; }
+    if (!mart.rows.length) return null;
+    const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
+      key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days),
+      over_age_kg: "0", urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
+    })), null));
+    return { kg: sum.kg, value: sum.value };
+  });
   const loop = loopLines({
-    commitment: { locked: cs.some((c) => c.status === "locked"), drafts: cs.filter((c) => c.status === "draft").length, deadline: `${DAYS[new Date(`${dl}T00:00:00Z`).getUTCDay()]} ${Number(dl.slice(8, 10))}/${dl.slice(5, 7)} ${deadline.slice(11, 16).replace(":", ".")}`, late: Date.parse(now) >= Date.parse(deadline) },
-    planNext: { version: plan ? Number((plan as Row).version) : null },
-    costing: { sementara: batches.filter((b) => b.wp_received_at && b.invoice_status !== "tied").length, final: batches.filter((b) => b.invoice_status === "tied").length, wpLate: lateOf("costing_wp") },
-    lb: { cutDate: tomorrow, price: decided?.price ?? null },
-    freeStock,
+    commitment: { locked: lr.commits.some((x) => x.status === "locked"), drafts: lr.commits.filter((x) => x.status === "draft").length, deadline: `${DAYS[new Date(`${dl}T00:00:00Z`).getUTCDay()]} ${Number(dl.slice(8, 10))}/${dl.slice(5, 7)} ${deadline.slice(11, 16).replace(":", ".")}`, late: Date.parse(now) >= Date.parse(deadline) },
+    planNext: { version: lr.plan ? Number(lr.plan.version) : null },
+    costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.invoice_status !== "tied").length, final: lr.batches.filter((b) => b.invoice_status === "tied").length, wpLate: lateOf("costing_wp") },
+    lb: { cutDate, price: decided?.price ?? null },
+    freeStock: "error" in free ? { error: free.error } : free.ok,
   });
 
-  const src = await loadSources(sb, now, ts);
-  const sources = sourcesFor("manajemen", src);
+  const src = await tileData("manajemen: label sumber", () => loadSources(sb, c, ts));
+  const sources = "ok" in src ? sourcesFor("manajemen", src.ok) : sourcesFailed("manajemen", src.error);
 
   return {
-    sim: { basis, available, labels, price, todayPrice, prices, result, decided, cutDate: tomorrow, href },
-    decisions, loop, sources,
+    sim: { basis, available, labels, price, todayPrice, prices, result, decided, cutDate, dataDate: c.data, href },
+    decisions, loop, sources, failed,
+  };
+}
+
+/** A Manajemen v5 read that failed as a whole: both tiles in place, with the message (K41). */
+export function managementFailed(message: string): ManagementV5Input {
+  return {
+    sim: { basis: "need", available: [], labels: {}, price: D(0), todayPrice: null, prices: [], result: null, decided: null, cutDate: "", dataDate: "", href: () => "" },
+    decisions: [], loop: [], sources: {}, failed: { "sim-lb": message, keputusan: message },
   };
 }
 
@@ -130,23 +145,35 @@ export function sourcesFor(screen: keyof typeof SCREEN_SOURCES, src: Record<Sour
   return Object.fromEntries(Object.entries(SCREEN_SOURCES[screen]).map(([tile, key]) => [tile, src[key]]));
 }
 
+/** K36 labels of one screen on the wall clock, or the failure on each label (K41). */
+export async function sourcesOf(screen: keyof typeof SCREEN_SOURCES, sb: Supa): Promise<Record<string, SourceLabel>> {
+  const src = await tileData(`${screen}: label sumber`, async () => loadSources(sb, await clock(sb)));
+  return "ok" in src ? sourcesFor(screen, src.ok) : sourcesFailed(screen, src.error);
+}
+
+/** K41: the labels could not be read; each tile says so instead of a source. */
+export function sourcesFailed(screen: keyof typeof SCREEN_SOURCES, message: string): Record<string, SourceLabel> {
+  return Object.fromEntries(Object.keys(SCREEN_SOURCES[screen]).map((tile) => [tile, { text: `gagal dimuat (${message})`, late: true }]));
+}
+
 /** "WP sementara · Cost Accounting · 26 Agu 09.12" for each input behind a main number; late from input_task (§4.9). */
-export async function loadSources(sb: Supa, now: string, tasks?: TaskRef[]): Promise<Record<SourceKey, SourceLabel>> {
-  const today = now.slice(0, 10);
-  const ts = tasks ?? ((await sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", addDays(today, -7)).lte("due_date", today)).data ?? [] as Row[])
-    .map((t: Row) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, now) }));
+export async function loadSources(sb: Supa, c: Clock, tasks?: TaskRef[]): Promise<Record<SourceKey, SourceLabel>> {
+  // K38: the task window and "late" of Input (wall − 13 … wall + 7, against now)
+  const win = taskWindow(c);
+  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)))
+    .map((t: Row) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, c.now) }));
   const late = (k: string) => ts.some((t) => t.kind === k && t.st === "late");
-  const first = (q: PromiseLike<{ data: unknown }>) => Promise.resolve(q).then((r) => (r.data ?? null) as Row | null);
+  const first = async (q: PromiseLike<{ data: unknown; error: { message: string } | null }>, where: string) => must(await q, `label sumber ${where}`) as Row | null;
   const [gl, st, ca, fx, wp, po, lb, sup, tied] = await Promise.all([
-    first(sb.from("gl_line").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("stock_card_snapshot").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("cash_daily").select("date, updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("fixed_cost_schedule").select("updated_at").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("batch_output_sku").select("created_at").is("deleted_at", null).eq("source", "WP").order("created_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("sales_line").select("created_at").eq("status", "Order").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("lb_price_decision").select("date, decided_at").order("decided_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("lb_supply").select("date, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle()),
-    first(sb.from("batch").select("updated_at").eq("invoice_status", "tied").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle()),
+    first(sb.from("gl_line").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(), "jurnal"),
+    first(sb.from("stock_card_snapshot").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(), "kartu stok"),
+    first(sb.from("cash_daily").select("date, updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(), "kas"),
+    first(sb.from("fixed_cost_schedule").select("updated_at").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "beban tetap"),
+    first(sb.from("batch_output_sku").select("created_at").is("deleted_at", null).eq("source", "WP").order("created_at", { ascending: false }).limit(1).maybeSingle(), "WP"),
+    first(sb.from("sales_line").select("created_at").eq("status", "Order").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(), "PO"),
+    first(sb.from("lb_price_decision").select("date, decided_at").order("decided_at", { ascending: false }).limit(1).maybeSingle(), "harga LB"),
+    first(sb.from("lb_supply").select("date, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(), "supply LB"),
+    first(sb.from("batch").select("updated_at").eq("invoice_status", "tied").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "faktur"),
   ]);
   const wib = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 16).replace("T", " ") : null);
   const dmOf = (d: string | null) => (d ? `${Number(d.slice(8, 10))}/${d.slice(5, 7)}` : "—");

@@ -8,6 +8,9 @@ import "server-only";
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
+import { clock } from "./clock";
+import { inChunks, mustRows } from "./loader";
+import { throughDates } from "./rebuild-dates";
 import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
 import { supabaseService } from "./supabase-service";
 import { BUILDERS } from "./rebuild-registry";
@@ -27,6 +30,7 @@ import "./v5/ppic-data";
 import "./v5/input-data";
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
+export { throughDates, QUEUE_THROUGH_MAX_DAYS } from "./rebuild-dates";
 
 /** Rebuilds run for every module whose flag is enabled, whatever the role list (the data mart is shared). */
 export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
@@ -47,12 +51,34 @@ export async function rebuildDay(sb: Supa, date: string, settings: ModuleSetting
 export async function queueRebuild(sb: Supa, dates: string[], reason: string): Promise<void> {
   const uniq = [...new Set(dates.filter(Boolean))];
   if (!uniq.length) return;
-  const { data } = await sb.from("rebuild_queue").select("date").eq("status", "queued").in("date", uniq);
-  const have = new Set((data ?? []).map((r: { date: string }) => r.date));
+  // K41 / K42: a failing read is an error, not "nothing queued"; the dates go in chunks of 200
+  const queued = await inChunks(uniq, async (part) => mustRows<{ date: string }>(await sb.from("rebuild_queue").select("date").eq("status", "queued").in("date", part), "queueRebuild"));
+  const have = new Set(queued.map((r) => r.date));
   const rows = uniq.filter((d) => !have.has(d)).map((date) => ({ date, reason }));
   if (rows.length) {
     const { error } = await sb.from("rebuild_queue").insert(rows);
     if (error) throw new WriteError(`rebuild_queue: ${error.message}`);
+  }
+}
+
+/** K40: queue the affected dates through the data date (clock().data). Returns the dates queued. */
+export async function queueThrough(sb: Supa, affected: string[], reason: string): Promise<string[]> {
+  const dates = throughDates(affected, (await clock(sb)).data);
+  await queueRebuild(sb, dates, reason);
+  return dates;
+}
+
+/**
+ * queueThrough after the rows are saved (uploads): a range over 62 days is returned as a sentence for the upload
+ * message, so the saved upload is not reported as failed; Admin rebuilds that range by hand.
+ */
+export async function queueThroughNote(sb: Supa, affected: string[], reason: string): Promise<string> {
+  try {
+    await queueThrough(sb, affected, reason);
+    return "";
+  } catch (e) {
+    if (!(e instanceof WriteError) || !e.message.includes("rebuild manual")) throw e;
+    return ` Rebuild tidak diantrekan: ${e.message}.`;
   }
 }
 

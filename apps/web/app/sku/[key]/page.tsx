@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { clock } from "@/lib/clock";
 import { notFound } from "next/navigation";
 import { isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
@@ -6,7 +7,7 @@ import { Shell } from "@/components/Shell";
 import { Card, Td } from "@/components/ui";
 import { SKU_READERS, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { dataToday, fetchAll } from "@/lib/data";
+import { fetchAll } from "@/lib/data";
 import { tgl } from "@/lib/fmt";
 import { ActionForm } from "@/components/ActionForm";
 import { can } from "@/lib/roles";
@@ -25,7 +26,7 @@ export default async function SkuKeyPage({ params, searchParams }: { params: Pro
   const key = decodeURIComponent(raw);
   const { viewer, weeks, week } = await plainContext(sp.week);
   const sb = await supabaseServer();
-  const want = sp.date && isISODate(sp.date) ? sp.date : await dataToday(sb);
+  const want = sp.date && isISODate(sp.date) ? sp.date : (await clock(sb)).data;
   const { data: dd } = await sb.from("lot_balance_daily").select("date").eq("key", key).lte("date", want).order("date", { ascending: false }).limit(1).maybeSingle();
   const date = dd ? String((dd as R).date) : null;
   const { data: k } = await sb.from("sku_key").select("key").eq("key", key).maybeSingle();

@@ -2,6 +2,18 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.1-2] Satu jam data, error tidak ditelan, batas baris (docs/PRD-v5.1.md irisan 2)
+
+### Added
+- `lib/clock.ts` (`clock()`: data date, wall date, now; KGR_TEST_NOW under NODE_ENV=test), `lib/loader.ts` (`must`, `LoaderError`, `TileData`, `tileData`, `inChunks`), `lib/v4/tile-errors.ts`, `lib/update-date.ts` (`advance_update_date` after journal, stock card and WP uploads), `queueThrough` (dates through the data date, 62 days).
+- Tile state error in `TilePage` (`TileModel.error`).
+
+### Fixed
+- Manajemen decided the LB price for the day after the data date (August, opened in October); now tomorrow on the wall clock, and the simulation names both dates.
+- Loaders turned PostgREST errors into empty data ("belum diisi", fallback prices, "belum dikunci"); now the tile shows the error, builders and actions fail visibly.
+- Rows beyond `.limit(2000/5000)` were cut; long `.in()` id lists could exceed the URL length.
+- An upload queued only its own dates and today; days between it and the data date kept old marts.
+
 ## [v5.1-1] Rilis K35/C53, akses, base_key, K32 di RLS (docs/PRD-v5.1.md irisan 1)
 
 ### Added

@@ -1,13 +1,15 @@
 import "server-only";
 /**
  * K25: the operations director records the LB price (and volume) for a cut date. A decision is never edited; a new
- * one replaces it (tg_lb_decision_stamp stamps the decider). The decision queues its date itself (trigger
- * needs_rebuild), so the batch of that day takes the price as its sementara cost on the next rebuild.
+ * one replaces it (tg_lb_decision_stamp stamps the decider). The decision queues its date (trigger needs_rebuild, and
+ * queueThrough up to the data date, K40), so the batch of that day takes the price as its sementara cost on the next
+ * rebuild.
  */
 import { D, isISODate } from "@kgr/engine";
 import { parseNumber } from "@kgr/parsers";
 import type { Supa } from "../supabase";
 import { WriteError } from "../write";
+import { queueThrough } from "../rebuild";
 import { num } from "../fmt";
 
 export async function insertLbDecision(sb: Supa, form: FormData): Promise<string> {
@@ -21,5 +23,7 @@ export async function insertLbDecision(sb: Supa, form: FormData): Promise<string
   const cls = String(form.get("weight_class") ?? "").trim() || null;
   const e = await sb.from("lb_price_decision").insert({ date, price, volume_kg_lb: volume, weight_class: cls, note: String(form.get("note") ?? "").trim() || null });
   if (e.error) throw new WriteError(e.error.message);
+  // K40: the trigger queued the cut date; a cut date on or before the data date also re-runs every day after it
+  await queueThrough(sb, [date], "keputusan harga LB");
   return `Harga LB potong ${date}${cls ? ` kelas ${cls}` : ""} diputuskan Rp ${num(price, 0)}/kg${volume ? `, volume ${num(volume, 0)} kg LB` : ""}; batch hari itu memakainya sebagai biaya sementara.`;
 }

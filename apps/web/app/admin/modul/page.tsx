@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { clock } from "@/lib/clock";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Badge, Card } from "@/components/ui";
@@ -7,7 +8,6 @@ import { MODULE_KEYS, MODULE_LABEL, moduleSettings } from "@/lib/modules";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
 import { processQueue, queueDates, setFlag } from "./actions";
-import { dataToday } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
     .order("requested_at", { ascending: false }).limit(60);
   const queue = (q ?? []) as QueueRow[];
   const queued = queue.filter((r) => r.status === "queued").length;
-  const today = await dataToday(sb);
+  const today = (await clock(sb)).data;
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/modul">
       <h1>Modul v3</h1>

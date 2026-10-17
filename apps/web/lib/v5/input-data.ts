@@ -12,8 +12,10 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import type { Role } from "../roles";
 import { fetchAll, listWeeks } from "../data";
+import { clock, taskWindow, wallNow } from "../clock";
+import { LoaderError, inChunks, must, mustRows, tileData } from "../loader";
+import { fail, type Failed } from "../v4/tile-errors";
 import type { Row } from "../v3/uploads";
-import { jakartaNow } from "../v3/allocation";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { fixedSchedule } from "./pl";
 import type { GridRow, HistoryLine, InputCard, InputTaskLine, InputV5Input, ParamLine } from "./input";
@@ -24,26 +26,24 @@ const s = (v: unknown): string | null => (v === null || v === undefined || v ===
 const isOn = (v: unknown) => ((v as { enabled?: boolean } | null | undefined)?.enabled) === true;
 
 export async function v5InputOn(sb: Supa): Promise<boolean> {
-  const { data } = await sb.from("app_setting").select("value").eq("key", "v5_input").maybeSingle();
-  return isOn((data as Row | null)?.value);
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_input").maybeSingle(), "app_setting v5_input") as Row | null;
+  return isOn(data?.value);
 }
-
-const nowIso = () => { const n = jakartaNow(); return `${n.date}T${n.time}:00+07:00`; };
 
 /** Parameter row of the week holding `date` (the latest week otherwise). */
 async function weekParams(sb: Supa, date: string): Promise<Row> {
   const weeks = await listWeeks(sb);
   const w = weeks.find((x) => x.week_start <= date && x.week_end >= date) ?? weeks[0];
   if (!w) return {};
-  const { data } = await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle();
-  return (data ?? {}) as Row;
+  return (must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "parameter") ?? {}) as Row;
 }
 
 // ------------------------------------------------------------------------------------------------ upload context
 
 /** The context of `kind` for this viewer (PRD v5 §4.9): only what the checks of that kind read. */
 export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5): Promise<UploadContext> {
-  const today = jakartaNow().date;
+  // K38: an upload is checked against the wall date (delivery ≥ today, batches around today)
+  const today = (await clock(sb)).wall;
   const [items, classes, par] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, item_name, key, size_kg").is("deleted_at", null).order("item_code").range(a, b)),
     sb.from("weight_class").select("code, min_kg, max_kg, avg_kg").order("sort_order"),
@@ -53,7 +53,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
     today,
     items: items.map((i) => ({ code: String(i.item_code), name: s(i.item_name), key: String(i.key), size_kg: s(i.size_kg) })),
     floors: null,
-    classes: ((classes.data ?? []) as Row[]).map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) })),
+    classes: mustRows<Row>(classes, "weight_class").map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) })),
     yieldKarkas: { min: s(par.yield_karkas_min) ?? "0.68", max: s(par.yield_karkas_max) ?? "0.76" },
     shrinkTarget: s(par.target_shrink) ?? "0.03",
     tolerance: "0.02",
@@ -63,16 +63,15 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
     // floors = what the database guard compares with (commercial_daily.price_floor; v5/1: the cost per kg), hidden from
     // Sales when the week says so (v4 S2)
     if (!sales || par.sales_sees_cost !== false) {
-      const { data: d } = await sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("date").lte("date", today).order("date", { ascending: false }).limit(1).maybeSingle();
-      const date = s((d as Row | null)?.date);
+      const d = must(await sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("date").lte("date", today).order("date", { ascending: false }).limit(1).maybeSingle(), "harga lantai (tanggal mart)") as Row | null;
+      const date = s(d?.date);
       if (date) {
-        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).range(a, b)).catch(() => [] as Row[]);
+        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).range(a, b));
         ctx.floors = Object.fromEntries(rows.filter((r) => s(r.price_floor)).map((r) => [String(r.key), String(r.price_floor)]));
       } else ctx.floors = {};
     }
     if (sales) {
-      const { data: asg } = await sb.from("sales_assignment").select("customer").eq("active", true).eq("email", viewer.email.toLowerCase());
-      const list = ((asg ?? []) as Row[]).map((a) => s(a.customer));
+      const list = mustRows<Row>(await sb.from("sales_assignment").select("customer").eq("active", true).eq("email", viewer.email.toLowerCase()), "sales_assignment").map((a) => s(a.customer));
       ctx.customers = list.some((c) => c === null) ? "all" : (list as string[]);
     } else ctx.customers = "all";
   }
@@ -91,7 +90,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
     ctx.batches.sort((a, b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref));
   }
   if (kind === "supplier_invoice") {
-    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).range(a, b)).catch(() => [] as Row[]);
+    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).range(a, b));
     const by = new Map<string, ReturnType<typeof D>>();
     for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0")));
     ctx.glByDoc = Object.fromEntries([...by].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, v.toFixed(2)]));
@@ -106,7 +105,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   }
   if (kind === "lb_supply") {
     const lead = Number(par.lead_time_days ?? 1);
-    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").range(a, b)).catch(() => [] as Row[]);
+    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").range(a, b));
     ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: s(r.kg_lb) ?? "0" }));
   }
   return ctx;
@@ -115,11 +114,21 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
 // ------------------------------------------------------------------------------------------------ builder: tasks + grid
 
 async function rules(sb: Supa): Promise<TaskRule[]> {
-  const { data } = await sb.from("input_task_rule").select("kind, title, owner_role, due_rule, impact_text, active").order("kind");
-  return ((data ?? []) as Row[]).map((r) => ({ kind: String(r.kind), title: String(r.title), owner_role: String(r.owner_role), due_rule: String(r.due_rule), impact_text: String(r.impact_text), active: r.active !== false }));
+  return mustRows<Row>(await sb.from("input_task_rule").select("kind, title, owner_role, due_rule, impact_text, active").order("kind"), "input_task_rule").map((r) => ({ kind: String(r.kind), title: String(r.title), owner_role: String(r.owner_role), due_rule: String(r.due_rule), impact_text: String(r.impact_text), active: r.active !== false }));
 }
 
-const exists = async (q: PromiseLike<{ count: number | null }>) => ((await q).count ?? 0) > 0;
+/** A head count (count: "exact"), or LoaderError (K41). */
+async function count(q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string): Promise<number> {
+  const r = await q;
+  if (r.error) throw new LoaderError(where, r.error.message);
+  return r.count ?? 0;
+}
+
+const exists = async (q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string) => {
+  const r = await q;
+  if (r.error) throw new LoaderError(where, r.error.message);
+  return (r.count ?? 0) > 0;
+};
 type FactOf = (ref: string, anchor: string) => Promise<TaskFact>;
 
 /** What the data says per rule kind (status from the data, never ticked by hand). */
@@ -127,57 +136,56 @@ function factReaders(sb: Supa): Record<string, FactOf> {
   const none: TaskFact = { done: null };
   return {
     commitment_lock: async (ref) => {
-      const rows = ((await sb.from("sales_commitment").select("status").eq("week_start", ref).is("deleted_at", null).neq("status", "superseded")).data ?? []) as Row[];
+      const rows = mustRows<Row>(await sb.from("sales_commitment").select("status").eq("week_start", ref).is("deleted_at", null).neq("status", "superseded"), "tugas commitment_lock");
       const locked = rows.filter((r) => r.status === "locked").length, drafts = rows.filter((r) => r.status === "draft").length;
       return !locked ? none : { done: drafts ? "noted" : "passed", note: drafts ? `${drafts} SKU masih draft` : null };
     },
     price_list_lock: async (ref) => {
-      const rows = ((await sb.from("price_list_week").select("locked_at").eq("week_start", ref)).data ?? []) as Row[];
+      const rows = mustRows<Row>(await sb.from("price_list_week").select("locked_at").eq("week_start", ref), "tugas price_list_lock");
       const locked = rows.filter((r) => r.locked_at).length;
       return !locked ? none : { done: locked === rows.length ? "passed" : "noted", note: locked < rows.length ? `${rows.length - locked} SKU belum terkunci` : null };
     },
-    plan_week: async (ref) => ((await exists(sb.from("plan_week").select("id", { count: "exact", head: true }).eq("week_start", ref))) ? { done: "passed" } : none),
-    lb_price_decision: async (ref) => ((await exists(sb.from("lb_price_decision").select("id", { count: "exact", head: true }).eq("date", ref))) ? { done: "passed" } : none),
+    plan_week: async (ref) => ((await exists(sb.from("plan_week").select("id", { count: "exact", head: true }).eq("week_start", ref), "tugas plan_week")) ? { done: "passed" } : none),
+    lb_price_decision: async (ref) => ((await exists(sb.from("lb_price_decision").select("id", { count: "exact", head: true }).eq("date", ref), "tugas lb_price_decision")) ? { done: "passed" } : none),
     lb_supply: async (ref) => {
-      const rows = ((await sb.from("lb_supply").select("weight_class").eq("date", ref).is("deleted_at", null).in("status", ["confirmed", "received"])).data ?? []) as Row[];
+      const rows = mustRows<Row>(await sb.from("lb_supply").select("weight_class").eq("date", ref).is("deleted_at", null).in("status", ["confirmed", "received"]), "tugas lb_supply");
       if (!rows.length) return none;
       const noClass = rows.filter((r) => !s(r.weight_class)).length;
       return { done: noClass ? "noted" : "passed", note: noClass ? `${noClass} baris tanpa kelas` : null };
     },
-    allocation: async (ref) => ((await exists(sb.from("allocation").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null))) ? { done: "passed" } : none),
+    allocation: async (ref) => ((await exists(sb.from("allocation").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null), "tugas allocation")) ? { done: "passed" } : none),
     costing_wp: async (ref) => {
-      const { data: b } = await sb.from("batch").select("id, wp_received_at").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).limit(1).maybeSingle();
-      const bid = s((b as Row | null)?.id);
-      if (!bid || !(await exists(sb.from("batch_output_sku").select("id", { count: "exact", head: true }).eq("batch_id", bid).is("deleted_at", null)))) return none;
+      const b = must(await sb.from("batch").select("id, wp_received_at").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).limit(1).maybeSingle(), "tugas costing_wp batch") as Row | null;
+      const bid = s(b?.id);
+      if (!bid || !(await exists(sb.from("batch_output_sku").select("id", { count: "exact", head: true }).eq("batch_id", bid).is("deleted_at", null), "tugas costing_wp output"))) return none;
       // a WP saved with a reason (Σ SKU outside C22) is "masuk, ada catatan"
-      const { data: up } = await sb.from("upload").select("id, committed_at, plan").eq("kind", "costing_wp").eq("status", "committed").contains("plan", { batches: [ref] }).order("committed_at", { ascending: false }).limit(1).maybeSingle();
-      const u = up as Row | null;
+      const u = must(await sb.from("upload").select("id, committed_at, plan").eq("kind", "costing_wp").eq("status", "committed").contains("plan", { batches: [ref] }).order("committed_at", { ascending: false }).limit(1).maybeSingle(), "tugas costing_wp upload") as Row | null;
       const reason = ((u?.plan as { needsReason?: string[] } | null)?.needsReason ?? []).includes(ref);
-      return { done: reason ? "noted" : "passed", done_at: s(u?.committed_at) ?? s((b as Row).wp_received_at), upload_id: s(u?.id), note: reason ? "selisih hasil potong diberi alasan" : null };
+      return { done: reason ? "noted" : "passed", done_at: s(u?.committed_at) ?? s(b?.wp_received_at), upload_id: s(u?.id), note: reason ? "selisih hasil potong diberi alasan" : null };
     },
     supplier_invoice: async (ref) => {
-      const { data: b } = await sb.from("batch").select("invoice_status").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).limit(1).maybeSingle();
-      const st = s((b as Row | null)?.invoice_status);
+      const b = must(await sb.from("batch").select("invoice_status").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).limit(1).maybeSingle(), "tugas supplier_invoice") as Row | null;
+      const st = s(b?.invoice_status);
       return st === "tied" ? { done: "passed" } : st === "received" ? { done: "noted", note: "belum tie ke GL" } : { done: null, waiting: true };
     },
-    gl_daily: async (ref) => ((await exists(sb.from("gl_line").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null))) ? { done: "passed" } : none),
-    stock_daily: async (ref) => ((await exists(sb.from("stock_card_snapshot").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null))) ? { done: "passed" } : none),
+    gl_daily: async (ref) => ((await exists(sb.from("gl_line").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null), "tugas gl_daily")) ? { done: "passed" } : none),
+    stock_daily: async (ref) => ((await exists(sb.from("stock_card_snapshot").select("id", { count: "exact", head: true }).eq("date", ref).is("deleted_at", null), "tugas stock_daily")) ? { done: "passed" } : none),
     release_week: async (ref) => {
-      const { data: w } = await sb.from("week").select("id").eq("week_start", ref).maybeSingle();
-      return w && (await exists(sb.from("release").select("id", { count: "exact", head: true }).eq("week_id", String((w as Row).id)))) ? { done: "passed" } : none;
+      const w = must(await sb.from("week").select("id").eq("week_start", ref).maybeSingle(), "tugas release_week") as Row | null;
+      return w && (await exists(sb.from("release").select("id", { count: "exact", head: true }).eq("week_id", String(w.id)), "tugas release_week rilis")) ? { done: "passed" } : none;
     },
     fixed_cost: async (ref) => {
       const n = fixedNominals({ month: `${ref}-01`, schedule: await fixedSchedule(sb), lastFinal: null });
       const est = n.filter((x) => x.source !== "jadwal");
       return est.length === n.length ? none : { done: est.length ? "noted" : "passed", note: est.length ? `${est.length} baris masih estimasi (C55)` : null };
     },
-    budget: async (ref) => ((await exists(sb.from("budget").select("id", { count: "exact", head: true }).eq("month", `${ref}-01`).is("deleted_at", null))) ? { done: "passed" } : none),
+    budget: async (ref) => ((await exists(sb.from("budget").select("id", { count: "exact", head: true }).eq("month", `${ref}-01`).is("deleted_at", null), "tugas budget")) ? { done: "passed" } : none),
     po_lines: async (ref) => {
       const ship = addDays(ref, 1);
-      const lines = ((await sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null)).data ?? []) as Row[];
+      const lines = await fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null).range(a, b));
       if (!lines.length) return none;
-      const { data: items } = await sb.from("item_map").select("item_code, item_name, key, size_kg").in("item_code", [...new Set(lines.map((l) => String(l.item_code)))]);
-      const it = new Map(((items ?? []) as Row[]).map((i) => [String(i.item_code), i]));
+      const items = await inChunks([...new Set(lines.map((l) => String(l.item_code)))], async (part) => mustRows<Row>(await sb.from("item_map").select("item_code, item_name, key, size_kg").in("item_code", part), "tugas po_lines item_map"));
+      const it = new Map(items.map((i) => [String(i.item_code), i]));
       const unsized = lines.filter((l) => {
         const i = it.get(String(l.item_code));
         return i && /^RPA\|Karkas\|(Fresh|n\/a)$/.test(String(i.key)) && !s(l.size_kg) && !s(i.size_kg) && !sizeKgOf(s(i.item_name));
@@ -197,7 +205,8 @@ export async function buildInputDay(sb: Supa, date: string): Promise<string> {
     cutDates: [...new Set(bs.map((b) => String(b.date)))],
     batches: bs.filter((b) => b.status === "Aktual").map((b) => ({ ref: s(b.batch_ref) ?? String(b.id), date: String(b.date) })),
   });
-  const read = factReaders(sb), now = nowIso();
+  // the builder judges "late" on the wall clock at the time it runs (K38)
+  const read = factReaders(sb), now = wallNow().now;
   const tasks: InputTask[] = [];
   for (const i of inst) tasks.push(taskOf(i, read[i.kind] ? await read[i.kind](i.ref, i.anchor) : { done: null }, now));
   const cells = completenessCells(tasks, rs, now);
@@ -218,11 +227,15 @@ const dayName = (d: string) => DAYS[new Date(`${d}T00:00:00Z`).getUTCDay()];
 
 /** Everything the screen shows for `role` (the viewer's own, or the one admin / management switched to). */
 export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, panel: string | null): Promise<InputV5Input> {
-  const n = jakartaNow(), today = n.date, now = `${n.date}T${n.time}:00+07:00`;
-  const [rs, par, taskRows] = await Promise.all([
+  // K38: the task window and "late" on the wall clock (the same window as the loop status and the source labels)
+  const c = await clock(sb);
+  const today = c.wall, now = c.now, win = taskWindow(c);
+  const failed: Failed = {};
+  const [rs, par, taskT] = await Promise.all([
     rules(sb), weekParams(sb, today),
-    fetchAll<Row>((a, b) => sb.from("input_task").select("*").gte("due_date", addDays(today, -13)).lte("due_date", addDays(today, 7)).order("due_date").range(a, b)).catch(() => [] as Row[]),
+    tileData("input: tugas", () => fetchAll<Row>((a, b) => sb.from("input_task").select("*").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("rule_kind").order("ref").range(a, b))),
   ]);
+  const taskRows = fail(failed, ["tugas", "headline"], taskT, []);
   const ruleOf = new Map(rs.map((r) => [r.kind, r]));
   const lines = (forRole: Role): InputTaskLine[] => taskRows.filter((t) => rulesOfRole(rs, forRole).includes(String(t.rule_kind))).map((t) => {
     const r = ruleOf.get(String(t.rule_kind))!;
@@ -239,36 +252,44 @@ export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, pane
   const ws = mondayOf(today);
   const roleBad = (r: Role) => lines(r).filter((t) => t.status === "late").length;
 
-  // history: the last uploads of the role's kinds
+  // history: the last uploads of the role's kinds and the reminders Finance sent
   const kinds = ROLE_KINDS[role] ?? [];
-  const ups = kinds.length ? ((await sb.from("upload").select("kind, file_name, status, ok_count, row_count, uploaded_at, committed_at, message").in("kind", kinds).order("uploaded_at", { ascending: false }).limit(6)).data ?? []) as Row[] : [];
-  const history: HistoryLine[] = ups.map((u) => {
-    const at = s(u.committed_at) ?? s(u.uploaded_at) ?? "";
-    const partial = u.ok_count !== null && Number(u.ok_count) < Number(u.row_count);
-    return { at: at ? `${dmy(at.slice(0, 10))} ${new Date(at).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" }).replace(":", ".")}` : "—", what: String(u.file_name), result: u.status === "committed" ? (partial ? `${u.ok_count} dari ${u.row_count} baris tersimpan` : `${u.row_count} baris tersimpan`) : String(u.status), tone: u.status === "committed" && !partial ? "ok" : "warn" };
-  });
-  const { data: rem } = await sb.from("input_reminder").select("date, kind, note, sent_by, sent_at").eq("owner_role", role).gte("sent_at", `${addDays(today, -7)}T00:00:00+07:00`).order("sent_at", { ascending: false }).limit(5);
-  for (const r of (rem ?? []) as Row[]) history.unshift({ at: dmy(String(r.sent_at).slice(0, 10)), what: `Pengingat dari ${s(r.sent_by) ?? "Finance"}`, result: `${ruleOf.get(String(r.kind))?.title ?? r.kind} ${dmy(String(r.date))}${s(r.note) ? ` · ${s(r.note)}` : ""}`, tone: "bad" });
+  const history = fail(failed, ["riwayat"], await tileData("input: riwayat", async () => {
+    const ups = kinds.length ? mustRows<Row>(await sb.from("upload").select("kind, file_name, status, ok_count, row_count, uploaded_at, committed_at, message").in("kind", kinds).order("uploaded_at", { ascending: false }).limit(6), "upload") : [];
+    const h: HistoryLine[] = ups.map((u) => {
+      const at = s(u.committed_at) ?? s(u.uploaded_at) ?? "";
+      const partial = u.ok_count !== null && Number(u.ok_count) < Number(u.row_count);
+      return { at: at ? `${dmy(at.slice(0, 10))} ${new Date(at).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" }).replace(":", ".")}` : "—", what: String(u.file_name), result: u.status === "committed" ? (partial ? `${u.ok_count} dari ${u.row_count} baris tersimpan` : `${u.row_count} baris tersimpan`) : String(u.status), tone: u.status === "committed" && !partial ? "ok" : "warn" };
+    });
+    const rem = mustRows<Row>(await sb.from("input_reminder").select("date, kind, note, sent_by, sent_at").eq("owner_role", role).gte("sent_at", `${addDays(today, -7)}T00:00:00+07:00`).order("sent_at", { ascending: false }).limit(5), "input_reminder");
+    for (const r of rem) h.unshift({ at: dmy(String(r.sent_at).slice(0, 10)), what: `Pengingat dari ${s(r.sent_by) ?? "Finance"}`, result: `${ruleOf.get(String(r.kind))?.title ?? r.kind} ${dmy(String(r.date))}${s(r.note) ? ` · ${s(r.note)}` : ""}`, tone: "bad" });
+    return h;
+  }), [] as HistoryLine[]);
 
   // grid (Finance; also admin and management looking as Finance): the week being released, Monday–Saturday
   let grid: InputV5Input["grid"] = null;
   if (role === "finance") {
     const days = Array.from({ length: 6 }, (_, i) => addDays(ws, i));
-    const cells = await fetchAll<Row>((a, b) => sb.from("input_completeness_daily").select("*").gte("date", days[0]).lte("date", days[5]).range(a, b)).catch(() => [] as Row[]);
-    const { data: ov } = await sb.from("release_override").select("reason, created_by, created_at").eq("scope_kind", "week").eq("scope", ws).eq("code", "K35").is("deleted_at", null).maybeSingle();
-    const cellOf = (c: Row): CompletenessCell => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: s(c.due_at), note: s(c.note) });
-    const rows: GridRow[] = rs.filter((r) => r.active !== false && cells.some((c) => c.kind === r.kind)).map((r) => ({
-      kind: r.kind, title: r.title, owner: r.owner_role as Role,
-      cells: days.map((d) => { const c = cells.find((x) => x.kind === r.kind && x.date === d); return c ? { date: d, status: effectiveCell(cellOf(c), now), note: s(c.note) } : { date: d, status: null, note: null }; }),
-    }));
-    grid = { weekStart: ws, days, rows, override: ov ? { reason: String((ov as Row).reason), by: s((ov as Row).created_by) } : null };
+    grid = fail(failed, ["panel"], await tileData("input: grid kelengkapan", async (): Promise<InputV5Input["grid"]> => {
+      const cells = await fetchAll<Row>((a, b) => sb.from("input_completeness_daily").select("*").gte("date", days[0]).lte("date", days[5]).order("date").order("kind").range(a, b));
+      const ov = must(await sb.from("release_override").select("reason, created_by, created_at").eq("scope_kind", "week").eq("scope", ws).eq("code", "K35").is("deleted_at", null).maybeSingle(), "release_override K35") as Row | null;
+      const cellOf = (x: Row): CompletenessCell => ({ date: String(x.date), kind: String(x.kind), owner_role: String(x.owner_role), status: String(x.status) as CellStatus, due_at: s(x.due_at), note: s(x.note) });
+      const rows: GridRow[] = rs.filter((r) => r.active !== false && cells.some((x) => x.kind === r.kind)).map((r) => ({
+        kind: r.kind, title: r.title, owner: r.owner_role as Role,
+        cells: days.map((d) => { const x = cells.find((y) => y.kind === r.kind && y.date === d); return x ? { date: d, status: effectiveCell(cellOf(x), now), note: s(x.note) } : { date: d, status: null, note: null }; }),
+      }));
+      return { weekStart: ws, days, rows, override: ov ? { reason: String(ov.reason), by: s(ov.created_by) } : null };
+    }), { weekStart: ws, days, rows: [], override: null });
   }
 
+  const blankCards: InputCard[] = [0, 1, 2, 3].map(() => ({ title: "Ringkasan", value: "", sub: "", tone: "plain" }));
+  const cards = fail(failed, ["c-0", "c-1", "c-2", "c-3"], await tileData("input: kartu peran", () => roleCards(sb, role, today, all, grid)), blankCards);
+  const params = fail(failed, ["parameter"], await tileData("input: parameter", () => roleParams(sb, role, today, par)), []);
   return {
-    today, time: n.time.replace(":", "."), viewerRole: viewer.role, role, panel,
+    today, time: now.slice(11, 16).replace(":", "."), viewerRole: viewer.role, role, panel,
     cutOffLb: "12.00", cutOffFresh: String(par.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."),
     roles: (["cost_accounting", "sales", "commercial_lead", "ppic", "purchasing", "inventory_accounting", "finance", "operations_director"] as Role[]).map((r) => ({ role: r, bad: roleBad(r) })),
-    tasks: all, cards: await roleCards(sb, role, today, all, grid), history, params: await roleParams(sb, role, today, par), grid, kinds,
+    tasks: all, cards, history, params, grid, kinds, failed,
   };
 }
 
@@ -279,7 +300,7 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   const first: InputCard = { title: "Tugas terbuka", value: String(dueToday.length), sub: late ? `${late} terlambat` : "tidak ada yang terlambat", tone: late ? "bad" : "plain" };
   const ws = mondayOf(today);
   if (role === "cost_accounting") {
-    const bs = ((await sb.from("batch").select("invoice_status, wp_received_at").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today)).data ?? []) as Row[];
+    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
     const fin = bs.filter((b) => b.invoice_status === "tied").length, wp = bs.filter((b) => b.wp_received_at).length;
     const inv = bs.filter((b) => b.invoice_status !== "pending").length;
     return [first,
@@ -288,11 +309,11 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
       { title: "WP belum masuk", value: String(bs.length - wp), sub: bs.length - wp ? "biaya/kg batch itu masih estimasi" : "semua batch punya WP", tone: bs.length - wp ? "bad" : "plain" }];
   }
   if (role === "sales" || role === "commercial_lead") {
-    const po = ((await sb.from("sales_line").select("kg").eq("status", "Order").is("deleted_at", null).gte("delivery_date", ws).lte("delivery_date", addDays(ws, 6))).data ?? []) as Row[];
-    const unsized = ((await sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa")).data ?? []) as Row[];
-    const { count: pend } = await sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending");
-    const { data: last } = await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle();
-    const l = last as Row | null;
+    // K42: every PO line of the week, page by page
+    const po = await fetchAll<Row>((a, b) => sb.from("sales_line").select("kg").eq("status", "Order").is("deleted_at", null).gte("delivery_date", ws).lte("delivery_date", addDays(ws, 6)).order("id").range(a, b));
+    const unsized = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").range(a, b));
+    const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
+    const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;
     const uk = sum(unsized.map((r) => D(s(r.net_kg) ?? "0")));
     return [
@@ -302,11 +323,10 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
       { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }];
   }
   if (role === "ppic") {
-    const { data: cls } = await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg");
-    const all = ((cls ?? []) as Row[]).map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) }));
+    const all = mustRows<Row>(await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg"), "kartu kelas").map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) }));
     const reg = registeredClasses(all);
-    const { count: yk } = await sb.from("yield_matrix").select("id", { count: "exact", head: true }).neq("weight_class", "STD").is("deleted_at", null);
-    const { count: cap } = await sb.from("capacity").select("id", { count: "exact", head: true }).gte("date", today).lte("date", addDays(today, 6)).not("cut_capacity_head", "is", null);
+    const yk = await count(sb.from("yield_matrix").select("id", { count: "exact", head: true }).neq("weight_class", "STD").is("deleted_at", null), "kartu yield");
+    const cap = await count(sb.from("capacity").select("id", { count: "exact", head: true }).gte("date", today).lte("date", addDays(today, 6)).not("cut_capacity_head", "is", null), "kartu kapasitas");
     return [first,
       { title: "Kelas berat terdaftar", value: `${reg.length} dari ${all.length}`, sub: reg.length < all.length ? `baru ${reg.join(", ") || "—"}` : "lengkap", tone: reg.length < all.length ? "bad" : "plain" },
       { title: "Yield per kelas", value: yk ? "terisi" : "placeholder", sub: yk ? `${yk} baris di luar STD` : "satu yield STD untuk semua kelas (C42)", tone: yk ? "plain" : "warn" },
@@ -314,23 +334,24 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   }
   if (role === "purchasing" || role === "operations_director") {
     const tmr = addDays(today, 1);
-    const [{ data: sup }, { data: dec }] = await Promise.all([
+    const [supR, decR] = await Promise.all([
       sb.from("lb_supply").select("weight_class, kg").eq("date", tmr).is("deleted_at", null).in("status", ["confirmed", "received"]),
       sb.from("lb_price_decision").select("price, volume_kg_lb, decided_at").eq("date", tmr).order("decided_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    const kg = sum(((sup ?? []) as Row[]).map((r) => D(s(r.kg) ?? "0")));
-    const d = dec as Row | null;
+    const sup = mustRows<Row>(supR, "kartu supply LB");
+    const kg = sum(sup.map((r) => D(s(r.kg) ?? "0")));
+    const d = must(decR, "kartu keputusan LB") as Row | null;
     return [first,
       { title: `Harga LB potong ${dmy(tmr)}`, value: d ? num(s(d.price), 0) : "belum", sub: d ? "diputuskan Direktur Operasional" : "C57: simulasi memakai harga kemarin", tone: d ? "plain" : "bad" },
       { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: "plain" },
-      { title: "Supply tanpa kelas", value: String(((sup ?? []) as Row[]).filter((r) => !s(r.weight_class)).length), sub: "baris (C58 tidak bisa dicek)", tone: "plain" }];
+      { title: "Supply tanpa kelas", value: String(sup.filter((r) => !s(r.weight_class)).length), sub: "baris (C58 tidak bisa dicek)", tone: "plain" }];
   }
   if (role === "inventory_accounting") {
-    const [{ data: gl }, { data: st }] = await Promise.all([
+    const [glR, stR] = await Promise.all([
       sb.from("gl_line").select("date").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(),
       sb.from("stock_card_snapshot").select("date").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(),
     ]);
-    const g = s((gl as Row | null)?.date), k = s((st as Row | null)?.date);
+    const g = s((must(glR, "kartu jurnal") as Row | null)?.date), k = s((must(stR, "kartu kartu stok") as Row | null)?.date);
     return [first,
       { title: "Jurnal Accurate", value: g ? `s.d. ${dmy(g)}` : "belum ada", sub: "Actual P&L berhenti di hari terakhir lolos", tone: g && g >= addDays(today, -1) ? "plain" : "warn" },
       { title: "Kartu stok", value: k ? `s.d. ${dmy(k)}` : "belum ada", sub: "rekon stok (C26)", tone: k && k >= addDays(today, -1) ? "plain" : "warn" },
@@ -342,9 +363,8 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     const month = today.slice(0, 7);
     const est = fixedNominals({ month: `${month}-01`, schedule: await fixedSchedule(sb), lastFinal: null }).filter((x) => x.source !== "jadwal").length;
     // the register hangs off the month's outlook (assumption_register.month_outlook_id), it has no month column
-    const { data: mo } = await sb.from("month_outlook").select("id").eq("month", `${month}-01`).maybeSingle();
-    const { data: reg } = mo ? await sb.from("assumption_register").select("agreed_at").eq("month_outlook_id", String((mo as Row).id)).is("deleted_at", null).neq("status", "superseded") : { data: [] };
-    const regs = (reg ?? []) as Row[];
+    const mo = must(await sb.from("month_outlook").select("id").eq("month", `${month}-01`).maybeSingle(), "kartu month_outlook") as Row | null;
+    const regs = mo ? mustRows<Row>(await sb.from("assumption_register").select("agreed_at").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).neq("status", "superseded"), "kartu register asumsi") : [];
     return [
       { title: "Siap rilis", value: red && !grid?.override ? "belum" : "ya", sub: red ? `${bad} input bermasalah${grid?.override ? " · override K35" : ""}` : "grid tanpa sel merah", tone: red && !grid?.override ? "bad" : "plain" },
       first,
@@ -361,7 +381,7 @@ async function roleParams(sb: Supa, role: Role, today: string, par: Row): Promis
   const wk = w ? `/w/${w.week_start}` : null;
   const rp = (v: unknown) => (s(v) === null ? "belum diisi" : num(s(v), 0));
   if (role === "cost_accounting") {
-    const { data: oh } = await sb.from("overhead_rate").select("rate_per_kg_lb, period_start").is("deleted_at", null).lte("period_start", today).order("period_start", { ascending: false }).limit(1).maybeSingle();
+    const oh = must(await sb.from("overhead_rate").select("rate_per_kg_lb, period_start").is("deleted_at", null).lte("period_start", today).order("period_start", { ascending: false }).limit(1).maybeSingle(), "parameter overhead");
     return [
       { label: "Angkut", unit: "Rp/kg LB", value: rp(par.freight_plan_per_kg_lb), href: wk ? `${wk}/input/parameter` : null },
       { label: "Maklon", unit: "Rp/kg hasil potong", value: rp(par.maklon_per_kg_processed), href: wk ? `${wk}/input/parameter` : null },
@@ -369,7 +389,7 @@ async function roleParams(sb: Supa, role: Role, today: string, par: Row): Promis
     ];
   }
   if (role === "ppic") {
-    const { data: cap } = await sb.from("capacity").select("date, cut_capacity_head").gte("date", today).order("date").limit(1).maybeSingle();
+    const cap = must(await sb.from("capacity").select("date, cut_capacity_head").gte("date", today).order("date").limit(1).maybeSingle(), "parameter kapasitas");
     return [
       { label: "Kapasitas line", unit: "ekor per hari", value: rp((cap as Row | null)?.cut_capacity_head), href: wk ? `${wk}/rencana` : null },
       { label: "Target susut", unit: "% kg LB", value: `${num(D(s(par.target_shrink) ?? "0.03").times(100), 1)}%`, href: wk ? `${wk}/input/parameter` : null },

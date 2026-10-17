@@ -11,12 +11,14 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
 import { WriteError } from "../write";
-import { queueRebuild } from "../rebuild";
+import { queueThroughNote } from "../rebuild";
+import { clock } from "../clock";
+import { inChunks, must, mustRows } from "../loader";
+import { advanceUpdateDate } from "../update-date";
 import { moduleSettings } from "../modules";
 import { floorGuard, consumeApprovals } from "../v3/discount";
 import { v3Kind, weekOfDate, type Row } from "../v3/uploads";
 import "../v3/costing";
-import { jakartaNow } from "../v3/allocation";
 import { UploadRejected, recheck } from "./input-check";
 import { uploadContext } from "./input-data";
 import { ROLE_KINDS, kindLabel } from "./input";
@@ -25,6 +27,8 @@ import { poLinesInScope } from "./po-lines";
 interface Committed { inserted: number; updated: number; held: string[]; dates: string[]; note: string }
 const ok = (r: UploadResult) => r.records.filter((x) => x.level !== "fail");
 const v = (x: UploadRecord, k: string) => x.data[k] ?? null;
+/** floorGuard refuses a line below the floor after filing the approval request (C38); any other error is an error (K41). */
+const belowFloorFiled = (e: unknown) => e instanceof WriteError && e.message.startsWith("Harga di bawah lantai");
 const monthEnd = (first: string) => addDays(addDays(first, 32).slice(0, 8) + "01", -1);
 
 export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKindV5; grid: Grid; fingerprint: string; fileName: string; reason: string }): Promise<string> {
@@ -37,7 +41,8 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
   if (r.needsReason.length && reason.length < 10) throw new WriteError(`Batch ${r.needsReason.join(", ")}: selisih hasil potong di atas toleransi C22 — tulis alasan (minimal 10 karakter: susut, timbangan, by-product tidak tercatat)`);
 
   const weeks = await listWeeks(sb);
-  const today = jakartaNow().date;
+  // K38: the upload belongs to the week of the wall date
+  const today = (await clock(sb)).wall;
   const week = weekOfDate(weeks, today);
   const sha = createHash("sha256").update(JSON.stringify(normalizeGrid(x.grid))).digest("hex");
   const batches = [...new Set(ok(r).map((q) => v(q, "batch_ref")).filter((q): q is string => !!q))];
@@ -58,9 +63,13 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
     await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
     throw e;
   }
-  const message = `${r.ok_count} dari ${r.total} baris lolos cek; ${c.inserted} baru, ${c.updated} diubah${c.held.length ? `; ${c.held.length} ditahan (${c.held.slice(0, 3).join("; ")}${c.held.length > 3 ? "; …" : ""})` : ""}. ${c.note}`.trim();
-  await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: c.inserted, updated: c.updated, message }).eq("id", uploadId);
-  await queueRebuild(sb, [...new Set([...r.dates, ...c.dates, today])], `upload v5 ${x.kind}`);
+  // K39: WP of a batch moves the update date of its open week to the day after the batch
+  const moved = x.kind === "costing_wp" ? await advanceUpdateDate(sb, weeks, c.dates) : "";
+  // K40: the dates touched through the date the data stands on; the rows are saved already, so a range over 62 days
+  // is reported in the message (rebuild by Admin) instead of failing the saved upload
+  const queue = await queueThroughNote(sb, [...r.dates, ...c.dates], `upload v5 ${x.kind}`);
+  const message = `${r.ok_count} dari ${r.total} baris lolos cek; ${c.inserted} baru, ${c.updated} diubah${c.held.length ? `; ${c.held.length} ditahan (${c.held.slice(0, 3).join("; ")}${c.held.length > 3 ? "; …" : ""})` : ""}. ${c.note}${moved ? ` ${moved}.` : ""}${queue}`.trim();
+  must(await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: c.inserted, updated: c.updated, message }).eq("id", uploadId), "upload committed");
   return message;
 }
 
@@ -99,13 +108,13 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
       let covered: string[] = [];
       if (v(q, "below_floor") && settings.m7_approval?.enabled) {
         try { covered = (await floorGuard(sb, viewer, settings, [{ key: v(q, "key"), customer: v(q, "customer"), price: rec.price, kg: rec.kg, date }])).covered; }
-        catch { toApproval++; continue; } // the request is filed; the line waits for the commercial lead
+        catch (e) { if (!belowFloorFiled(e)) throw e; toApproval++; continue; } // the request is filed; the line waits for the commercial lead
       }
       const old = byKey.get(line_key);
       const e = old ? await sb.from("sales_line").update(rec).eq("id", String(old.id)).select("id").single() : await sb.from("sales_line").insert(rec).select("id").single();
       if (e.error) {
         if (/C38/.test(e.error.message) && settings.m7_approval?.enabled) {
-          try { await floorGuard(sb, viewer, settings, [{ key: v(q, "key"), customer: v(q, "customer"), price: rec.price, kg: rec.kg, date }]); } catch { /* request filed */ }
+          try { await floorGuard(sb, viewer, settings, [{ key: v(q, "key"), customer: v(q, "customer"), price: rec.price, kg: rec.kg, date }]); } catch (f) { if (!belowFloorFiled(f)) throw f; }
           toApproval++;
           continue;
         }
@@ -132,7 +141,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     const byBatch = new Map<string, UploadRecord[]>();
     for (const q of ok(r)) byBatch.set(v(q, "batch_ref")!, [...(byBatch.get(v(q, "batch_ref")!) ?? []), q]);
     for (const [ref, qs] of byBatch) {
-      const { data: b } = await sb.from("batch").select("id, date").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).limit(1).maybeSingle();
+      const b = must(await sb.from("batch").select("id, date").eq("batch_ref", ref).eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).limit(1).maybeSingle(), `WP batch ${ref}`);
       if (!b) { held.push(`batch ${ref}: belum ada sebagai batch aktual`); continue; }
       const bid = String((b as Row).id);
       const agg = new Map<string, { key: string; item_code: string; item_name: string | null; kg: ReturnType<typeof D> }>();
@@ -147,7 +156,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
       const e = await sb.from("batch_output_sku").upsert(rows, { onConflict: "batch_id,key,item_code" });
       if (e.error) throw new WriteError(`batch_output_sku ${ref}: ${e.error.message}`);
       inserted += rows.length;
-      const old = ((await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", bid).is("deleted_at", null)).data ?? []) as Row[];
+      const old = mustRows<Row>(await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", bid).is("deleted_at", null), `WP batch ${ref} output lama`);
       const keep = new Set([...agg.keys()]);
       const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key}|${o.item_code}`)) || o.source === "manual").map((o) => String(o.id));
       if (gone.length) { const d = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone); if (d.error) throw new WriteError(d.error.message); }
@@ -177,8 +186,8 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
 
   async fixed_cost({ sb, r }) {
     const accounts = [...new Set(ok(r).map((q) => v(q, "account")!))];
-    const { data: coa } = await sb.from("coa_map").select("account, name, pl_line").in("account", accounts);
-    const plOf = new Map(((coa ?? []) as Row[]).map((c) => [String(c.account), c]));
+    const coa = await inChunks(accounts, async (part) => mustRows<Row>(await sb.from("coa_map").select("account, name, pl_line").in("account", part), "fixed_cost coa_map"));
+    const plOf = new Map(coa.map((c) => [String(c.account), c]));
     const held: string[] = [];
     const rows = ok(r).flatMap((q) => {
       const c = plOf.get(v(q, "account")!);

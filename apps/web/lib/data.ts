@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { computeWeek, isISODate, jakartaToday, type WeekInputs, type WeekResult } from "@kgr/engine";
+import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
 import { supabaseServer, type Supa } from "./supabase";
 
 export interface WeekRow {
@@ -42,18 +42,10 @@ export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
   return (data ?? []) as WeekRow[];
 }
 
-/**
- * The date the data stands on: the update date of the latest week, or today when the data is current. The weekly
- * engine counts "today" as the week's update date (v1); the mart rebuild and the pages that open on "today" use the
- * same date, so data that stops on 27 Aug reads as of 27 Aug in October too and every tile agrees with the weekly
- * numbers. Deadlines, cut-off times and timestamps keep the clock.
- */
-export async function dataToday(sb: Supa, today: string = jakartaToday()): Promise<string> {
-  // a week created ahead (rollover before Monday: update_date = week_start) says nothing about the data of today
-  const { data } = await sb.from("week").select("update_date").lte("update_date", today).order("update_date", { ascending: false }).limit(1).maybeSingle();
-  const u = (data as { update_date?: string | null } | null)?.update_date ?? null;
-  return u && u < today ? u : today;
-}
+// PRD v5.1 K38: the data date lives in clock.ts with the wall clock; re-exported for the builders that read it
+export { dataToday } from "./clock";
+// K42: `.in()` in chunks of 200 values
+export { inChunks } from "./loader";
 
 export async function getWeek(sb: Supa, weekStart: string): Promise<WeekRow | null> {
   if (!isISODate(weekStart)) return null; // e.g. /w/2026-02-31: not a week, and Postgres would reject the literal

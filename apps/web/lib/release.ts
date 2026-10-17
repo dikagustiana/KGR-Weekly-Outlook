@@ -8,7 +8,7 @@ import { WriteError } from "./write";
 import { moduleSettings } from "./modules";
 import { moduleSettingsGlobal } from "./rebuild";
 import { v3ForWeek } from "./v3/week";
-import { jakartaNow } from "./v3/allocation";
+import { wallNow } from "./clock";
 import { v5InputOn } from "./v5/input-data";
 
 /** Overrides and pending rebuilds of a scope, and whether the §7.2 rule is on (flag v4_release). */
@@ -37,10 +37,11 @@ export const c53Of = (v3: { controls_v3?: unknown }) => ((v3.controls_v3 ?? []) 
 export async function k35State(sb: Supa, weekStart: string, overrides: string[]) {
   if (!(await v5InputOn(sb))) return null;
   const { data: cells } = await sb.from("input_completeness_daily").select("date, kind, owner_role, status, due_at, note").gte("date", weekStart).lte("date", addDays(weekStart, 6));
-  const n = jakartaNow();
+  // K38: "late" against now on the wall clock
+  const now = wallNow().now;
   return k35({
     cells: ((cells ?? []) as Record<string, unknown>[]).map((c) => ({ date: String(c.date), kind: String(c.kind), owner_role: String(c.owner_role), status: String(c.status) as CellStatus, due_at: c.due_at ? String(c.due_at) : null, note: c.note ? String(c.note) : null })),
-    weekStart, now: `${n.date}T${n.time}:00+07:00`, override: overrides.includes("K35"),
+    weekStart, now, override: overrides.includes("K35"),
   });
 }
 

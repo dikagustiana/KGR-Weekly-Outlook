@@ -188,6 +188,8 @@
 .v4 .simk-l { font-size: var(--fs-xs); color: var(--muted); }
 .v4 .simk-v { font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .v4 .simk-v.neg, .v4 .note .src.bad { color: var(--bad); }
+/* PRD v5.1 K41: a tile whose read failed (state error) */
+.v4 .tile-err { margin: 0; font-size: 12px; line-height: 1.45; color: var(--bad); overflow-wrap: anywhere; }
 .v4 .viewas { display: flex; align-items: center; gap: var(--space-1); font-size: var(--fs-sm); color: var(--muted); }
 .v4 .viewas a { padding: var(--space-1) var(--space-2); border-radius: 6px; color: var(--text); text-decoration: none; }
 .v4 .viewas a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }

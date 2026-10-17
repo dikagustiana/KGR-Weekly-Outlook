@@ -9,6 +9,7 @@ import { tglShort } from "../fmt";
 import type { Col, TRow } from "@/components/v4/Table";
 import type { TilePos } from "@/components/v4/Tile";
 import type { TileModel } from "../v4/minggu-ini";
+import { withFailures, type Failed } from "../v4/tile-errors";
 
 /** Upload kinds of the v5 template per role (§4.9 "Pemilik"; Kepala Sales may do what Sales may). */
 export const ROLE_KINDS: Partial<Record<Role, UploadKindV5[]>> = {
@@ -40,6 +41,8 @@ export interface ParamLine { label: string; unit: string; value: string; href: s
 export interface GridRow { kind: string; title: string; owner: Role; cells: { date: string; status: CellStatus | null; note: string | null }[] }
 
 export interface InputV5Input {
+  /** PRD v5.1 K41: tile id → message of the read that failed. */
+  failed?: Failed;
   today: string;
   time: string;
   viewerRole: Role;
@@ -163,7 +166,7 @@ export function inputV5Model(x: InputV5Input, base = "/input"): { title: string;
     content: { type: "table", cols: hcols, rows: [...x.history.slice(0, 6).map((l, i) => ({ id: `h${i}`, cells: { a: l.at, w: l.what, r: l.result } })), ...waiting(x).map((w, i) => ({ id: `w${i}`, cells: { a: "Menunggu Anda", w: w.who, r: w.what } }))] },
   });
   tiles.push({ id: "catatan", pos: P(0, 12, 12, 1), kind: "bare", content: { type: "headline", text: "Status tugas dihitung dari data (bukan dicentang). Upload dicek di browser lalu dicek ulang di server sebelum disimpan; baris gagal ditahan dengan tindakannya." } });
-  return { title: `Input · ${ROLE_LABEL[x.role]}`, tiles };
+  return { title: `Input · ${ROLE_LABEL[x.role]}`, tiles: withFailures(tiles, x.failed) };
 }
 
 /** §3.2 hand-overs: who waits for this role's input while a task of it is open. */

@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { clock } from "@/lib/clock";
 import { addDays } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, Td } from "@/components/ui";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { dataToday, fetchAll } from "@/lib/data";
+import { fetchAll } from "@/lib/data";
 import { URGENCY_LABEL, assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
 import { tgl } from "@/lib/fmt";
 
@@ -17,7 +18,7 @@ export default async function KomersialKeyPage({ params }: { params: Promise<{ k
   const v = await requireModulePage("m7_commercial", ["admin", "sales", "commercial_lead", "management", "operations_director", "finance"]);
   const { viewer, weeks, week } = await plainContext();
   const sb = await supabaseServer();
-  const today = await dataToday(sb);
+  const today = (await clock(sb)).data;
   const table = v.role === "sales" ? "commercial_daily_sales" : "commercial_daily";
   const raw = await fetchAll<Record<string, unknown>>((a, b) => sb.from(table).select("*").eq("key", key).gte("date", addDays(today, -14)).order("date", { ascending: false }).range(a, b));
   const { data: par } = week ? await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle() : { data: null };
