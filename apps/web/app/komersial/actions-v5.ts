@@ -5,9 +5,10 @@
  * list of next week locked with them (K24), and the answer to PPIC's surplus. Numbers are entered, never computed here.
  */
 import { revalidatePath } from "next/cache";
-import { isISODate } from "@kgr/engine";
+import { dueDatesFor, isISODate } from "@kgr/engine";
 import { parseNumber } from "@kgr/parsers";
-import { requireModuleAction } from "@/lib/modules";
+import { moduleSettings, requireModuleAction } from "@/lib/modules";
+import { processRebuildQueue, queueThrough } from "@/lib/rebuild";
 import { supabaseServer } from "@/lib/supabase";
 import { WriteError } from "@/lib/write";
 import { must } from "@/lib/loader";
@@ -58,6 +59,13 @@ export async function lockCommitmentsAction(_: ActionState, form: FormData): Pro
     const frozen = frozenPrices(form);
     const { data, error } = await sb.rpc("lock_commitments", { p_week_start: week, p_price_frozen: frozen });
     if (error) throw new WriteError(error.message);
+    // R54: queue the commitment_lock due date (Friday before the week) so the grid cell refreshes inline
+    const { data: lockRule } = await sb.from("input_task_rule").select("due_rule").eq("kind", "commitment_lock").maybeSingle();
+    if (lockRule) {
+      const dates = dueDatesFor({ due_rule: String((lockRule as Row).due_rule) }, week);
+      if (dates.length) await queueThrough(sb, dates, "komitmen dikunci");
+      await processRebuildQueue(await moduleSettings());
+    }
     done();
     const n = Number(data ?? 0), f = Object.keys(frozen).length;
     return { ok: `${n} draft komitmen dikunci bersama price list minggu depan${f ? `; harga frozen dari form untuk ${f} SKU` : ""}` };
