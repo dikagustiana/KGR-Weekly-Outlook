@@ -23,7 +23,7 @@ describe("costing golden — 202609_Data_COGS_LB.xlsx column L (relative sales v
         const line = r.lines.find((l) => l.ref === `${b.sheet}!${row.row}`)!;
         const L = golden[`${b.sheet}!L${row.row}`];
         const M = golden[`${b.sheet}!M${row.row}`];
-        expect(line.costPerKg.minus(D(L ?? 0)).abs().toNumber(), `${b.sheet}!L${row.row} ${row.product}`).toBeLessThanOrEqual(1);
+        expect(line.costPerKg!.minus(D(L ?? 0)).abs().toNumber(), `${b.sheet}!L${row.row} ${row.product}`).toBeLessThanOrEqual(1);
         expect(line.allocatedCost.minus(D(M ?? 0)).abs().toNumber(), `${b.sheet}!M${row.row}`).toBeLessThanOrEqual(1);
         checked++;
       }
@@ -83,6 +83,24 @@ describe("costing rules", () => {
     expect(a.share.toFixed(6)).toBe(D(21000000).div(21500000).toFixed(6));
     expect(r.lines.find((l) => l.ref === "c")!.allocatedCost.isZero()).toBe(true);
     expect(r.issues.some((i) => i.includes("harga acuan kosong"))).toBe(true);
+    // M1 as before: 0 per kg for the unpriced row; the batch cannot turn final (K50)
+    expect(r.lines.find((l) => l.ref === "c")!.costPerKg?.isZero()).toBe(true);
+    expect(r.canBeFinal).toBe(false);
+  });
+
+  it("PRD v5.1 K50 (nullMissing, v5): Ceker without a reference price has no cost per kg (null, never 0)", () => {
+    const r = allocateBatch({ ...base, options: { ...base.options, nullMissing: true } });
+    expect(r.lines.find((l) => l.ref === "c")!.costPerKg).toBeNull();
+    expect(r.lines.find((l) => l.ref === "a")!.costPerKg?.gt(0)).toBe(true);
+    expect(r.canBeFinal).toBe(false);
+    // the same money is allocated: nothing changes but the label of the unpriced row
+    expect(r.totalAllocated.toFixed(2)).toBe(allocateBatch(base).totalAllocated.toFixed(2));
+    // Lampiran/Bukti R17: Lemak fresh without a reference price
+    const lemak = allocateBatch({ ...base, outputs: [...base.outputs.filter((o) => o.ref !== "c"), { ref: "l", key: "RPA|Lemak|Fresh", kg: "12", price_ref: null }], options: { ...base.options, nullMissing: true } });
+    expect(lemak.lines.find((l) => l.key === "RPA|Lemak|Fresh")!.costPerKg).toBeNull();
+    expect(lemak.canBeFinal).toBe(false);
+    const priced = allocateBatch({ ...base, outputs: base.outputs.filter((o) => o.ref !== "c"), options: { ...base.options, nullMissing: true } });
+    expect(priced.canBeFinal).toBe(true);
   });
 
   it("nrv: by-product at NRV, the rest to the main products", () => {
@@ -97,8 +115,8 @@ describe("costing rules", () => {
   it("NRV test: write-down when cost per kg exceeds price − selling cost", () => {
     const r = allocateBatch({ ...base, costLines: [{ component: "LB", amount: "30000000" }] });
     const a = r.lines.find((l) => l.ref === "a")!;
-    expect(a.costPerKg.gt(30000)).toBe(true);
-    expect(a.nrvWritedown.toFixed(2)).toBe(a.costPerKg.minus(30000).times(700).toFixed(2));
+    expect(a.costPerKg!.gt(30000)).toBe(true);
+    expect(a.nrvWritedown.toFixed(2)).toBe(a.costPerKg!.minus(30000).times(700).toFixed(2));
     const cheap = allocateBatch(base).lines.find((l) => l.ref === "a")!;
     expect(cheap.nrvWritedown.isZero()).toBe(true);
   });

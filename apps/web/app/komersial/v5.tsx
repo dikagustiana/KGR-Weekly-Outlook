@@ -15,6 +15,7 @@ import type { StockFilter } from "@kgr/engine";
 import type { ReactNode } from "react";
 import { spotSaleAction } from "./actions";
 import { answerSurplusAction, lockCommitmentsAction, saveCommitmentsAction } from "./actions-v5";
+import { CommitmentForm } from "@/components/v5/CommitmentForm";
 
 /** PRD v5 §6.2 Commercial (flag v5_commercial): stock to sell, commitments for PPIC, PPIC's surplus, spot. */
 export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: StockFilter }) {
@@ -27,26 +28,7 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
   const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("commercial", sb)) } : model0;
   const extras: Record<string, ReactNode> = {};
   const c = input.commitment;
-  const open = c.rows.some((r) => r.status !== "locked");
-  if (!mgmt && c.canEdit && c.rows.length) {
-    extras["t-komitmen"] = (
-      <div className="actionbar">
-        <ActionForm v4 action={saveCommitmentsAction} submit="Simpan draft" className="tile-form">
-          <input type="hidden" name="week_start" value={c.weekStart} /><input type="hidden" name="n" value={c.rows.length} />
-          {c.rows.map((r, i) => (
-            <span key={r.key}>
-              <input type="hidden" name={`key_${i}`} value={r.key} />
-              <label>{r.key.split("|")[1]} fresh <input name={`fresh_${i}`} size={6} defaultValue={r.fresh ? num(r.fresh, 0) : ""} disabled={r.status === "locked" && !c.canLock} /></label>
-              <label> frozen <input name={`frozen_${i}`} size={6} defaultValue={r.frozen ? num(r.frozen, 0) : ""} /></label>
-              <label> harga <input name={`price_${i}`} size={7} defaultValue={r.price ? num(r.price, 0) : ""} /></label>
-            </span>
-          ))}
-          <input name="reason" size={24} placeholder="alasan (wajib bila sudah dikunci)" aria-label="alasan versi baru" />
-        </ActionForm>
-        {c.canLock ? <ActionForm v4="primary" action={lockCommitmentsAction} submit="Kunci komitmen dan price list" disabled={!open} confirm="Kunci komitmen dan price list minggu depan? Perubahan sesudahnya menjadi versi baru dengan alasan."><input type="hidden" name="week_start" value={c.weekStart} /></ActionForm> : <span className="reason">Dikunci Kepala Sales.</span>}
-      </div>
-    );
-  }
+  if (!mgmt && c.canEdit && c.rows.length) extras["t-komitmen"] = <CommitmentForm c={c} save={saveCommitmentsAction} lock={lockCommitmentsAction} />;
   if (!mgmt && input.ppic && input.ppic.surplusKg && input.ppic.surplusKg.gt(0) && c.canEdit && week) {
     extras["t-ppic"] = (
       <div className="actionbar">

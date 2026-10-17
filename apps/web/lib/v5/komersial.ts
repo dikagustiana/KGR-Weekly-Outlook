@@ -19,6 +19,11 @@ export interface CommitmentRow {
   price: string | null;
   status: "draft" | "locked" | "belum diisi";
   version: number | null;
+  /** PRD v5.1 K46: the frozen price of next week's price list row and where it came from (form, or the frozen reference price of the running week). */
+  priceFrozen?: string | null;
+  priceFrozenSource?: "form" | "sku_price" | null;
+  /** The price list row of the key is locked (lock_commitments leaves it as it is). */
+  listLocked?: boolean;
 }
 
 export interface KomersialV5Input {
@@ -108,12 +113,13 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   // ---------------------------------------------------------------- rows 10–14: commitments, from PPIC
   const c = x.commitment;
   const locked = c.rows.length > 0 && c.rows.every((r) => r.status === "locked");
-  const kCols: Col[] = [{ key: "k", label: "SKU", kind: "key" }, { key: "w", label: "Minggu ini", num: true, kind: "sup" }, { key: "f", label: "Fresh kg", num: true }, { key: "z", label: "Frozen kg", num: true }, { key: "p", label: "Harga list", num: true }, { key: "s", label: "Status" }];
-  const kRows: TRow[] = c.rows.map((r) => ({ id: r.key, cells: { k: r.key.split("|")[1] ?? r.key, w: kg(r.thisWeekKg), f: r.fresh === null ? "" : kg(r.fresh), z: r.frozen === null ? "" : kg(r.frozen), p: r.price === null ? "" : rp(r.price), s: r.status === "locked" ? `terkunci v${r.version}` : r.status === "draft" ? `draft v${r.version}` : "belum diisi" } }));
+  const kCols: Col[] = [{ key: "k", label: "SKU", kind: "key" }, { key: "w", label: "Minggu ini", num: true, kind: "sup" }, { key: "f", label: "Fresh kg", num: true }, { key: "z", label: "Frozen kg", num: true }, { key: "p", label: "Harga list", num: true }, { key: "pz", label: "Harga frozen", num: true }, { key: "s", label: "Status" }];
+  const frozenPrice = (r: CommitmentRow) => (r.priceFrozen ? `${rp(r.priceFrozen)}${r.priceFrozenSource === "sku_price" ? " (acuan)" : ""}` : "");
+  const kRows: TRow[] = c.rows.map((r) => ({ id: r.key, cells: { k: r.key.split("|")[1] ?? r.key, w: kg(r.thisWeekKg), f: r.fresh === null ? "" : kg(r.fresh), z: r.frozen === null ? "" : kg(r.frozen), p: r.price === null ? "" : rp(r.price), pz: frozenPrice(r), s: r.status === "locked" ? `terkunci v${r.version}` : r.status === "draft" ? `draft v${r.version}` : "belum diisi" } }));
   const c52 = x.controls.find((k) => k.code === "C52");
   tiles.push({
     id: "t-komitmen", pos: P(0, 10, 7, 5), kind: "tall", title: `Untuk PPIC: komitmen minggu depan, ${Number(c.weekStart.slice(8, 10))}–${tglShort(c.weekEnd)}`,
-    note: `${locked ? "Terkunci" : `Belum dikunci; tenggat ${c.deadline}`}${c52 && c52.status === "BELUM DIISI" ? " (C52: rencana Senin memakai PO saja)" : ""}. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan${c.priceListLocked ? " (terkunci)" : ""}.`,
+    note: `${locked ? "Terkunci" : `Belum dikunci; tenggat ${c.deadline}`}${c52 && c52.status === "BELUM DIISI" ? " (C52: rencana Senin memakai PO saja)" : ""}. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan${c.priceListLocked ? " (terkunci)" : ""}. Harga frozen kosong saat kunci = acuan frozen minggu ini (label "acuan").`,
     content: { type: "table", cols: kCols, rows: kRows },
   });
   const p = x.ppic;
@@ -123,7 +129,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   ] : [];
   tiles.push({
     id: "t-ppic", pos: P(7, 10, 5, 5), kind: "tall", title: p ? `Dari PPIC: output rencana yang belum punya pembeli · ${p.shipRange}` : "Dari PPIC",
-    note: p ? [p.surplusKg && p.surplusKg.gt(0) ? `Jadi frozen bila tidak terjual fresh${p.planCostKarkas ? `; biaya rencana ${rp(p.planCostKarkas)}/kg di LB ${rp(p.lbPrice)}` : ""}.` : "Rencana tidak menghasilkan surplus karkas.", p.answered ? `Jawaban: ${p.answered}.` : p.surplusKg && p.surplusKg.gt(0) ? "Belum dijawab; PPIC menunggu jawaban sebelum potong." : null, "By-product kurang: beli trading untuk menutup order, atau kurangi order."].filter(Boolean).join(" ") : "Belum ada rencana PPIC minggu ini.",
+    note: p ? [p.surplusKg && p.surplusKg.gt(0) ? `Jadi frozen bila tidak terjual fresh${p.planCostKarkas ? `; biaya rencana ${rp(p.planCostKarkas)}/kg di LB ${rp(p.lbPrice)}` : ""}.` : "Rencana tidak menghasilkan surplus karkas.", p.answered ? `Jawaban: ${p.answered}.` : p.surplusKg && p.surplusKg.gt(0) ? "Belum dijawab; PPIC menunggu jawaban sebelum potong." : null, "By-product kurang: beli trading untuk menutup order, atau kurangi order."].filter(Boolean).join(" ") : x.sales ? "Tidak ditampilkan untuk Sales (data perencanaan)." : "Belum ada rencana PPIC minggu ini.",
     content: { type: "table", cols: [{ key: "s", label: "SKU", kind: "key", wrap: true }, { key: "o", label: "Order", num: true }, { key: "p", label: "Output", num: true }, { key: "k", label: "Kurang", num: true }], rows: pRows },
   });
 

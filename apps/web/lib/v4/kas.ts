@@ -9,7 +9,7 @@ import { D, Decimal, simulateCcc, toFixedString, type CashSplit, type CccResult,
 import { jtV4, num, pctV4, tgl, tglShort } from "../fmt";
 import type { ChartPoint } from "@/components/v4/Chart";
 import type { Col, TRow } from "@/components/v4/Table";
-import type { TileModel } from "./minggu-ini";
+import { monthsToNegative, type TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
 
 export interface KasHorizon {
@@ -62,7 +62,7 @@ export interface KasInput {
   today: string;
   /** The latest cash_position_daily row; null = nothing built yet. */
   row: { date: string; totalClosing: string | null; lowest: string | null; lowestDate: string | null; lowestWithout: string | null; lowestWithoutDate: string | null; assumption: string | null; horizon: KasHorizon | null } | null;
-  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
+  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
   ccc: { date: string; dio: string | null; dso: string | null; dpo: string | null; ccc: string | null; workingCapital: string | null; cogsPerDay: string | null; revenuePerDay: string | null; windowDays: number | null } | null;
   /** What-if from the query string: termin LB, termin trading, porsi LB, target hari stok. */
   sim: { lb: string; tr: string; share: string; stock: string };
@@ -136,7 +136,7 @@ export function kasModel(x: KasInput): KasModel {
     tiles.push({
       id: "c-bulan-negatif", pos: P(10, 1, 2, 2), kind: "card", title: "Bulan sampai ekuitas negatif",
       cara: { title: "Bulan sampai ekuitas negatif", fn: "solvency", rule: "Ekuitas ÷ rugi sebelum pajak bulan ini, hanya bila bulan ini rugi (NIBT outlook bulan berjalan).", period: sv.label, basis: "outlook bulan", status: "draft", sources: [{ label: "Tabel", value: "solvency_monthly" }] },
-      content: sv.months === null ? { type: "card", value: null, missing: "tidak berlaku (laba)", compare: [] } : { type: "card", value: num(sv.months, 1), compare: [] },
+      content: sv.months === null ? { type: "card", value: null, missing: monthsToNegative(null, sv.basis), compare: [] } : { type: "card", value: num(sv.months, 1), compare: [] },
     });
   } else hidden.push("c-afiliasi", "c-ekuitas", "c-bulan-negatif");
 

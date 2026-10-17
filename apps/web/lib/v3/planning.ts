@@ -108,10 +108,11 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   // PRD v5 K26 (flag v5_commercial): the locked commitments of the week are Confirmed demand for the kg the POs do not cover
   const { data: v5c } = await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle();
   if (((v5c as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true) {
-    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b)).catch(() => [] as Row[]);
+    // PRD v5.1 K41: a refused read is an error, not "no commitment"; K46: the engine keeps the highest locked version
+    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b));
     const extra = commitmentDemand({
       weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
-      commitments: commits.map((c) => ({ key: String(c.key), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
+      commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
     });
     poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null })));
   }

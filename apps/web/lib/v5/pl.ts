@@ -53,4 +53,4 @@ export async function v5FixedForMonth(sb: Supa, first: string, cutOff: string, p
 }
 
 /** What the month builder records with the lock pre-flight for the page (cara hitung, labels). */
-export const fixedSourcesOf = (n: FixedNominal[]) => n.map((x) => ({ pl_line: x.pl_line, nominal: x.nominal.toFixed(2), source: x.source, finalMonth: x.finalMonth }));
+export const fixedSourcesOf = (n: FixedNominal[]) => n.map((x) => ({ pl_line: x.pl_line, nominal: x.nominal?.toFixed(2) ?? null, source: x.source, finalMonth: x.finalMonth }));

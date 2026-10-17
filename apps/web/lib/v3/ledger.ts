@@ -210,7 +210,7 @@ export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
     lot_ref: l.ref, batch_ref: l.batch_ref, key: l.key, item_code: l.item_code, form: l.form, origin: l.origin, origin_date: l.origin_date,
     ledger_date: date, parent_lot_ref: l.parent_ref, kg_in: f(l.kg_in, 2), cost_in: f(l.cost_in, 2), cost_per_kg_si: f(l.cost_per_kg_si, 4),
     cost_per_kg_book: f(l.cost_per_kg_book, 4), assumed: l.assumed, note: l.note,
-    ...(src.v5 ? { cost_status: statusOfLot(l) } : {}),
+    cost_status: src.v5 ? statusOfLot(l) : null,
   }));
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const lotKey = new Map(led.lots.map((l) => [l.ref, l]));
@@ -250,8 +250,9 @@ export async function buildLedgerDay(sb: Supa, date: string): Promise<string> {
     date, key: k.key, group_code: k.group_code, form: k.form, kg: f(k.kg, 2), free_kg: f(k.free_kg, 2), reserved_kg: f(k.reserved_kg, 2),
     cost_ma: f(k.cost_ma, 2), cost_per_kg_ma: f(k.cost_per_kg_ma, 4), cost_si: f(k.cost_si, 2), cost_per_kg_si: f(k.cost_per_kg_si, 4),
     oldest_age_days: k.oldest_age_days, over_age_kg: f(k.over_age_kg, 2), lots: k.lots, projected: date >= src.inputs.today,
-    // v5: the lowest status of the lots still in stock (rencana < estimasi < sementara < final)
-    ...(src.v5 ? { cost_status: keyStatus(k.key) } : {}),
+    // v5: the lowest status of the lots still in stock (rencana < estimasi < sementara < final); K55: the key is always
+    // sent (null while v5_costing is off) so mart_replace clears a status an earlier build wrote
+    cost_status: src.v5 ? keyStatus(k.key) : null,
   }));
   const w1 = await martReplace(sb, "lot", date, lots);
   const w2 = await martReplace(sb, "lot_movement", date, moves);

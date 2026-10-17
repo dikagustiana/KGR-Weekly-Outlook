@@ -93,7 +93,8 @@ export interface MingguIniInput {
   /** cash_position_daily (M6) for the 7 days; null = use the weekly cash flow. */
   cashMart: { date: string; closing: string | null; planned: boolean }[] | null;
   month: { label: string; revenue: string; gp: string; gpPct: string | null; budgetRevenue: string | null; budgetGp: string | null } | null;
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; interest: string | null } | null;
+  /** `basis` = the NIBT the months rest on; null = unknown (K52: no fixed nominal), not "profit". */
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; interest: string | null } | null;
   demand: { confirmed: string; tentative: string; forecast: string; weighted: string; fromStock: string; net: string; heads: number | null; planHeads: number | null; variance: string | null } | null;
   groups: { group: string; cogsPerKg: string | null }[] | null;
   roll: RollForward | null;
@@ -108,6 +109,10 @@ export interface MingguIniInput {
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
+
+/** Months to negative equity: a number, "tidak berlaku (laba)", or unknown when the month's NIBT is not known (K52). */
+export const monthsToNegative = (months: string | null, basis: string | null | undefined) =>
+  months !== null ? num(months, 1) : basis === null ? "belum ada (NIBT bulan ini belum bisa dihitung)" : "tidak berlaku (laba)";
 const jtOrNull = (v: Decimal | string | null | undefined) => (v === null || v === undefined ? null : `Rp ${jtV4(v)} jt`);
 const tone = (v: Decimal | string | null | undefined): "neg" | undefined => (v !== null && v !== undefined && D(v).lt(0) ? "neg" : undefined);
 const deltaTone = (v: Decimal | null | undefined): "better" | "worse" | undefined => (v === null || v === undefined || v.isZero() ? undefined : v.gt(0) ? "better" : "worse");
@@ -255,7 +260,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         compare: [
           { label: "ekuitas / modal disetor", value: pctV4(D(s.equity).div(D(s.paidIn)), 0) },
           { label: "utang pihak berelasi", value: `${jtV4(s.affiliate)} jt` },
-          { label: "bulan sampai ekuitas negatif", value: s.months === null ? "tidak berlaku (laba)" : num(s.months, 1) },
+          { label: "bulan sampai ekuitas negatif", value: monthsToNegative(s.months, s.basis) },
         ],
         href: "/kas",
       },

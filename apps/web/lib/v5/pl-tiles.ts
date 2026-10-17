@@ -4,7 +4,7 @@
  * U+2212, red only for negatives on the deciding rows, status in words).
  */
 import {
-  CUMULATIVE_METRICS, PL_TABLE_ROWS, cumulativeSeries, plBudgetOf, plTable, plTotalsV5,
+  CUMULATIVE_METRICS, PL_TABLE_ROWS, cumulativeSeries, fixedAllMissing, plBudgetOf, plTable, plTotalsV5,
   type BudgetRow, type CumulativeMetric, type CumulativeSeries, type Decimal, type PlColumn, type PlRowV4, type PlTable,
 } from "@kgr/engine";
 import { jtV4, pctV4, tglShort } from "../fmt";
@@ -14,7 +14,8 @@ import type { LinePlot } from "@/components/v4/Chart";
 import type { TileModel } from "../v4/minggu-ini";
 
 /** Fixed-cost nominal of a line as the month builder recorded it (data_status month_lock). */
-export interface FixedSource { pl_line: string; nominal: string; source: "jadwal" | "estimasi bulan lalu" | "belum ada"; finalMonth: string | null }
+/** `nominal` null = no schedule and no FINAL month (PRD v5.1 K51), never 0. */
+export interface FixedSource { pl_line: string; nominal: string | null; source: "jadwal" | "estimasi bulan lalu" | "belum ada"; finalMonth: string | null }
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 const MON = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -59,10 +60,12 @@ export function plTableTile(t: PlTable, o: {
   const cols: Col[] = [{ key: "l", label: "", kind: "key" }, ...t.columns.map((c, i): Col => ({
     key: `c${i}`, label: colLabel(t, c, budgetEmpty), num: true, kind: c.current ? "hi" : c.kind === "forecast" ? "fc" : c.kind === "share" || c.kind === "budget" ? "sup" : undefined,
   }))];
+  // K51: without any fixed nominal the fixed row and NIBT after it say "belum ada" (never 0)
+  const unknown = (k: string) => t.fixedMissing && (k === "fixed" || k === "nibt_after" || k === "nibt_pct");
   const rows: TRow[] = t.rows.map((r) => ({
     id: r.key, kind: r.strong === 2 ? "total" : r.strong === 1 ? "strong" : r.pct ? "sub" : undefined, redNeg: r.strong > 0 || r.pct,
     // the share column holds a share of outlook revenue (a percentage) on every amount row
-    cells: { l: r.label, ...Object.fromEntries(r.values.map((v, i) => [`c${i}`, cell(v, r.pct || t.columns[i].kind === "share", t.columns[i].kind === "budget" ? "—" : "")])) },
+    cells: { l: r.label, ...Object.fromEntries(r.values.map((v, i) => [`c${i}`, cell(v, r.pct || t.columns[i].kind === "share", t.columns[i].kind === "budget" ? "—" : unknown(r.key) ? "belum ada" : "")])) },
   }));
   const o5 = t.outlook, fc = t.columns.find((c) => c.kind === "forecast" && t.view === "rr");
   const fcIdx = fc ? t.columns.indexOf(fc) : -1;
@@ -72,7 +75,9 @@ export function plTableTile(t: PlTable, o: {
   const fixedText = byK29(o.fixed).map((f) => `${LINE_WORD[f.pl_line] ?? f.pl_line} ${jtV4(f.nominal)}`).join(" + ");
   const note = t.view === "rr"
     ? [gpRest === null ? null : `Sisa bulan GP ${jtV4(gpRest)} jt.`,
-      `NIBT menurut jurnal ${jtV4(o5.nibt)} jt${fw ? ` belum memuat ${fw}` : ""}; setelah beban tetap ${jtV4(o5.fixed.neg())} jt, ${monthWord(t.month)} ${o5.nibtAfter.lt(0) ? "diproyeksikan rugi" : "diproyeksikan laba"} ${jtV4(o5.nibtAfter)} jt.`].filter(Boolean).join(" ")
+      t.fixedMissing
+        ? `NIBT menurut jurnal ${jtV4(o5.nibt)} jt; beban tetap bulan ini belum ada (jadwal Finance dan FINAL bulan lalu kosong, C55), jadi NIBT setelah beban tetap belum bisa dihitung.`
+        : `NIBT menurut jurnal ${jtV4(o5.nibt)} jt${fw ? ` belum memuat ${fw}` : ""}; setelah beban tetap ${jtV4(o5.fixed.neg())} jt, ${monthWord(t.month)} ${o5.nibtAfter.lt(0) ? "diproyeksikan rugi" : "diproyeksikan laba"} ${jtV4(o5.nibtAfter)} jt.`].filter(Boolean).join(" ")
     : `Minggu tertutup dari jurnal; kolom miring berisi PO dan run-rate.${fw ? ` ${fw.charAt(0).toUpperCase()}${fw.slice(1)} baru dijurnal saat tutup buku, jadi tiap minggu memuat estimasinya per hari kalender.` : ""}`;
   return {
     id: o.id, pos: o.pos, title: `Laba rugi ${monthWord(t.month)} ${t.month.slice(0, 4)} (Rp jt)`, note,
@@ -166,18 +171,21 @@ export function outlookBulanV5(tiles: TileModel[], x: { first: string; cutOff: s
   const outlook = e.plTotalsV5(rows);
   const fw = fixedWords(x.v5.fixed);
   const neg = (v: Decimal) => (v.lt(0) ? "neg" as const : undefined);
+  // K51: no fixed nominal at all → NIBT after fixed costs is not known
+  const missing = fixedAllMissing(x.v5.fixed);
+  const after = (v: Decimal) => (missing ? "belum ada" : `${jtV4(v)} jt`);
   const out: TileModel[] = [];
   for (const t of tiles) {
     const moved = t.pos.y >= 4 ? { ...t, pos: { ...t.pos, y: t.pos.y + 4 } } : t;
     if (t.id === "headline" && t.content.type === "headline") {
       const gpPct = outlook.revenue.isZero() ? null : outlook.gp.div(outlook.revenue);
-      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal atau Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}.` } });
+      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal${missing ? "; beban tetap bulan ini belum ada (C55)" : ` atau Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}`}.` } });
     } else if (t.content.type === "card" && (t.id === "c-actual" || t.id === "c-forecast" || t.id === "c-outlook") && t.content.value !== null) {
       const tot = t.id === "c-actual" ? actual : t.id === "c-forecast" ? forecast : outlook;
       const keep = t.content.compare.filter((c) => c.label !== "NIBT" && c.label !== "GP P&L");
       const gp = { label: "GP P&L", value: `${jtV4(tot.gp)} jt`, tone: neg(tot.gp) };
       const nj = { label: "NIBT jurnal", value: `${jtV4(tot.nibt)} jt`, tone: neg(tot.nibt) };
-      const na = { label: "NIBT setelah beban tetap", value: `${jtV4(tot.nibtAfter)} jt`, tone: neg(tot.nibtAfter) };
+      const na = { label: "NIBT setelah beban tetap", value: after(tot.nibtAfter), tone: missing ? undefined : neg(tot.nibtAfter) };
       const compare = t.id === "c-outlook" ? [...keep, gp, nj, na] : t.id === "c-forecast" ? [gp, nj, ...keep] : [gp, nj];
       out.push({ ...t, content: { ...t.content, compare, maxCompare: 4 } });
     } else if (t.id === "ch-kumulatif") {
@@ -186,7 +194,7 @@ export function outlookBulanV5(tiles: TileModel[], x: { first: string; cutOff: s
       out.push(cumulativeTile(s, { id: t.id, pos: moved.pos, month: x.first, tolerance: x.tolerance, href: (cm) => x.v5.href({ cm }), fixed: x.v5.fixed, budget }));
     } else out.push(moved);
   }
-  const table = e.plTable(x.v5.pl, x.first, { rows, cutOff: x.cutOff, budget: e.plBudgetOf(x.budget) });
+  const table = e.plTable(x.v5.pl, x.first, { rows, cutOff: x.cutOff, budget: e.plBudgetOf(x.budget), nominals: x.v5.fixed });
   out.push(plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href({ pl: "rr" }), wk: x.v5.href({ pl: "wk" }) }, fixed: x.v5.fixed, status: x.status }));
   return out;
 }
@@ -209,14 +217,15 @@ export interface MingguIniV5Pl {
  */
 export function mingguIniV5(tiles: TileModel[], x: { v5: MingguIniV5Pl; weekStart: string; split: boolean }): TileModel[] {
   const outlook = plTotalsV5(x.v5.rows);
+  const missing = fixedAllMissing(x.v5.fixed);
   const out = tiles.map((t): TileModel => {
     const moved = t.pos.y >= 4 ? { ...t, pos: { ...t.pos, y: t.pos.y + 4 } } : t;
     if (t.id === "c-bulan" && t.content.type === "card") {
-      return { ...moved, content: { ...t.content, compare: [...t.content.compare.filter((c) => c.label !== "vs budget"), { label: "NIBT setelah beban tetap", value: `${jtV4(outlook.nibtAfter)} jt`, tone: outlook.nibtAfter.lt(0) ? "neg" : undefined }, ...t.content.compare.filter((c) => c.label === "vs budget")] } };
+      return { ...moved, content: { ...t.content, compare: [...t.content.compare.filter((c) => c.label !== "vs budget"), { label: "NIBT setelah beban tetap", value: missing ? "belum ada" : `${jtV4(outlook.nibtAfter)} jt`, tone: !missing && outlook.nibtAfter.lt(0) ? "neg" : undefined }, ...t.content.compare.filter((c) => c.label === "vs budget")] } };
     }
     return moved;
   });
-  const table = plTable(x.v5.pl, x.v5.first, { rows: x.v5.rows, cutOff: x.v5.cutOff, highlight: x.weekStart, split: x.split && x.v5.pl === "wk" });
+  const table = plTable(x.v5.pl, x.v5.first, { rows: x.v5.rows, cutOff: x.v5.cutOff, highlight: x.weekStart, split: x.split && x.v5.pl === "wk", nominals: x.v5.fixed });
   out.push(plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href("rr"), wk: x.v5.href("wk") }, fixed: x.v5.fixed, status: "draft" }));
   return out;
 }

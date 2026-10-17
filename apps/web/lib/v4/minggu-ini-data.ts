@@ -97,7 +97,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     const v = fail(failed, ["c-solvabilitas"], await tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
       must(await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle(), "solvency_monthly") as Row | null), null);
     if (v && v.equity !== null && v.paid_in_capital !== null) {
-      solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), interest: null };
+      solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), interest: null };
     }
   }
 

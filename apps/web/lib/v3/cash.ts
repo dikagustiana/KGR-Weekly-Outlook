@@ -6,7 +6,7 @@ import "server-only";
  */
 import {
   D, actualDaily, addDays, balancesOn, diffDays, cashControls, cashProjection, cashProjection12m, cashProjection12mOrNull, cashProjectionSplit, ccc, dailyTotals, firstOfMonth, monthSummary,
-  monthEnd, monthSummaryV4, plRowsFromMart, scheduledPayments, solvency, sum, toFixedString,
+  fixedAllMissing, monthEnd, monthSummaryV4, plRowsFromMart, scheduledPayments, solvency, solvencyNibtV5, sum, toFixedString,
   type CashBalance, type CashPlan, type CashSplit, type CccResult, type ControlV3, type Decimal, type FixedCostRow, type Solvency, type WeekResult,
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
@@ -17,6 +17,14 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
 import { plDaily, isWorkingDay } from "./monthly";
 import { kasHorizon } from "../v4/kas";
+import { must } from "../loader";
+import type { FixedSource } from "../v5/pl-tiles";
+
+/** v5_pl on (global flag): the solvency takes NIBT after fixed costs (K52). */
+async function v5PlOn(sb: Supa): Promise<boolean> {
+  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
+}
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: Decimal | null | undefined) => (x === null || x === undefined ? null : toFixedString(x, 2));
@@ -71,6 +79,8 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   const bsCash = r ? toFixedString(bsLine(r, "Cash and cash equivalents", "yesterday"), 2) : null;
   // NIBT outlook of the month (M4 data mart) for the 12 months and the months to negative equity
   let nibt: Decimal | null = null, depr: Decimal = D(0), nibtV4: Decimal | null = null, deprV4: Decimal | null = null;
+  // K52: set while v5_pl is on (value null = unknown); null = the v4 NIBT
+  let nibtSolvency: { value: Decimal | null } | null = null;
   if (opts.m4) {
     const rows = await plDaily(sb, firstOfMonth(date));
     if (rows.length) {
@@ -85,6 +95,14 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
       const sm = monthSummaryV4(pr, firstOfMonth(date), "0.10");
       nibtV4 = sm.outlook.nibt;
       deprV4 = sum(pr.filter((x) => x.pl_line === "Depreciation & amortisation").map((x) => (x.actual ?? D(0)).plus(x.forecast ?? D(0))));
+      // PRD v5.1 K52 (flag v5_pl): the solvency runs on NIBT after fixed costs, with the fixed_estimate rows of the month
+      if (await v5PlOn(sb)) {
+        const lock = must(await sb.from("data_status").select("note").eq("table_name", "month_lock").eq("scope", firstOfMonth(date)).maybeSingle(), "data_status month_lock") as Row | null;
+        // no `fixed` in the month builder's note = the month was built without the fixed-cost rows: NIBT after fixed
+        // costs is unknown (null → "belum ada"), never the NIBT without them
+        const fixed = (lock?.note ? (JSON.parse(String(lock.note)) as { fixed?: FixedSource[] }).fixed : null) ?? null;
+        nibtSolvency = { value: solvencyNibtV5(plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed === null || fixedAllMissing(fixed)) };
+      }
     }
   }
   const months = cashProjection12m({ month: date, startClosing: projection.startClosing, nibtOutlook: nibt ?? D(0), depreciation: depr });
@@ -94,7 +112,7 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
     paidInCapital: bsLine(r, "Shareholder Equity", "yesterday"),
     affiliatePayable: bsLine(r, "Other Payable - Related Parties", "yesterday").plus(bsLine(r, "Trade Payables - Affiliates", "yesterday")),
     affiliateReceivable: bsLine(r, "Trade Receivables - Related Parties", "yesterday").plus(bsLine(r, "Other Receivable - Affiliated Party", "yesterday")),
-    nibtMonth: nibtV4 ?? nibt,
+    nibtMonth: nibtSolvency ? nibtSolvency.value : nibtV4 ?? nibt,
   }) : null;
   // CCC: balance sheet yesterday + the journal of the last 90 days (fewer when the journal is shorter)
   let cccRes: CccResult | null = null, windowDays = 0;

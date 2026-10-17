@@ -32,8 +32,10 @@ export interface V5BatchCost {
   status: CostStatus;
   dueAt: string | null;
   wpReceivedAt: string | null;
-  /** Where the LB price came from (label, K36). */
-  lbPriceSource: "keputusan" | "batch" | "parameter";
+  /** Where the LB price came from (label, K36); "belum ada" = no decision, no batch price, no price today (K50). */
+  lbPriceSource: "keputusan" | "batch" | "parameter" | "belum ada";
+  /** K50: why this batch cannot turn final (a SKU with output and no reference price), null when it can. */
+  costCheck: string | null;
   priceSource: "price list terkunci" | "harga acuan minggu ini";
   result: PlanCostResult | null;
   costByKey: Map<string, Decimal>;
@@ -106,12 +108,16 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     const wpRows = wp.filter((r) => String(r.batch_id) === id);
     const status = costStatusOf({ date: s(b.date), wpReceivedAt: s(b.wp_received_at) ?? (wpRows.length ? "wp" : null), allocationPosted: postedIds.has(id), invoiceStatus: s(b.invoice_status) }, today);
     const base = { batch_id: id, batch_ref: ref, date: s(b.date), week_id: String(b.week_id), status, dueAt, wpReceivedAt: s(b.wp_received_at), finalDate: postedOn.get(id) ?? null };
-    if (!b.lb_kg) { out.push({ ...base, result: null, provisional: null, costByKey: new Map(), lbPriceSource: "batch", priceSource: "harga acuan minggu ini" }); continue; }
+    if (!b.lb_kg) { out.push({ ...base, result: null, provisional: null, costByKey: new Map(), lbPriceSource: "batch", priceSource: "harga acuan minggu ini", costCheck: null }); continue; }
     const list = priceListToKeys(lists.filter((l) => String(l.week_start) === addDays(ws, -7)).map((l) => ({ key: String(l.key), price_fresh: s(l.price_fresh), price_frozen: s(l.price_frozen) })));
     const weekPrices = new Map(refPrices.filter((r) => String(r.week_id) === String(b.week_id)).map((r) => [String(r.key), s(r.ref_sell_price)]));
     const priceOf = (k: string) => list.get(k) ?? weekPrices.get(k) ?? null;
     const decision = decisions.find((d) => String(d.date) === s(b.date));
-    const lbPrice = s(decision?.price) ?? s(b.lb_price) ?? s(p.lb_price_today) ?? "0";
+    // K50: no LB price anywhere = no plan cost (never Rp 0 per kg LB); the batch shows in C57
+    const priced = (v: string | null) => (v !== null && !D(v).isZero() ? v : null);
+    const lbPrice = priced(s(decision?.price)) ?? priced(s(b.lb_price)) ?? priced(s(p.lb_price_today));
+    const listSource = list.size ? "price list terkunci" as const : "harga acuan minggu ini" as const;
+    if (lbPrice === null) { out.push({ ...base, result: null, provisional: null, costByKey: new Map(), lbPriceSource: "belum ada", priceSource: listSource, costCheck: null }); continue; }
     const kgLb = D(String(b.lb_kg));
     // a final batch keeps the M1 cost; its provisional cost (what the ledger carried before the posting) is recomputed
     const use: CostStatus = status !== "final" ? status : wpRows.length ? "sementara" : "estimasi";
@@ -131,10 +137,15 @@ export async function loadV5BatchCosts(sb: Supa, from: string, today: string): P
     const direct = use === "sementara" && (s(b.freight) || s(b.maklon)) ? D(s(b.freight) ?? "0").plus(D(s(b.maklon) ?? "0")).toFixed(2) : null;
     const tariff = tariffPerKgLb({ freightPerKgLb: s(p.freight_plan_per_kg_lb) ?? "0", maklonPerKgProcessed: s(p.maklon_per_kg_processed) ?? "0", shrink: s(p.target_shrink) ?? "0" });
     const plan = planCost({ status: use, kgLb: kgLb.toFixed(2), lbPrice, tariffPerKgLb: tariff.toFixed(4), directCost: direct, outputs });
-    const final = status === "final";
+    // K50: a SKU with output and no reference price keeps the batch below final (its lots stay sementara)
+    const costCheck = plan.canBeFinal ? null : `harga acuan kosong: ${plan.missingPrice.join(", ")}`;
+    const final = status === "final" && plan.canBeFinal;
     const result = final ? null : plan;
     const costByKey = new Map(final ? [] : plan.lines.filter((l) => l.costPerKg !== null).map((l) => [l.key, l.costPerKg!]));
-    out.push({ ...base, result, provisional: final ? plan : null, costByKey, lbPriceSource: decision ? "keputusan" : s(b.lb_price) ? "batch" : "parameter", priceSource: list.size ? "price list terkunci" : "harga acuan minggu ini" });
+    out.push({
+      ...base, status: final || status !== "final" ? status : use, result, provisional: final ? plan : null, costByKey,
+      lbPriceSource: priced(s(decision?.price)) ? "keputusan" : priced(s(b.lb_price)) ? "batch" : "parameter", priceSource: listSource, costCheck,
+    });
   }
   return out;
 }
@@ -181,6 +192,9 @@ export async function v5CostingControls(sb: Supa, week: WeekRow, today: string, 
   return [
     c53({ now: nowIso, batches: inWeek.map((c) => ({ ref: c.batch_ref, status: statusOf.get(c.batch_ref) ?? null, dueAt: c.dueAt, wpReceivedAt: c.wpReceivedAt })) }),
     c54({ ratio: s((par as Row | null)?.cost_anomaly_ratio) ?? "3", rows: inWeek.flatMap((c) => (c.result?.lines ?? []).map((l) => ({ key: `${l.key} (${c.batch_ref})`, costPerKg: l.costPerKg?.toFixed(2) ?? null, priceRef: l.priceRef?.toFixed(2) ?? null }))) }),
-    c57({ cutDates: inWeek.filter((c) => c.date && c.date >= today).map((c) => c.date!), decisions: decisions.map((d) => ({ date: String(d.date), weight_class: s(d.weight_class) })) }),
+    c57({
+      cutDates: inWeek.filter((c) => c.date && c.date >= today).map((c) => c.date!), decisions: decisions.map((d) => ({ date: String(d.date), weight_class: s(d.weight_class) })),
+      batchesWithoutPrice: inWeek.filter((c) => c.lbPriceSource === "belum ada" && c.status !== "final").map((c) => c.batch_ref),
+    }),
   ];
 }

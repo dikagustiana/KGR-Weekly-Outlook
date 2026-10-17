@@ -239,6 +239,18 @@ describe("C53, C57", () => {
     expect(c53({ now: "2026-08-27T04:59:00.000Z", batches }).status).toBe("LULUS");
     expect(c53({ now: "2026-08-27T11:59:00+07:00", batches }).status).toBe("LULUS");
   });
+  it("C54 (PRD v5.1 K50): a SKU without cost and without reference price is 'periksa biaya', not skipped", () => {
+    const c = c54({ ratio: "3", rows: [{ key: "RPA|Lemak|Fresh", costPerKg: null, priceRef: null }, { key: "RPA|Karkas|Fresh", costPerKg: "30000", priceRef: "36705" }] });
+    expect(c.status).toBe("PERIKSA");
+    expect(c.keys).toEqual(["RPA|Lemak|Fresh"]);
+    expect(c.detail).toEqual(["RPA|Lemak|Fresh: biaya belum ada (harga acuan kosong)"]);
+  });
+  it("C57 (K50): a batch without any LB price is BELUM DIISI and named", () => {
+    const c = c57({ cutDates: [], decisions: [], batchesWithoutPrice: ["126/PO/KGR/08/2026"] });
+    expect(c.status).toBe("BELUM DIISI");
+    expect(c.dates).toEqual([]);
+    expect(c.detail).toEqual(["batch 126/PO/KGR/08/2026: harga LB belum ada, biaya batch belum dihitung"]);
+  });
   it("C57: a cut date without a decision", () => {
     const c = c57({ cutDates: ["2026-08-27", "2026-08-28"], decisions: [{ date: "2026-08-27" }] });
     expect(c.status).toBe("BELUM DIISI");

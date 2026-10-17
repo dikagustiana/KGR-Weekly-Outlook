@@ -21,10 +21,15 @@ export function CostingV5({ batches, controls, showControls }: { batches: V5Batc
               const r = b.result;
               return (
                 <tr key={b.batch_id}>
-                  <td>{tgl(b.date)}</td><td>{b.batch_ref}</td><td>{b.status}{r && r.missingPrice.length ? " · harga acuan belum ada" : ""}</td>
-                  <td>{r ? b.lbPriceSource : ""}</td>
-                  <Td v={r?.kgLb} dp={2} /><Td v={r?.lbPrice} /><Td v={r?.costPool} /><Td v={r?.value} />
-                  <Td v={r?.k} dp={4} /><Td v={r?.breakeven} /><Td v={r?.marginPerKgLb} /><td>{r ? b.priceSource : ""}</td>
+                  <td>{tgl(b.date)}</td><td>{b.batch_ref}</td><td>{b.status}{b.costCheck ? ` · ${b.costCheck}` : ""}</td>
+                  <td>{r ? b.lbPriceSource : b.lbPriceSource === "belum ada" ? "harga LB belum ada (C57)" : ""}</td>
+                  {!r && b.lbPriceSource === "belum ada" ? (
+                    // K50: no LB price = no cost, never Rp 0
+                    <><td className="n">—</td><td className="n">belum diisi</td><td className="n">belum diisi</td><td className="n">—</td><td className="n">—</td><td className="n">—</td><td className="n">—</td><td>{b.priceSource}</td></>
+                  ) : (
+                    <><Td v={r?.kgLb} dp={2} /><Td v={r?.lbPrice} /><Td v={r?.costPool} /><Td v={r?.value} />
+                      <Td v={r?.k} dp={4} /><Td v={r?.breakeven} /><Td v={r?.marginPerKgLb} /><td>{r ? b.priceSource : ""}</td></>
+                  )}
                 </tr>
               );
             })}

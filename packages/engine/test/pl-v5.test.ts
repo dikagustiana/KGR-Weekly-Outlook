@@ -1,7 +1,8 @@
 /** PRD v5 §4.7 (K29–K31, C55, G11) on fixtures/month-2026-08: Lampiran B.2 from the engine, ±0,1 jt. */
 import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
-import { c55, cumulativeSeries, fixedEstimateRows, fixedNominals, plTable, plTotalsV5, plWeeks, FIXED_LINES_K29 } from "../src/pl-v5";
+import { c55, cumulativeSeries, fixedAllMissing, fixedEstimateRows, fixedNominals, plTable, plTotalsV5, plWeeks, solvencyNibtV5, FIXED_LINES_K29 } from "../src/pl-v5";
+import { solvency } from "../src/cash";
 import { lockBlockers, monthSummaryV4, totalsV4 } from "../src/month-v4";
 import { plRowsFromMart, plRowsToMart } from "../src/week-outlook";
 import { augustPlan, inp } from "./month-v4-fixture";
@@ -17,10 +18,10 @@ const near = (a: number, b: number, tol = 0.1) => expect(Math.abs(a - b), `${a} 
 
 describe("K29 fixed costs not journaled yet", () => {
   it("August nominal: depreciation from the schedule 10,4 + salary 52,2 and interest 24,4 from July FINAL = 87,0 jt; 2,806 jt per calendar day", () => {
-    expect(nominals.map((n) => [n.pl_line, n.source, n.nominal.div(1e6).toFixed(1)])).toEqual([
+    expect(nominals.map((n) => [n.pl_line, n.source, n.nominal!.div(1e6).toFixed(1)])).toEqual([
       ["Depreciation & amortisation", "jadwal", "10.4"], ["Salaries and allowance", "estimasi bulan lalu", "52.2"], ["Interest Expense", "estimasi bulan lalu", "24.4"],
     ]);
-    const total = nominals.reduce((s, n) => s.plus(n.nominal), D(0));
+    const total = nominals.reduce((s, n) => s.plus(n.nominal!), D(0));
     near(jt(total), 87.0);
     // 87,02 ÷ 31 = 2,807; PRD divides the rounded 87,0 (2,806)
     near(jt(total.div(31)), 2.806, 0.002);
@@ -54,6 +55,59 @@ describe("K29 fixed costs not journaled yet", () => {
     expect(b.map((x) => x.code)).toContain("C55");
     const filled = SCHEDULE.map((r) => (r.code === "GAJI" ? { ...r, amount_per_month: "85565549" } : r.code === "BUNGA" ? { ...r, amount_per_month: "31911111" } : r));
     expect(c55({ month: inp.month, nominals: fixedNominals({ month: inp.month, schedule: filled, lastFinal: JULY }) }).status).toBe("LULUS");
+  });
+});
+
+describe("PRD v5.1 K51: the fixed lines per line, a missing nominal stays missing", () => {
+  const onlyDepr = SCHEDULE.filter((r) => r.code === "DEPRESIASI");
+  it("schedule with depreciation only: salary, interest and rent still come from the July FINAL", () => {
+    const n = fixedNominals({ month: inp.month, schedule: onlyDepr, lastFinal: JULY });
+    expect(n.map((x) => [x.pl_line, x.source, x.nominal?.div(1e6).toFixed(1) ?? null])).toEqual([
+      ["Depreciation & amortisation", "jadwal", "10.4"], ["Salaries and allowance", "estimasi bulan lalu", "52.2"],
+      ["Interest Expense", "estimasi bulan lalu", "24.4"], ["Rent Expenses", "estimasi bulan lalu", "3.3"],
+    ]);
+  });
+  it("without a FINAL month: the lines without schedule are null ('belum ada'), not 0; C55 names them", () => {
+    const n = fixedNominals({ month: inp.month, schedule: onlyDepr, lastFinal: null });
+    expect(n.filter((x) => x.source === "belum ada").map((x) => [x.pl_line, x.nominal])).toEqual([["Salaries and allowance", null], ["Interest Expense", null], ["Rent Expenses", null]]);
+    const c = c55({ month: inp.month, nominals: n });
+    expect(c.status).toBe("PERIKSA");
+    expect(c.detail).toContain("Salaries and allowance: belum ada nominal");
+    // the depreciation still makes its rows; the missing lines make none (no Rp 0 rows)
+    const r = fixedEstimateRows({ month: inp.month, cutOff: inp.cut_off, nominals: n, rows: a.plan.rows });
+    expect(new Set(r.map((x) => x.pl_line))).toEqual(new Set(["Depreciation & amortisation"]));
+    expect(fixedAllMissing(n)).toBe(false);
+  });
+  it("no nominal at all: the table writes 'Beban tetap' and 'NIBT setelah beban tetap' as unknown", () => {
+    const n = fixedNominals({ month: inp.month, schedule: [], lastFinal: null });
+    expect(n.every((x) => x.nominal === null)).toBe(true);
+    const t = plTable("rr", inp.month, { rows: a.plan.rows, cutOff: inp.cut_off, nominals: n });
+    expect(t.fixedMissing).toBe(true);
+    for (const key of ["fixed", "nibt_after", "nibt_pct"] as const) expect(t.rows.find((x) => x.key === key)!.values.every((v) => v === null), key).toBe(true);
+    expect(t.rows.find((x) => x.key === "nibt")!.values.some((v) => v !== null)).toBe(true);
+  });
+});
+
+describe("PRD v5.1 K52: the solvency on NIBT after fixed costs", () => {
+  it("August: −7,8 jt (NIBT 79,2 − fixed 87,0); equity 702,6 jt → 89,6 months; v4 NIBT 79,2 would read 'profit'", () => {
+    const mart = plRowsFromMart(plRowsToMart(rows) as Parameters<typeof plRowsFromMart>[0], { fixedEstimate: true });
+    const nibt = solvencyNibtV5(mart, fixedAllMissing(nominals))!;
+    near(jt(nibt), -7.8);
+    // the mart rounds every row to 2 decimals: ± Rp 1 against the engine rows
+    expect(nibt.minus(plTotalsV5(rows).nibtAfter).abs().lte(1)).toBe(true);
+    const equity = D("702600000");
+    const s = solvency({ equity, paidInCapital: D("5000000000"), affiliatePayable: D(0), affiliateReceivable: D(0), nibtMonth: nibt });
+    expect(s.basis_nibt!.toFixed(2)).toBe(nibt.toFixed(2));
+    expect(s.months_to_negative_equity!.toFixed(2)).toBe(equity.div(nibt.neg()).toFixed(2));
+    expect(s.months_to_negative_equity!.toFixed(1)).toBe("89.6");
+    // v4 (flag off): NIBT without the fixed costs is a profit, no months
+    expect(solvency({ equity, paidInCapital: D("5000000000"), affiliatePayable: D(0), affiliateReceivable: D(0), nibtMonth: a.summary.outlook.nibt }).months_to_negative_equity).toBeNull();
+  });
+  it("no fixed nominal at all: NIBT unknown (null), not the NIBT without fixed costs", () => {
+    const none = fixedNominals({ month: inp.month, schedule: [], lastFinal: null });
+    expect(solvencyNibtV5(a.plan.rows, fixedAllMissing(none))).toBeNull();
+    const s = solvency({ equity: D(1), paidInCapital: D(1), affiliatePayable: D(0), affiliateReceivable: D(0), nibtMonth: null });
+    expect([s.months_to_negative_equity, s.basis_nibt]).toEqual([null, null]);
   });
 });
 

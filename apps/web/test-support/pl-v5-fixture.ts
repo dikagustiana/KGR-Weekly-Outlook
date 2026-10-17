@@ -24,6 +24,6 @@ export function augustV5() {
   const a = augustPlan();
   const nominals = fixedNominals({ month: inp.month, schedule: SCHEDULE_SEED, lastFinal: JULY_FINAL });
   const fixedRows = fixedEstimateRows({ month: inp.month, cutOff: inp.cut_off, nominals, rows: a.plan.rows });
-  const fixed: FixedSource[] = nominals.map((n) => ({ pl_line: n.pl_line, nominal: n.nominal.toFixed(2), source: n.source, finalMonth: n.finalMonth }));
+  const fixed: FixedSource[] = nominals.map((n) => ({ pl_line: n.pl_line, nominal: n.nominal?.toFixed(2) ?? null, source: n.source, finalMonth: n.finalMonth }));
   return { plan: a.plan, rows: [...a.plan.rows, ...fixedRows], fixedRows, fixed, nominals };
 }

@@ -1,0 +1,17 @@
+# R22 / K55 di PostgreSQL 16 lokal (kgr_os_prod, bukan KGR-OS); rebuild lewat Admin → Modul → Bangun ulang 26/08 (langkah pemeliharaan, bukan journey role)
+== sebelum (v5_costing hidup)
+commercial_daily 26/08: 34 baris, cost_per_kg terisi 34, cost_status terisi 34, cost_check terisi 34
+sku_balance_daily 26/08: 34 baris, cost_status terisi 34
+lot (ledger_date 26/08): 29 baris, cost_status terisi 29
+== SETUP v5_costing dimatikan; bangun ulang 26/08
+form: Dari Sampai Bangun ulang Bangun ulang 1 hari: 3 selesai, 0 gagal. 2026-08-24: monthly: bulan 2026-08: cut-off 2026-08-26, 262 baris (0 ditulis, 0 dihapus); ledger: 34 key, 107 lot, 122 mutasi (145 ditulis, 0 dihapus); scorecard: scorecard 2026-08-17: 0 sales (0 ditulis); demand: 12 key, 12138 
+detik: 3
+commercial_daily 26/08: 34 baris, cost_per_kg terisi 0, cost_status terisi 0, cost_check terisi 0
+sku_balance_daily 26/08: 34 baris, cost_status terisi 0
+lot (ledger_date 26/08): 29 baris, cost_status terisi 0
+== v5_costing dihidupkan lagi; bangun ulang 26/08
+form: Dari Sampai Bangun ulang Bangun ulang 1 hari: 1 selesai, 0 gagal. 2026-08-26: monthly: bulan 2026-08: cut-off 2026-08-26, 262 baris (0 ditulis, 0 dihapus); ledger: 34 key, 163 lot, 52 mutasi, 0 revaluasi (145 ditulis, 0 dihapus); scorecard: scorecard 2026-08-24: 1 sales (0 ditulis); demand: 12
+detik: 3
+commercial_daily 26/08: 34 baris, cost_per_kg terisi 34, cost_status terisi 34, cost_check terisi 34
+sku_balance_daily 26/08: 34 baris, cost_status terisi 34
+lot (ledger_date 26/08): 29 baris, cost_status terisi 29

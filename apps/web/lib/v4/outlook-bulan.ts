@@ -12,7 +12,7 @@ import {
 import { jtV4, num, pctV4, tgl, tglShort } from "../fmt";
 import type { ChartPoint, LinePlot, WaterfallStep } from "@/components/v4/Chart";
 import type { Col, TRow } from "@/components/v4/Table";
-import type { TileModel } from "./minggu-ini";
+import { monthsToNegative, type TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
 import { outlookBulanV5, type OutlookBulanV5 } from "../v5/pl-tiles";
 
@@ -56,7 +56,7 @@ export interface OutlookBulanInput {
   /** Selected version (?versi=); null = the live draft. */
   selected: string | null;
   accuracy: AccuracyInput | null;
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; cash: string | null } | null;
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; cash: string | null } | null;
   on: { m6: boolean };
   pdfHref: string | null;
   /** PRD v5 §4.7 (flag v5_pl): rows with the fixed-cost estimate and the chosen views; absent = the v4 page. */
@@ -378,7 +378,7 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
       { id: "af", cells: { k: "Utang pihak berelasi", v: jtV4(s.affiliate) } },
       { id: "bg", cells: { k: `Bunga ${monthWord}`, v: hasInterest ? jtV4(interest.neg()) : "belum diisi" } },
       { id: "kas", cells: { k: "Kas", v: s.cash === null ? "belum diisi" : jtV4(s.cash) } },
-      { id: "bn", cells: { k: "Bulan sampai ekuitas negatif", v: s.months === null ? "tidak berlaku (laba)" : num(s.months, 1) } },
+      { id: "bn", cells: { k: "Bulan sampai ekuitas negatif", v: monthsToNegative(s.months, s.basis) } },
     ];
     tiles.push({ id: "solvabilitas", pos: P(6, 16, 6, 3), title: `Solvabilitas ${s.label}`, content: { type: "table", cols: sCols, rows: sRows } });
   } else hidden.push("solvabilitas");

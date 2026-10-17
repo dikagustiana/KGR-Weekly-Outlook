@@ -98,17 +98,27 @@ export function filterRows(rows: StockSellRow[], f: StockFilter): StockSellRow[]
 
 // ------------------------------------------------------------------------------------------------ K26 commitments
 
-export interface Commitment { key: string; fresh_kg: Num; frozen_kg: Num; price: Num | null; status: "draft" | "locked" | "superseded"; version: number }
+export interface Commitment { key: string; size_kg?: Num | null; fresh_kg: Num; frozen_kg: Num; price: Num | null; status: "draft" | "locked" | "superseded"; version: number }
 
 /** Base key of a SKU ("RPA|Karkas|Fresh" → "RPA|Karkas"): the key of a commitment and of a price list row. */
 export const baseKey = (key: string) => key.replace(/\|(Fresh|Frozen|n\/a)$/, "");
 
-/** K26: the locked commitments of the week as Confirmed demand: the kg a key's POs of the week do not cover yet, on Monday. */
+/**
+ * K26: the locked commitments of the week as Confirmed demand: the kg a key's POs of the week do not cover yet, on Monday.
+ * PRD v5.1 K46: one locked version per key (and size) counts, the highest — data from before lock_commitments can hold
+ * two locked versions of a key, which would count the commitment twice.
+ */
 export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: string; kg: Num }[]; weekStart: ISODate }): OrderLine[] {
   const po = new Map<string, Decimal>();
   for (const o of x.orders) po.set(o.key, (po.get(o.key) ?? ZERO).plus(D(o.kg)));
-  const out: OrderLine[] = [];
+  const latest = new Map<string, Commitment>();
   for (const c of x.commitments.filter((q) => q.status === "locked")) {
+    const id = `${c.key}|${D(c.size_kg ?? 0).toFixed(2)}`;
+    const cur = latest.get(id);
+    if (!cur || c.version > cur.version) latest.set(id, c);
+  }
+  const out: OrderLine[] = [];
+  for (const c of latest.values()) {
     for (const [form, kg] of [["Fresh", c.fresh_kg], ["Frozen", c.frozen_kg]] as const) {
       const key = `${c.key}|${form}`;
       const extra = max(ZERO, D(kg).minus(po.get(key) ?? ZERO));
