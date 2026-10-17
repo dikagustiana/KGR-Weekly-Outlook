@@ -1467,6 +1467,8 @@ begin
   insert into public.app_user(email, role) values ('t31-ca@x.test','cost_accounting'),('t31-sales@x.test','sales'),('t31-lead@x.test','commercial_lead'),('t31-mgmt@x.test','management');
   insert into public.sales_assignment (sales_rep, email, key) values ('T31', 't31-sales@x.test', 'T31-A');
   insert into public.week (week_start, update_date, tb_opening_date) values ('2031-06-02', '2031-06-05', '2031-05-31') returning id into wk;
+  -- v5.2 B-REL-4: a week without a parameter row shows Sales no cost; this week's parameter keeps sales_sees_cost = true (default)
+  insert into public.parameter (week_id) values (wk) on conflict (week_id) do nothing;
   insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (wk, '2031-06-03', 'Aktual', 'T31-B1', 1000) returning id into b1;
   insert into public.batch (week_id, date, status, batch_ref, lb_kg) values (wk, '2031-06-04', 'Aktual', 'T31-B2', 1000) returning id into b2;
   insert into public.commercial_daily (date, key, cost_per_kg, cost_status, cost_check) values ('2031-06-03', 'T31-A', 3176, 'estimasi', false), ('2031-06-03', 'T31-Z', 15299, 'final', true);
@@ -1604,7 +1606,9 @@ declare out text := ''; n int; wk1 uuid; wk2 uuid; wk3 uuid; nx date := '2032-03
 begin
   insert into public.app_user(email, role) values ('v51-fin@x.test','finance'),('v51-adm@x.test','admin'),('v51-sales@x.test','sales'),
     ('v51-sales0@x.test','sales'),('v51-lead@x.test','commercial_lead'),('v51-ia@x.test','inventory_accounting');
-  insert into public.sales_assignment (sales_rep, email, customer, key) values ('V51', 'v51-sales@x.test', 'PT A', 'RPA|Karkas|Fresh');
+  -- v5.2 O21(b): an assignment covers other forms only without a form suffix, so the base-key commitment below needs the
+  -- assignment "RPA|Karkas" (was "RPA|Karkas|Fresh", which now covers that SKU only: block v5.2 B2 O21)
+  insert into public.sales_assignment (sales_rep, email, customer, key) values ('V51', 'v51-sales@x.test', 'PT A', 'RPA|Karkas');
   insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-01', '2032-03-04', '2032-02-29') returning id into wk1;
   insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-08', '2032-03-10', '2032-03-07') returning id into wk2;
   insert into public.week (week_start, update_date, tb_opening_date) values ('2032-03-15', '2032-03-17', '2032-03-14') returning id into wk3;
@@ -1660,7 +1664,7 @@ begin
   execute 'reset role';
   update public.app_setting set value = '{"enabled": false}' where key = 'v4_release';
 
-  -- K43 / R5: a Sales user assigned "RPA|Karkas|Fresh" commits on the base key and reads it back; another key is refused.
+  -- K43 / R5: a Sales user assigned "RPA|Karkas" (v5.2 O21: no form suffix) commits on the base key and reads it back; another key is refused.
   -- R13: the commitment queues a rebuild of its week.
   perform set_config('request.jwt.claims', '{"email":"v51-sales@x.test","role":"authenticated"}', true);
   execute 'set local role authenticated';
