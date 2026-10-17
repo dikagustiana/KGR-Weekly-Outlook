@@ -6,7 +6,8 @@ import "server-only";
  * (planCost mode rencana); C50, C51, C58. The demand builder writes demand_class_weekly; the PPIC page reads this.
  */
 import {
-  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, needBasisOutputs, needByCutDate, planCost, registeredClasses, sizeKgOf, tariffPerKgLb, toClassLB, weekClassPlan,
+  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, forecastLinesByDate, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf,
+  tariffPerKgLb, toClassLB, weekClassPlan, weightedOpenKg,
   type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type SizedLine, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -18,7 +19,7 @@ import { statusMode } from "./cost-status";
 import { fail, type Failed } from "../v4/tile-errors";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "../v3/uploads";
-import { computeDemand, loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, type PlanningSources } from "../v3/planning";
+import { computeDemand, loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, statForecast, type PlanningSources } from "../v3/planning";
 import type { PpicClassInfo, PpicV5Input } from "./ppic";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -42,10 +43,23 @@ export interface ClassSources {
   yieldOf: (cls: string, unit: string) => string | null;
 }
 
-/** K28 for the week of `src`: karkas PO lines with their size → class demand and the daily need per class. */
+/**
+ * The karkas keys of the class demand: RPA Karkas fresh (with sizes) and n/a (without). sku_key.form is capitalised
+ * ("Frozen"): frozen karkas is covered from stock (the PPIC screen shows it apart), never live-bird need.
+ */
+export const karkasKeysOf = (src: PlanningSources): string[] =>
+  [...src.keys.entries()].filter(([, k]) => k.segment === "RPA" && k.sku === "Karkas" && k.form.toLowerCase() !== "frozen").map(([key]) => key);
+
+/**
+ * K28 for the week of `src`: karkas PO lines with their size → class demand and the daily need per class.
+ * R49 (A-UI-9): a line counts its open kg (kg − fulfilled − cancelled, never below 0) × the weight of its status; the
+ * week's forecasts (the K2 rule: a key with a Sales forecast ignores the statistical one, forecast_weight) enter as STD
+ * lines per date; the stock netting of the key comes after the weighting. R48: a line synthesized from a locked
+ * commitment carries its own size and its id is never a `sales_line` id in a query.
+ */
 export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<ClassSources> {
   const ws = src.week.week_start;
-  const karkasKeys = [...src.keys.entries()].filter(([, k]) => k.segment === "RPA" && k.sku === "Karkas" && k.form !== "frozen").map(([key]) => key);
+  const karkasKeys = karkasKeysOf(src);
   const lines0 = src.orders.filter((o) => karkasKeys.includes(o.key) && o.delivery_date);
   const ids = lines0.filter((o) => !o.synthetic).map((o) => o.id);
   const [items, sized, classes, map] = await Promise.all([
@@ -68,18 +82,13 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   const yieldOf = (cls: string, unit: string) => src.yieldRows.find((y) => y.weight_class === cls && y.cut_pattern === "karkas" && y.key === unit)?.yield_pct ?? null;
   const avg = new Map(classes.map((c) => [String(c.code), s(c.avg_kg)]));
   const { demand: v4 } = computeDemand(src, FALLBACK);
-  // R49 (A-UI-9): the class demand is the open kg (kg − fulfilled − cancelled) × the status weight; netting runs after.
-  const weightOf = (o: (typeof lines0)[number]): string => {
-    const w = o.demand_status === "Tentative" ? src.weights.tentative : o.demand_status === "Forecast" ? src.weights.forecast : "1";
-    return D(o.kg).minus(D(o.fulfilled_kg ?? "0")).minus(D(o.cancelled_kg ?? "0")).times(D(w)).toFixed(2);
-  };
   const lines: SizedLine[] = [
-    ...lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: weightOf(o) })),
-    // R49: the week's forecasts enter as STD (no size) lines, so a forecast-only week still shows a need
-    ...src.forecasts.filter((f) => karkasKeys.includes(f.key)).map((f) => ({ ship_date: f.week_start, key: f.key, size_kg: null, kg: s(f.kg) ?? "0" })),
+    // a line with nothing left open (delivered or cancelled in full) is not need
+    ...lines0.map((o) => ({ ship_date: o.delivery_date!, key: o.key, size_kg: sizeOf(o), kg: weightedOpenKg(o, src.weights) })).filter((l) => l.kg.gt(0)).map((l) => ({ ...l, kg: l.kg.toFixed(4) })),
+    ...forecastLinesByDate({ forecasts: [...src.forecasts, ...statForecast(src).lines], weekStart: ws, weight: src.weights.forecast, keys: (k) => karkasKeys.includes(k) }),
   ];
   const demand = toClassLB({
-    lines,
+    lines, netShare: netShareOf(v4.rows),
     setup: { classOf: (sz) => latest.get(sz.toFixed(2)) ?? null, yieldKarkas: (c) => yieldOf(c, "Karkas"), avgKg: (c) => avg.get(c) ?? null, midOffset: SIZE_MID_OFFSET, fallback: FALLBACK },
   });
   const daily = dailyClassPlan({ demand, leadTimeDays: src.leadTimeDays });
@@ -95,7 +104,7 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
   return {
     demand, daily, yieldOf, ship: ships.length ? { from: ships[0], to: ships[ships.length - 1] } : null,
     classes: classes.map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) })),
-    controls: [c50(demand), c51({ registered, used }), c58({ need: needByCutDate(daily), supply })],
+    controls: [c50(demand), c51({ registered, used }), c58({ need: needByCutDate(daily), supply, fallback: FALLBACK })],
   };
 }
 
