@@ -344,8 +344,9 @@ export function lowestStatus(statuses: (CostStatus | null | undefined)[]): CostS
  * Status of a batch's cost (K20, K21): final once its invoices tie to the GL (M1 allocation posted, or the invoice
  * marked tied); sementara once the WP is in (H+1); estimasi from the cut date; rencana before it.
  */
-export function costStatusOf(b: { date: string | null; wpReceivedAt?: string | null; allocationPosted?: boolean; invoiceStatus?: string | null }, today: string): CostStatus {
-  if (b.allocationPosted || b.invoiceStatus === "tied") return "final";
+export function costStatusOf(b: { date: string | null; wpReceivedAt?: string | null; allocationPosted?: boolean; allPriced?: boolean; invoiceStatus?: string | null }, today: string): CostStatus {
+  // R60: final needs the allocation posted AND every line priced; a tied invoice without the posting is not final
+  if (b.allocationPosted && b.allPriced) return "final";
   if (b.wpReceivedAt) return "sementara";
   if (b.date && b.date <= today) return "estimasi";
   return "rencana";
