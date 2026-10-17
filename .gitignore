@@ -11,3 +11,6 @@ coverage/
 out/
 backups/
 __pycache__/
+
+# backtest working files
+backtest-data/

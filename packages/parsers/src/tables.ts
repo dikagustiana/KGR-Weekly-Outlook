@@ -95,10 +95,10 @@ export const KINDS: KindDef[] = [
     roles: ["admin", "inventory_accounting"],
     fields: [DATE(), F("voucher_no", "No. sumber", "text", ["no sumber", "nomor sumber", "source no", "no bukti", "no voucher", "voucher", "nomor", "no transaksi", "no jurnal"], true),
       F("voucher_type", "Tipe", "text", ["tipe sumber", "source type", "tipe", "tipe transaksi", "jenis"]),
-      F("account", "Akun", "text", ["no akun", "kode akun", "nomor akun", "account no", "account", "akun"], true),
+      F("account", "Akun", "text", ["no akun", "kode akun", "nomor akun", "account no", "account", "akun", "kode perkiraan", "no perkiraan"], true),
       F("account_name", "Nama akun", "text", ["nama akun", "account name", "nama perkiraan"]),
       F("description", "Keterangan", "text", ["keterangan", "deskripsi", "description", "memo", "catatan"]),
-      F("debit", "Debit", "number", ["debit", "debet", "dr"]), F("credit", "Kredit", "number", ["kredit", "credit", "cr"]),
+      F("debit", "Debit", "number", ["debit", "debet", "dr", "nilai debit", "nilai debet"]), F("credit", "Kredit", "number", ["kredit", "credit", "cr", "nilai kredit", "nilai credit"]),
       F("party", "Pihak", "text", ["pihak", "party", "nama pelanggan pemasok", "pelangganpemasok", "nama"])],
   },
   {
