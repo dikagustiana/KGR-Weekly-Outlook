@@ -105,7 +105,8 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
       }
     }
   }
-  const months = cashProjection12m({ month: date, startClosing: projection.startClosing, nibtOutlook: nibt ?? D(0), depreciation: depr });
+  // R65: with v5_pl on, the 12-month projection rests on NIBT after fixed costs; the non-cash fixed expenses are not cash
+  const months = cashProjection12m({ month: date, startClosing: projection.startClosing, nibtOutlook: nibtSolvency?.value ?? nibt ?? D(0), depreciation: nibtSolvency ? D(0) : depr });
   const monthsV4 = cashProjection12mOrNull({ month: date, startClosing: projection.startClosing, nibtOutlook: nibtV4, depreciation: deprV4 });
   const sol = r ? solvency({
     equity: sum(["Shareholder Equity", "Retained earnings", "Current year profit"].map((l) => bsLine(r, l, "yesterday"))),
