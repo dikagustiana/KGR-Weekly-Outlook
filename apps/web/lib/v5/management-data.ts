@@ -68,7 +68,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
 
   // ------------------------------------------------------------ decisions waiting
   const ap = fail(failed, ["keputusan"], await tileData("manajemen: permintaan diskon", async () =>
-    mustRows<Row>(await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }).limit(20), "discount_approval")), []);
+    mustRows<Row>(await sb.from("discount_approval").select("key, kg, requested_price, floor_price, total_below").eq("status", "pending").order("total_below", { ascending: false }), "discount_approval").slice(0, 20)), []);
   const future = (cash ?? []).filter((x) => x.date >= today && x.closing !== null);
   const low = future.length ? future.reduce((m, x) => (D(x.closing!).lt(D(m.closing!)) ? x : m)) : null;
   const decisions = decisionLines({

@@ -257,13 +257,13 @@ export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, pane
   // history: the last uploads of the role's kinds and the reminders Finance sent
   const kinds = ROLE_KINDS[role] ?? [];
   const history = fail(failed, ["riwayat"], await tileData("input: riwayat", async () => {
-    const ups = kinds.length ? mustRows<Row>(await sb.from("upload").select("kind, file_name, status, ok_count, row_count, uploaded_at, committed_at, message").in("kind", kinds).order("uploaded_at", { ascending: false }).limit(6), "upload") : [];
+    const ups = kinds.length ? (await inChunks(kinds, async (c) => mustRows<Row>(await sb.from("upload").select("kind, file_name, status, ok_count, row_count, uploaded_at, committed_at, message").in("kind", c).order("uploaded_at", { ascending: false }), "upload"))).slice(0, 6) : [];
     const h: HistoryLine[] = ups.map((u) => {
       const at = s(u.committed_at) ?? s(u.uploaded_at) ?? "";
       const partial = u.ok_count !== null && Number(u.ok_count) < Number(u.row_count);
       return { at: at ? `${dmy(at.slice(0, 10))} ${new Date(at).toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" }).replace(":", ".")}` : "—", what: String(u.file_name), result: u.status === "committed" ? (partial ? `${u.ok_count} dari ${u.row_count} baris tersimpan` : `${u.row_count} baris tersimpan`) : String(u.status), tone: u.status === "committed" && !partial ? "ok" : "warn" };
     });
-    const rem = mustRows<Row>(await sb.from("input_reminder").select("date, kind, note, sent_by, sent_at").eq("owner_role", role).gte("sent_at", `${addDays(today, -7)}T00:00:00+07:00`).order("sent_at", { ascending: false }).limit(5), "input_reminder");
+    const rem = mustRows<Row>(await sb.from("input_reminder").select("date, kind, note, sent_by, sent_at").eq("owner_role", role).gte("sent_at", `${addDays(today, -7)}T00:00:00+07:00`).order("sent_at", { ascending: false }), "input_reminder").slice(0, 5);
     for (const r of rem) h.unshift({ at: dmy(String(r.sent_at).slice(0, 10)), what: `Pengingat dari ${s(r.sent_by) ?? "Finance"}`, result: `${ruleOf.get(String(r.kind))?.title ?? r.kind} ${dmy(String(r.date))}${s(r.note) ? ` · ${s(r.note)}` : ""}`, tone: "bad" });
     return h;
   }), [] as HistoryLine[]);
