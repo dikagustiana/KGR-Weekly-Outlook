@@ -84,7 +84,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const cm = fail(failed, ["t-komitmen"], await tileData("commercial: komitmen minggu depan", async () => {
     const [commits, lists, orders, items] = await Promise.all([
       fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, fresh_kg, frozen_kg, price, status, version").eq("week_start", next).is("deleted_at", null).neq("status", "superseded").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("price_list_week").select("key, price_fresh, locked_at").eq("week_start", next).range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("price_list_week").select("key, price_fresh, price_frozen, price_frozen_source, locked_at").eq("week_start", next).is("deleted_at", null).range(a, b)),
       week ? fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, kg, status").in("status", ["Order", "Aktual"]).is("deleted_at", null).is("superseded_at", null).gte("date", week.week_start).lte("date", week.week_end).range(a, b)) : Promise.resolve([] as Row[]),
       fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
     ]);
@@ -98,7 +98,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const rows: CommitmentRow[] = keys.map((k) => {
     const cc = cm.commits.filter((x) => String(x.key) === k).sort((a, b) => Number(b.version) - Number(a.version))[0];
     const pl = cm.lists.find((l) => String(l.key) === k);
-    return { key: k, thisWeekKg: weekKg.get(k) ?? null, fresh: s(cc?.fresh_kg), frozen: s(cc?.frozen_kg), price: s(cc?.price) ?? s(pl?.price_fresh), status: cc ? (String(cc.status) as "draft" | "locked") : "belum diisi", version: cc ? Number(cc.version) : null };
+    return {
+      key: k, thisWeekKg: weekKg.get(k) ?? null, fresh: s(cc?.fresh_kg), frozen: s(cc?.frozen_kg), price: s(cc?.price) ?? s(pl?.price_fresh), status: cc ? (String(cc.status) as "draft" | "locked") : "belum diisi", version: cc ? Number(cc.version) : null,
+      priceFrozen: s(pl?.price_frozen), priceFrozenSource: (s(pl?.price_frozen_source) as "form" | "sku_price" | null) ?? null, listLocked: !!pl?.locked_at,
+    };
   });
   const dow = Number(p.commitment_lock_dow ?? 5), time = String(p.commitment_lock_time ?? "17:00").slice(0, 5);
   const deadline = commitmentDeadline(next, dow, time);

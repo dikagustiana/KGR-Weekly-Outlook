@@ -132,11 +132,12 @@ export async function loadOutlookBulan(sb: Supa, x: {
   if (on.m6) {
     const [svR, cashR] = await Promise.all([
       sb.from("solvency_monthly").select("*").lte("month", last).order("month", { ascending: false }).limit(1).maybeSingle(),
-      sb.from("cash_position_daily").select("date, total_closing").not("total_closing", "is", null).lte("date", x.today < last ? x.today : last).order("date", { ascending: false }).limit(1).maybeSingle(),
+      // PRD v5.1 R21: a day built without any bank balance is no cash position (kas-data noBalance): never Rp 0
+      sb.from("cash_position_daily").select("date, total_closing").not("total_closing", "is", null).gt("accounts", 0).lte("date", x.today < last ? x.today : last).order("date", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const v = must(svR, "solvency_monthly") as Row | null, cash = must(cashR, "cash_position_daily");
     if (v && v.equity !== null && v.paid_in_capital !== null) {
-      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), cash: s((cash as Row | null)?.total_closing) };
+      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), cash: s((cash as Row | null)?.total_closing) };
     }
   }
 

@@ -97,8 +97,16 @@ export function martRows(st: CommercialState): Row[] {
     price_floor: f(r.price_floor, 4), price_list: f(r.price_list, 4), margin_per_kg_list: f(r.margin_per_kg_list, 4), realized_price_7d: f(r.realized_price_7d, 4),
     margin_per_kg_realized: f(r.margin_per_kg_realized, 4), holding_loss_per_day: f(r.holding_loss_per_day, 2), downgrade_risk_rp: f(r.downgrade_risk_rp, 2),
     urgency: r.urgency, priority_score: f(r.priority_score, 2), rank: r.rank, ordered_today_kg: f(r.ordered_today_kg, 2),
-    ...(st.v5 ? { cost_per_kg: f(r.cost_per_kg, 4), cost_status: r.cost_status ?? null, cost_check: r.cost_check ?? false } : {}),
+    ...v5CostCols(st.v5, r),
   }));
+}
+
+/**
+ * PRD v5.1 K55: the v5 cost columns are always in the payload (null while v5_costing is off), so mart_replace — which
+ * takes its column list from the first row — clears what an earlier build with the flag on wrote.
+ */
+export function v5CostCols(on: boolean, r: Pick<CommercialRow, "cost_per_kg" | "cost_status" | "cost_check">) {
+  return on ? { cost_per_kg: f(r.cost_per_kg, 4), cost_status: r.cost_status ?? null, cost_check: r.cost_check ?? false } : { cost_per_kg: null, cost_status: null, cost_check: null };
 }
 
 export async function buildCommercialDay(sb: Supa, date: string): Promise<string> {

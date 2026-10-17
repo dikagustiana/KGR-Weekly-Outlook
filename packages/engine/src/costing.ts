@@ -64,6 +64,11 @@ export interface AllocationOptions {
   byProductMethod: ByProductMethod;
   /** Selling cost per kg for the NRV test and NRV by-product valuation (default 0). */
   sellingCostPerKg?: Num;
+  /**
+   * PRD v5.1 K50 (v5 costing on): a SKU with output and without a reference price has no cost per kg (null), never
+   * 0. Default false: the M1 run as before (cost 0, an issue line).
+   */
+  nullMissing?: boolean;
 }
 
 export interface AllocateInput {
@@ -86,7 +91,8 @@ export interface AllocationLine {
   /** Share of the main pool (0 for by-products valued at NRV). */
   share: Decimal;
   allocatedCost: Decimal;
-  costPerKg: Decimal;
+  /** null only with options.nullMissing for a SKU without reference price (K50). */
+  costPerKg: Decimal | null;
   byProductMethod: ByProductMethod;
   nrvFloor: Decimal | null;
   nrvWritedown: Decimal;
@@ -115,6 +121,8 @@ export interface AllocationResult {
   pools: PoolResult[];
   lines: AllocationLine[];
   issues: string[];
+  /** K50: false when a SKU with output has no reference price; such a batch never turns final. */
+  canBeFinal: boolean;
 }
 
 const MAIN = "main";
@@ -221,10 +229,11 @@ export function allocateBatch(x: AllocateInput): AllocationResult {
   pools.unshift({ name: MAIN, cost: mainCost, salesValue: sum(priced.map((r) => r.sv)), allocated: mainAllocated, members: priced.length });
   if (priced.length === 0) issues.push("Batch tanpa output SKU — biaya belum teralokasi");
 
+  const unpriced = (r: (typeof outs)[number]) => r.kg.gt(0) && (r.price === null || r.price.isZero());
   const lines: AllocationLine[] = outs.map((r) => {
-    const costPerKg = div(r.alloc, r.kg);
+    const costPerKg = x.options.nullMissing && unpriced(r) ? null : div(r.alloc, r.kg);
     const nrvFloor = r.price === null ? null : r.price.minus(sellCost);
-    const nrvWritedown = nrvFloor !== null && r.kg.gt(0) && costPerKg.gt(nrvFloor) ? costPerKg.minus(nrvFloor).times(r.kg) : ZERO;
+    const nrvWritedown = nrvFloor !== null && costPerKg !== null && r.kg.gt(0) && costPerKg.gt(nrvFloor) ? costPerKg.minus(nrvFloor).times(r.kg) : ZERO;
     return {
       ref: r.o.ref, key: r.o.key ?? null, item_code: r.o.item_code ?? null, kg: r.kg, priceRef: r.price, salesValue: r.sv,
       share: r.share, allocatedCost: r.alloc, costPerKg,
@@ -238,6 +247,7 @@ export function allocateBatch(x: AllocateInput): AllocationResult {
   return {
     batchRef: x.batch.ref, mode: x.batch.mode, status: x.status ?? "final", method: "relative_sales_value", totalCost, overheadCost, totalAllocated,
     diff: totalCost.minus(totalAllocated), outputKg, costPerKgOutput: div(totalAllocated, outputKg), pools, lines, issues,
+    canBeFinal: !outs.some(unpriced),
   };
 }
 
@@ -612,24 +622,31 @@ export function c53(x: { batches: { ref: string; status: string | null; dueAt: s
   };
 }
 
-/** C54: cost per kg of a SKU above ratio × its reference price (§4.1; e.g. by-products valued at receipt cost). PERIKSA. */
+/**
+ * C54: cost per kg of a SKU above ratio × its reference price (§4.1; e.g. by-products valued at receipt cost). PERIKSA.
+ * PRD v5.1 K50: a SKU without cost because it has no reference price is "periksa biaya" as well (never a cost of 0).
+ */
 export function c54(x: { rows: { key: string; costPerKg: Num | null; priceRef: Num | null }[]; ratio: Num }): ControlV3 & { keys: string[] } {
-  const bad = x.rows.filter((r) => r.costPerKg !== null && r.costPerKg !== undefined && r.costPerKg !== "" && r.priceRef !== null && r.priceRef !== undefined && r.priceRef !== ""
-    && D(r.priceRef).gt(0) && D(r.costPerKg).gt(D(r.priceRef).times(D(x.ratio))));
+  const none = (v: Num | null | undefined) => v === null || v === undefined || v === "";
+  const bad = x.rows.filter((r) => (none(r.costPerKg) && none(r.priceRef)) || (!none(r.costPerKg) && !none(r.priceRef)
+    && D(r.priceRef!).gt(0) && D(r.costPerKg!).gt(D(r.priceRef!).times(D(x.ratio)))));
   return {
     code: "C54", module: "M1", name: `Biaya/kg SKU tidak lebih dari ${D(x.ratio).toString()} × harga acuan`, value: D(bad.length), comparator: ZERO, difference: D(bad.length),
     status: bad.length ? "PERIKSA" : "LULUS", action: bad.length ? "Periksa biaya SKU berikut (alokasi joint, biaya penerimaan); harga lantai tampil \"periksa biaya\"" : "",
-    detail: bad.map((r) => `${r.key}: ${D(r.costPerKg!).toFixed(0)} vs harga ${D(r.priceRef!).toFixed(0)}`), keys: bad.map((r) => r.key),
+    detail: bad.map((r) => none(r.costPerKg) ? `${r.key}: biaya belum ada (harga acuan kosong)` : `${r.key}: ${D(r.costPerKg!).toFixed(0)} vs harga ${D(r.priceRef!).toFixed(0)}`), keys: bad.map((r) => r.key),
   };
 }
 
 /** C57: a cut date without the operations director's LB price decision (K25). BELUM DIISI; holds "salin ke batch" for that day. */
-export function c57(x: { cutDates: string[]; decisions: { date: string; weight_class?: string | null }[] }): ControlV3 & { dates: string[] } {
+export function c57(x: { cutDates: string[]; decisions: { date: string; weight_class?: string | null }[]; batchesWithoutPrice?: string[] }): ControlV3 & { dates: string[] } {
   const decided = new Set(x.decisions.map((d) => d.date));
   const missing = [...new Set(x.cutDates)].filter((d) => !decided.has(d)).sort();
+  // PRD v5.1 K50: a batch without any LB price (no decision, no batch price, no price today) has no cost, never Rp 0
+  const noPrice = [...new Set(x.batchesWithoutPrice ?? [])].sort();
+  const n = missing.length + noPrice.length;
   return {
-    code: "C57", module: "M1", name: "Harga live bird tanggal potong sudah diputuskan", value: D(missing.length), comparator: ZERO, difference: D(missing.length),
-    status: missing.length ? "BELUM DIISI" : "LULUS", action: missing.length ? "Direktur Operasional memutuskan harga dan volume LB; simulasi memakai harga terakhir berlabel" : "",
-    detail: missing, dates: missing,
+    code: "C57", module: "M1", name: "Harga live bird tanggal potong sudah diputuskan", value: D(n), comparator: ZERO, difference: D(n),
+    status: n ? "BELUM DIISI" : "LULUS", action: n ? "Direktur Operasional memutuskan harga dan volume LB; simulasi memakai harga terakhir berlabel" : "",
+    detail: [...missing, ...noPrice.map((r) => `batch ${r}: harga LB belum ada, biaya batch belum dihitung`)], dates: missing,
   };
 }

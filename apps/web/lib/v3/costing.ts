@@ -13,6 +13,7 @@ import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@k
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
+import { inChunks, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
@@ -402,6 +403,13 @@ registerV3Kind({
     let inserted = 0, updated = 0;
     const pools: string[] = [];
     const seen = new Map<string, number>();
+    // PRD v5.1 R23: an invoice line takes the cost of an actual batch only (a Rencana batch of the same ref never
+    // does); a ref without one rejects the upload before any line is written
+    const refs = [...new Set(rows.map(({ data: v }) => s(v.batch_ref)).filter((x): x is string => !!x))];
+    const actual = new Map((await inChunks(refs, async (c) => mustRows(await sb.from("batch").select("id, batch_ref").in("batch_ref", c).eq("status", "Aktual")
+      .is("deleted_at", null).is("superseded_at", null), "batch aktual (PI)"))).map((b) => [String(b.batch_ref), String(b.id)]));
+    const noBatch = refs.filter((r) => !actual.has(r));
+    if (noBatch.length) throw new WriteError(`batch aktual ${noBatch.join(", ")} belum ada — upload WP batch itu dulu, lalu upload PI ini lagi`);
     for (const { data: v } of rows) {
       const doc = s(v.document_ref)!;
       const date = s(v.date)!;
@@ -412,10 +420,7 @@ registerV3Kind({
       const ex = ((await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null)).data ?? []) as Row[];
       const hit = ex.find((e) => e.source === "Accurate" && e.line_key === `PI|${doc}|${n}`) ?? ex.find((e) => e.source !== "Accurate") ?? null;
       let batchId = hit ? s(hit.batch_id) : null;
-      if (!batchId && s(v.batch_ref)) {
-        const b = (await sb.from("batch").select("id").eq("batch_ref", s(v.batch_ref)!).is("deleted_at", null).limit(1).maybeSingle()).data as Row | null;
-        batchId = b ? String(b.id) : null;
-      }
+      if (!batchId && s(v.batch_ref)) batchId = actual.get(s(v.batch_ref)!) ?? null;
       const poolId = hit ? String(hit.cost_pool_id) : await ensurePool(sb, date, "maklon");
       pools.push(poolId);
       const row = {

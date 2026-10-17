@@ -38,7 +38,8 @@ describe("costing_wp parser", () => {
       const r = allocateBatch(wpToAllocateInput(b));
       for (const row of b.rows) {
         const l = r.lines.find((x) => x.ref === `${b.sheet}!${row.row}`)!;
-        expect(l.costPerKg.minus(D(golden[`${b.sheet}!L${row.row}`] ?? 0)).abs().toNumber(), `${b.sheet}!L${row.row}`).toBeLessThanOrEqual(1);
+        // default allocation (nullMissing off): a line always has a cost
+        expect(l.costPerKg!.minus(D(golden[`${b.sheet}!L${row.row}`] ?? 0)).abs().toNumber(), `${b.sheet}!L${row.row}`).toBeLessThanOrEqual(1);
         n++;
       }
     }

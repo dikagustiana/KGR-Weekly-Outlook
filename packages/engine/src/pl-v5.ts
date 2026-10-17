@@ -26,8 +26,8 @@ export const FIXED_LINES_K29 = ["Salaries and allowance", "Depreciation & amorti
 
 export interface FixedNominal {
   pl_line: string;
-  /** Cost of the month, positive. */
-  nominal: Decimal;
+  /** Cost of the month, positive; null = no schedule and no FINAL month (PRD v5.1 K51: never 0). */
+  nominal: Decimal | null;
   source: "jadwal" | "estimasi bulan lalu" | "belum ada";
   /** Month of the FINAL the estimate comes from. */
   finalMonth: ISODate | null;
@@ -35,7 +35,9 @@ export interface FixedNominal {
 
 /**
  * Nominal per fixed line of the month (K29): the schedule rows in force (pro rata on their term); a line whose rows
- * have no amount → the line in the last FINAL month (P&L sign there, cost = −amount); nothing → 0, "belum ada".
+ * have no amount → the line in the last FINAL month (P&L sign there, cost = −amount); nothing → null, "belum ada".
+ * PRD v5.1 K51: the lines are the K29 lines (salary, depreciation, interest, rent) and every line scheduled that month
+ * (Q-v5.1-17: a K29 line scheduled only outside the month is not a line of that month).
  */
 export function fixedNominals(x: {
   month: ISODate; schedule: FixedCostRow[]; lastFinal: { month: ISODate; byLine: Record<string, Num> } | null;
@@ -43,7 +45,11 @@ export function fixedNominals(x: {
 }): FixedNominal[] {
   const first = firstOfMonth(x.month), last = monthEnd(x.month);
   const inMonth = x.schedule.filter((r) => r.active && r.start_date <= last && (r.end_date === null || r.end_date >= first));
-  const lines = inMonth.length ? [...new Set(inMonth.map((r) => r.pl_line))] : (x.defaultLines ?? FIXED_LINES_K29);
+  // a K29 line whose schedule rows are all outside the month (rent from November) has no cost that month; a K29 line
+  // without any schedule row falls back to the last FINAL month, else "belum ada"
+  const scheduled = new Set(x.schedule.filter((r) => r.active).map((r) => r.pl_line));
+  const inForce = new Set(inMonth.map((r) => r.pl_line));
+  const lines = [...new Set([...inMonth.map((r) => r.pl_line), ...(x.defaultLines ?? FIXED_LINES_K29).filter((l) => inForce.has(l) || !scheduled.has(l))])];
   return lines.map((pl_line): FixedNominal => {
     const rows = inMonth.filter((r) => r.pl_line === pl_line && monthlyAmount(r) !== null);
     if (rows.length) {
@@ -52,7 +58,7 @@ export function fixedNominals(x: {
       return { pl_line, nominal, source: "jadwal", finalMonth: null };
     }
     const fin = x.lastFinal?.byLine[pl_line];
-    if (fin === undefined || fin === null || fin === "" || D(fin).isZero()) return { pl_line, nominal: ZERO, source: "belum ada", finalMonth: x.lastFinal?.month ?? null };
+    if (fin === undefined || fin === null || fin === "" || D(fin).isZero()) return { pl_line, nominal: null, source: "belum ada", finalMonth: x.lastFinal?.month ?? null };
     return { pl_line, nominal: max(ZERO, D(fin).neg()), source: "estimasi bulan lalu", finalMonth: x.lastFinal!.month };
   });
 }
@@ -66,13 +72,14 @@ export function fixedEstimateRows(x: { month: ISODate; cutOff: ISODate; nominals
   const first = firstOfMonth(x.month), dim = daysInMonth(x.month);
   const out: PlRowV4[] = [];
   for (const n of x.nominals) {
-    if (n.nominal.isZero()) continue;
+    if (n.nominal === null || n.nominal.isZero()) continue;
+    const nominal = n.nominal;
     const line = x.rows.filter((r) => r.pl_line === n.pl_line && r.basis !== "fixed_estimate");
     let carried = ZERO, prev = ZERO;
     for (let i = 0; i < dim; i++) {
       const d = addDays(first, i), isActual = d <= x.cutOff;
       carried = carried.minus(sum(line.filter((r) => r.date === d).map((r) => (isActual ? r.actual : r.forecast) ?? ZERO)));
-      const e = max(ZERO, n.nominal.times(i + 1).div(dim).minus(carried));
+      const e = max(ZERO, nominal.times(i + 1).div(dim).minus(carried));
       const inc = e.minus(prev);
       prev = e;
       if (inc.isZero()) continue;
@@ -85,12 +92,12 @@ export function fixedEstimateRows(x: { month: ISODate; cutOff: ISODate; nominals
 /** C55: the P&L uses an estimated fixed cost (not the Finance schedule of the month). PERIKSA; V1 waits for it. */
 export function c55(x: { month: ISODate; nominals: FixedNominal[] }): ControlV3 {
   const est = x.nominals.filter((n) => n.source !== "jadwal");
-  const total = sum(est.map((n) => n.nominal));
+  const total = sum(est.filter((n) => n.nominal !== null).map((n) => n.nominal!));
   return {
     code: "C55", module: "M4", name: "Beban tetap bulan ini dari jadwal Finance (bukan estimasi)", value: D(est.length), comparator: ZERO, difference: D(est.length),
     status: est.length ? "PERIKSA" : "LULUS",
     action: est.length ? "Finance mengisi jadwal beban tetap bulan ini (template 8.3); sampai itu NIBT memakai estimasi bulan lalu" : "",
-    detail: est.map((n) => (n.source === "belum ada" ? `${n.pl_line}: belum ada nominal` : `${n.pl_line}: estimasi bulan lalu (FINAL ${n.finalMonth?.slice(0, 7)}) Rp ${n.nominal.toFixed(0)}`))
+    detail: est.map((n) => (n.source === "belum ada" ? `${n.pl_line}: belum ada nominal` : `${n.pl_line}: estimasi bulan lalu (FINAL ${n.finalMonth?.slice(0, 7)}) Rp ${n.nominal!.toFixed(0)}`))
       .concat(est.length ? [`total estimasi Rp ${total.toFixed(0)}`] : []),
   };
 }
@@ -116,6 +123,14 @@ export function plTotalsV5(rows: PlRowV4[], pick: (r: PlRowV4) => Decimal = valu
   const fixed = sum(rows.filter((r) => r.basis === "fixed_estimate").map(pick));
   const nibt = revenue.plus(cogs).plus(opex);
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt, fixed, nibtAfter: nibt.plus(fixed) };
+}
+
+/**
+ * PRD v5.1 K52: the month's NIBT the solvency uses while v5_pl is on — NIBT after fixed costs (the fixed_estimate rows
+ * included); unknown (null) when the month has no fixed nominal at all (K51), never NIBT without the fixed costs.
+ */
+export function solvencyNibtV5(rows: PlRowV4[], fixedMissing: boolean): Decimal | null {
+  return fixedMissing ? null : plTotalsV5(rows).nibtAfter;
 }
 
 // ------------------------------------------------------------------------------------------------ K30 table
@@ -166,6 +181,8 @@ export interface PlTable {
   columns: PlColumn[];
   rows: { key: PlRowKey; label: string; pct: boolean; strong: 0 | 1 | 2; values: (Decimal | null)[] }[];
   outlook: PlTotalsV5;
+  /** K51: no fixed nominal at all this month: "Beban tetap" and "NIBT setelah beban tetap" are unknown. */
+  fixedMissing: boolean;
 }
 
 export interface PlBudget { revenue: Num | null; gp: Num | null; opex: Num | null; nibt: Num | null }
@@ -178,18 +195,29 @@ export function plBudgetOf(rows: BudgetRow[]): PlBudget | null {
   return { revenue: tot("revenue")?.toString() ?? null, gp: tot("gp")?.toString() ?? null, opex: opex === null ? null : opex.neg().toString(), nibt: tot("nibt")?.toString() ?? null };
 }
 
-const rowValues = (t: PlTotalsV5): Record<PlRowKey, Decimal | null> => ({
+/** K51: with no fixed nominal at all (no schedule, no FINAL), the fixed row and NIBT after it are unknown, never 0. */
+const rowValues = (t: PlTotalsV5, fixedMissing = false): Record<PlRowKey, Decimal | null> => ({
   revenue: t.revenue, cogs: t.cogs, gp: t.gp, gp_pct: t.revenue.isZero() ? null : div(t.gp, t.revenue), opex: t.opex, nibt: t.nibt,
-  fixed: t.fixed, nibt_after: t.nibtAfter, nibt_pct: t.revenue.isZero() ? null : div(t.nibtAfter, t.revenue),
+  fixed: fixedMissing ? null : t.fixed, nibt_after: fixedMissing ? null : t.nibtAfter,
+  nibt_pct: fixedMissing || t.revenue.isZero() ? null : div(t.nibtAfter, t.revenue),
 });
+
+/** K51: every fixed nominal of the month is missing (the list is not empty and no line has an amount). */
+export const fixedAllMissing = (nominals: { nominal: unknown }[] | null | undefined) =>
+  !!nominals && nominals.length > 0 && nominals.every((n) => n.nominal === null || n.nominal === undefined || n.nominal === "");
 
 /**
  * K30: the P&L of the month in two views. Values per column are the rows' actual (to the cut-off) and forecast (after
  * it) in the column's dates; Σ of the week columns = the month. Budget (rr): revenue, COGS (= GP − revenue), GP, opex
  * and NIBT, the budget NIBT against NIBT after fixed costs (a budget carries every cost).
  */
-export function plTable(view: "rr" | "wk", month: ISODate, opts: { rows: PlRowV4[]; cutOff: ISODate; budget?: PlBudget | null; split?: boolean; highlight?: ISODate | null }): PlTable {
+export function plTable(view: "rr" | "wk", month: ISODate, opts: {
+  rows: PlRowV4[]; cutOff: ISODate; budget?: PlBudget | null; split?: boolean; highlight?: ISODate | null;
+  /** The fixed nominals of the month (K51); all missing → the fixed row and NIBT after it are null. */
+  nominals?: { nominal: unknown }[] | null;
+}): PlTable {
   const first = firstOfMonth(month), last = monthEnd(month);
+  const missing = fixedAllMissing(opts.nominals);
   const rows = opts.rows.filter((r) => r.date >= first && r.date <= last);
   const inRange = (from: ISODate, to: ISODate) => plTotalsV5(rows.filter((r) => r.date >= from && r.date <= to));
   const kindOf = (from: ISODate, to: ISODate): PlColumn["kind"] => (to <= opts.cutOff ? "actual" : from > opts.cutOff ? "forecast" : "mixed");
@@ -197,14 +225,14 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: { rows: PlRowV4
   const cols: { col: PlColumn; v: Record<PlRowKey, Decimal | null> }[] = [];
   const basisOf = (from: ISODate, to: ISODate) => (["po", "runrate"] as const).filter((b) => rows.some((r) => r.date >= from && r.date <= to && r.basis === b && r.forecast !== null && isRevenueLine(r.pl_line)));
   const add = (id: string, from: ISODate, to: ISODate, kind: PlColumn["kind"]) =>
-    cols.push({ col: { id, from, to, kind, current: !!opts.highlight && opts.highlight >= from && opts.highlight <= to, forecastBasis: [...basisOf(from, to)] }, v: rowValues(inRange(from, to)) });
+    cols.push({ col: { id, from, to, kind, current: !!opts.highlight && opts.highlight >= from && opts.highlight <= to, forecastBasis: [...basisOf(from, to)] }, v: rowValues(inRange(from, to), missing) });
   if (view === "rr") {
     const cut = opts.cutOff < first ? addDays(first, -1) : opts.cutOff > last ? last : opts.cutOff;
     if (cut >= first) add("actual", first, cut, "actual");
     if (cut < last) add("forecast", addDays(cut, 1), last, "forecast");
     add("outlook", first, last, "total");
-    const ov = rowValues(outlook);
-    cols.push({ col: { id: "share", from: null, to: null, kind: "share", current: false, forecastBasis: [] }, v: Object.fromEntries(PL_TABLE_ROWS.map((r) => [r.key, r.pct || outlook.revenue.isZero() ? null : div(ov[r.key]!, outlook.revenue)])) as Record<PlRowKey, Decimal | null> });
+    const ov = rowValues(outlook, missing);
+    cols.push({ col: { id: "share", from: null, to: null, kind: "share", current: false, forecastBasis: [] }, v: Object.fromEntries(PL_TABLE_ROWS.map((r) => [r.key, r.pct || outlook.revenue.isZero() || ov[r.key] === null ? null : div(ov[r.key]!, outlook.revenue)])) as Record<PlRowKey, Decimal | null> });
     const b = opts.budget ?? null;
     const n = (v: Num | null | undefined) => (v === null || v === undefined || v === "" ? null : D(v));
     const bRev = n(b?.revenue), bGp = n(b?.gp), bNibt = n(b?.nibt);
@@ -223,7 +251,7 @@ export function plTable(view: "rr" | "wk", month: ISODate, opts: { rows: PlRowV4
     add("month", first, last, "total");
   }
   return {
-    view, month: first, cutOff: opts.cutOff, columns: cols.map((c) => c.col), outlook,
+    view, month: first, cutOff: opts.cutOff, columns: cols.map((c) => c.col), outlook, fixedMissing: missing,
     rows: PL_TABLE_ROWS.map((r) => ({ ...r, values: cols.map((c) => c.v[r.key]) })),
   };
 }

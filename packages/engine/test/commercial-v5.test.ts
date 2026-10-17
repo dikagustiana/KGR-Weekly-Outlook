@@ -82,6 +82,25 @@ describe("K26 commitments", () => {
     });
     expect(d.map((o) => [o.key, o.kg, o.delivery_date, o.demand_status])).toEqual([["RPA|Karkas|Fresh", "3000.00", "2026-08-31", "Confirmed"]]);
   });
+  it("PRD v5.1 K46: two locked versions of a key (data from before lock_commitments): the highest counts, once", () => {
+    const d = commitmentDemand({
+      weekStart: "2026-08-31",
+      commitments: [
+        { key: "RPA|Karkas", fresh_kg: "18000", frozen_kg: "0", price: "36000", status: "locked", version: 1 },
+        { key: "RPA|Karkas", fresh_kg: "15000", frozen_kg: "2000", price: "36705", status: "locked", version: 2 },
+        { key: "RPA|Karkas", fresh_kg: "99000", frozen_kg: "0", price: "1", status: "superseded", version: 3 },
+        { key: "RPA|Karkas", size_kg: "1.2", fresh_kg: "500", frozen_kg: "0", price: null, status: "locked", version: 1 },
+      ],
+      orders: [{ key: "RPA|Karkas|Fresh", kg: "12000" }, { key: "RPA|Karkas|Frozen", kg: "2500" }],
+    });
+    expect(d.map((o) => [o.ref, o.kg, o.price])).toEqual([["commitment:RPA|Karkas|Fresh:v2", "3000.00", "36705"]]);
+    // the order of the versions in the input does not matter
+    const r = commitmentDemand({ weekStart: "2026-08-31", orders: [], commitments: [
+      { key: "RPA|Sayap", fresh_kg: "800", frozen_kg: "0", price: null, status: "locked", version: 3 },
+      { key: "RPA|Sayap", fresh_kg: "100", frozen_kg: "0", price: null, status: "locked", version: 2 },
+    ] });
+    expect(r.map((o) => [o.ref, o.kg])).toEqual([["commitment:RPA|Sayap|Fresh:v3", "800.00"]]);
+  });
   it("base key and kg of the week per base key", () => {
     expect(baseKey("RPA|Karkas|Fresh")).toBe("RPA|Karkas");
     expect(baseKey("Trading|Karkas|n/a")).toBe("Trading|Karkas");

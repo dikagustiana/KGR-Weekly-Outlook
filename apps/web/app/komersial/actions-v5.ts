@@ -42,32 +42,38 @@ export async function saveCommitmentsAction(_: ActionState, form: FormData): Pro
   } catch (e) { return { error: (e as Error).message }; }
 }
 
-/** Kepala Sales: lock every draft of the week and the price list of the week (from the commitment prices). */
+/**
+ * Kepala Sales: lock every draft of the week and the price list of the week in one transaction (PRD v5.1 K46, RPC
+ * public.lock_commitments): a new version without a reason locks nothing; the price list takes the fresh price of the
+ * commitment and the frozen price of the form (fields `price_frozen|<key>`), else the frozen reference price of the
+ * running week. The action only calls the RPC.
+ */
 export async function lockCommitmentsAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
     await requireModuleAction("v5_commercial", ["admin", "commercial_lead"]);
     const sb = await supabaseServer();
     const week = String(form.get("week_start") ?? "");
     if (!isISODate(week)) throw new WriteError("Minggu tidak valid");
-    const { data: drafts, error } = await sb.from("sales_commitment").select("id, key, price").eq("week_start", week).eq("status", "draft").is("deleted_at", null);
+    const frozen = frozenPrices(form);
+    const { data, error } = await sb.rpc("lock_commitments", { p_week_start: week, p_price_frozen: frozen });
     if (error) throw new WriteError(error.message);
-    for (const d of (drafts ?? []) as Row[]) {
-      const u = await sb.from("sales_commitment").update({ status: "locked" }).eq("id", String(d.id));
-      if (u.error) throw new WriteError(`${String(d.key)}: ${u.error.message}`);
-    }
-    const { data: locked } = await sb.from("sales_commitment").select("key, price").eq("week_start", week).eq("status", "locked").is("deleted_at", null);
-    const prices = ((locked ?? []) as Row[]).filter((r) => r.price !== null && r.price !== undefined);
-    for (const p of prices) {
-      const { data: cur } = await sb.from("price_list_week").select("locked_at").eq("week_start", week).eq("key", String(p.key)).maybeSingle();
-      if ((cur as Row | null)?.locked_at) continue;
-      const w = await sb.from("price_list_week").upsert({ week_start: week, key: String(p.key), price_fresh: String(p.price) }, { onConflict: "week_start,key" });
-      if (w.error) throw new WriteError(`price list ${String(p.key)}: ${w.error.message}`);
-      const l = await sb.from("price_list_week").update({ locked_at: new Date().toISOString() }).eq("week_start", week).eq("key", String(p.key));
-      if (l.error) throw new WriteError(`price list ${String(p.key)}: ${l.error.message}`);
-    }
     done();
-    return { ok: `${(drafts ?? []).length} SKU komitmen dikunci; price list ${prices.length} SKU dikunci` };
+    const n = Number(data ?? 0), f = Object.keys(frozen).length;
+    return { ok: `${n} draft komitmen dikunci bersama price list minggu depan${f ? `; harga frozen dari form untuk ${f} SKU` : ""}` };
   } catch (e) { return { error: (e as Error).message }; }
+}
+
+/** `price_frozen|<key>` fields of the lock form → { key: price } (empty fields left out: the RPC takes the reference price). */
+function frozenPrices(form: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, v] of form.entries()) {
+    if (!name.startsWith("price_frozen|")) continue;
+    const p = num(v);
+    if (p === null) continue;
+    if (!/^\d+(\.\d+)?$/.test(p) || Number(p) <= 0) throw new WriteError(`Harga frozen ${name.slice(13)} tidak valid`);
+    out[name.slice(13)] = p;
+  }
+  return out;
 }
 
 /** Answer to the surplus of PPIC's latest plan: absorb all / absorb part (kg, price) / reduce the cut. */

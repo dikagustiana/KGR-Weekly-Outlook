@@ -1,0 +1,65 @@
+# journey L (irisan 3) — 2026-10-17T04:15:01.635Z (jam dinding mesin); jam uji DB: 2026-08-27 10:03 WIB
+SETUP: komitmen, price list minggu 2026-08-31 dan jawaban surplus lead@t dari putaran sebelumnya dihapus; antrean rebuild kosong
+    flag: v5_commercial=true v5_costing=true v5_ppic_class=true; assignment sales@t: RPA|Karkas|Fresh / PT A
+    rencana PPIC minggu 2026-08-24: 1 versi (oleh ppic@t)
+    sales@t  POST /login (server action) → HTTP 303
+L1 sales@t — Commercial: hanya SKU yang ditugaskan; draft komitmen Karkas minggu depan
+    sales@t  GET /komersial → HTTP 200
+    baris komitmen yang tampil: RPA|Karkas
+    Karkas sebelum: fresh aktif, frozen aktif, harga aktif, harga frozen nonaktif
+    sales@t  POST /komersial (server action) → HTTP 200
+    pesan: 1 SKU komitmen disimpan sebagai draft
+    DB komitmen: RPA|Karkas v1 draft fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t
+    tombol kunci untuk Sales: 0 (teks: "Dikunci Kepala Sales.")
+    R16 tile "Dari PPIC" untuk Sales: Dari PPIC tidak ada data untuk periode ini Tidak ditampilkan untuk Sales (data perencanaan).
+L2 sales@t — RPC lock_commitments langsung ke PostgREST (tanpa app)
+    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"Komitmen dikunci oleh Kepala Sales"}
+    DB komitmen: RPA|Karkas v1 draft fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t
+    lead@t  POST /login (server action) → HTTP 303
+L3 lead@t — Commercial: kunci komitmen + price list (satu RPC), harga frozen Karkas dari form 28.000
+    lead@t  GET /komersial → HTTP 200
+    Karkas: fresh aktif "15.000", frozen aktif "2.000", harga aktif "36.705", harga frozen aktif
+    lead@t  POST /komersial (server action) → HTTP 200
+    pesan: 1 draft komitmen dikunci bersama price list minggu depan; harga frozen dari form untuk 1 SKU
+    DB komitmen: RPA|Karkas v1 locked fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t kunci lead@t
+    DB price list 2026-08-31: RPA|Karkas fresh 36705.0000 frozen 28000.0000 (form) terkunci
+    DB antrean rebuild sejak awal journey (trigger R13): sales_commitment insert → 31/08 queued (oleh sales@t)
+    lead@t  GET /komersial → HTTP 200
+    tile komitmen: Untuk PPIC: komitmen minggu depan, 31–6 Sep SKU Minggu ini Fresh kg Frozen kg Harga list Harga frozen Status Karkas 23.412 15.000 2.000 36.705 28.000 terkunci v1 HJA (Hati/Jantung/Ampela) 2.596 belum diisi Usus 2.174 belum diisi Kepala 2.166 belum diisi Ceker 1.379 belum diisi Karkas fresh frozen harga harga frozen HJA (Hati/Jantung/Ampela) fresh frozen harg
+L4 lead@t — versi 2 Karkas: tanpa alasan ditolak, dengan alasan tersimpan lalu dikunci
+    Karkas sesudah kunci (lead): fresh aktif "15.000", frozen aktif "2.000", harga aktif "36.705", harga frozen nonaktif "28.000"
+    lead@t  POST /komersial (server action) → HTTP 200
+    tanpa alasan → pesan: RPA|Karkas: Komitmen sudah dikunci: versi baru wajib alasan
+    DB komitmen: RPA|Karkas v1 locked fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t kunci lead@t
+    lead@t  GET /komersial → HTTP 200
+    lead@t  POST /komersial (server action) → HTTP 200
+    dengan alasan → pesan: 1 SKU komitmen disimpan sebagai draft
+    DB komitmen: RPA|Karkas v1 locked fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t kunci lead@t; RPA|Karkas v2 draft fresh 16000.00 frozen 2000.00 harga 36705.0000 oleh lead@t alasan "PO tambahan PT A"
+    lead@t  GET /komersial → HTTP 200
+    lead@t  POST /komersial (server action) → HTTP 200
+    kunci → pesan: 1 draft komitmen dikunci bersama price list minggu depan
+    DB komitmen: RPA|Karkas v1 superseded fresh 15000.00 frozen 2000.00 harga 36705.0000 oleh sales@t kunci lead@t; RPA|Karkas v2 locked fresh 16000.00 frozen 2000.00 harga 36705.0000 oleh lead@t kunci lead@t alasan "PO tambahan PT A"
+    DB price list 2026-08-31 (baris terkunci tidak ditimpa, Q-v5.1-8): RPA|Karkas fresh 36705.0000 frozen 28000.0000 (form) terkunci
+L5 sales@t — baris Karkas terkunci v2: semua input nonaktif (R15)
+    sales@t  GET /komersial → HTTP 200
+    Karkas: fresh nonaktif "16.000", frozen nonaktif "2.000", harga nonaktif "36.705", harga frozen nonaktif "28.000"
+    tile komitmen: Untuk PPIC: komitmen minggu depan, 31–6 Sep SKU Minggu ini Fresh kg Frozen kg Harga list Harga frozen Status Karkas 23.412 16.000 2.000 36.705 28.000 terkunci v2 Karkas fresh frozen harga harga frozen Simpan draft Dikunci Kepala Sales. Terkunci. Kg yang sanggup dijual per SKU dan harga list minggu d
+L6 lead@t — surplus rencana PPIC → jawaban; ppic@t membaca jawaban
+    lead@t  GET /komersial → HTTP 200
+    tile Dari PPIC: Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana ± 2.104 kg turun −10,6 jt HJA 2.019 1.319 −701 Usus 1.673 1.027 −646 Kepala 1.674 1.100 −575 Ceker 1.071 692 −379 Sanggup serap semua Sanggup sebagian Tidak sanggup, kurangi potong
+    lead@t  POST /komersial (server action) → HTTP 200
+    pesan: Jawaban terkirim ke PPIC
+    DB surplus_response: partial 3000.00 kg @ 31000.0000 surplus 2104.02 oleh lead@t
+    ppic@t  POST /login (server action) → HTTP 303
+    ppic@t  GET /w/2026-08-24/rencana → HTTP 200
+    ppic@t Rencana: Dari Commercial Status Komitmen minggu depan dikunci Tenggat 28/08 17.00. Price list minggu depan dikunci Dipakai costing minggu depan. Jawaban surplus dijawab Sanggup serap atau kurangi potong. Spot fresh hari ini belum ada Sisa diblast 14.00. 2 · Rencana mingguan: output per SKU dan biaya rencana Usulan: kebutuhan PO (24.274 kg LB) Tersimpan: batch rencana 27.219 kg LB cara hitung Kelas berat LB Rentang kg LB Ekor 
+L7 finance@t — Outlook bulan Agustus dan Kas: hari tanpa saldo bank bukan Rp 0 (R21), bulan ke ekuitas negatif (R20)
+    DB cash_position_daily 01–31/08: 31 hari, accounts > 0: 0, total_closing = 0: 31
+    DB solvency_monthly 08: ekuitas 1804379653.13, basis_nibt 55900615.13, bulan null
+    finance@t  POST /login (server action) → HTTP 303
+    finance@t  GET /m/2026-08 → HTTP 200
+    tile Solvabilitas: Solvabilitas Agustus 2026 Rp jt Ekuitas (36% modal disetor) 1.804,4 Utang pihak berelasi 5.600,0 Bunga Agustus 3,9 Kas belum diisi Bulan sampai ekuitas negatif tidak berlaku (laba)
+    finance@t  GET /kas → HTTP 200
+    Kas: Bulan sampai ekuitas negatif cara hitung tidak berlaku (laba)
+    DB antrean rebuild akhir journey: sales_commitment insert → 31/08 queued; surplus_response insert → 24/08 queued
+log app: 0 respons 4xx/5xx

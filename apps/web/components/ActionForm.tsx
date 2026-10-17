@@ -5,7 +5,7 @@ export type ActionState = { ok?: string; error?: string };
 
 /** A form bound to a server action returning {ok|error}; shows the message and a pending state. */
 export function ActionForm({
-  action, children, submit, confirm, className, danger, v4, disabled,
+  action, children, submit, confirm, className, danger, v4, disabled, id,
 }: {
   action: (s: ActionState, f: FormData) => Promise<ActionState>;
   children?: ReactNode;
@@ -16,10 +16,13 @@ export function ActionForm({
   /** Button in the v4 grammar (class v4b). */
   v4?: boolean | "primary";
   disabled?: boolean;
+  /** Form id, for inputs placed elsewhere that belong to this form (`form` attribute). */
+  id?: string;
 }) {
   const [state, run, pending] = useActionState(action, {});
   return (
     <form
+      id={id}
       action={run}
       className={className}
       onSubmit={(e) => {

@@ -2,6 +2,20 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.1-3] Missing ≠ 0 di costing dan P&L, kunci komitmen satu transaksi (docs/PRD-v5.1.md irisan 3)
+
+### Added
+- Engine: `allocateBatch` option `nullMissing` and `canBeFinal` (K50); fixed-cost nominal per line with `null` for "belum ada", `fixedAllMissing`, `solvencyNibtV5` (K51, K52); `commitmentDemand` counts the highest locked version per key.
+- "Harga frozen" column in the commitment form (sent with the lock) and the commitment table; `components/v5/CommitmentForm.tsx`.
+- Tests: missing price / nominal / balance per screen, K55 payload, PI to an actual batch, commitment lock action; journey L (`docs/v5.1/journey-L.md`).
+
+### Fixed
+- A SKU or batch without a reference / LB price got a cost of 0 (and a batch could turn final); now no cost, C54/C57 name it, the lots stay `sementara`.
+- A month without fixed-cost schedule or FINAL month read fixed costs 0; the solvency used NIBT before fixed costs. Now "belum ada" and NIBT after fixed costs (`v5_pl`).
+- Outlook bulan showed cash Rp 0 for days without bank balance.
+- Turning `v5_costing` off left the old v5 cost values in the marts; the PI upload could attach a cost to a planned (Rencana) batch.
+- The lock of next week's commitments wrote row by row (a failure left half a lock) and did not set the frozen price; now one RPC. Commitment inputs followed different disabled rules; Sales saw "Belum ada rencana PPIC" instead of why the tile is empty.
+
 ## [v5.1-2] Satu jam data, error tidak ditelan, batas baris (docs/PRD-v5.1.md irisan 2)
 
 ### Added
