@@ -1,5 +1,5 @@
 # v5.2 B2 — daftar kolom dua view Sales sebelum (origin/main) dan sesudah (cabang): \d+
-# tanggal: 2026-10-17 16:26 UTC · origin/main 3efb3db · cabang migrasi+tes 2989277
+# tanggal: 2026-10-17 16:26 UTC · origin/main 3efb3db · migrasi v52 @ 6f39d38 (tidak berubah sesudahnya)
 
 ################ commercial_daily_sales di b2_main_probe (origin/main, tanpa v52)
                                View "public.commercial_daily_sales"

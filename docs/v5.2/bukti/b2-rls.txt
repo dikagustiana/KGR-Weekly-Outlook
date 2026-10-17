@@ -1,5 +1,5 @@
 # v5.2 B2 — pnpm test:rls (scripts/test-rls.sh) di PostgreSQL lokal
-# tanggal: 2026-10-17 16:25 UTC · cabang v5.2/b2-security-release @ 2989277 (basis origin/main 3efb3db)
+# tanggal: 2026-10-17 16:29 UTC · cabang v5.2/b2-security-release (migrasi+tes @ 5113bf7; basis origin/main 3efb3db)
 # server: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-p
 # perintah: DATABASE_URL=postgresql://postgres@localhost:5432/b2_rls bash scripts/test-rls.sh   (DB b2_rls dibuat baru; skrip memasang shim, semua migrasi, seed, lalu menjalankan ulang semua migrasi 2026101[6-9]* dan 202610[2-9]* di DB berisi seed, memeriksa kolom kueri app, lalu rls_roles.sql)
 
@@ -717,9 +717,13 @@ RLS-RESULTS v5.2 B2 B-R84 P2 P3 P4 P5 (rolled back): C53 helper before the deadl
   V1 without C55 in the snapshot (v5_pl off): locked;
   admin C55 override: denied;
   V1 rows locked=3;
-  COMPLETE WEEK, every gate on, no override: released;
-  release rows=1 note=none;
-  week status=released;
+  
+RLS-RESULTS v5.2 B2 B-R84 positive complete week (rolled back): sales releases: denied;
+  COMPLETE WEEK by Finance, v4_release + v5_costing + v5_input on, no override: released;
+  COMPLETE WEEK by Admin: released;
+  release rows with the sent snapshot, no note=2;
+  weeks released=2;
+  released_by stamped=2;
   
 RLS-RESULTS v5.2 B2 hygiene (rolled back): SECURITY DEFINER functions without a fixed search_path=none;
   SECURITY DEFINER functions executable by anon=none;

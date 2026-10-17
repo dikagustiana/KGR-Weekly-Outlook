@@ -1,9 +1,25 @@
 # v5.2 B2 — probe keamanan: migrasi origin/main saja vs cabang v5.2/b2-security-release
-# tanggal: 2026-10-17 16:25 UTC · origin/main 3efb3db · cabang 2989277
+# tanggal: 2026-10-17 16:30 UTC · origin/main 3efb3db · cabang (migrasi v52 @ 6f39d38, tes @ 5113bf7)
 # cara: DB baru b2_main_probe = shim + 33 migrasi origin/main (sampai 20261024000300) + seed; DB baru b2_dev = sama + tiga migrasi v52.
-#       Pada keduanya dijalankan HANYA 13 blok v5.2 B2 dari supabase/tests/rls_roles.sql (bagian sesudah baris '-- v5.2 B2 (docs/PRD-v5.2-B-db.md …').
+#       Pada keduanya dijalankan HANYA 14 blok v5.2 B2 dari supabase/tests/rls_roles.sql (bagian sesudah baris '-- v5.2 B2 (docs/PRD-v5.2-B-db.md …').
 #       Tiap blok berdiri sendiri (user, minggu, key sendiri) dan di-rollback. (!) = hasil di luar yang diharapkan (lubang ada / objek hilang).
-# ringkasan: origin/main 118 temuan (!) di 13 blok · cabang 0 temuan (!)
+# ringkasan: origin/main 118 temuan (!) di 14 blok · cabang 0 temuan (!)
+
+Per blok: temuan (!) di origin/main / jumlah temuan; di cabang selalu 0.
+  v5.2 B2 B-R82                                main   9 /   9   cabang 0 /  12
+  v5.2 B2 A-REL-1 K69                          main  17 /  26   cabang 0 /  26
+  v5.2 B2 A-REL-2 B-REL-4 P7                   main   6 /  19   cabang 0 /  19
+  v5.2 B2 A-REL-3 P1                           main  11 /  27   cabang 0 /  27
+  v5.2 B2 A-REL-4 P10                          main   7 /  16   cabang 0 /  17
+  v5.2 B2 A-REL-7 P13                          main   6 /  11   cabang 0 /  11
+  v5.2 B2 A-REL-8 O21 P6                       main   9 /  21   cabang 0 /  21
+  v5.2 B2 A-REL-9 P11                          main   6 /  16   cabang 0 /  16
+  v5.2 B2 A-REL-10 O31 P12                     main   8 /  14   cabang 0 /  14
+  v5.2 B2 B-REL-7                              main   6 /  12   cabang 0 /  13
+  v5.2 B2 B-REL-2 O38 P16b                     main   6 /  12   cabang 0 /  12
+  v5.2 B2 B-R84 P2 P3 P4 P5                    main  13 /  30   cabang 0 /  36
+  v5.2 B2 B-R84 positive complete week         main   1 /   6   cabang 0 /   6
+  v5.2 B2 hygiene                              main  13 /  16   cabang 0 /   6
 
 ====================================================================================================
 A. ORIGIN/MAIN (tanpa v52): hanya temuan (!) per blok
@@ -122,7 +138,7 @@ A. ORIGIN/MAIN (tanpa v52): hanya temuan (!) per blok
    policy of C55=none(!)
    finance overrides C11: DENIED(!) duplicate key value violates unique constraint "release_override_scope_code"
 
-[v5.2 B2 B-R84 P2 P3 P4 P5]  14 dari 33 temuan bertanda (!)
+[v5.2 B2 B-R84 P2 P3 P4 P5]  13 dari 30 temuan bertanda (!)
    C53 helper: ERROR(!) function public.c53_late_batches(uuid, unknown) does not exist
    P2 snapshot without controls_v3, v5_costing on: RELEASED(!)
    release.note: ERROR(!) column r2.note does not exist
@@ -136,6 +152,8 @@ A. ORIGIN/MAIN (tanpa v52): hanya temuan (!) per blok
    P5 V1 with C55 PERIKSA: LOCKED(!)
    finance C55 override: DENIED(!) new row violates row-level security policy for table "release_override"
    P5 V1 with the C55 override: REJECTED(!) V1 sudah dikunci
+
+[v5.2 B2 B-R84 positive complete week]  1 dari 6 temuan bertanda (!)
    release rows: ERROR(!) column "note" does not exist
 
 [v5.2 B2 hygiene]  13 dari 16 temuan bertanda (!)
@@ -178,7 +196,9 @@ B. CABANG (dengan v52): hanya temuan (!) per blok — harus kosong
 
 [v5.2 B2 B-REL-2 O38 P16b]  0 dari 12 temuan bertanda (!)
 
-[v5.2 B2 B-R84 P2 P3 P4 P5]  0 dari 39 temuan bertanda (!)
+[v5.2 B2 B-R84 P2 P3 P4 P5]  0 dari 36 temuan bertanda (!)
+
+[v5.2 B2 B-R84 positive complete week]  0 dari 6 temuan bertanda (!)
 
 [v5.2 B2 hygiene]  0 dari 6 temuan bertanda (!)
 
@@ -433,9 +453,14 @@ C. KELUARAN PENUH CABANG (semua temuan, semua OK)
    V1 without C55 in the snapshot (v5_pl off): locked
    admin C55 override: denied
    V1 rows locked=3
-   COMPLETE WEEK, every gate on, no override: released
-   release rows=1 note=none
-   week status=released
+
+[v5.2 B2 B-R84 positive complete week]
+   sales releases: denied
+   COMPLETE WEEK by Finance, v4_release + v5_costing + v5_input on, no override: released
+   COMPLETE WEEK by Admin: released
+   release rows with the sent snapshot, no note=2
+   weeks released=2
+   released_by stamped=2
 
 [v5.2 B2 hygiene]
    SECURITY DEFINER functions without a fixed search_path=none

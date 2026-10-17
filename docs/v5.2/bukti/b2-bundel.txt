@@ -1,5 +1,5 @@
 # v5.2 B2 — bundel docs/v5.2/kgr-os-migrasi-v52-b2.sql di DB baru (shim + migrasi s.d. 20261024000300 + seed), dijalankan DUA KALI
-# tanggal: 2026-10-17 16:28 UTC · cabang migrasi+tes 2989277 · server: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.
+# tanggal: 2026-10-17 16:28 UTC · migrasi v52 @ 6f39d38 (tidak berubah sesudahnya) · server: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.
 # perintah per putaran: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b2.sql   (satu transaksi, seperti SQL Editor)
 # sha256 berkas bundel: 4a393b9fc525f210de6f614e6902bb479a4badf4c48f7da4a52f93e746fffd59
 # sha256 tiga migrasi disambung: e33e57167d24b64ddcc38fd95f60ded2cd8defc1bc6639a5a1c64302a5d68c7b

@@ -1,5 +1,5 @@
 # v5.2 B2 — tiga migrasi v52 (meta, security, release) dijalankan ULANG di DB yang sudah memuatnya (b2_rls: semua migrasi + seed + test:rls sudah lewat)
-# tanggal: 2026-10-17 16:25 UTC · cabang v5.2/b2-security-release @ 2989277
+# tanggal: 2026-10-17 16:25 UTC · migrasi v52 @ 6f39d38 (tidak berubah sesudahnya)
 
 ## sebelum (registry, sidik md5 definisi fungsi/view/policy dan ACL)
 5.1.0|2026-10-17 16:25:07.005127+00|-|postgres
