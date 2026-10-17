@@ -92,11 +92,12 @@ function body(t: TileModel): ReactNode {
   }
 }
 
-/** A page of tiles (PRD v4 §6): one grid, every tile placed at its x, y, w, h. */
+/** A page of tiles (PRD v4 §6): one grid, every tile placed at its x, y, w, h. R75: ordered (y, x) before render. */
 export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: string; extras?: Record<string, ReactNode> }) {
+  const ordered = [...tiles].sort((a, b) => a.pos.y - b.pos.y || a.pos.x - b.pos.x);
   return (
     <TileGrid label={label}>
-      {tiles.map((t) => (
+      {ordered.map((t) => (
         <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.error ? undefined : t.note} source={t.error ? undefined : t.source}
           extra={legendOf(t) || t.cara || t.views ? <span className="tile-x">{(t.views ?? []).map((v) => <Slicer key={v.label} label={v.label} options={v.options} current={v.current} hideLabel />)}{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {t.error ? <p className="tile-err" role="alert" data-tile-error="">Gagal memuat data tile ini: {t.error}</p> : <>{body(t)}{extras?.[t.id] ?? null}</>}
