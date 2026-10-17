@@ -310,3 +310,9 @@ Q-v5.2-3. **O35(b) belum bisa dijalankan agen.** Connector Vercel di sesi ini ti
 Q-v5.2-4. **"Staging dulu" berlaku juga untuk bundel v5.1 (B0-3).** Bundel v5.1 belum pernah diuji di PG17/Supabase (CI PG16). Bundel v5.1 masuk KGR-OS sesudah lulus di `KGR-OS-staging`. Langkah B0 yang hanya mengubah data (flag O29, `since` O36, antrean B0-6) dijalankan lebih dulu, sesudah backup.
 
 Q-v5.2-5. **`costing_rows_mode = 'memo'` (O24) diisi di KGR-OS sesudah kode A3 di production**, dan `setFlag` (Admin → Modul) mempertahankan field selain `enabled/roles/since`; tanpa itu, menyimpan flag `v5_pl` dari layar Admin menghapus mode.
+
+Q-v5.2-6. **Data production lewat SQL yang meniru upload.** Jalur upload app (template 8.3, upload v4/v5) tidak terjangkau dari lingkungan agen (`*.vercel.app` diblokir, tanpa sesi pengguna). Data yang punya jalur upload dimasukkan dengan SQL berkolom sama dengan hasil upload (`source` sesuai, `upload_id` null), satu berkas per jenis di `docs/v5.2/kgr-os-*.sql`, dengan sumber per angka (berkas + sheet + sel) di kolom `note` atau komentar. Bila Dika ingin jejak upload, berkas yang sama bisa diunggah ulang lewat app (idempoten).
+
+Q-v5.2-7. **Uji bundel DATA = uji kering di KGR-OS.** Staging tidak memuat data production (O39), jadi bundel data (bukan DDL) diuji dengan menjalankannya di KGR-OS dalam `begin … rollback` lalu memeriksa tabel ceknya, sesudah backup. Bundel skema/migrasi tetap wajib lulus di staging dulu.
+
+Q-v5.2-8. **Data master PPIC tidak diisi dari fixture.** PRD v5 (baris 280, 491, 621) menyatakan rentang kelas K/S/B, yield per kelas, dan kapasitas di mockup/fixture adalah ilustrasi yang tidak boleh menjadi seed. Hanya `weight_class` STD (sudah terisi) yang bersumber. `size_class_map`, rentang/rata-rata K/S/B, yield per kelas, dan `capacity` menunggu data PPIC (BUTUH-DIKA D8). Tanpa itu kebutuhan kelas memakai STD (fallback berlabel, O20/R63).

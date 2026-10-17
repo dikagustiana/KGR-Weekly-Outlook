@@ -29,5 +29,9 @@ policy, trigger, indeks, constraint dan grant saat snapshot ada di `bak_<UTC>._d
 | 22.41 | ✎ B0-5 flag (O29 b) | `update app_setting set value = value \|\| '{"roles":["admin"]}' where key like 'v5\_%'` (dibatalkan bila ≠ 6) | 6 flag `v5_*` = `{"enabled":true,"roles":["admin"]}` |
 | 22.41 | ✎ O36 `since` | `update app_setting set value = value \|\| '{"since":"2026-09-01"}' where key = 'v5_costing'` | `v5_costing` = `{"since":"2026-09-01","roles":["admin"],"enabled":true}` |
 
+| 23.03 | uji kering B1 | `docs/v5.2/kgr-os-master.sql` dalam `begin … rollback` | cek 3/3 true; sesudah rollback `fixed_cost_schedule` tetap 7 baris (0 baris bulanan) |
+| 23.03 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261017t1603`**: 93 tabel, 3.288 kB |
+| 23.04 | ✎ B1 data master (B-R88) | `docs/v5.2/kgr-os-master.sql` (sha256 di PROGRESS) | 5 baris jadwal beban tetap Agu–Sep (GAJI, BUNGA, SEWA-ABF-NMG), total Rp 316.626.214,22; template lama tidak berubah; cek 3/3 true. Sumber per angka: sel FS v2 di kolom `note` |
+
 Belum dijalankan (alasan di `docs/v5.2/PROGRESS.md`): B0-3 bundel v5.1 (menunggu staging, Q-v5.2-4), B0-7 bangun
 ulang 24–30 Agu (menunggu B0-3 dan akses app), B0-2 env Vercel (BUTUH-DIKA).

@@ -24,7 +24,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian | lint baru di A1 (run 39045685561 hijau); e2e: A5; T19: D1, D3/D4 |
 | 7 | Parity 17.161/17.161, snapshot byte-identik | lulus (A1, lokal) | `pnpm parity` 17161/17161, `pnpm snapshot:diff` EMPTY di `f340e55`, container cloud PG16 |
 | 8 | Flag v5 dibuka untuk semua role sesudah T19 | belum | O29(b) aktif sejak 17 Okt 22.41 |
-| 9 | Status R41–R79, B-R80–B-R94 | berjalan | `docs/v5.2/audit-handover.md` (menyusul) |
+| 9 | Status R41–R79, B-R80–B-R94 | berjalan | `docs/v5.2/audit-handover.md` (audit Fase 0); R41–R47 di PR #38 |
 
 ## Langkah (brief Bab 8)
 
@@ -36,15 +36,17 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | Fase 0 — audit-handover.md | berjalan | |
 | B0 | sebagian | backup `bak_20261017t1539`; B0-5 flag, O36 since, B0-6 (42) selesai. B0-2 (D2), B0-3 (D1), B0-7/8 menunggu |
 | Merge #37 | **selesai** | `0055cb7` (CI run 39020687202 engine ✓ rls ✓) |
-| Merge #38 | belum | menunggu audit R41–R47 |
+| Merge #38 | **selesai** | audit R41–R47 → perbaikan cron (middleware + client service), sisa K41 (20 hit), R44 tolak lebih awal, tes bukti (`fail-closed.test.ts` 18 + `Shell.test.tsx` 2). CI run 39047258171 engine ✓ lint ✓ rls ✓. Merge `a84b64c`; deploy Production sukses 17 Okt 16.01 UTC (GitHub Deployments 7142110692) |
+| B1 data master | sebagian | `kgr-os-master.sql` (sha256 `6dcadd03…afb1`): jadwal beban tetap Agu–Sep diterapkan 23.04 WIB sesudah uji kering + backup `bak_20261017t1603`. K/S/B, yield kelas, size_class_map, kapasitas, C8/C9, users: D5/D7/D8 |
 
 ## Berikutnya
 
-1. Audit A1 (R41–R47) → merge #38.
-2. A2: rebase ke A1, R55/R58, lint, PR.
-3. A3: lint-missing dengan penanda, hit K42 nyata, golden R67, PR.
-4. Migrasi B2 (`v52_meta`, `v52_security`, `v52_release`) + tes RLS PG16 lokal (tidak butuh staging untuk ditulis).
-5. A5: harness e2e di repo + job CI `e2e` (PG16 + PostgREST + mock auth, lokal dulu).
+Sub-agen berjalan (worktree terpisah, cabang masing-masing): A2 (`v5.2/a2-loop`, R48–R58 lengkap), A3 (`v5.2/a3-costing-pl`, R59–R67 + lint `missing`), A5 (`v5.2/a5-e2e-ci`, harness + job `e2e`), B2 (`v5.2/b2-security-release`, B-R82–84 + tes RLS + bundel). Agen utama me-review diff, menjalankan gate, membuka PR, merge.
+
+1. Review + PR A2 → merge (tanpa objek DB baru); bagian ⛓ B-R85 ke A2b.
+2. Review + PR B2 (migrasi saja; bundel ke KGR-OS menunggu staging D1).
+3. Review + PR A3, A5.
+4. Tulis B5 (`v52_costing` + `v52_fs`) termasuk kolom yang diminta A2/A3.
 
 ## Blocker aktif
 
