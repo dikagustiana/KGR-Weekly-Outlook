@@ -15,7 +15,7 @@ import {
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks } from "../data";
-import { must, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
@@ -32,7 +32,7 @@ const canonical = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typ
 async function monthC48(sb: Supa, first: string, last: string): Promise<ControlV3> {
   const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, status, date").is("deleted_at", null).gte("date", first).lte("date", last).range(a, b));
   const ids = batches.map((b) => String(b.id));
-  const outs = ids.length ? await fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, kg").in("batch_id", ids).is("deleted_at", null).range(a, b)) : [];
+  const outs = ids.length ? await inChunks(ids, (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, kg").in("batch_id", c).is("deleted_at", null).range(a, b))) : [];
   const ref = new Map(batches.map((b) => [String(b.id), s(b.batch_ref) ?? String(b.id)]));
   return c48({
     batches: batches.map((b) => ({ ref: ref.get(String(b.id))!, status: String(b.status ?? ""), date: s(b.date) })),

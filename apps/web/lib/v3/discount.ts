@@ -13,7 +13,7 @@ import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import type { ModuleSettings } from "../modules-core";
 import { fetchAll, type WeekRow } from "../data";
-import { must, mustRows } from "../loader";
+import { inChunks, must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "./uploads";
@@ -39,7 +39,7 @@ async function keyFn(sb: Supa) {
 async function floors(sb: Supa, keys: string[], date: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!keys.length) return out;
-  const rows = await fetchAll<Row>((a, b) => sb.from("commercial_daily_sales").select("date, key, price_floor").in("key", keys).lte("date", date).gte("date", addDays(date, -14)).order("date", { ascending: false }).range(a, b));
+  const rows = await inChunks(keys, (c) => fetchAll<Row>((a, b) => sb.from("commercial_daily_sales").select("date, key, price_floor").in("key", c).lte("date", date).gte("date", addDays(date, -14)).order("date", { ascending: false }).range(a, b)));
   for (const r of rows) if (!out.has(String(r.key)) && r.price_floor !== null) out.set(String(r.key), String(r.price_floor));
   return out;
 }
