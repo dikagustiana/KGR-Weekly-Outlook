@@ -6,6 +6,7 @@ const loaded = vi.fn();
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); }, redirect: () => { throw new Error("NEXT_REDIRECT"); } }));
 vi.mock("@/lib/page", () => ({ weekContext: async () => ({ viewer: { email: "x@t", role: state.role }, weeks: [], week: { week_start: "2026-08-24" } }) }));
+vi.mock("@/lib/session", () => ({ requireViewer: async () => ({ email: "x@t", role: state.role }) }));
 vi.mock("@/lib/modules", () => ({ moduleSettings: async () => ({ v4_design: { enabled: true } }) }));
 vi.mock("@/lib/v4/minggu-ini-data", () => ({ loadMingguIni: async () => { loaded(); return { v5Mgmt: null }; } }));
 vi.mock("@/lib/v4/minggu-ini", () => ({ mingguIniModel: () => ({ tiles: [] }) }));
