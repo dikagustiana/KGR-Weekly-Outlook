@@ -517,36 +517,42 @@ export interface AccuracyLineV4 {
   version: string;
   metric: "revenue" | "gp" | "nibt";
   value: Decimal;
-  final: Decimal;
-  bias: Decimal;
-  absError: Decimal;
+  /** null when the FINAL does not carry the metric (never 0). */
+  final: Decimal | null;
+  bias: Decimal | null;
+  absError: Decimal | null;
   /** |error| / FINAL; null when FINAL is 0 ("N/A"). Only revenue gets a MAPE (P13); GP and NIBT keep abs error and bias. */
   mape: Decimal | null;
   /** (FINAL − version) / version, the "+8,4%" of the PRD example; null when the version is 0. */
   pctOfVersion: Decimal | null;
   /** |error| as a share of the version's forecast part (the "+49%"); null without forecast part. */
   shareOfForecast: Decimal | null;
-  biasPre: Decimal;
-  absErrorPre: Decimal;
+  biasPre: Decimal | null;
+  absErrorPre: Decimal | null;
 }
 
 /** P13: each version against FINAL, before and after the closing adjustments. */
 export function accuracyV4(x: {
-  final: Record<"revenue" | "gp" | "nibt", Num>;
+  final: Record<"revenue" | "gp" | "nibt", Num | null>;
   adjustments: Record<"revenue" | "gp" | "nibt", Num>;
-  versions: { version: string; revenue: Num; gp: Num; nibt: Num; forecastPart?: Partial<Record<"revenue" | "gp" | "nibt", Num>> }[];
+  versions: { version: string; revenue: Num | null; gp: Num | null; nibt: Num | null; forecastPart?: Partial<Record<"revenue" | "gp" | "nibt", Num>> }[];
 }): AccuracyLineV4[] {
   const out: AccuracyLineV4[] = [];
   for (const v of x.versions) for (const m of ["revenue", "gp", "nibt"] as const) {
-    const fin = D(x.final[m]), pre = fin.minus(D(x.adjustments[m] ?? 0)), val = D(v[m]);
-    const err = val.minus(fin);
+    // R64: a metric the version did not carry is left out, never shown as 0
+    const valRaw = v[m], finRaw = x.final[m];
+    if (valRaw === null || valRaw === undefined || valRaw === "") continue;
+    const val = D(valRaw);
+    const fin = finRaw === null || finRaw === undefined || finRaw === "" ? null : D(finRaw);
+    const pre = fin === null ? null : fin.minus(D(x.adjustments[m] ?? 0));
+    const err = fin === null ? null : val.minus(fin);
     const fp = v.forecastPart?.[m];
     out.push({
-      version: v.version, metric: m, value: val, final: fin, bias: err, absError: err.abs(),
-      mape: m === "revenue" && !fin.isZero() ? err.abs().div(fin.abs()) : null,
-      pctOfVersion: val.isZero() ? null : fin.minus(val).div(val.abs()),
-      shareOfForecast: fp === undefined || D(fp).isZero() ? null : err.abs().div(D(fp).abs()),
-      biasPre: val.minus(pre), absErrorPre: val.minus(pre).abs(),
+      version: v.version, metric: m, value: val, final: fin, bias: err, absError: err === null ? null : err.abs(),
+      mape: m === "revenue" && fin !== null && !fin.isZero() ? err!.abs().div(fin.abs()) : null,
+      pctOfVersion: fin === null || val.isZero() ? null : fin.minus(val).div(val.abs()),
+      shareOfForecast: fp === undefined || D(fp).isZero() || err === null ? null : err.abs().div(D(fp).abs()),
+      biasPre: pre === null ? null : val.minus(pre), absErrorPre: pre === null ? null : val.minus(pre).abs(),
     });
   }
   return out;
