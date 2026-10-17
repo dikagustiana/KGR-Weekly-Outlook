@@ -2,43 +2,54 @@
  * PRD v5.1 R14 (K46): the lock of next week's commitments is one RPC call with the frozen prices of the form; R15: one
  * disabled rule for every input of a commitment row; R16: "Dari PPIC" says why Sales does not see it.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { D, stockSummary } from "@kgr/engine";
-import { fakeSb } from "../fake-sb";
+import { memSb, type MemSb } from "../../test-support/mem-sb";
+import { WEEK } from "../../test-support/plan-seed";
 import { CommitmentForm, LOCK_FORM } from "@/components/v5/CommitmentForm";
 import { komersialV5Model, type KomersialV5Input } from "./komersial";
 
 vi.mock("server-only", () => ({}));
-let sb = fakeSb();
+let sb: MemSb = memSb();
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
-vi.mock("@/lib/modules", () => ({ requireModuleAction: async () => ({ role: "commercial_lead" }) }));
+vi.mock("@/lib/modules", () => ({ requireModuleAction: async () => ({ role: "commercial_lead" }), moduleSettings: async () => ({}) }));
 vi.mock("@/lib/supabase", () => ({ supabaseServer: async () => sb }));
+const processed = vi.fn(async () => ({ done: 1, failed: 0, notes: [] as string[] }));
+vi.mock("@/lib/rebuild", async (orig) => ({ ...(await orig<typeof import("@/lib/rebuild")>()), processRebuildQueue: processed }));
 const { lockCommitmentsAction } = await import("@/app/komersial/actions-v5");
 
-afterEach(() => { sb = fakeSb(); });
+beforeAll(() => { process.env.KGR_TEST_NOW = "2026-08-27T09:00:00+07:00"; });
+afterEach(() => { sb = memSb(); processed.mockClear(); });
 
 const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
+const rule = { kind: "commitment_lock", due_rule: "week_start - 3 days 17:00", active: true };
+const writes = () => sb.log.filter((l) => ["insert", "update", "upsert", "delete"].includes(l.op)).map((l) => l.call);
 
 describe("lockCommitmentsAction calls lock_commitments only (R14)", () => {
   it("the frozen prices of the form go as p_price_frozen; empty ones are left to the RPC (reference price)", async () => {
-    sb = fakeSb({ rpc: { lock_commitments: 2 } });
+    sb = memSb({ week: [WEEK], input_task_rule: [rule] }, { rpc: { lock_commitments: () => ({ data: 2 }) } });
     const r = await lockCommitmentsAction({}, form({ week_start: "2026-08-31", "price_frozen|RPA|Sayap": "28.000", "price_frozen|RPA|Karkas": "" }));
     expect(r.ok).toBe("2 draft komitmen dikunci bersama price list minggu depan; harga frozen dari form untuk 1 SKU");
     expect(sb.rpcCalls).toEqual([{ name: "lock_commitments", args: { p_week_start: "2026-08-31", p_price_frozen: { "RPA|Sayap": "28000" } } }]);
-    // R14: no table write of its own on the commitment tables — the RPC is the one transaction (R54 queues the task date after)
-    expect(sb.calls.filter((c) => c.includes("sales_commitment") || c.includes("price_list_week"))).toEqual([]);
+    // R14: the RPC is the one transaction of the lock — the action writes nothing to the commitment tables. Its only write is
+    // R54's: the Friday before the week in the rebuild queue, which is then processed inline
+    expect(writes()).toEqual(["rebuild_queue:insert"]);
+    expect(sb.calls("rebuild_queue:insert")[0].payload).toEqual([{ date: "2026-08-28", reason: "komitmen dikunci" }]);
+    expect(processed).toHaveBeenCalledTimes(1);
   });
-  it("the RPC refuses (a version 2 without a reason): the message, nothing else", async () => {
-    sb = fakeSb({ fail: { "rpc:lock_commitments": "Versi baru setelah kunci wajib alasan: RPA|Sayap" } });
+  it("the RPC refuses (a version 2 without a reason): the message, nothing else — no read, no queue", async () => {
+    sb = memSb({}, { fail: { "rpc:lock_commitments": "Versi baru setelah kunci wajib alasan: RPA|Sayap" } });
     const r = await lockCommitmentsAction({}, form({ week_start: "2026-08-31" }));
     expect(r.error).toBe("Versi baru setelah kunci wajib alasan: RPA|Sayap");
-    expect(sb.calls).toEqual([]);
+    expect(sb.log.map((l) => l.call)).toEqual(["rpc:lock_commitments"]);
+    expect(processed).not.toHaveBeenCalled();
   });
   it("a frozen price that is not a positive number is refused before the RPC", async () => {
     const r = await lockCommitmentsAction({}, form({ week_start: "2026-08-31", "price_frozen|RPA|Sayap": "-5" }));
     expect(r.error).toBe("Harga frozen RPA|Sayap tidak valid");
     expect(sb.rpcCalls).toEqual([]);
+    expect(sb.log).toEqual([]);
   });
 });
 

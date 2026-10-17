@@ -21,6 +21,7 @@ import { stockMartControl } from "../v3/stale";
 import { loadPlanning } from "../v3/planning";
 import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
+import { surplusKeys } from "./surplus";
 import { v5CostingSetting } from "./costing";
 import { isModuleOn } from "../modules-core";
 import type { CommitmentRow, KomersialV5Input } from "./komersial";
@@ -120,7 +121,8 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     const latest = src.plans[0];
     const a = latest ? must(await sb.from("surplus_response").select("response, absorb_kg").eq("plan_week_id", String(latest.id)).is("deleted_at", null).order("responded_at", { ascending: false }).limit(1).maybeSingle(), "surplus_response") as Row | null : null;
     return {
-      shipRange: `${Number(x.po.from.slice(8, 10))}–${Number(x.po.to.slice(8, 10))}/${x.po.to.slice(5, 7)}`, surplusKg: x.batch?.surplusKg ?? null, downgrade: x.batch?.downgrade ?? null,
+      shipRange: `${Number(x.po.from.slice(8, 10))}–${Number(x.po.to.slice(8, 10))}/${x.po.to.slice(5, 7)}`, surplusKg: x.batch?.surplusKg ?? null,
+      surplus: surplusKeys(latest?.surplus_kg_by_key as Record<string, unknown> | undefined), downgrade: x.batch?.downgrade ?? null,
       planCostKarkas: x.needCost?.lines.find((l) => l.key === "RPA|Karkas|Fresh")?.costPerKg ?? null, lbPrice: x.lbPrice.price,
       answered: a ? (a.response === "absorb" ? "sanggup serap semua" : a.response === "partial" ? `serap ${s(a.absorb_kg) ?? ""} kg` : "tidak sanggup, kurangi potong") : null,
       byProducts: x.byProducts.map((b) => ({ unit: b.unit, order: b.net_kg, output: b.output_kg, short: b.shortfall_kg })),

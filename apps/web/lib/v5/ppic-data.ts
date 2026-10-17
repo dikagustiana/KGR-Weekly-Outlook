@@ -12,9 +12,8 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import { fetchAll, listWeeks } from "../data";
-import { inChunks, must, mustRows, tileData } from "../loader";
-import { clock } from "../clock";
-import { loadV5BatchCosts, v5CostingControls, v5CostingOn } from "./costing";
+import { inChunks, must, mustRows, tileData, type TileData } from "../loader";
+import { loadV5BatchCosts, v5CostingOn } from "./costing";
 import { statusMode } from "./cost-status";
 import { fail, type Failed } from "../v4/tile-errors";
 import { martReplace, registerBuilder } from "../rebuild-registry";
@@ -130,25 +129,23 @@ export function copyBlockersOf(controls: { code: string; status: ControlV3["stat
   ];
 }
 
-/**
- * While v5_costing is on: C57 of the week (the controls of the release, lib/v3/week.ts) and the cost status of the
- * week's actual batches (R39: from the WP, the invoice and the posting, "campur" when they differ); null when off.
- */
-export async function ppicCostingOf(sb: Supa, week: PlanningSources["week"]): Promise<{ c57: ControlV3 | null; actualStatus: string | null } | null> {
+/** While v5_costing is on: the cost status of the week's actual batches (R39: from the WP, the invoice and the posting, "campur" when they differ); null when off. */
+export async function actualBatchStatus(sb: Supa, week: PlanningSources["week"]): Promise<string | null> {
   if (!(await v5CostingOn(sb))) return null;
   const costs = await loadV5BatchCosts(sb, week.week_start, week.update_date);
-  const c57 = (await v5CostingControls(sb, week, week.update_date, (await clock(sb)).now, costs)).find((c) => c.code === "C57") ?? null;
   const actual = new Set(mustRows<Row>(await sb.from("batch").select("batch_ref").eq("week_id", week.id).eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null), "batch aktual minggu").map((b) => String(b.batch_ref)));
-  return { c57, actualStatus: statusMode(costs.filter((c) => actual.has(c.batch_ref)).map((c) => c.status)) };
+  return statusMode(costs.filter((c) => actual.has(c.batch_ref)).map((c) => c.status));
 }
 
-/** C57 of the week while v5_costing is on; null when off. */
-export async function c57Of(sb: Supa, week: PlanningSources["week"]): Promise<ControlV3 | null> {
-  return (await ppicCostingOf(sb, week))?.c57 ?? null;
-}
+/** What the copy gate says (lib/v5/copy-plan.ts copyGate): the screen shows exactly this, and the action refuses on exactly this. */
+export interface GateView { blockers: string[]; c58Reason: string | null }
 
-/** Everything the PPIC v5 page shows. */
-export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: WeekResult; base: string; versi: "need" | "batch"; canPlan: boolean; c45: ControlV3 }): Promise<PpicV5Input> {
+/**
+ * Everything the PPIC v5 page shows. `gate` is the copyGate of the page (R51): its blockers are the copy blockers of the daily
+ * plan tile; a gate that failed to load holds the copy and says so on that tile. Without it (Commercial and Management
+ * read this loader for numbers, not for the copy) there are no copy blockers.
+ */
+export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: WeekResult; base: string; versi: "need" | "batch"; canPlan: boolean; c45: ControlV3; gate?: TileData<GateView> }): Promise<PpicV5Input> {
   const { src, result } = x;
   const w = src.week, ws = w.week_start, we = addDays(ws, 6);
   const cs = await loadClassDemand(sb, src);
@@ -167,10 +164,9 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     }),
     tileData("ppic: parameter minggu", async () => (must(await sb.from("parameter").select("commitment_lock_dow, commitment_lock_time, cut_off_time").eq("week_id", w.id).maybeSingle(), "parameter") ?? {}) as Row),
   ]);
-  // R29: C57 holds the copy; a failed read holds it too (shown on the daily plan tile)
-  const c57T = await tileData("ppic: C57 dan status biaya batch", () => ppicCostingOf(sb, w));
-  const pc = fail(failed, ["t-harian", "t-batch"], c57T, null);
-  const c57 = pc?.c57 ?? null;
+  // the cost status of the week's actual batches (t-batch); C57 is judged by the copy gate, per cut date × class (R51)
+  const statusT = await tileData("ppic: status biaya batch", () => actualBatchStatus(sb, w));
+  const gate = x.gate ? fail(failed, ["t-harian"], x.gate, { blockers: ["gerbang salin gagal dimuat"], c58Reason: null }) : null;
   const decision = fail(failed, ["c-biaya", "c-rencana"], decisionT, []);
   const { commits, lists, plans } = fail(failed, ["dari-commercial"], fromT, { commits: [] as Row[], lists: [] as Row[], plans: [] as Row[] });
   const p = fail(failed, ["dari-commercial", "t-hari-ini"], paramT, {} as Row);
@@ -233,9 +229,10 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     today: { poKg: sumKg(todayRows), poValue: todayRows.reduce((a, o) => a.plus(D(o.kg).times(D(o.price ?? 0))), D(0)), cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."), allocHref: `/hari/${w.update_date}/alokasi` },
     block6: result.block6, canPlan: x.canPlan,
     saveBlockers: block(ppicBlockers(controls, "save")),
-    copyBlockers: c57T && "error" in c57T ? [...copyBlockersOf(controls, null, src.reasons), "C57 (gagal dimuat)"] : copyBlockersOf(controls, c57, src.reasons),
-    c58Reason: src.reasons.find((r) => r.code === "C58")?.reason ?? null,
-    batchStatus: pc?.actualStatus ?? null,
+    copyBlockers: gate?.blockers ?? [],
+    c58Reason: gate?.c58Reason ?? null,
+    approval: latestPlan ? { planId: String(latestPlan.id), version: Number(latestPlan.version), needs: latestPlan.needs_approval === true, approvedBy: s(latestPlan.approved_by) } : null,
+    batchStatus: fail(failed, ["t-batch"], statusT, null),
     failed,
   };
 }

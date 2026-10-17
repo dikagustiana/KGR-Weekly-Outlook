@@ -220,6 +220,41 @@ export function dailyClassPlan(x: { demand: ClassDemand; leadTimeDays: number })
   });
 }
 
+export interface SavedClassRow { weight_class: string; kg_lb: Num | null; heads: number | null }
+export interface ClassCut { cut_date: ISODate; weight_class: string; heads: number; kg_lb: Decimal }
+
+/**
+ * R52 (stage 1): the batches of "Salin ke batch rencana" per cut date × class, from the SAVED plan_week_class of the plan
+ * version. A saved row holds the kg LB and the heads of a class for the whole week; the profile (the daily class need of
+ * the same demand, `dailyClassPlan`) only says how the week divides over the cut dates. The batches add up exactly to the
+ * saved rows: heads by largest remainder on the profile, kg LB = heads × the saved kg per head (the last date takes the
+ * rounding). A class saved without any profile (its need is gone) is returned in `unplaced`: nothing is invented for it.
+ * Stage 2 (the date split itself saved, K27 in full) waits for B-R85.
+ */
+export function splitClassPlan(x: { saved: SavedClassRow[]; profile: { cut_date: ISODate; weight_class: string; kg_lb: Num }[] }): { cuts: ClassCut[]; unplaced: string[] } {
+  const cuts: ClassCut[] = [], unplaced: string[] = [];
+  for (const sv of x.saved) {
+    const heads = sv.heads ?? 0, kg = D(sv.kg_lb ?? 0);
+    if (heads <= 0 && !kg.gt(0)) continue;
+    const prof = x.profile.filter((p) => p.weight_class === sv.weight_class && D(p.kg_lb).gt(0)).sort((a, b) => a.cut_date.localeCompare(b.cut_date));
+    const total = sum(prof.map((p) => D(p.kg_lb)));
+    if (!prof.length || !total.gt(0) || heads <= 0) { unplaced.push(sv.weight_class); continue; }
+    const raw = prof.map((p) => D(p.kg_lb).div(total).times(heads));
+    const base = raw.map((v) => v.floor().toNumber());
+    let left = heads - base.reduce((a, b) => a + b, 0);
+    for (const o of raw.map((v, i) => ({ i, r: v.minus(v.floor()) })).sort((a, b) => b.r.cmp(a.r) || a.i - b.i)) { if (left <= 0) break; base[o.i] += 1; left -= 1; }
+    const lastWith = base.reduce((acc, h, i) => (h > 0 ? i : acc), -1);
+    let kgLeft = kg;
+    prof.forEach((p, i) => {
+      if (base[i] <= 0) return;
+      const part = i === lastWith ? kgLeft : kg.times(base[i]).div(heads).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      kgLeft = kgLeft.minus(part);
+      cuts.push({ cut_date: p.cut_date, weight_class: sv.weight_class, heads: base[i], kg_lb: part });
+    });
+  }
+  return { cuts: cuts.sort((a, b) => a.cut_date.localeCompare(b.cut_date) || a.weight_class.localeCompare(b.weight_class)), unplaced };
+}
+
 /** §4.3 for a plan of kg LB: karkas output, surplus over the demand, frozen planned and the downgrade (Rp, positive). */
 export function weekClassPlan(x: { kgLb: Num; demandKarkasKg: Num; yieldKarkas: Num; priceFresh: Num | null; priceFrozen: Num | null }): { output_kg: Decimal; surplus_kg: Decimal; frozen_kg: Decimal; downgrade: Decimal | null } {
   const output = D(x.kgLb).times(D(x.yieldKarkas));
