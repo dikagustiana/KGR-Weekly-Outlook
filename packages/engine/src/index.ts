@@ -33,4 +33,5 @@ export * from "./commercial-v5";
 export * from "./upload-validate";
 export * from "./input-tasks";
 export * from "./fs-map";
+export * from "./fs-app";
 export * from "./fs-recon";

@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import { D } from "../src/decimal";
 import { loadV3Fixture } from "../src/fixtures";
 import {
-  APP_LINE_LABEL, FS_MIN_MAP, fsKey, fsMapEntries, fsRecon,
-  type FsLine, type FsMapEntry, type ReconInput, type ReconLine,
+  APP_LINE_LABEL, FS_MIN_MAP, appBsLines, appPlLines, fsKey, fsMapEntries, fsRecon, isCostingRowsMode, plLineAmounts, reconHints,
+  type AppLine, type FsLine, type FsMapEntry, type PlAmount, type ReconInput, type ReconLine,
 } from "../src";
 
 // ------------------------------------------------------------------------------------------------ fsRecon, synthetic
@@ -141,6 +141,106 @@ describe("minimum mapping (R68, O27 a): rows checked against fixtures/fs-2026-09
   });
   it("the database shape of a seed row has exactly the columns of fs_line_map", () => {
     expect(Object.keys(fsMapEntries()[0]).sort()).toEqual(["app_line", "note", "row_no", "sign", "statement"]);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------ app side
+describe("appPlLines (R68, O24 b): FS structure and memo mode", () => {
+  const journal: PlAmount[] = [
+    { pl_line: "Revenue - LB Main Product", amount: "1000" }, { pl_line: "Revenue - Trading", amount: "500" },
+    { pl_line: "COGS - Live Bird", amount: "-700" }, { pl_line: "Other COGS - Expedition", amount: "-100" },
+    { pl_line: "Salaries and allowance", amount: "-60" }, { pl_line: "Depreciation & amortisation", amount: "-10" }, { pl_line: "Tax expenses", amount: "-5" },
+    { pl_line: "Interest Expense", amount: "-20" }, { pl_line: "Other Income", amount: "8" }, { pl_line: "Other Expense", amount: "-2" },
+  ];
+  const v5: PlAmount[] = [{ pl_line: "Selisih costing", amount: "-30" }, { pl_line: "Biaya kapasitas idle", amount: "-12" }];
+  const get = (r: { lines: AppLine[] }) => Object.fromEntries(r.lines.map((l) => [l.app_line, D(l.amount!).toFixed(0)]));
+
+  it("folds revenue, COGS, GP, operating expenses (with depreciation and tax), other income/expense and NIBT", () => {
+    const r = appPlLines({ lines: journal });
+    expect(get(r)).toEqual({ revenue: "1500", cogs: "-800", gp: "700", opex: "-75", other: "-14", nibt: "611" });
+    expect(r.v5.toFixed(0)).toBe("0");
+    expect(r.memo).toEqual([]);
+  });
+  it("mode 'cogs' (default): the v5 rows are cost of sales", () => {
+    const r = appPlLines({ lines: [...journal, ...v5] });
+    expect(get(r)).toEqual({ revenue: "1500", cogs: "-842", gp: "658", opex: "-75", other: "-14", nibt: "569" });
+    expect(r.v5.toFixed(0)).toBe("-42");
+    expect(get(appPlLines({ lines: [...journal, ...v5], costingRowsMode: "cogs" }))).toEqual(get(r));
+  });
+  it("mode 'memo': COGS, GP and NIBT of the comparison are without the v5 rows, and the rows are not opex either", () => {
+    const r = appPlLines({ lines: [...journal, ...v5], costingRowsMode: "memo" });
+    expect(get(r)).toEqual(get(appPlLines({ lines: journal })));
+    expect(r.v5.toFixed(0)).toBe("-42");
+    expect(r.memo.map((m) => [m.pl_line, D(m.amount).toFixed(0)])).toEqual([["Selisih costing", "-30"], ["Biaya kapasitas idle", "-12"]]);
+  });
+  it("memo mode vs cogs mode against an FS built from the journal: C59 LULUS vs GAGAL with cause 'definisi'", () => {
+    const fs: FsLine[] = [fsl("PL", 12, "Revenue", "1500"), fsl("PL", 13, "Cost of Sales", "-800"), fsl("PL", 15, "GROSS PROFIT", "700"), fsl("PL", 37, "TOTAL OPERATING EXPENSES", "-75"),
+      fsl("PL", 49, "TOTAL OTHER INCOME (EXPENSE)", "-14"), fsl("PL", 51, "INCOME (LOSS) BEFORE TAX", "611")];
+    const map = fsMapEntries().filter((m) => m.statement === "PL");
+    const run = (costingRowsMode: "cogs" | "memo") => {
+      const a = appPlLines({ lines: [...journal, ...v5], costingRowsMode });
+      return fsRecon({ app: a.lines, fs, map, hints: reconHints({ journalThrough: "2026-08-31", monthEnd: "2026-08-31", costingRowsMode, v5: a.v5, appLines: a.lines.map((l) => l.app_line) }) });
+    };
+    const memo = run("memo");
+    expect(memo.c59.status).toBe("LULUS");
+    const cogs = run("cogs");
+    expect(cogs.c59.status).toBe("GAGAL");
+    expect(cogs.lines.filter((l) => l.status === "beda").map((l) => [l.key, l.selisih!.toFixed(0), l.cause])).toEqual([
+      ["PL b.13", "-42", "definisi"], ["PL b.15", "-42", "definisi"], ["PL b.51", "-42", "definisi"],
+    ]);
+  });
+  it("without any P&L line the month has no number: null, never 0", () => {
+    const r = appPlLines({ lines: [] });
+    expect(r.lines.map((l) => l.amount)).toEqual([null, null, null, null, null, null]);
+    expect(fsRecon({ app: r.lines, fs: [fsl("PL", 12, "Revenue", "100")], map: fsMapEntries().filter((m) => m.statement === "PL") }).lines[0].status).toBe("tidak ada di app");
+  });
+  it("plLineAmounts: actual rows of every basis but fixed_estimate, plus the posted adjustments", () => {
+    const rows = [
+      { pl_line: "Revenue - Trading", basis: "journal", actual: "100" }, { pl_line: "Revenue - Trading", basis: "do_unbilled", actual: "50" },
+      { pl_line: "Storage Expenses", basis: "fixed_estimate", actual: "-999" }, { pl_line: "Storage Expenses", basis: "journal", actual: null },
+      { pl_line: "Storage Expenses", basis: "journal", actual: "-10" },
+    ];
+    const r = plLineAmounts(rows, [{ pl_line: "Storage Expenses", amount: "-62.5" }]);
+    expect(r.map((x) => [x.pl_line, D(x.amount).toFixed(1)])).toEqual([["Revenue - Trading", "150.0"], ["Storage Expenses", "-72.5"]]);
+  });
+  it("isCostingRowsMode accepts only 'cogs' and 'memo'", () => {
+    expect(["cogs", "memo", "", null, undefined, "COGS"].map(isCostingRowsMode)).toEqual([true, true, false, false, false, false]);
+  });
+});
+
+describe("appBsLines (R68): trial balance + journal per bs_line", () => {
+  const coa = [
+    { account: "1", type: "Neraca", bs_line: "Cash and cash equivalents" }, { account: "2", type: "Neraca", bs_line: "Trade Payables - Third Parties" },
+    { account: "3", type: "Neraca", bs_line: "Shareholder Equity" }, { account: "4", type: "Neraca", bs_line: "Retained earnings" },
+    { account: "5", type: "LabaRugi", bs_line: null }, { account: "6", type: "LabaRugi", bs_line: null }, { account: "9", type: "Header", bs_line: null },
+    { account: "7", type: "Neraca", bs_line: null },
+  ];
+  // balanced: 1140 − 400 − 1000 + 300 − 100 + 60 = 0; year profit at the opening = 100 − 60 = 40
+  const tb = [{ account: "1", balance: "1140" }, { account: "2", balance: "-400" }, { account: "3", balance: "-1000" }, { account: "4", balance: "300" }, { account: "5", balance: "-100" }, { account: "6", balance: "60" }];
+  const gl = [
+    { date: "2026-08-01", account: "1", debit: "50", credit: null }, { date: "2026-08-01", account: "5", debit: null, credit: "50" },
+    { date: "2026-08-10", account: "1", debit: null, credit: "20" }, { date: "2026-08-10", account: "6", debit: "20", credit: null },
+    { date: "2026-08-20", account: "2", debit: "100", credit: null }, { date: "2026-08-20", account: "1", debit: null, credit: "100" },
+  ];
+  const at = (date: string, extra: Partial<Parameters<typeof appBsLines>[0]> = {}) =>
+    Object.fromEntries(appBsLines({ tb, gl, coa, date, ...extra }).lines.map((l) => [l.app_line, l.amount === null ? null : D(l.amount).toFixed(0)]));
+
+  it("assets are debit-positive, liabilities and equity credit-positive; equity includes the profit of the year", () => {
+    expect(at("2026-07-31")).toMatchObject({ kas: "1140", utang_dagang_pihak_ketiga: "400", piutang_pihak_ketiga: "0", ekuitas: "740" }); // 1000 − 300 + 40
+    expect(at("2026-08-31")).toMatchObject({ kas: "1070", utang_dagang_pihak_ketiga: "300", ekuitas: "770" }); // + 50 − 20; assets 1070 = 300 + 770
+  });
+  it("journal is counted up to the balance date (inclusive) and, with tbDate, only after the trial balance date", () => {
+    expect(at("2026-08-09")).toMatchObject({ kas: "1190", ekuitas: "790" });
+    expect(at("2026-08-10")).toMatchObject({ kas: "1170", ekuitas: "770" });
+    expect(at("2026-08-31", { tbDate: "2026-08-10" })).toMatchObject({ kas: "1040", utang_dagang_pihak_ketiga: "300", ekuitas: "740" });
+  });
+  it("without a trial balance every line is null (never 0)", () => {
+    expect(Object.values(at("2026-08-31", { tb: [] })).every((v) => v === null)).toBe(true);
+  });
+  it("accounts the chart cannot place are reported, not dropped silently", () => {
+    const r = appBsLines({ tb: [...tb, { account: "7", balance: "11" }, { account: "8", balance: "-3" }, { account: "9", balance: "0" }], gl, coa, date: "2026-08-31" });
+    expect(r.unplaced.map((u) => [u.account, u.net.toFixed(0)])).toEqual([["7", "11"], ["8", "-3"]]);
+    expect(appBsLines({ tb, gl, coa, date: "2026-08-31" }).unplaced).toEqual([]);
   });
 });
 
