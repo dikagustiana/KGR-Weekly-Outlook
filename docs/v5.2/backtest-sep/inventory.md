@@ -35,6 +35,12 @@
 ## Status
 
 - [x] Branch + doc + `expected.json` (PL/BS September).
-- [ ] Inventaris sheet 4 berkas `.xls`.
-- [ ] Cek Σ GL = mutasi TB; Σ debit = Σ kredit; revenue Detail Sales = akun revenue GL; Valuation = persediaan BS.
+- [x] Inventaris header 4 berkas `.xls` (SheetJS).
+- [x] Parser `accurate_journal` membaca `GL KGR Rev 1.xls` utuh (lihat bawah).
+- [ ] Cek Σ GL = mutasi TB; revenue Detail Sales = akun revenue GL; Valuation = persediaan BS.
 - [ ] Langkah 2–4 (muat → banding → perbaiki) — **menunggu PostgreSQL 16 + Docker lokal**.
+
+## Parser check (tanpa DB)
+
+- **BT-1 (bug parser, diperbaiki)** — header Accurate `Nilai Debit` / `Nilai Kredit` tidak cocok alias `debit`/`kredit` → debit/kredit jadi null. Tambah alias `nilai debit`/`nilai kredit` (+ `nilai debet`/`nilai credit`). Tes: `parsers.test.ts` "Daftar Histori GL". Commit `2ca9292`.
+- **GL KGR Rev 1.xls** (setelah BT-1): header terdeteksi di baris 5; **1.942 baris**, tanggal `2026-09-01`→`2026-09-30`; Σ debit `81.300.134.506,31` vs Σ kredit `81.300.134.506,27` (**selisih 0,04** — rounding sumber); 52 baris tanpa tanggal (penyesuaian akhir bulan) diabaikan; 0 baris tanpa debit+credit atau tanpa akun.
