@@ -1,0 +1,241 @@
+# v5.2 B7 — pemindaian sistematis (Q-v5.2-84): tabel dan view di public yang isinya turunan atau salinan plan_week, plan_day, plan_week_class, demand_weekly, demand_class_weekly dan yang masih bisa dibaca Sales
+# tanggal: 2026-10-18 · DB: shim + 38 migrasi s.d. 20261025000600 + seed (keadaan B6, yang diubah B7); PostgreSQL 16.15, bukan Supabase
+# dibaca bersama docs/v5.2/b7.md bagian 5 (keputusan per tabel)
+
+## 1. jumlah objek: 93 tabel, 3 view, 0 view materialized; tabel tanpa RLS: 0
+## view (semua security_barrier, bukan security_invoker; dibaca sebagai pemiliknya):
+  commercial_daily_sales {security_barrier=true}
+  commercial_daily_sales_v5 {security_barrier=true}
+  surplus_for_sales_v52 {security_barrier=true}
+## view yang menyebut tabel rencana atau demand (hanya view Sales yang disengaja, B6):
+  surplus_for_sales_v52
+
+## 2. tabel yang dibaca Sales: policy SELECT permisif tanpa has_role (terbuka bagi semua app user), keadaan B6
+  allocation
+  app_setting
+  assumption_register
+  audit_log
+  batch
+  batch_output_sku
+  blast_event
+  capacity
+  cash_plan
+  closing_adjustment
+  coa_map
+  data_fix
+  data_status
+  delivery
+  demand_shortfall
+  discount_approval
+  forecast_accuracy_daily
+  forecast_line
+  gl_line
+  input_completeness_daily
+  input_reminder
+  input_task
+  input_task_rule
+  item_map
+  lb_supply
+  mart_table
+  month_outlook
+  month_outlook_version
+  opening_stock
+  outlook_accuracy
+  outlook_assumption
+  parameter
+  pl_daily
+  pl_daily_v4
+  plan_check_reason
+  plan_day
+  plan_variance_daily
+  price_list_week
+  rebuild_queue
+  receipt_line
+  release
+  release_override
+  release_override_policy
+  runrate
+  sales_assignment
+  sales_line
+  sales_scorecard_weekly
+  sales_target
+  schema_registry
+  size_class_map
+  sku_balance_daily
+  sku_key
+  sku_price
+  status_map
+  stock_card_snapshot
+  substitution
+  tb_opening
+  upload
+  upload_row
+  urgency_rule
+  week
+  weight_class
+  yield_matrix
+## tabel dengan policy baca bersyarat baris untuk Sales (has_role dan EXISTS: assignment): 
+  sales_commitment
+  surplus_response
+
+## 3. foreign key ke kelima tabel (tabel yang menempel pada satu versi rencana)
+  plan_check_reason.plan_week_id -> plan_week
+  plan_day.plan_week_id -> plan_week
+  plan_week_class.plan_week_id -> plan_week
+  surplus_response.plan_week_id -> plan_week
+
+## 4. tabel hasil builder (martReplace di apps/web) dan apakah terbuka bagi Sales pada keadaan B6
+  cash_position_daily: tertutup/bersyarat
+  ccc_daily: tertutup/bersyarat
+  commercial_daily: tertutup/bersyarat
+  demand_class_weekly: tertutup/bersyarat
+  demand_shortfall: TERBUKA
+  demand_weekly: tertutup/bersyarat
+  forecast_accuracy_daily: TERBUKA
+  input_completeness_daily: TERBUKA
+  input_task: TERBUKA
+  lot: tertutup/bersyarat
+  lot_balance_daily: tertutup/bersyarat
+  lot_movement: tertutup/bersyarat
+  lot_revaluation: tertutup/bersyarat
+  pl_daily: TERBUKA
+  pl_daily_v4: TERBUKA
+  plan_variance_daily: TERBUKA
+  sales_scorecard_weekly: TERBUKA
+  sku_balance_daily: TERBUKA
+  solvency_monthly: tertutup/bersyarat
+
+## 5. kolom bernama rencana atau demand di tabel yang terbuka (di luar kelima tabel)
+  batch: out_karkas_fresh, out_karkas_frozen, head_count, weight_class, cut_pattern
+  demand_shortfall: output_kg_at_plan, shortfall_kg
+  forecast_accuracy_daily: forecast
+  forecast_line: forecast_source
+  lb_supply: weight_class, head_count
+  parameter: horizon_fresh_days, target_shrink, freight_plan_per_kg_lb, fresh_window_hours_default, frozen_age_limit_days_default, forecast_weight, forecast_tolerance_pct
+  pl_daily: forecast
+  pl_daily_v4: forecast
+  plan_check_reason: plan_week_id
+  plan_variance_daily: planned_kg, planned_heads, actual_heads
+  price_list_week: price_fresh, price_frozen, price_frozen_source
+  sales_line: demand_status
+  sales_scorecard_weekly: target_kg, target_rp, kg_to_frozen_unsold, forecast_mape
+  sales_target: target_kg, target_rp
+  size_class_map: weight_class
+  sku_key: fresh_window_hours, frozen_age_limit_days
+  substitution: key_demand
+  upload: plan, target_week_start
+  upload_row: target
+  yield_matrix: weight_class, cut_pattern
+
+## 6. pembaca di kode (apps/web, bukan tes) per tabel kandidat: grep -rn 'from("<tabel>")' apps/web/app apps/web/lib apps/web/components
+### plan_variance_daily
+  app/w/[week]/rencana/v4.tsx:30
+  lib/v4/minggu-ini-data.ts:174
+### demand_shortfall
+### plan_check_reason
+  app/w/[week]/rencana/actions.ts:135
+  app/w/[week]/rencana/actions.ts:140
+  app/w/[week]/rencana/actions.ts:145
+  lib/v3/planning.ts:95
+### release
+  app/w/[week]/rilis/page.tsx:14
+  app/api/release/[id]/[file]/route.ts:13
+  lib/v5/input-data.ts:195
+  lib/page.ts:41
+  lib/v4/minggu-ini-data.ts:65
+  lib/rollover.ts:26
+### batch
+  app/w/[week]/input/costing/actions.ts:77
+  lib/v5/costing-pl.ts:22
+  lib/v5/input-save.ts:169
+  lib/v5/input-save.ts:190
+  lib/v5/input-save.ts:243
+  lib/v5/copy-plan.ts:212
+  lib/v5/copy-plan.ts:214
+  lib/v5/copy-plan.ts:219
+  lib/v5/costing.ts:125
+  lib/v5/costing.ts:296
+  lib/v5/ppic-data.ts:136
+  lib/v5/management-data.ts:90
+  lib/v5/management-data.ts:189
+  lib/v5/input-data.ts:89
+  lib/v5/input-data.ts:178
+  lib/v5/input-data.ts:187
+  lib/v5/input-data.ts:222
+  lib/v5/input-data.ts:331
+  lib/v4/close.ts:35
+  lib/v3/planning.ts:326
+  lib/v3/costing.ts:60
+  lib/v3/costing.ts:194
+  lib/v3/costing.ts:239
+  lib/v3/costing.ts:302
+  lib/v3/costing.ts:364
+  lib/v3/costing.ts:365
+  lib/v3/costing.ts:374
+  lib/v3/costing.ts:462
+### batch_output_sku
+  lib/v5/input-save.ts:183
+  lib/v5/input-save.ts:186
+  lib/v5/input-save.ts:189
+  lib/v5/costing.ts:133
+  lib/v5/management-data.ts:185
+  lib/v5/input-data.ts:105
+  lib/v5/input-data.ts:180
+  lib/v4/close.ts:37
+  lib/v3/planning.ts:327
+  lib/v3/costing.ts:64
+  lib/v3/costing.ts:395
+  lib/v3/costing.ts:399
+  lib/v3/costing.ts:404
+### forecast_accuracy_daily
+  lib/v4/outlook-bulan-data.ts:117
+  lib/v4/close.ts:263
+### sales_scorecard_weekly
+  app/komersial/scorecard/page.tsx:25
+### input_task
+  lib/v5/management-data.ts:91
+  lib/v5/management-data.ts:176
+  lib/v5/input-data.ts:256
+### input_completeness_daily
+  app/input/actions.ts:51
+  lib/v5/input-data.ts:294
+  lib/release.ts:46
+### lb_supply
+  lib/v5/input-save.ts:209
+  lib/v5/management-data.ts:188
+  lib/v5/input-data.ts:171
+  lib/v5/input-data.ts:372
+  lib/v3/planning.ts:91
+  lib/v3/planning.ts:608
+### capacity
+  app/w/[week]/rencana/actions.ts:112
+  lib/v5/input-data.ts:363
+  lib/v5/input-data.ts:426
+  lib/v3/planning.ts:90
+### yield_matrix
+  lib/v5/input-save.ts:199
+  lib/v5/forecast-cost.ts:27
+  lib/v5/costing.ts:136
+  lib/v5/input-data.ts:362
+  lib/v3/planning.ts:87
+  lib/v3/planning.ts:573
+### weight_class
+  app/input/page.tsx:58
+  lib/v5/ppic-data.ts:68
+  lib/v5/input-data.ts:54
+  lib/v5/input-data.ts:360
+  lib/v3/planning.ts:86
+  lib/v3/planning.ts:557
+  lib/v3/planning.ts:590
+### substitution
+  lib/v3/planning.ts:89
+### forecast_line
+  lib/v3/commercial.ts:48
+  lib/v3/planning.ts:82
+  lib/v3/planning.ts:535
+  lib/v3/planning.ts:546
+  lib/v3/discount.ts:130
+### lib/data.ts loadWeek membaca batch (byWeek("batch")) untuk setiap peminta, termasuk Sales:
+  109:    byWeek("batch", (q) => q.is("superseded_at", null)),
+### lib/page.ts weekContext membaca release (id, released_by, released_at, update_date, control_status, controls) untuk setiap peminta:
+  41:  const data = must(await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")

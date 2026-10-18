@@ -1,0 +1,74 @@
+# v5.2 B6 — migrasi v52_sales_plan dijalankan ULANG di DB yang sudah memuatnya (shim + semua migrasi + seed)
+# tanggal: 2026-10-18 07:14 UTC · server: 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+# sha256 20261025000600_v52_sales_plan.sql: b8e5af9f2401e5cdb0674e007f1c9e935b356f673cf9bb4b2851e221357fdd65
+
+## sebelum (putaran 1 = yang dipasang pertama kali oleh daftar migrasi)
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|-
+schema_version(): 5.2.5
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+view columns: week_start:date,plan_version:integer,plan_week_id:uuid,key:text,plan_surplus_kg:numeric,answered_surplus_kg:numeric,response:text,absorb_kg:numeric,price:numeric,responded_by:text,responded_at:timestamp with time zone
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+rows: plan_week=0, demand_weekly=0, schema_registry=7
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000600_v52_sales_plan.sql  (putaran 2)
+  ALTER POLICY
+  ALTER POLICY
+  DO
+  CREATE FUNCTION
+  REVOKE
+  CREATE VIEW
+  REVOKE
+  GRANT
+  INSERT 0 0
+  exit: 0
+## sesudah putaran 2
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|-
+schema_version(): 5.2.5
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+view columns: week_start:date,plan_version:integer,plan_week_id:uuid,key:text,plan_surplus_kg:numeric,answered_surplus_kg:numeric,response:text,absorb_kg:numeric,price:numeric,responded_by:text,responded_at:timestamp with time zone
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+rows: plan_week=0, demand_weekly=0, schema_registry=7
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000600_v52_sales_plan.sql  (putaran 3)
+  ALTER POLICY
+  ALTER POLICY
+  DO
+  CREATE FUNCTION
+  REVOKE
+  CREATE VIEW
+  REVOKE
+  GRANT
+  INSERT 0 0
+  exit: 0
+## sesudah putaran 3
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|-
+schema_version(): 5.2.5
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+view columns: week_start:date,plan_version:integer,plan_week_id:uuid,key:text,plan_surplus_kg:numeric,answered_surplus_kg:numeric,response:text,absorb_kg:numeric,price:numeric,responded_by:text,responded_at:timestamp with time zone
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+rows: plan_week=0, demand_weekly=0, schema_registry=7
+
+## semua migrasi 2026101[6-9]* dan 202610[2-9]* sekali lagi, seperti scripts/test-rls.sh
+  selesai (tidak ada baris GAGAL = semua exit 0)
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|-
+schema_version(): 5.2.5
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+view columns: week_start:date,plan_version:integer,plan_week_id:uuid,key:text,plan_surplus_kg:numeric,answered_surplus_kg:numeric,response:text,absorb_kg:numeric,price:numeric,responded_by:text,responded_at:timestamp with time zone
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+rows: plan_week=0, demand_weekly=0, schema_registry=7
