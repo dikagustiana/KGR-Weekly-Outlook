@@ -1,0 +1,33 @@
+# Production smoke (public pages only, no credentials): runs when this branch is pushed. Not on main.
+name: smoke
+on:
+  push:
+    branches: [ops/smoke]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: public pages of production
+        env:
+          BASE: https://kgr-weekly-outlook.vercel.app
+        run: |
+          set -u
+          fail=0
+          check() { # path expected-status [body-regex]
+            code=$(curl -sS -o body.txt -D head.txt -w '%{http_code}' "$BASE$1" || echo 000)
+            loc=$(grep -i '^location:' head.txt | tr -d '\r' | cut -c11- || true)
+            vid=$(grep -i '^x-vercel-id:' head.txt | tr -d '\r' | cut -c14- || true)
+            ok=yes; [[ "$code" == "$2" ]] || ok=no
+            if [[ -n "${3:-}" ]] && ! grep -Eq "$3" body.txt; then ok=no; fi
+            echo "$1 -> $code (want $2) ${loc:+location=$loc} ${vid:+x-vercel-id=$vid} ok=$ok"
+            [[ $ok == yes ]] || fail=1
+          }
+          check /login 200 'type="password"'
+          check /api/cron/rebuild 401 '"unauthorized"'
+          check /w/2026-08-24 307
+          check /admin/pengguna 307
+          echo "--- /login <title> and build id"
+          curl -sS "$BASE/login" | grep -oE '<title>[^<]*</title>|"buildId":"[^"]*"' | head -3 || true
+          exit $fail
