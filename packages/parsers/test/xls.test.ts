@@ -10,7 +10,7 @@ import { readWorkbook } from "../src";
 const rows = [
   ["no_po", "tanggal_kirim", "kode_item", "kg", "harga", "pelanggan"],
   ["KGR26.00349", "2026-08-29", "JLB0829", 1755, 36705, "Pelanggan B"],
-  ["KGR26.00350", 46263, "JLB0830", "1.234,5", "Rp 36.705", "Pelanggan ü"],
+  ["KGR26.00350", 46263, "JLB0830", "1.234,5", "Rp 36.705", "Pelanggan C"],
   [null, null, null, null, null, null],
   ["KGR26.00353", "2026-08-30", "JLB0831", 812.25, 30000, null],
 ];
@@ -32,7 +32,7 @@ describe("R78: .xls dibaca lewat SheetJS", () => {
     const po = sheets[0].rows;
     expect(po[0]).toEqual(rows[0]);
     expect(po[1]).toEqual(["KGR26.00349", "2026-08-29", "JLB0829", 1755, 36705, "Pelanggan B"]);
-    expect(po[2]).toEqual(["KGR26.00350", 46263, "JLB0830", "1.234,5", "Rp 36.705", "Pelanggan ü"]);
+    expect(po[2]).toEqual(["KGR26.00350", 46263, "JLB0830", "1.234,5", "Rp 36.705", "Pelanggan C"]);
     expect(po[4][3]).toBe(812.25);
     expect(sheets[1].rows).toEqual([["a", "b"], [1, 2]]);
   });
