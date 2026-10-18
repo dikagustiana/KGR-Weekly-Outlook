@@ -25,7 +25,9 @@ export function salesWithDeliveries(rows: Row[], deliveries: Row[], keyOf: (km: 
       if (s(d.document_ref) && actualDocs.has(`${s(d.document_ref)}|${(s(r.item_code) ?? "").toUpperCase()}`)) continue;
       out.push({ ref: String(r.id), date: s(d.date), status: "Aktual", kg: String(d.kg), document_ref: s(d.document_ref), ...base, hpp_actual: null });
     }
-    const open = D(s(r.kg) ?? 0).minus(delivered).minus(D(s(r.cancelled_kg) ?? 0));
+    // an order line without kg has no known open balance: it stays one outflow with kg null (the ledger reports it), never 0 kg
+    if (s(r.kg) === null) { out.push({ ref: String(r.id), date: s(r.date), status: s(r.status), kg: null, document_ref: s(r.document_ref), ...base }); continue; }
+    const open = D(String(r.kg)).minus(delivered).minus(D(String(r.cancelled_kg))); // cancelled_kg NOT NULL default 0
     if (open.gt(0)) out.push({ ref: String(r.id), date: s(r.date), status: s(r.status), kg: open.toFixed(2), document_ref: s(r.document_ref), ...base });
   }
   return out;

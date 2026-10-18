@@ -125,7 +125,7 @@ async function nextSeq(sb: Supa, table: string, weekId: string | null): Promise<
   let q = sb.from(table).select("seq").order("seq", { ascending: false }).limit(1);
   if (weekId) q = q.eq("week_id", weekId);
   const data = must(await q.maybeSingle(), "upload.nextSeq");
-  return Number((data as Row | null)?.seq ?? 0);
+  return Number((data as Row | null)?.seq ?? 0); // missing-ok: nomor urut terakhir (indeks): tabel tanpa baris mulai dari 0
 }
 
 async function activeRows(sb: Supa, table: string, weekId: string, filter?: (q: any) => any): Promise<Row[]> {
@@ -256,10 +256,10 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       for (const h of staged) {
         const lines = existing.filter((e) => e.document_ref === h.document_ref && String(e.item_code ?? "").toUpperCase() === String(h.item_code).toUpperCase());
         if (!lines.length) { t.unchanged++; continue; }
-        const kgTot = lines.reduce((a, e) => a + Number(e.kg ?? 0), 0);
+        const kgTot = lines.reduce((a, e) => a + Number(e.kg ?? 0), 0); // missing-ok: bobot pembagian HPP per kg: baris tanpa kg tidak mendapat bagian
         let left = Number(h.hpp);
         lines.forEach((e, i) => {
-          const share = i === lines.length - 1 ? left : Math.round((Number(h.hpp) * Number(e.kg ?? 0) / (kgTot || 1)) * 100) / 100;
+          const share = i === lines.length - 1 ? left : Math.round((Number(h.hpp) * Number(e.kg ?? 0) / (kgTot || 1)) * 100) / 100; // missing-ok: bobot pembagian HPP per kg: baris tanpa kg tidak mendapat bagian
           left = Math.round((left - share) * 100) / 100;
           if (!same(e.hpp_actual, share)) t.updates.push({ id: e.id, hpp_actual: share.toFixed(2) });
           else t.unchanged++;
@@ -298,7 +298,7 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       }
       t.deletes.push(...old.filter((e) => !seen.has(String(e.id))).map((e) => String(e.id)));
       t.notes.push(`Rentang tanggal ${from} s.d. ${to} diganti (idempotent)`);
-      const bal = staged.reduce((a, r) => a + Number(r.debit ?? 0) - Number(r.credit ?? 0), 0);
+      const bal = staged.reduce((a, r) => a + Number(r.debit ?? 0) - Number(r.credit ?? 0), 0); // missing-ok: baris jurnal berisi debit atau kredit; sisi yang kosong memang 0 (kontrol 13 menilai selisihnya)
       if (Math.abs(bal) > 1) t.notes.push(`Jurnal tidak seimbang: selisih ${bal.toFixed(2)} (kontrol 13)`);
     } else if (set.target === "tb_opening") {
       t.label = "Neraca saldo awal";

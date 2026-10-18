@@ -9,8 +9,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   D, accuracyDays, accuracyV4, addDays, c48, calibrationV4, finalTotalsV4, firstOfMonth, isCogsLine, isRevenueLine, jakartaToday, monthEnd, monthMandatory,
-  plRowsToMart, releaseVerdict, unbilledRevaluation, versionDaysV4, worstByCode,
-  type AccuracyLineV4, type ControlV3, type VersionDayV4,
+  plLineAmounts, plRowsToMart, releaseVerdict, unbilledRevaluation, versionDaysV4, worstByCode,
+  type AccuracyLineV4, type ControlV3, type PlRowV4, type VersionDayV4,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
@@ -21,6 +21,8 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
 import { loadCostingWeek, weekCostingControls } from "../v3/costing";
 import { loadCash } from "../v3/cash";
+import { fsReconJudged, inFsReconScope, type FsReconModel } from "../v5/fs-recon";
+import { loadFinalSnapshotPl, loadFsRecon } from "../v5/fs-recon-data";
 import { computeMonthV4, ensureOutlook, RULE_VERSION, type MonthStateV4 } from "./month";
 import type { Row } from "../v3/uploads";
 
@@ -36,7 +38,7 @@ async function monthC48(sb: Supa, first: string, last: string): Promise<ControlV
   const ref = new Map(batches.map((b) => [String(b.id), s(b.batch_ref) ?? String(b.id)]));
   return c48({
     batches: batches.map((b) => ({ ref: ref.get(String(b.id))!, status: String(b.status ?? ""), date: s(b.date) })),
-    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg ?? 0) })),
+    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg) })), // batch_output_sku.kg NOT NULL
   });
 }
 
@@ -63,15 +65,50 @@ export interface FinalPreview {
   totals: ReturnType<typeof finalTotalsV4>;
 }
 
-async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
+/** The rows and the posted closing adjustments of the month as FINAL would take them: the journal of the whole month. */
+async function finalRows(sb: Supa, first: string, settings: ModuleSettings) {
   const last = monthEnd(first);
   const st = await computeMonthV4(sb, first, addDays(last, 1), settings, { cutOff: last });
   const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   const moId = (mo as Row | null)?.id ? String((mo as Row).id) : null;
   const adj = moId ? mustRows<Row>(await sb.from("closing_adjustment").select("code, pl_line, amount").eq("month_outlook_id", moId).eq("posted", true).is("deleted_at", null), "closing_adjustment") : [];
   const adjustments = adj.map((a) => ({ code: String(a.code), pl_line: String(a.pl_line), amount: String(a.amount) }));
-  const rows = st.plan.rows.filter((r) => r.actual !== null);
-  return { state: st, controls: await finalControlsV4(sb, st, settings), adjustments, totals: finalTotalsV4({ rows, adjustments }) };
+  const rows: PlRowV4[] = st.plan.rows.filter((r) => r.actual !== null);
+  return { state: st, rows, adjustments };
+}
+
+/**
+ * C59 (PRD v5.2-A R69, K62): the app's FINAL numbers against the FS, from August 2026 (O27) and only once an FS has been
+ * imported for the month and Finance has agreed the map: the FS comes after the close in the first run (B-R91), so no
+ * import (or a map still in draft) is not a rejection.
+ * [] = not judged. A GAGAL holds the FINAL lock unless Finance records an override of C59 (policy B-R86).
+ */
+async function finalC59(sb: Supa, first: string, rows: PlRowV4[], adjustments: { pl_line: string; amount: string }[]): Promise<ControlV3[]> {
+  if (!inFsReconScope(first)) return [];
+  const r = await loadFsRecon(sb, first, { plLines: plLineAmounts(rows, adjustments), appSource: "berjalan", today: jakartaToday() });
+  return r && fsReconJudged(r) ? [r.result.c59] : [];
+}
+
+/** The controls a FINAL lock needs: the §7.1 list, and C59 when it was judged (R69). The page and the lock read the same list. */
+export const finalMandatory = (controls: { code: string }[]): string[] => [...monthMandatory("FINAL"), ...(controls.some((c) => c.code === "C59") ? ["C59"] : [])];
+
+async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
+  const { state: st, rows, adjustments } = await finalRows(sb, first, settings);
+  const controls = worstByCode([...await finalControlsV4(sb, st, settings), ...await finalC59(sb, first, rows, adjustments)]);
+  return { state: st, controls, adjustments, totals: finalTotalsV4({ rows, adjustments, mode: st.costingMode }) };
+}
+
+/**
+ * The Rekonsiliasi page (R69): the app's month against the FS. The locked FINAL when there is one (its snapshot is the
+ * reference), else the journal of the month so far. null = before August 2026.
+ */
+export async function loadRekonsiliasi(sb: Supa, first: string, settings: ModuleSettings): Promise<FsReconModel | null> {
+  if (!inFsReconScope(first)) return null;
+  const today = jakartaToday();
+  const fin = await loadFinalSnapshotPl(sb, first);
+  if (fin) return loadFsRecon(sb, first, { plLines: fin, appSource: "FINAL", today });
+  const { rows, adjustments } = await finalRows(sb, first, settings);
+  return loadFsRecon(sb, first, { plLines: plLineAmounts(rows, adjustments), appSource: "berjalan", today });
 }
 
 /**
@@ -84,14 +121,16 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   if (today <= last) throw new WriteError(`FINAL dikunci setelah akhir bulan (${last})`);
   const p = await finalPreview(sb, first, settings);
   const ov = mustRows<Row>(await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:FINAL`).is("deleted_at", null), "release_override");
-  const verdict = releaseVerdict({ controls: p.controls.map((c) => ({ code: c.code, status: c.status })), mandatory: monthMandatory("FINAL"), overrides: ((ov ?? []) as { code: string }[]).map((r) => r.code), strict: true });
+  const verdict = releaseVerdict({ controls: p.controls.map((c) => ({ code: c.code, status: c.status })), mandatory: finalMandatory(p.controls), overrides: ((ov ?? []) as { code: string }[]).map((r) => r.code), strict: true });
   if (!verdict.ok) throw new WriteError(`FINAL ditolak: ${verdict.rejections.map((r) => `${r.code} ${r.status}`).join("; ")}`);
   const st = p.state;
   const rows = st.plan.rows.filter((r) => r.actual !== null);
   const t = p.totals;
   const snapshot = {
     month: first, version: "FINAL", rule_version: RULE_VERSION, cut_off: last, time_zone: "Asia/Jakarta",
-    days: versionDaysV4(rows, first, last), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    days: versionDaysV4(rows, first, last, st.costingMode), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    // R66 (K63): the definition of the journal columns of this FINAL (C59 compares it with the FS), only when it is not the v5 default
+    ...(st.costingMode === "memo" ? { costing_rows_mode: st.costingMode } : {}),
     controls: p.controls.map((c) => ({ code: c.code, status: c.status })),
     totals: Object.fromEntries(Object.entries(t.after).map(([k, v]) => [k, f2(v)])),
     totals_before_adjustments: Object.fromEntries(Object.entries(t.before).map(([k, v]) => [k, f2(v)])),
@@ -109,7 +148,7 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const mo = await ensureOutlook(sb, first);
   const v1 = must(await sb.from("month_outlook_version").select("revenue, gp").eq("month_outlook_id", String(mo.id)).eq("version", "V1").maybeSingle(), "month_outlook_version") as Row | null;
   const v1r = v1 as Row | null;
-  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: D(String(v1r.gp ?? 0)).minus(t.after.gp).toFixed(2) } : null });
+  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: v1r.gp === null || v1r.gp === undefined ? null : D(String(v1r.gp)).minus(t.after.gp).toFixed(2) } : null });
   const next = await ensureOutlook(sb, addDays(last, 1));
   const have = mustRows<Row>(await sb.from("assumption_register").select("code").eq("month_outlook_id", String(next.id)).eq("source", "kalibrasi").neq("status", "superseded").is("deleted_at", null), "assumption_register");
   const fresh = cal.filter((r) => !have.some((h) => String(h.code) === r.code));
@@ -124,6 +163,11 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
 // ------------------------------------------------------------------------------------------------ accuracy mart (P13)
 
 let builtAcc = new Set<string>();
+
+/** A total over days is shown only when every day has the value: one unknown day makes it unknown, never a smaller number (R64). */
+export function dailyTotal(rs: Row[], k: string): string | null {
+  return rs.length && rs.every((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k]))), D(0)).toFixed(2) : null;
+}
 
 /** forecast_accuracy_daily of a month that has FINAL: every V1 / V2 forecast day against the FINAL day. */
 async function buildAccuracy(sb: Supa, first: string): Promise<string> {
@@ -168,7 +212,7 @@ export interface CloseViewV4 {
   hasFinal: boolean;
   preview: { controls: { code: string; name: string; status: string; detail: string[] }[]; before: Record<string, string>; adjustments: Record<string, string>; after: Record<string, string> } | null;
   accuracy: AccuracyLineV4[];
-  daily: { version: string; kind: string; days: number; diff: string; diffKg: string | null; diffPrice: string | null }[];
+  daily: { version: string; kind: string; days: number; diff: string | null; diffKg: string | null; diffPrice: string | null }[];
   calibration: { id: string; code: string; name: string; value: string | null; status: string }[];
   /** DI-01 from the ledger: DOs of the previous month invoiced in this month, and DOs of this month invoiced later. */
   unbilled: { month: string; dos: number; kg: string; cogsRevenue: string; cogsInvoice: string; revaluation: string }[];
@@ -212,15 +256,15 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const posted = adjustments.filter((a) => a.posted === true);
     const sumAdj = (pred: (l: string) => boolean) => posted.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0)).toFixed(2);
     accuracy = accuracyV4({
-      final: { revenue: fin.revenue ?? "0", gp: fin.gp ?? "0", nibt: fin.nibt ?? "0" },
+      final: { revenue: fin.revenue, gp: fin.gp, nibt: fin.nibt },
       adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
-      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue ?? "0", gp: v.gp ?? "0", nibt: v.nibt ?? "0" })),
+      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt })),
     });
     const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
     for (const r of rows) { const k = `${String(r.version)}|${String(r.day_kind)}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
-    const tot = (rs: Row[], k: string) => rs.some((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0)).toFixed(2) : null;
-    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff") ?? "0", diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
+    const tot = dailyTotal;
+    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff"), diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
   }
   const nextMo = must(await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle(), "month_outlook") as Row | null;
   const cal = nextMo?.id ? mustRows<Row>(await sb.from("assumption_register").select("id, code, name, value_num, status").eq("month_outlook_id", String(nextMo.id)).eq("source", "kalibrasi").is("deleted_at", null).order("code"), "assumption_register") : [];

@@ -58,7 +58,7 @@ registerV3Kind({
       seen.push({ account, start, end, line: r.rowNo });
       const code = `T83|${account}|${start}`;
       const cur = existing.get(code);
-      const same = cur && D(String(cur.amount_per_month ?? 0)).eq(amount) && s(cur.end_date) === end && String(cur.day_basis) === basis;
+      const same = cur && cur.amount_per_month !== null && cur.amount_per_month !== undefined && D(String(cur.amount_per_month)).eq(amount) && s(cur.end_date) === end && String(cur.day_basis) === basis;
       if (!cur) inserts += 1; else if (same) unchanged += 1; else updates += 1;
       rows.push({
         target: "fixed",

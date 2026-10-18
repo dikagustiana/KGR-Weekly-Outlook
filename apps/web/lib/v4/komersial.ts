@@ -47,11 +47,15 @@ export interface KomersialModel { title: string; tiles: TileModel[]; actions: Ko
 const MISSING = "belum diisi";
 const rpkg = (v: string | null) => (v === null ? MISSING : num(v, 0));
 const kg = (v: string | null) => (v === null ? "" : num(v, 0));
+const sumJt = (t: ReturnType<typeof D> | null) => (t === null ? null : jtV4(t));
+const sumKg = (t: ReturnType<typeof D> | null) => (t === null ? MISSING : num(t, 0));
 const urgent = (r: CommercialViewRow) => r.urgency === "jual_hari_ini" || r.urgency === "di_atas_umur";
 
 export function komersialModel(x: KomersialInput): KomersialModel {
   const rows = x.rows;
-  const sum = (f: (r: CommercialViewRow) => string | null) => rows.reduce((a, r) => a.plus(D(f(r) ?? 0)), D(0));
+  // a total over SKUs is known only when every SKU has the value (after B5 the cost columns are null for Sales without sales_sees_cost): one blank makes it
+  // "tidak tersedia", never a smaller number or "0 jt" (R64)
+  const sum = (f: (r: CommercialViewRow) => string | null) => rows.every((r) => f(r) !== null) ? rows.reduce((a, r) => a.plus(D(f(r)!)), D(0)) : null;
   const hot = rows.filter(urgent);
   const pending = x.approvals.filter((a) => a.status === "pending");
   const tiles: TileModel[] = [];
@@ -66,14 +70,14 @@ export function komersialModel(x: KomersialInput): KomersialModel {
   });
   tiles.push({
     id: "c-risiko", pos: { x: 3, y: 0, w: 3, h: 2 }, title: "Risiko turun ke frozen", kind: "card",
-    content: { type: "card", value: x.date ? jtV4(sum((r) => r.downgrade_risk_rp)) : null, unit: "Rp jt", missing: "belum dibangun", compare: [
-      { label: "rugi simpan per hari", value: `${jtV4(sum((r) => r.holding_loss_per_day), 2)} jt` },
+    content: { type: "card", value: x.date ? sumJt(sum((r) => r.downgrade_risk_rp)) : null, unit: "Rp jt", missing: x.date ? "tidak tersedia" : "belum dibangun", compare: [
+      { label: "rugi simpan per hari", value: (() => { const t = sum((r) => r.holding_loss_per_day); return t === null ? "tidak tersedia" : `${jtV4(t, 2)} jt`; })() },
     ] },
   });
   tiles.push({
     id: "c-bebas", pos: { x: 6, y: 0, w: 3, h: 2 }, title: "SKU dengan stok bebas", kind: "card",
     content: { type: "card", value: x.date ? String(rows.length) : null, missing: "belum dibangun", compare: [
-      { label: "fresh kg", value: num(sum((r) => r.free_fresh_kg), 0) }, { label: "frozen kg", value: num(sum((r) => r.free_frozen_kg), 0) },
+      { label: "fresh kg", value: sumKg(sum((r) => r.free_fresh_kg)) }, { label: "frozen kg", value: sumKg(sum((r) => r.free_frozen_kg)) },
     ] },
   });
   tiles.push({

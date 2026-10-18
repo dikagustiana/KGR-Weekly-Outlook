@@ -2,6 +2,54 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a3] Biaya final hanya dari alokasi, beban tetap per bulan, missing ≠ 0 (docs/PRD-v5.2-A-kode.md irisan A3, R59–R67; docs/v5.2/a3.md)
+
+### Added
+- Lint `missing` (`scripts/lint.py missing`, replaces `scripts/lint-missing.sh`): no `?? 0` / `?? "0"` / `|| 0` / `|| "0"` in `apps/web/lib` and `apps/web/app`, no whitelist, a line opts out only with `// missing-ok: <reason>`; fixtures `scripts/lint-fixtures/missing/{bad,good}`, cases in `scripts/test-lint.sh`, a step in the CI job `lint`.
+- Costing rows mode (R66, K63): `app_setting` `v5_pl.costing_rows_mode` (`'cogs'` default, `'memo'`): in `memo` "Selisih costing" and "Biaya kapasitas idle" are neither COGS nor opex, the journal columns hold journal lines only and a memo block (with NIBT manajemen) sits below the journal NIBT. Admin → Modul has an input for it and keeps the fields it does not manage.
+- Forecast cost (R67): `forecastPlanCost`, `blendClassCosts` (engine), `forecastCostsOf` / `applyForecastCosts` (web): the forecast order lines are costed at the plan cost of their date (the decided LB price), MA with a label as the fallback. Golden `fixtures/pl-v5-lbprice` (LB +Rp 1.000/kg → forecast GP −3.474.990,60).
+- 12-month cash on NIBT after fixed costs plus the non-cash costs inside it, with the reconciliation on the tile (R65).
+- Tests: engine `pl-v5-memo`, `pl-v5-lbprice`, `pl-v5-noncash`; web `costing-k59`, `ledger-k59`, `ledger-r64`, `pl-memo`, `forecast-cost`, `cash-r65`, `admin-setflag`, `r64-missing`.
+
+### Changed
+- A batch cost is final only when its allocation is posted AND every line is priced (K59); a tied invoice alone is `sementara` and the upload names the next step. A price of 0 is no price. Posting is refused naming batch and SKUs; the override is Admin only until B-R85 (Finance: RPC `post_allocation_override`).
+- A missing yield, tariff or maklon is "belum diisi" (C54 PERIKSA, C42 BELUM DIISI), never a cost of Rp 0; the LB decision and yield are those of the batch's class (STD fallback labelled).
+- Fixed costs: a schedule that ended falls back to the last FINAL, a line that has not started is absent (R59).
+- Missing is not 0 across the pages and builders of the PRD list (R64): totals over rows are unknown when one row is blank, accuracy/over-age/last-week/cash plan columns are null with a text, commitments name both kg, run-rate lines without a monthly amount are not written.
+- `scorecard.rp_downgrade` and `priceFloor` return null when their input is missing; `calibrationV4` skips the GP bias of a V1 without GP.
+- `docs/open-questions.md` M2: the 88,2% (30/34) exception is written and the `todo` test is a regression test (O13).
+
+## [v5.2-a2] Putaran Commercial → PPIC → batch tanpa jalan buntu (docs/PRD-v5.2-A-kode.md irisan A2, R48–R58; docs/v5.2/a2.md)
+
+### Added
+- One copy gate (K58): `copyGate` / `copyPlanToBatches` in `lib/v5/copy-plan.ts` — C42/C45/C46/C47, C57 per cut date × class, C58 (only when `v5_ppic_class` is on for the caller, or with a written reason of this plan version), the downgrade approval; both copy actions and both Rencana pages go through it.
+- Batches are written from the saved `plan_week_class` of the plan version (kg LB and heads per class, class yield with the STD fallback labelled); engine `splitClassPlan`.
+- Tile `t-approval` and `rencanaV5Extras`: Finance / admin approve a plan with a downgrade above the limit on the v5 screen.
+- `refreshTasks`: commitments saved or locked, a surplus answered and a WP uploaded queue the due dates of their tasks (`dueDatesFor`) and the queue is processed inline.
+- Engine: `weightedOpenKg`, `forecastLinesByDate`, `effectiveForecasts` (K2), `lbDecisionFor`, `c57` per class, `assignmentCovers` / `inAssignmentScope` (O21(b)), `UploadContext.assignments`, `UploadBatch.output`.
+- Tests: engine `a2-loop`; web `ppic-loop`, `copy-gate`, `rencana-extras`, `commercial-actions`, `upload-loop`, `lb-decision`; in-memory Supabase client `test-support/mem-sb.ts`; PostgREST 12.2.3 evidence for R55 (`docs/v5.2/bukti/a2-r55-postgrest.*`).
+
+### Changed
+- Class demand = open kg (kg − fulfilled − cancelled, never below 0) × status weight, forecasts as STD lines per date, stock netting after the weighting (R49); a Tentative 100 kg line is 70 kg, a Confirmed 100 kg with 60 kg delivered is 40 kg. Golden B.3 unchanged.
+- C58 judges STD as a class of its own and says "n kg tanpa kelas" (kg, not rows) (R50).
+- Commitments are saved as one request (`upsert … onConflict: "id"`), only the rows that changed; a locked row left alone makes no new version (R55).
+- The surplus answer carries the SKU of the surplus row and is checked against the plan's surplus list (R56).
+- A Sales PO upload replaces or retires only lines inside one assignment row — customer and key together (R58, O21(b)).
+- Steps after a saved upload (update date, queue) no longer leave the upload `staged` when they fail.
+- **Golden `fixtures/upload-samples/expected.json` (costing_wp, `wp_sample.xlsx`, batch B260826) changed — C22 is judged on the output that will be saved** (PRD A R58: "C22 dihitung atas output yang akan disimpan (baris lolos + output lama yang dipertahankan)"), per row:
+  - X-HATI 401,2 kg and KPL-01 338,0 kg are rows held for an unknown code (level `fail`, unchanged); they were counted in Σ SKU, they are not any more. The other six rows (612,4 · 2.081,0 · 1.108,7 · 1.710,0 · 213,9 · 317,6) count as before.
+  - C22 detail: `6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%)` → `6.043,6 vs 7.286,6 kg (LB − susut 3%), selisih 17,1% (batas 2%)`
+  - fingerprint `v1:1608d6f7fec05514143f37752ffc` → `v1:109f236b1e87d90966ef14a2667f`
+  - unchanged: `total` 8, `ok_count` 6, `ok_lines`, all `rows`, `needsReason` `["B260826"]`, the other checks (yield karkas 73,4%), `summary`; po_lines and yield_matrix unchanged.
+
+### Fixed
+- A locked commitment above the PO crashed the Rencana v5 page and the class demand builder (a synthetic id went into a UUID query).
+- "Salin ke batch rencana" of the v4 screen skipped C57/C58 and the downgrade approval; the batches were cut from the STD plan days, not the saved class plan.
+- A downgrade approval could not be given on the v5 screen (the form sat on a tile that did not exist).
+- Lock, surplus answer and WP did not refresh their grid cell; the commitment form wrote a new version for every locked SKU, one request at a time.
+- Karkas `Frozen` was counted as live-bird need (the form was compared in lower case).
+- C22 counted rows that were rejected (70 + 27 = 97 passed while 70 was saved).
+
 ## [v5.1-4] Flag per role, C57/C58 PPIC, upload 0.xxx dan O15, UI §5.1/§6.5/K20 (docs/PRD-v5.1.md irisan 4)
 
 ### Added

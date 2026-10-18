@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { moduleSettingsOf } from "@/lib/modules";
+import { moduleSettingsOf } from "@/lib/modules-read";
 import { processRebuildQueue } from "@/lib/rebuild";
 import { supabaseService } from "@/lib/supabase-service";
 import { wallNow } from "@/lib/clock";
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if (!svc) return NextResponse.json({ error: "server belum punya SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
   try {
     const settings = await moduleSettingsOf(svc);
-    const drained = await processRebuildQueue(settings, { limit: 30, budgetMs: 50_000 });
+    const drained = await processRebuildQueue(settings, { limit: 30, budgetMs: 50_000, client: svc });
     const tasks = settings.v5_input?.enabled ? await buildInputDay(svc, wallNow().date) : null;
     return NextResponse.json({ drained, tasks, at: wallNow().now });
   } catch (e) {

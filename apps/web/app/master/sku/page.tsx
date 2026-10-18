@@ -30,7 +30,7 @@ export default async function SkuMaster({ searchParams }: { searchParams: Promis
           </form>
         </Card>
       ) : null}
-      <Card title={`Key analisa (${data?.length ?? 0})`}>
+      <Card title={`Key analisa (${data.length})`}>
         <table className="t compact">
           <thead><tr><th>Key</th><th>Segmen</th><th>SKU</th><th>Bentuk</th><th>Kelompok keputusan</th><th>Aktif</th></tr></thead>
           <tbody>{data.map((k) => <tr key={k.key}><td>{k.key}</td><td>{k.segment}</td><td>{k.sku}</td><td>{k.form}</td><td>{k.decision_group}</td><td>{k.active ? "ya" : "tidak"}</td></tr>)}</tbody>

@@ -1,6 +1,7 @@
 /** PRD v5.1 R7 (K49): a PO upload (input-save po_lines) replaces only the lines of the POs and customers in the file. */
 import { describe, expect, it } from "vitest";
 import { poLinesInScope } from "./po-lines";
+import { tieNote } from "./input-save";
 
 const db = [
   { id: "a1", po_ref: "PO-1", customer: "PT A", line_key: "PO-1|JLB0593|1" },
@@ -26,5 +27,13 @@ describe("existing PO lines in the scope of an upload", () => {
   it("a file of every customer of PO-1 covers all of them", () => {
     const file = [{ po_ref: "PO-1", customer: "PT A" }, { po_ref: "PO-1", customer: "PT B" }];
     expect(poLinesInScope(db, file, "all").map((e) => e.id)).toEqual(["a1", "a2", "b1"]);
+  });
+});
+
+describe("R60: a tied invoice names the next step, it does not make the cost final", () => {
+  it("tied batches (once each) are 'belum final' with the step Posting alokasi; untied rows stay sementara; nothing tied says nothing more", () => {
+    expect(tieNote(["126/PO/KGR/08/2026", "126/PO/KGR/08/2026", "127/PO/KGR/08/2026"], 4)).toBe(
+      "3 faktur tie ke GL; 1 masih sementara. Biaya batch 126/PO/KGR/08/2026, 127/PO/KGR/08/2026 belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara.");
+    expect(tieNote([], 2)).toBe("0 faktur tie ke GL; 2 masih sementara.");
   });
 });

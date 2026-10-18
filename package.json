@@ -15,9 +15,12 @@
     "build": "pnpm --filter @kgr/web build",
     "parity": "tsx packages/engine/scripts/parity.ts",
     "snapshot:diff": "tsx packages/engine/scripts/snapshot-diff.ts",
-    "test:rls": "bash scripts/test-rls.sh"
+    "test:rls": "bash scripts/test-rls.sh",
+    "e2e": "bash tests/e2e/run.sh",
+    "e2e:build": "bash tests/e2e/stack/build.sh"
   },
   "devDependencies": {
+    "playwright": "1.56.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3"
   }

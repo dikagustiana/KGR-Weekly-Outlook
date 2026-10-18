@@ -10,7 +10,7 @@
 import { D, Decimal, ZERO, div, max, sum, type Num } from "./decimal";
 import { addDays, daysInMonth, diffDays, firstOfMonth, type ISODate } from "./dates";
 import type { ControlV3 } from "./controls-v3";
-import { gpPctMtd, isCogsLine, isRevenueLine, monthEnd, runrateRevenue, v1LockDate, type ForecastOrder, type RunRate } from "./monthly";
+import { gpPctMtd, isCogsLine, isOpexLine, isRevenueLine, monthEnd, runrateRevenue, v1LockDate, type CostingRowsMode, type ForecastOrder, type RunRate } from "./monthly";
 import { segmentOfLine, type PlRowV4, type PlSegment } from "./week-outlook";
 
 const SEGMENTS3: Exclude<PlSegment, "Umum">[] = ["LB main", "LB by-product", "Trading"];
@@ -21,10 +21,11 @@ const COGS_LINE: Record<Exclude<PlSegment, "Umum">, string> = { "LB main": "COGS
 
 export interface PlTotalsV4 { revenue: Decimal; cogs: Decimal; gp: Decimal; opex: Decimal; nibt: Decimal }
 
-export function totalsV4(rows: PlRowV4[], v: "actual" | "forecast", basis?: (b: PlRowV4["basis"]) => boolean): PlTotalsV4 {
+export function totalsV4(rows: PlRowV4[], v: "actual" | "forecast", basis?: (b: PlRowV4["basis"]) => boolean, mode: CostingRowsMode = "cogs"): PlTotalsV4 {
   // v5 fixed-cost estimate rows are not journal: never inside the v4 totals (plTotalsV5 adds them, K29)
   const f = (p: (l: string) => boolean) => sum(rows.filter((r) => p(r.pl_line) && r.basis !== "fixed_estimate" && (!basis || basis(r.basis))).map((r) => r[v] ?? ZERO));
-  const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
+  // R66 (K63): in mode 'memo' the two v5 costing rows are in no total (COGS, opex, GP, NIBT)
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => isOpexLine(l, mode));
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt: revenue.plus(cogs).plus(opex) };
 }
 
@@ -277,8 +278,8 @@ export interface MonthSummaryV4 {
 }
 
 /** Everything the page shows from the month's rows (P5, P7): actual to the cut-off + forecast, range on the forecast part only. */
-export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, isWorkingDay: (d: ISODate) => boolean = (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0): MonthSummaryV4 {
-  const actual = totalsV4(rows, "actual"), forecast = totalsV4(rows, "forecast");
+export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, isWorkingDay: (d: ISODate) => boolean = (d) => new Date(`${d}T00:00:00Z`).getUTCDay() !== 0, mode: CostingRowsMode = "cogs"): MonthSummaryV4 {
+  const actual = totalsV4(rows, "actual", undefined, mode), forecast = totalsV4(rows, "forecast", undefined, mode);
   const outlook = addT(actual, forecast);
   const tol = D(tolerance);
   const fRev = rows.filter((r) => r.forecast !== null && isRevenueLine(r.pl_line));
@@ -300,7 +301,7 @@ export function monthSummaryV4(rows: PlRowV4[], month: ISODate, tolerance: Num, 
     },
     lastActual, remainingDays: remaining.length, remainingWorkingDays: remaining.filter((d) => isWorkingDay(d)).length,
     bySegment: segs.map((segment) => {
-      const t = addT(totalsV4(rows.filter((r) => r.segment === segment), "actual"), totalsV4(rows.filter((r) => r.segment === segment), "forecast"));
+      const t = addT(totalsV4(rows.filter((r) => r.segment === segment), "actual", undefined, mode), totalsV4(rows.filter((r) => r.segment === segment), "forecast", undefined, mode));
       return { segment, revenue: t.revenue, gp: t.gp };
     }),
   };
@@ -448,7 +449,7 @@ export interface BridgeMetric { from: Decimal; to: Decimal; dActual: Decimal; dV
 export interface BridgeV4 { revenue: BridgeMetric; gp: BridgeMetric; nibt: BridgeMetric }
 
 /** Version days of the month from the rows (what a locked version stores as its snapshot). */
-export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate): VersionDayV4[] {
+export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate, mode: CostingRowsMode = "cogs"): VersionDayV4[] {
   const end = monthEnd(month);
   const out: VersionDayV4[] = [];
   for (let d = firstOfMonth(month); d <= end; d = addDays(d, 1)) {
@@ -460,7 +461,7 @@ export function versionDaysV4(rows: PlRowV4[], month: ISODate, cutOff: ISODate):
     const revRows = rs.filter((r) => isRevenueLine(r.pl_line) && r.forecast !== null);
     const kind: VersionDayV4["kind"] = hasActual ? "actual" : revRows.some((r) => r.basis === "po") ? "po" : revRows.some((r) => r.basis === "runrate") ? "runrate" : "none";
     out.push({
-      date: d, kind, revenue: t(isRevenueLine).toFixed(2), cogs: t(isCogsLine).toFixed(2), opex: t((l) => !isRevenueLine(l) && !isCogsLine(l)).toFixed(2),
+      date: d, kind, revenue: t(isRevenueLine).toFixed(2), cogs: t((l) => isCogsLine(l, mode)).toFixed(2), opex: t((l) => isOpexLine(l, mode)).toFixed(2),
       kg: kind === "po" ? sum(revRows.map((r) => r.kg ?? ZERO)).toFixed(2) : null,
     });
   }
@@ -517,36 +518,42 @@ export interface AccuracyLineV4 {
   version: string;
   metric: "revenue" | "gp" | "nibt";
   value: Decimal;
-  final: Decimal;
-  bias: Decimal;
-  absError: Decimal;
+  /** null when the FINAL does not carry the metric (never 0). */
+  final: Decimal | null;
+  bias: Decimal | null;
+  absError: Decimal | null;
   /** |error| / FINAL; null when FINAL is 0 ("N/A"). Only revenue gets a MAPE (P13); GP and NIBT keep abs error and bias. */
   mape: Decimal | null;
   /** (FINAL − version) / version, the "+8,4%" of the PRD example; null when the version is 0. */
   pctOfVersion: Decimal | null;
   /** |error| as a share of the version's forecast part (the "+49%"); null without forecast part. */
   shareOfForecast: Decimal | null;
-  biasPre: Decimal;
-  absErrorPre: Decimal;
+  biasPre: Decimal | null;
+  absErrorPre: Decimal | null;
 }
 
 /** P13: each version against FINAL, before and after the closing adjustments. */
 export function accuracyV4(x: {
-  final: Record<"revenue" | "gp" | "nibt", Num>;
+  final: Record<"revenue" | "gp" | "nibt", Num | null>;
   adjustments: Record<"revenue" | "gp" | "nibt", Num>;
-  versions: { version: string; revenue: Num; gp: Num; nibt: Num; forecastPart?: Partial<Record<"revenue" | "gp" | "nibt", Num>> }[];
+  versions: { version: string; revenue: Num | null; gp: Num | null; nibt: Num | null; forecastPart?: Partial<Record<"revenue" | "gp" | "nibt", Num>> }[];
 }): AccuracyLineV4[] {
   const out: AccuracyLineV4[] = [];
   for (const v of x.versions) for (const m of ["revenue", "gp", "nibt"] as const) {
-    const fin = D(x.final[m]), pre = fin.minus(D(x.adjustments[m] ?? 0)), val = D(v[m]);
-    const err = val.minus(fin);
+    // R64: a metric the version did not carry is left out, never shown as 0
+    const valRaw = v[m], finRaw = x.final[m];
+    if (valRaw === null || valRaw === undefined || valRaw === "") continue;
+    const val = D(valRaw);
+    const fin = finRaw === null || finRaw === undefined || finRaw === "" ? null : D(finRaw);
+    const pre = fin === null ? null : fin.minus(D(x.adjustments[m] ?? 0));
+    const err = fin === null ? null : val.minus(fin);
     const fp = v.forecastPart?.[m];
     out.push({
-      version: v.version, metric: m, value: val, final: fin, bias: err, absError: err.abs(),
-      mape: m === "revenue" && !fin.isZero() ? err.abs().div(fin.abs()) : null,
-      pctOfVersion: val.isZero() ? null : fin.minus(val).div(val.abs()),
-      shareOfForecast: fp === undefined || D(fp).isZero() ? null : err.abs().div(D(fp).abs()),
-      biasPre: val.minus(pre), absErrorPre: val.minus(pre).abs(),
+      version: v.version, metric: m, value: val, final: fin, bias: err, absError: err === null ? null : err.abs(),
+      mape: m === "revenue" && fin !== null && !fin.isZero() ? err!.abs().div(fin.abs()) : null,
+      pctOfVersion: fin === null || val.isZero() ? null : fin.minus(val).div(val.abs()),
+      shareOfForecast: fp === undefined || D(fp).isZero() || err === null ? null : err.abs().div(D(fp).abs()),
+      biasPre: pre === null ? null : val.minus(pre), absErrorPre: pre === null ? null : val.minus(pre).abs(),
     });
   }
   return out;

@@ -11,7 +11,7 @@ import {
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
 import { fetchAll, fetchAllOrMissing, listWeeks, type WeekRow } from "../data";
-import { must, mustRows } from "../loader";
+import { must, mustRows, needParameter } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -45,6 +45,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   // v5 K20–K23: an RPA batch without a posted allocation takes the planCost of its status (estimasi / sementara)
   const v5 = (await v5CostingOn(sb)) ? await v5LedgerCosts(sb, first.week_start, latest.update_date, latest.id) : null;
   const v5Cost = new Map(v5 ? v5.batches.map((b) => [b.batch_ref, b.costByKey]) : []);
+  // K59 / R61: a batch whose posted allocation has an unpriced SKU is not final; its lots keep the v5 cost (sementara)
+  const notFinal = new Set(v5 ? v5.batches.filter((b) => b.posted && !b.m1Final).map((b) => b.batch_ref) : []);
   const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
       .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").order("id").range(a, b)),
@@ -72,7 +74,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
       si.set(k, { kg: a.kg.plus(D(s(l.kg))), cost: a.cost.plus(D(s(l.allocated_cost))) });
     }
   }
-  const p = (must(param, "ledger.parameter") ?? {}) as Row;
+  const p = needParameter(must(param, "ledger.parameter"), "ledger.parameter") as Row;
   const isLatest = (wid: unknown) => wid === latest.id;
   const keyInfo: LedgerKeyInfo[] = keys.map((k) => ({
     key: String(k.key), form: String(k.key).endsWith("|Fresh") ? "fresh" : "frozen", group_code: s(k.group_code),
@@ -88,7 +90,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     // plans and orders only from the latest week (older weeks' undelivered plans are history, not stock)
     receipts: receipts.filter((r) => r.status === "Aktual" || isLatest(r.week_id)).map((r) => {
       const key = keyOf(s(r.key_manual), s(r.item_code));
-      const c = r.receipt_source === "Produksi RPA" ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
+      const c = r.receipt_source === "Produksi RPA" && !notFinal.has(s(r.document_ref) ?? "") ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
       const v = !c && v5 && r.receipt_source === "Produksi RPA" ? costOfKey(v5Cost.get(s(r.document_ref) ?? "") ?? new Map(), key) : undefined;
       return {
         ref: String(r.id), date: s(r.date), status: s(r.status), source: s(r.receipt_source), item_code: s(r.item_code), key, kg: s(r.kg),
@@ -103,7 +105,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     })),
     keys: keyInfo,
     params: {
-      blastCostPerKg: s(p.blast_cost_per_kg) ?? "0",
+      blastCostPerKg: String(p.blast_cost_per_kg),
       defaultFreshWindowHours: Number(p.fresh_window_hours_default ?? 48), defaultFrozenAgeLimitDays: Number(p.frozen_age_limit_days_default ?? 30),
     },
   };
@@ -116,7 +118,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   for (const w of weeks.filter((x) => x.week_start > first.week_start)) {
     const rows = opening.filter((o) => o.week_id === w.id);
     const d = addDays(w.week_start, -1);
-    if (rows.length && !cards.has(d)) cards.set(d, rows.map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: s(o.kg) ?? "0", value: s(o.value) })));
+    // an opening row without kg has no balance to compare: left out of the card, not a balance of 0
+    if (rows.length && !cards.has(d)) cards.set(d, rows.filter((o) => s(o.kg) !== null).map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: String(o.kg), value: s(o.value) })));
   }
   return { inputs, weeks, latest, cards, v5 };
 }
@@ -321,7 +324,8 @@ export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: st
   const fixes = await fetchAll<Row>((a, b) => sb.from("data_fix").select("week_id, amount, status").eq("fix_id", "D3").eq("scope", "opening_vs_bs").order("id").range(a, b));
   const firstWeek = src.weeks.find((w) => w.week_start === src.inputs.startDate);
   const d3First = fixes.find((x) => x.week_id === firstWeek?.id && x.amount !== null);
-  const openingValue = src.inputs.opening.reduce((acc, o) => acc.plus(D(o.value ?? 0)), D(0));
+  // the opening stock value is known only when every opening row carries one (a row without value makes the total unknown, never a smaller number)
+  const openingValue = src.inputs.opening.some((o) => o.value === null || o.value === undefined) ? null : src.inputs.opening.reduce((acc, o) => acc.plus(D(o.value!)), D(0));
   const openGap = d3First ? D(String(d3First.amount)) : null;
   const reasoned = [
     ...fixes.filter((x) => x.week_id === week.id && x.amount !== null && x.status !== "applied").map((x) => ({ label: "D3 belum dibukukan", amount: String(x.amount), part: "c" as const })),
@@ -329,7 +333,7 @@ export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: st
   ];
   const parts = reconcileSplit({
     ledger: led, balance, hppByRef, stockCard: null, bsInventory: bsYesterday,
-    openingBs: openGap === null ? null : openingValue.minus(openGap).toFixed(2), openingValue: openGap === null ? null : openingValue.toFixed(2), reasoned,
+    openingBs: openGap === null || openingValue === null ? null : openingValue.minus(openGap).toFixed(2), openingValue: openGap === null || openingValue === null ? null : openingValue.toFixed(2), reasoned,
   });
   if (cardDate) {
     const a = reconcileSplit({ ledger: led, balance: balanceAt(led, cardDate, src.inputs.keys, src.inputs.params), hppByRef, stockCard: src.cards.get(cardDate)!, bsInventory: null, openingBs: null, openingValue: null, reasoned: [] }).find((x) => x.part === "a")!;

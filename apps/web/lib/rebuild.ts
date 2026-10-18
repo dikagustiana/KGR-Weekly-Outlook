@@ -5,6 +5,9 @@ import "server-only";
  * day twice writes nothing the second time. No external cron — the queue is processed after uploads and by the
  * "Bangun ulang" button on /admin/modul. The run uses the server's service-role client (PRD v4 S1): the caller has
  * already checked the user's role; the builders read the inputs from the database, never rows sent by the browser.
+ * Q-v5.2-51 (A1d): every builder reads and writes with the client the caller gives — the service client in the cron and
+ * in the app's rebuild — and never opens a session client of its own (`supabaseServer`), so the same date gives the
+ * same mart whoever starts the run (lib/rebuild-client.test.ts).
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
@@ -95,10 +98,12 @@ export const REBUILD_INLINE_MAX = 7;
  * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
  * Without the server key the queue is left alone too, with a note saying why. K61 (R45): stuck `running` rows are
  * reset, out-of-window dates are marked done, and inline processing is capped; the rest is left for the cron.
+ * `opts.client` is the client the run uses (the cron passes the service client it already holds); without it the
+ * service client is built here. It is never a session client: `mart_replace` is granted to the service role only.
  */
-export async function processRebuildQueue(settings: ModuleSettings, opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: number; failed: number; notes: string[] }> {
+export async function processRebuildQueue(settings: ModuleSettings, opts: { limit?: number; budgetMs?: number; client?: Supa | null } = {}): Promise<{ done: number; failed: number; notes: string[] }> {
   const { limit = REBUILD_INLINE_MAX, budgetMs = 0 } = opts;
-  const svc = supabaseService();
+  const svc = opts.client === undefined ? supabaseService() : opts.client;
   const mode = rebuildMode(settings, svc !== null);
   if (mode === "skip") return { done: 0, failed: 0, notes: [] };
   if (mode === "no_key" || !svc) return { done: 0, failed: 0, notes: [REBUILD_NO_KEY] };

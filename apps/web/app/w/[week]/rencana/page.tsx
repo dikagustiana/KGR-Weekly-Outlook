@@ -48,7 +48,7 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
       <h1>Rencana potong minggu {tgl(ctx.week.week_start)}</h1>
       <p className="muted">Ekor = kebutuhan potong dari <Link href={`/w/${week}/demand`}>Demand</Link> (atau supply LB yang sudah dikonfirmasi bila lebih besar), dibatasi kapasitas potong. Output yang tidak tertampung demand direncanakan frozen; selisih harga fresh − frozen = Rp downgrade. Downgrade di atas <N v={src.threshold} /> per minggu perlu persetujuan. Batch rencana v1 (blok 2) <b>tidak</b> berubah sampai tombol &quot;Salin ke batch rencana&quot; ditekan.</p>
       <div className="kpis">
-        <div className="kpi"><div className="l">Usulan engine: ekor</div><div className="v"><N v={wp.head_count} /></div><div className="l">dibutuhkan <N v={wp.headsNeeded} /> · supply konfirmasi <N v={p.supplyHeads} />{wp.cappedByCapacity ? <> · dibatasi kapasitas, kurang <N v={wp.shortHeads} /></> : null}</div></div>
+        <div className="kpi"><div className="l">Usulan engine: ekor</div><div className="v"><N v={wp.head_count} /></div><div className="l">dibutuhkan <N v={wp.headsNeeded} /> · supply konfirmasi {p.supplyHeads === null ? "belum diisi" : <N v={p.supplyHeads} />}{wp.cappedByCapacity ? <> · dibatasi kapasitas, kurang <N v={wp.shortHeads} /></> : null}</div></div>
         <div className="kpi"><div className="l">Direncanakan frozen</div><div className="v"><N v={wp.frozen_planned_kg} /> kg</div><div className="l">downgrade Rp <N v={wp.rp_downgrade} />{wp.needsApproval ? " — perlu persetujuan" : ""}</div></div>
         <div className="kpi"><div className="l">Kelas berat</div><div className="v">{p.cls?.code ?? "—"}</div><div className="l">rata-rata <N v={p.cls?.avg_kg ?? null} dp={2} /> kg/ekor · {Object.entries(p.proposal.patternMix).map(([k, h]) => `${k} ${h}`).join(", ") || "—"}</div></div>
         <div className="kpi"><div className="l">Rencana tersimpan</div><div className="v">{latest ? `v${latest.version}` : "—"}</div><div className="l">{latest ? <><N v={Number(latest.head_count)} /> ekor{latest.approved_by ? ` · disetujui ${latest.approved_by}` : latest.needs_approval ? " · menunggu persetujuan" : ""}{latest.copied_to_batch_at ? " · sudah disalin ke batch" : ""}</> : "belum ada"}</div></div>
@@ -58,7 +58,7 @@ export default async function RencanaPage({ params, searchParams }: PageProps) {
           <ActionForm action={savePlanAction} submit="Simpan sebagai versi baru" className="row">
             <input type="hidden" name="week" value={week} />
             <label>Kelas berat <select name="weight_class" defaultValue={p.cls?.code ?? ""}>{src.weightClasses.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}</select></label>
-            <label>Supply komitmen (ekor) <input name="supply_heads" placeholder={String(p.supplyHeads)} size={8} /></label>
+            <label>Supply komitmen (ekor) <input name="supply_heads" placeholder={p.supplyHeads === null ? "" : String(p.supplyHeads)} size={8} /></label>
             <label>Catatan <input name="note" size={30} /></label>
           </ActionForm>
         </Card>

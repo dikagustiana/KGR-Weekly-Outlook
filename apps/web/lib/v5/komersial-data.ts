@@ -21,6 +21,8 @@ import { stockMartControl } from "../v3/stale";
 import { loadPlanning } from "../v3/planning";
 import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
+import { surplusKeys } from "./surplus";
+import { loadSurplusForSales } from "./surplus-view";
 import { v5CostingSetting } from "./costing";
 import { isModuleOn } from "../modules-core";
 import type { CommitmentRow, KomersialV5Input } from "./komersial";
@@ -39,7 +41,7 @@ async function storageRate(sb: Supa, date: string) {
   ]);
   if (!gl.length || !inv.length) return null;
   const lines = lineTotals(actualRowsV4({ gl: gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) })), coa: coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line), segment: s(c.segment) })), from: first, to: last }));
-  return holdingRate({ storageExpense: lines["Storage Expenses"] ?? null, inventoryEnd: sum(inv.map((r) => D(s(r.cost_ma) ?? "0"))), days: daysInMonth(first) });
+  return holdingRate({ storageExpense: lines["Storage Expenses"] ?? null, inventoryEnd: inv.some((r) => s(r.cost_ma) === null) ? null : sum(inv.map((r) => D(String(r.cost_ma)))), days: daysInMonth(first) });
 }
 
 const STOCK_TILES = ["headline", "c-stok", "c-hari", "c-bawah", "t-ranking", "t-spot"];
@@ -74,10 +76,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const approvals = fail(failed, ["c-approval"], await tileData("commercial: approval diskon", async () => {
     const r = await sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending");
     if (r.error) throw new LoaderError("discount_approval", r.error.message);
-    return r.count ?? 0;
+    return r.count ?? 0; // missing-ok: jumlah baris dari head count; tanpa baris = 0
   }), 0);
   const all = stockSellRows(view.map((r) => ({
-    key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? "0",
+    key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? null,
     urgency: r.urgency, cost_per_kg: r.cost_per_kg ?? r.cost_per_kg_ma, cost_status: r.cost_status, price_ref: r.price_list, cost_check: r.cost_check,
   })), rate);
   const priceOf = new Map(view.map((r) => [r.key, r.price_list]));
@@ -94,10 +96,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     return { commits, lists, orders, items };
   }), { commits: [] as Row[], lists: [] as Row[], orders: [] as Row[], items: [] as Row[] });
   const keyOf = new Map(cm.items.map((i) => [String(i.item_code), String(i.key)]));
-  const weekKg = kgByBaseKey(cm.orders.map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: s(o.kg) ?? "0" })).filter((o) => o.key.startsWith("RPA|")));
+  const weekKg = kgByBaseKey(cm.orders.filter((o) => s(o.kg) !== null).map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: String(o.kg) })).filter((o) => o.key.startsWith("RPA|")));
   const allowed = (k: string) => assigned === "all" || [...assigned].some((a) => baseKey(a) === k);
   const keys = [...new Set([...weekKg.keys(), ...cm.commits.map((x) => String(x.key))])].filter((k) => k.startsWith("RPA|") && allowed(k))
-    .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0));
+    .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0)); // missing-ok: pengurutan: SKU tanpa kg minggu ini diurutkan terakhir; bukan nilai yang ditampilkan
   const rows: CommitmentRow[] = keys.map((k) => {
     const cc = cm.commits.filter((x) => String(x.key) === k).sort((a, b) => Number(b.version) - Number(a.version))[0];
     const pl = cm.lists.find((l) => String(l.key) === k);
@@ -113,19 +115,25 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
 
   // PPIC: surplus and by-product shortfall of the week (not for Sales: planning detail)
   const ppic: KomersialV5Input["ppic"] = sales || !week ? null : fail(failed, ["t-ppic"], await tileData("commercial: dari PPIC", async () => {
-    const cw = await computeForWeek(week.week_start);
+    const cw = await computeForWeek(sb, week.week_start);
     if (!cw) return null;
     const src = await loadPlanning(sb, week);
     const x = await loadPpicV5(sb, { src, result: cw.result, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(week.week_start, -1)) });
     const latest = src.plans[0];
     const a = latest ? must(await sb.from("surplus_response").select("response, absorb_kg").eq("plan_week_id", String(latest.id)).is("deleted_at", null).order("responded_at", { ascending: false }).limit(1).maybeSingle(), "surplus_response") as Row | null : null;
     return {
-      shipRange: `${Number(x.po.from.slice(8, 10))}–${Number(x.po.to.slice(8, 10))}/${x.po.to.slice(5, 7)}`, surplusKg: x.batch?.surplusKg ?? null, downgrade: x.batch?.downgrade ?? null,
+      shipRange: `${Number(x.po.from.slice(8, 10))}–${Number(x.po.to.slice(8, 10))}/${x.po.to.slice(5, 7)}`, surplusKg: x.batch?.surplusKg ?? null,
+      surplus: surplusKeys(latest?.surplus_kg_by_key as Record<string, unknown> | undefined), downgrade: x.batch?.downgrade ?? null,
       planCostKarkas: x.needCost?.lines.find((l) => l.key === "RPA|Karkas|Fresh")?.costPerKg ?? null, lbPrice: x.lbPrice.price,
       answered: a ? (a.response === "absorb" ? "sanggup serap semua" : a.response === "partial" ? `serap ${s(a.absorb_kg) ?? ""} kg` : "tidak sanggup, kurangi potong") : null,
       byProducts: x.byProducts.map((b) => ({ unit: b.unit, order: b.net_kg, output: b.output_kg, short: b.shortfall_kg })),
     };
   }), null);
+
+  // Q-v5.2-15 (A1c): Sales read the surplus of their own SKUs through the view surplus_for_sales_v52, never the plan or the demand mart
+  const surplusForSales: KomersialV5Input["surplusForSales"] = !sales ? undefined
+    : !week ? null
+      : fail(failed, ["t-ppic"], await tileData("commercial: surplus untuk Sales", () => loadSurplusForSales(sb, week.week_start)), null);
 
   return {
     today, spotToday: today === c.wall, roleLabel: ROLE_LABEL[viewer.role], sales, base: "/komersial", filter, stockDate: st.mart.date,
@@ -134,6 +142,6 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
       weekStart: next, weekEnd: addDays(next, 6), deadline: `${DAYS[new Date(`${dlDate}T00:00:00Z`).getUTCDay()]} ${Number(dlDate.slice(8, 10))}/${dlDate.slice(5, 7)} ${time.replace(":", ".")}`,
       rows, canEdit: ["admin", "sales", "commercial_lead"].includes(viewer.role), canLock: ["admin", "commercial_lead"].includes(viewer.role), priceListLocked: cm.lists.length > 0 && cm.lists.every((l) => l.locked_at),
     },
-    ppic, spot: spotRows(all, frozen), controls, failed,
+    ppic, surplusForSales, spot: spotRows(all, frozen), controls, failed,
   };
 }

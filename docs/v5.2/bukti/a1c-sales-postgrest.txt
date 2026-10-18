@@ -1,0 +1,39 @@
+# v5.2 A1c Q-v5.2-15 — jalur baca Sales terhadap PostgREST v12.2.3 sungguhan (bukan Supabase), PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+# tanggal: 2026-10-18 07:18 UTC · skrip: docs/v5.2/bukti/a1c-sales-postgrest.mts (menjalankan loadSurplusForSales dari kode aplikasi)
+# basis: shim + semua migrasi + seed; B6 = berkas supabase/migrations/20261025000600_v52_sales_plan.sql dari cabang v5.2/b6-sales-plan-read disalin ke DB uji (salinan scratch)
+# data: rencana minggu 2033-08-01 berkunci unit ('Karkas') dan 'RPA|Kepala|Fresh'; jawaban Kepala Sales 'RPA|Karkas'; Sales A (assignment RPA|Karkas), Sales B (RPA|Kepala|Fresh)
+
+## skema 5.2.4-tanpa-B6 (PGRST_URL=http://127.0.0.1:3918 AFTER_B6=0)
+PostgREST http://127.0.0.1:3918, skema 5.2.4 (tanpa B6), minggu 2033-08-01
+OK   Sales membaca plan_week: 1 baris
+OK   Sales membaca demand_weekly: 1 baris
+OK   Sales membaca jejak audit keempat tabel: 4 baris
+OK   Sales tidak membaca plan_week_class dan demand_class_weekly (B2)
+OK   Kepala Sales tetap membaca plan_week dan demand_weekly
+loadSurplusForSales(Sales A) = {"planWeekId":"11111111-1111-4111-8111-111111111111","version":1,"weekStart":"2033-08-01","rows":[{"key":"RPA|Karkas","kg":null,"response":"absorb","absorbKg":"6332","price":"30000"}]}
+OK   loadSurplusForSales: rencana versi 1 dari view
+OK   sebelum B6 view hanya memberi baris jawaban (kg surplus kosong): kode membaca sama, daftar surplus bagi Sales kosong sampai B6
+OK   Sales B (assignment RPA|Kepala|Fresh): satu baris, 55 kg, belum dijawab
+OK   minggu tanpa rencana: null
+OK   Sales A menjawab SKU yang ditugaskan (FK ke plan_week diperiksa pemilik tabel)
+OK   Sales A menjawab SKU Sales B: ditolak (42501) — SKU RPA|Kepala|Fresh tidak ditugaskan kepada Anda
+SEMUA OK
+exit: 0
+
+## skema 5.2.5-dengan-B6 (PGRST_URL=http://127.0.0.1:3919 AFTER_B6=1)
+PostgREST http://127.0.0.1:3919, skema 5.2.5 (dengan B6), minggu 2033-08-01
+OK   Sales membaca plan_week: 0 baris
+OK   Sales membaca demand_weekly: 0 baris
+OK   Sales membaca jejak audit keempat tabel: 0 baris
+OK   Sales tidak membaca plan_week_class dan demand_class_weekly (B2)
+OK   Kepala Sales tetap membaca plan_week dan demand_weekly
+loadSurplusForSales(Sales A) = {"planWeekId":"11111111-1111-4111-8111-111111111111","version":1,"weekStart":"2033-08-01","rows":[{"key":"RPA|Karkas","kg":"6332","response":"absorb","absorbKg":"6332","price":"30000"}]}
+OK   loadSurplusForSales: rencana versi 1 dari view
+OK   RPA|Karkas: surplus 6.332 kg dan jawaban 'absorb' dalam satu baris (kunci unit dinamai SKU)
+OK   Sales B (assignment RPA|Kepala|Fresh): satu baris, 55 kg, belum dijawab
+OK   minggu tanpa rencana: null
+OK   Sales A menjawab SKU yang ditugaskan (FK ke plan_week diperiksa pemilik tabel)
+OK   Sales A menjawab SKU Sales B: ditolak (42501) — SKU RPA|Kepala|Fresh tidak ditugaskan kepada Anda
+OK   sesudah jawaban kedua kunci tetap satu baris
+SEMUA OK
+exit: 0

@@ -7,9 +7,9 @@ import { Badge, Card, N, Td } from "@/components/ui";
 import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { loadCostingWeek, poolSummaries, weekCostingControls } from "@/lib/v3/costing";
+import { loadCostingWeek, poolSummaries, unpricedLines, weekCostingControls } from "@/lib/v3/costing";
 import { tgl } from "@/lib/fmt";
-import { addOverheadRate, allocate, post, setBatchCosting, setPoolGl } from "./actions";
+import { addOverheadRate, allocate, post, postOverride, setBatchCosting, setPoolGl } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,18 +17,45 @@ const COMP: Record<string, string> = { LB: "Live bird", freight: "Ekspedisi", ma
 
 export default async function InputCostingPage({ params }: PageProps) {
   const { week } = await params;
-  await requireModulePage("m1_costing", ["admin", "cost_accounting"]);
+  // R61: Finance opens this page for the override of a posting held by an unpriced SKU (Q-v5.2-30); the rest is Admin and Cost Accounting
+  const viewer = await requireModulePage("m1_costing", ["admin", "cost_accounting", "finance"]);
   const ctx = await weekContext(week);
   const sb = await supabaseServer();
   const d = await loadCostingWeek(sb, ctx.week);
   const controls = weekCostingControls(d);
   const pools = poolSummaries(d);
-  const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft").length;
+  const draftRuns = [...d.latestRun.values()].filter((r) => r.status === "draft");
+  // R61 (K50): drafts with an SKU that has output and no reference price are posted only through the override (Finance or Admin, RPC)
+  const unpriced = draftRuns.map((r) => ({ ref: d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id, keys: [...new Set(unpricedLines(d, r.id))].sort() })).filter((x) => x.keys.length);
+  const drafts = draftRuns.length - unpriced.length;
+  const canOverride = viewer.role === "admin" || viewer.role === "finance";
+  const heldCard = unpriced.length ? (
+    <Card title="Posting ditahan: harga acuan kosong (K50)">
+      <p className="muted">{unpriced.map((x) => `${x.ref}: ${x.keys.join(", ")}`).join("; ")}. Isi harga acuan (price list WP atau harga acuan minggu ini) lalu alokasikan ulang; batch baru berstatus final bila setiap baris alokasinya punya harga (K59).</p>
+      {canOverride ? (
+        <ActionForm action={postOverride} submit="Posting dengan override" confirm="Posting walau harga acuan kosong? Batch tetap di bawah final dan alasan tercatat di alokasi.">
+          <input type="hidden" name="week" value={week} />
+          <div className="field"><label>Alasan override (min. 10 karakter)</label><input className="in" name="reason" /></div>
+        </ActionForm>
+      ) : <p className="muted">Override posting oleh Finance atau Admin; minta Finance bila harga acuan memang tidak akan datang.</p>}
+    </Card>
+  ) : null;
+  if (viewer.role === "finance") {
+    return (
+      <WeekShell ctx={ctx} active={`/w/${week}/input/costing`}>
+        <h1>Override posting costing — harga acuan kosong</h1>
+        <p className="muted">Alokasi yang punya SKU tanpa harga acuan tidak bisa diposting Cost Accounting. Finance dan Admin mempostingnya di sini dengan alasan tertulis; alasan masuk ke catatan alokasi dan batch tetap di bawah final. Alokasi dengan harga lengkap diposting Cost Accounting. Angka dan alokasi per batch ada di <Link href={`/w/${week}/costing`}>Costing</Link>.</p>
+        <Card title="Kontrol costing (C21–C24)"><ControlsV3Table controls={controls} /></Card>
+        {heldCard ?? <Card title="Posting ditahan: harga acuan kosong (K50)"><p className="muted">Tidak ada alokasi draft dengan harga acuan kosong minggu ini.</p></Card>}
+      </WeekShell>
+    );
+  }
   return (
     <WeekShell ctx={ctx} active={`/w/${week}/input/costing`}>
       <h1>Input costing — WP potong, cost pool, alokasi ke SKU</h1>
       <p className="muted">Alur: <Link href={`/w/${week}/upload`}>Upload</Link> WP potong per batch (jenis "WP potong per batch") dan daftar PI pemasok → periksa cost pool dan tie-out ke GL → <b>Alokasikan</b> (relative sales value: biaya batch × nilai jual SKU ÷ Σ nilai jual) → <b>Posting</b>. Metode by-product: <b>{d.params.by_product_method}</b>; toleransi hasil potong {D(d.params.yield_gap_tolerance).times(100).toFixed(1)}% (Parameter).</p>
       <Card title="Kontrol costing (C21–C24)"><ControlsV3Table controls={controls} /></Card>
+      {heldCard}
       <Card title={`Batch minggu ini (${d.batches.length})`} extra={
         <div className="row">
           <ActionForm action={allocate} submit="Alokasikan semua"><input type="hidden" name="week" value={week} /></ActionForm>

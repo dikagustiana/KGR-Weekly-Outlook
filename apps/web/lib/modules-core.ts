@@ -2,6 +2,7 @@
  * Feature flags per module (PRD v3 §4.9, rule: default off). Pure — the flag rows come from `app_setting`.
  * A flag value is {"enabled": bool, "roles"?: Role[]}: no role list = every role that may see the page.
  */
+import type { CostingRowsMode } from "@kgr/engine";
 import type { Role } from "./roles";
 
 export type ModuleKey =
@@ -39,6 +40,14 @@ export interface ModuleSetting {
   roles?: Role[] | null;
 }
 
+/**
+ * R66 (K63): how the two v5 costing rows ("Selisih costing", "Biaya kapasitas idle") count in the journal columns — field
+ * `costing_rows_mode` of the app_setting v5_pl: 'memo' (they leave COGS and the journal NIBT for a memo block) or 'cogs'
+ * (default, the behaviour of v5). Anything else, or no value, is 'cogs'.
+ */
+export type { CostingRowsMode };
+export const costingModeOf = (value: unknown): CostingRowsMode => ((value as { costing_rows_mode?: unknown } | null | undefined)?.costing_rows_mode === "memo" ? "memo" : "cogs");
+
 export type ModuleSettings = Partial<Record<ModuleKey, ModuleSetting>>;
 
 export function parseSetting(v: unknown): ModuleSetting {
@@ -48,6 +57,27 @@ export function parseSetting(v: unknown): ModuleSetting {
     enabled: o.enabled === true,
     roles: Array.isArray(o.roles) ? (o.roles.filter((r) => typeof r === "string") as Role[]) : null,
   };
+}
+
+/**
+ * Q-v5.2-5: the value Admin → Modul writes for a flag. It rewrites the fields the form manages (enabled, roles, since of
+ * v5_costing, costing_rows_mode of v5_pl) and keeps every other field of the stored value as it is — a toggle must never
+ * wipe a setting it does not show (costing_rows_mode, a note, a field a later release adds).
+ */
+export function mergeFlagValue(prev: unknown, x: { key: ModuleKey; enabled: boolean; roles: Role[]; allRoles: number; since?: string | null; costingRowsMode?: CostingRowsMode | null }): Record<string, unknown> {
+  const old = prev && typeof prev === "object" && !Array.isArray(prev) ? (prev as Record<string, unknown>) : {};
+  const kept = Object.fromEntries(Object.entries(old).filter(([k]) => k !== "enabled" && k !== "roles" && k !== "since" && k !== "costing_rows_mode"));
+  const value: Record<string, unknown> = { ...kept, enabled: x.enabled };
+  if (x.roles.length && x.roles.length < x.allRoles) value.roles = x.roles;
+  // `since` belongs to v5_costing (K22, R40): typed in the form or kept; another flag's `since` is not ours to drop
+  const since = x.key === "v5_costing" ? x.since : (typeof old.since === "string" ? old.since : null);
+  if (since) value.since = since;
+  // costing_rows_mode belongs to v5_pl (R66, K63): the choice of the form, else the stored one; another flag's field is kept
+  if (x.key === "v5_pl") {
+    const mode = x.costingRowsMode ?? (old.costing_rows_mode === "memo" || old.costing_rows_mode === "cogs" ? old.costing_rows_mode : null);
+    if (mode) value.costing_rows_mode = mode;
+  } else if (old.costing_rows_mode !== undefined) value.costing_rows_mode = old.costing_rows_mode;
+  return value;
 }
 
 /** On for this role: the flag is enabled and the role is in its list (or there is no list). Missing flag = off. */
@@ -93,7 +123,8 @@ export const MODULE_NAV: NavDef[] = [
   { module: "m1_costing", label: "Costing", roles: [...PREP, "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },
   { module: "m1_costing", label: "Input costing", roles: ["admin", "cost_accounting"], href: (c) => (c.week ? `/w/${c.week}/input/costing` : null) },
   { module: "m2_ledger", label: "Stok per SKU", roles: [...PREP, "management", "operations_director"], href: () => "/sku", management: true },
-  { module: "m3_planning", label: "Demand", roles: ["admin", "sales", "commercial_lead", "ppic", "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },
+  // Sales do not read demand_weekly / plan_week (Q-v5.2-15): the page tells them so, but there is no link to it
+  { module: "m3_planning", label: "Demand", roles: ["admin", "commercial_lead", "ppic", "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },
   { module: "m3_planning", label: "Rencana", roles: ["admin", "ppic", "finance"], href: (c) => (c.week ? `/w/${c.week}/rencana` : null) },
   { module: "m3_planning", label: "Alokasi hari ini", roles: ["admin", "ppic", "sales", "commercial_lead"], href: (c) => (c.today ? `/hari/${c.today}/alokasi` : null) },
   { module: "m4_monthly", label: "Bulanan", roles: "all", href: (c) => (c.month ? `/m/${c.month}` : null), management: true },

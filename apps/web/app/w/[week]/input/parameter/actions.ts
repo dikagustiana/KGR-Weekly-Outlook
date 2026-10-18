@@ -7,6 +7,7 @@ import { can } from "@/lib/roles";
 import { PARAM_AREA } from "@/lib/params";
 import { supabaseServer } from "@/lib/supabase";
 import { weekIdOf } from "@/lib/rollover";
+import { must } from "@/lib/loader";
 
 const PERCENT = new Set(["target_shrink", "yield_karkas", "yield_kepala", "yield_ceker", "yield_usus", "yield_hja", "yield_lemak"]);
 const NULLABLE = new Set(["accurate_sales_kg", "accurate_opening_stock_value"]);
@@ -38,14 +39,27 @@ export async function saveParameters(form: FormData) {
   }
   const weekPatch: Record<string, unknown> = {};
   if (form.has("update_date") && can(v.role, "update_date")) {
-    try { weekPatch.update_date = parseDate(String(form.get("update_date"))); } catch (e) { go("err", (e as Error).message); }
+    // K69: the update date changes only while the week is open (the database refuses it otherwise); unchanged = not sent
+    const w = must(await sb.from("week").select("status, update_date").eq("id", weekId).maybeSingle(), "week update_date") as { status: string; update_date: string } | null;
+    let d: string | null = null;
+    try { d = parseDate(String(form.get("update_date"))); } catch (e) { go("err", (e as Error).message); }
+    if (!d) go("err", "Tanggal update wajib diisi");
+    if (w && d !== String(w.update_date)) {
+      if (w.status !== "open") go("err", `Tanggal update tidak bisa diubah: minggu berstatus ${w.status} (K69); buka minggunya dulu`);
+      weekPatch.update_date = d;
+    }
   }
   if (can(v.role, "parameter_all")) {
     for (const c of [...LW, "tb_opening_date"]) {
       if (!form.has(c)) continue;
-      try { weekPatch[c] = c === "tb_opening_date" ? parseDate(String(form.get(c))) : parseNumber(String(form.get(c))) ?? 0; } catch (e) { go("err", (e as Error).message); }
+      try {
+        if (c === "tb_opening_date") { weekPatch[c] = parseDate(String(form.get(c))); continue; }
+        // a blank last-week figure leaves the stored value as it is (the column is NOT NULL: a blank must not overwrite it with 0)
+        const n = parseNumber(String(form.get(c)));
+        if (n !== null) weekPatch[c] = n;
+      } catch (e) { go("err", (e as Error).message); }
     }
-    if (LW.some((c) => form.has(c))) weekPatch.lw_source = "diisi manual (Admin)";
+    if (LW.some((c) => weekPatch[c] !== undefined)) weekPatch.lw_source = "diisi manual (Admin)";
   }
   if (Object.keys(weekPatch).length) {
     const { error } = await sb.from("week").update(weekPatch).eq("id", weekId);

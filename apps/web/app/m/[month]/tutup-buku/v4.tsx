@@ -1,4 +1,4 @@
-import { addDays, monthMandatory, releaseVerdict } from "@kgr/engine";
+import { addDays, releaseVerdict } from "@kgr/engine";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { OverridePanel } from "@/components/v4/OverridePanel";
@@ -8,7 +8,7 @@ import { moduleSettings } from "@/lib/modules";
 import { moduleSettingsGlobal } from "@/lib/rebuild";
 import { supabaseServer } from "@/lib/supabase";
 import { releaseContext } from "@/lib/release";
-import { closeViewV4 } from "@/lib/v4/close";
+import { closeViewV4, finalMandatory } from "@/lib/v4/close";
 import { monthName } from "@/lib/v4/outlook-bulan";
 import { jtV4, pctV4, tglShort } from "@/lib/fmt";
 import type { Viewer } from "@/lib/session";
@@ -50,7 +50,7 @@ export async function TutupBukuV4({ first, viewer }: { first: string; viewer: Vi
   }));
 
   const p = v.preview;
-  const verdict = p ? releaseVerdict({ controls: p.controls, mandatory: monthMandatory("FINAL"), overrides: rc.overrides.map((o) => o.code), strict: true, staleDates: rc.staleDates, policy: rc.policy }) : null;
+  const verdict = p ? releaseVerdict({ controls: p.controls, mandatory: finalMandatory(p.controls), overrides: rc.overrides.map((o) => o.code), strict: true, staleDates: rc.staleDates, policy: rc.policy }) : null;
   const finalReason = v.hasFinal ? "FINAL sudah dikunci" : !v.afterMonthEnd ? `FINAL dikunci setelah ${tglShort(v.last)}` : verdict && !verdict.ok ? `ditolak: ${verdict.rejections.map((r) => `${r.code} ${r.status}`).join(", ")}` : null;
   const cCols: Col[] = [{ key: "c", label: "Kontrol", kind: "key" }, { key: "n", label: "Isi", wrap: true }, { key: "s", label: "Status" }, { key: "d", label: "Rincian", kind: "sup", wrap: true }];
   const cRows: TRow[] = (p?.controls ?? []).map((c) => ({ id: c.code, cells: { c: c.code, n: c.name, s: <span className={TONE[c.status] ?? ""}>{c.status}</span>, d: c.detail.slice(0, 6).join(", ") } }));
@@ -69,7 +69,7 @@ export async function TutupBukuV4({ first, viewer }: { first: string; viewer: Vi
     { key: "v", label: "Versi", kind: "key" }, { key: "k", label: "Hari" }, { key: "n", label: "Jumlah hari", num: true }, { key: "d", label: "Selisih revenue (Rp jt)", num: true },
     { key: "q", label: "dari kg kirim", num: true }, { key: "h", label: "dari harga", num: true },
   ];
-  const dRows: TRow[] = v.daily.map((d) => ({ id: `${d.version}-${d.kind}`, cells: { v: d.version, k: d.kind === "po" ? "ber-PO" : "run-rate", n: String(d.days), d: jtV4(d.diff), q: d.diffKg === null ? "" : jtV4(d.diffKg), h: d.diffPrice === null ? "" : jtV4(d.diffPrice) } }));
+  const dRows: TRow[] = v.daily.map((d) => ({ id: `${d.version}-${d.kind}`, cells: { v: d.version, k: d.kind === "po" ? "ber-PO" : "run-rate", n: String(d.days), d: d.diff === null ? "belum lengkap" : jtV4(d.diff), q: d.diffKg === null ? "" : jtV4(d.diffKg), h: d.diffPrice === null ? "" : jtV4(d.diffPrice) } }));
   const kCols: Col[] = [{ key: "c", label: "Kode", kind: "key" }, { key: "n", label: "Asumsi", wrap: true }, { key: "v", label: "Nilai", num: true }, { key: "s", label: "Status" }];
   const kRows: TRow[] = v.calibration.map((r) => ({
     id: r.id,
@@ -108,7 +108,7 @@ export async function TutupBukuV4({ first, viewer }: { first: string; viewer: Vi
           <p className="muted">FINAL dikunci {v.versions.find((x) => x.version === "FINAL")?.lockedAt?.slice(0, 10) ?? ""}, SHA {v.versions.find((x) => x.version === "FINAL")?.sha.slice(0, 12)}…; tidak bisa diubah.</p>
         ) : p ? (
           <>
-            <p className="muted">FINAL = jurnal bulan penuh (dan DO belum difaktur, K11) ditambah penyesuaian yang diposting. Server menolak bila kontrol wajib GAGAL, BELUM DIISI, atau STALE, kecuali ada override dengan alasan dan bukti oleh peran yang diizinkan.</p>
+            <p className="muted">FINAL = jurnal bulan penuh (dan DO belum difaktur, K11) ditambah penyesuaian yang diposting. Server menolak bila kontrol wajib GAGAL, BELUM DIISI, atau STALE, kecuali ada override dengan alasan dan bukti oleh peran yang diizinkan. Mulai Agustus 2026, C59 (angka app lawan FS) ikut menahan FINAL setelah FS diimpor; rinciannya di <a href={`/m/${month}/rekonsiliasi`}>Rekonsiliasi FS</a>.</p>
             <V4Table cols={tCols} rows={tRows} label="FINAL sebelum dan sesudah penyesuaian" />
             <V4Table cols={cCols} rows={cRows} label="Kontrol FINAL" empty="tidak ada kontrol FINAL" />
             {verdict && (verdict.rejections.length || rc.overrides.length) ? (

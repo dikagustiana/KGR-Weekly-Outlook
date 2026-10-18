@@ -7,7 +7,7 @@
 import { D, Decimal, ZERO, sum, type Num } from "./decimal";
 import type { ControlV3, ControlV3Status } from "./controls-v3";
 import type { BalanceResult, LedgerResult, StockCardRow } from "./ledger";
-import { isCogsLine, isRevenueLine } from "./monthly";
+import { isCogsLine, isOpexLine, isRevenueLine, type CostingRowsMode } from "./monthly";
 import { totalsV4, type MonthPlanV4, type PlTotalsV4, type RegisterRow } from "./month-v4";
 import type { PlRowV4 } from "./week-outlook";
 
@@ -159,10 +159,11 @@ export function reconcileSplit(x: {
 // ------------------------------------------------------------------------------------------------ §6.6 tutup buku (FINAL)
 
 /** FINAL (P13): actual of the full month, before and after the posted closing adjustments (P&L sign: + adds profit). */
-export function finalTotalsV4(x: { rows: PlRowV4[]; adjustments: { pl_line: string; amount: Num }[] }): { before: PlTotalsV4; adjustments: PlTotalsV4; after: PlTotalsV4 } {
-  const before = totalsV4(x.rows, "actual");
+export function finalTotalsV4(x: { rows: PlRowV4[]; adjustments: { pl_line: string; amount: Num }[]; mode?: CostingRowsMode }): { before: PlTotalsV4; adjustments: PlTotalsV4; after: PlTotalsV4 } {
+  const mode = x.mode ?? "cogs";
+  const before = totalsV4(x.rows, "actual", undefined, mode);
   const f = (p: (l: string) => boolean) => sum(x.adjustments.filter((a) => p(a.pl_line)).map((a) => D(a.amount)));
-  const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => isOpexLine(l, mode));
   const adjustments: PlTotalsV4 = { revenue, cogs, gp: revenue.plus(cogs), opex, nibt: revenue.plus(cogs).plus(opex) };
   const add = (k: keyof PlTotalsV4) => before[k].plus(adjustments[k]);
   return { before, adjustments, after: { revenue: add("revenue"), cogs: add("cogs"), gp: add("gp"), opex: add("opex"), nibt: add("nibt") } };
@@ -188,7 +189,7 @@ export function worstByCode(controls: ControlV3[]): ControlV3[] {
  * with source kalibrasi, status proposed, owner Group Project Finance. The run-rate and margin at the month end (K3, K5)
  * and the bias of V1 against FINAL. They stay proposals until Finance agrees them for the next month (P10).
  */
-export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { revenue: Num; gp: Num } | null }): RegisterRow[] {
+export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { revenue: Num; gp: Num | null } | null }): RegisterRow[] {
   const m = x.month.slice(0, 7);
   const mk = (code: string, name: string, basis: string, num: Num): RegisterRow => ({
     code, name, value_num: D(num).toFixed(6), value_text: null, basis, owner: "Group Project Finance", agreed_at: null, deviation_note: null, status: "proposed",
@@ -201,7 +202,8 @@ export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { 
   ];
   if (x.v1Bias) {
     out.push(mk("kal_bias_v1_revenue", "Bias V1 terhadap FINAL, revenue (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.revenue));
-    out.push(mk("kal_bias_v1_gp", "Bias V1 terhadap FINAL, GP (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.gp));
+    // V1 without a GP has no GP bias: the proposal is left out, never written as a bias of 0 (R64)
+    if (x.v1Bias.gp !== null) out.push(mk("kal_bias_v1_gp", "Bias V1 terhadap FINAL, GP (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.gp));
   }
   return out;
 }

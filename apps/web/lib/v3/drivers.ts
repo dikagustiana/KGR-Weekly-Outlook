@@ -55,7 +55,7 @@ export async function loadMonthDrivers(sb: Supa, month: string, today: string): 
     coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line) })), first, through);
   // K6: a fixed row without an input for this month carries last month's nominal, labelled (C43)
   const cf = carryForwardFixed(schedule, first);
-  const fixed = monthFixedOutlook(cf.schedule, Object.fromEntries(Object.entries(actual).map(([k, v]) => [k, toFixedString(v, 2) ?? "0"])), first);
+  const fixed = monthFixedOutlook(cf.schedule, Object.fromEntries(Object.entries(actual).map(([k, v]) => [k, v.toFixed(2)])), first);
   const costLines = coa.filter((c) => c.pl_line && !String(c.pl_line).startsWith("Revenue") && c.pl_line !== "Other Income").map((c) => ({ pl_line: String(c.pl_line), driver_type: s(c.driver_type) }));
   return { month: first.slice(0, 7), first, last, through, schedule, coa, actual, fixed, carried: cf.carried, controls: [...driverControls({ costLines, fixed }), fixedFreshnessControl(cf.carried)] };
 }

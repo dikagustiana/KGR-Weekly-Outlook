@@ -9,6 +9,7 @@ import type { Col, TRow } from "@/components/v4/Table";
 import type { TilePos } from "@/components/v4/Tile";
 import { withFailures, type Failed } from "../v4/tile-errors";
 import type { TileModel } from "../v4/minggu-ini";
+import type { SalesSurplus, SalesSurplusRow } from "./surplus-view";
 
 export interface CommitmentRow {
   /** Base key (RPA|Karkas). */
@@ -45,9 +46,18 @@ export interface KomersialV5Input {
   cutOffTime: string;
   commitment: { weekStart: string; weekEnd: string; deadline: string; rows: CommitmentRow[]; canEdit: boolean; canLock: boolean; priceListLocked: boolean };
   ppic: {
-    shipRange: string; surplusKg: Decimal | null; downgrade: Decimal | null; planCostKarkas: Decimal | null; lbPrice: Decimal | null;
+    shipRange: string; surplusKg: Decimal | null;
+    /** R56: the surplus rows of PPIC's saved plan — the SKU key an answer is about, and its kg (empty = no saved plan or no surplus in it). */
+    surplus?: { key: string; kg: string }[];
+    downgrade: Decimal | null; planCostKarkas: Decimal | null; lbPrice: Decimal | null;
     answered: string | null; byProducts: { unit: string; order: Decimal; output: Decimal; short: Decimal }[];
   } | null;
+  /**
+   * Q-v5.2-15 (A1c): what Sales see of PPIC's plan, from the view surplus_for_sales_v52 — the surplus of their assigned SKUs and
+   * their answers, nothing else. Undefined = not loaded (the tile says "tidak ditampilkan"); null = loaded, no saved plan version
+   * has a surplus or an answer for their SKUs.
+   */
+  surplusForSales?: SalesSurplus | null;
   spot: SpotRow[];
   controls: ControlV3[];
 }
@@ -91,7 +101,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     id: r.key, href: `/komersial/${encodeURIComponent(r.key)}`, redNeg: true,
     cells: {
       i: String(i + 1), k: skuLabel(r.key), u: URG[r.urgency ?? "aman"] ?? r.urgency ?? "", kg: kg(r.free_kg), a: r.oldest_age_days === null ? "" : `${num(r.oldest_age_days, 1)} hr`,
-      o: r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
+      o: r.over_age_kg === null ? "tidak ditampilkan" : r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
       fl: rp(r.cost_per_kg), ref: rp(r.price_ref), m: r.margin_per_kg === null ? "—" : `${r.margin_per_kg.gt(0) ? "+" : ""}${minus(num(r.margin_per_kg, 0))}`,
       h: r.holding_per_day === null ? "" : `${num(r.holding_per_day.div(1000), 1)} rb`, l: r.loss_at_ref.isZero() ? "" : `${jtV4(r.loss_at_ref.neg())} jt`,
     },
@@ -102,6 +112,8 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     id: "t-ranking", pos: P(0, 4, 12, 6), title: `Stok yang harus dijual, urut prioritas · ${filterLabel}`,
     note: [x.rows.length > 16 ? `Menampilkan 16 dari ${x.rows.length} SKU.` : null,
       checked.length ? `${checked.map((r) => skuLabel(r.key)).join(", ")}: biaya per kg di atas batas kali harga acuan (C54, periksa biaya).` : null,
+      // R64: Sales cannot read the age of the stock; the column says so instead of 0
+      x.rows.some((r) => r.over_age_kg === null) ? `Kolom "> batas" (kg di atas batas umur) tidak ditampilkan untuk ${x.sales ? "Sales" : "peran ini"}.` : null,
       x.stockDate ? `Stok per ${tglShort(x.stockDate)}.` : null].filter(Boolean).join(" ") || undefined,
     cara: {
       title: "Ranking stok", fn: "stockSellRows + filterRows", rule: "Urgensi: fresh = jual hari ini; frozen di atas batas umur; mendekati batas = jual minggu ini. Harga lantai = biaya per kg (markup default 0). Rugi simpan per hari = nilai stok × beban storage bulan lalu ÷ persediaan akhir bulan lalu ÷ hari. Rugi di acuan = (biaya − acuan) × kg bila acuan di bawah biaya.",
@@ -123,11 +135,22 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     content: { type: "table", cols: kCols, rows: kRows },
   });
   const p = x.ppic;
+  if (x.sales && x.surplusForSales !== undefined) {
+    // Sales: the surplus of their own SKUs through the view; the rest of the plan (classes, heads, cost, downgrade) is not theirs
+    const ss = x.surplusForSales;
+    const answerOf = (r: SalesSurplusRow) => (r.response === "absorb" ? "sanggup serap semua" : r.response === "partial" ? `serap ${r.absorbKg === null ? "—" : kg(r.absorbKg)} kg` : r.response === "reduce" ? "tidak sanggup, kurangi potong" : "belum dijawab");
+    const rows: TRow[] = (ss?.rows ?? []).map((r) => ({ id: r.key, cells: { s: r.key.replace(/^RPA\|/, ""), k: r.kg === null ? "" : kg(r.kg), j: answerOf(r) } }));
+    tiles.push({
+      id: "t-ppic", pos: P(7, 10, 5, 5), kind: "tall", title: ss ? `Dari PPIC: surplus untuk SKU Anda · rencana v${ss.version}` : "Dari PPIC: surplus untuk SKU Anda",
+      note: [ss ? (rows.length ? "Surplus karkas dan bagian lain dari rencana PPIC untuk SKU yang ditugaskan kepada Anda; jawab sebelum PPIC memotong." : "Rencana PPIC tidak menyebut surplus untuk SKU Anda.") : "Belum ada rencana PPIC tersimpan minggu ini untuk SKU Anda.", "Detail rencana (kelas, ekor, biaya, downgrade) tidak ditampilkan untuk Sales."].join(" "),
+      content: { type: "table", cols: [{ key: "s", label: "SKU", kind: "key", wrap: true }, { key: "k", label: "Surplus kg", num: true }, { key: "j", label: "Jawaban Anda", wrap: true }], rows },
+    });
+  }
   const pRows: TRow[] = p ? [
     { id: "sur", cells: { s: "Karkas surplus dari batch rencana", o: "", p: p.surplusKg === null ? "—" : `± ${kg(p.surplusKg)} kg`, k: p.downgrade === null ? "" : `turun ${jtV4(p.downgrade.neg())} jt` } },
     ...p.byProducts.filter((b) => b.short.gt(0)).sort((a, b) => b.short.cmp(a.short)).map((b) => ({ id: b.unit, redNeg: true, cells: { s: b.unit.split(" ")[0], o: kg(b.order), p: kg(b.output), k: minus(num(b.short.neg(), 0)) } })),
   ] : [];
-  tiles.push({
+  if (!(x.sales && x.surplusForSales !== undefined)) tiles.push({
     id: "t-ppic", pos: P(7, 10, 5, 5), kind: "tall", title: p ? `Dari PPIC: output rencana yang belum punya pembeli · ${p.shipRange}` : "Dari PPIC",
     note: p ? [p.surplusKg && p.surplusKg.gt(0) ? `Jadi frozen bila tidak terjual fresh${p.planCostKarkas ? `; biaya rencana ${rp(p.planCostKarkas)}/kg di LB ${rp(p.lbPrice)}` : ""}.` : "Rencana tidak menghasilkan surplus karkas.", p.answered ? `Jawaban: ${p.answered}.` : p.surplusKg && p.surplusKg.gt(0) ? "Belum dijawab; PPIC menunggu jawaban sebelum potong." : null, "By-product kurang: beli trading untuk menutup order, atau kurangi order."].filter(Boolean).join(" ") : x.sales ? "Tidak ditampilkan untuk Sales (data perencanaan)." : "Belum ada rencana PPIC minggu ini.",
     content: { type: "table", cols: [{ key: "s", label: "SKU", kind: "key", wrap: true }, { key: "o", label: "Order", num: true }, { key: "p", label: "Output", num: true }, { key: "k", label: "Kurang", num: true }], rows: pRows },

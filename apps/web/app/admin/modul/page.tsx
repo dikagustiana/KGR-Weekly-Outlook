@@ -10,6 +10,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { processQueue, queueDates, setFlag } from "./actions";
 import { must, mustRows } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
+import { costingModeOf } from "@/lib/modules-core";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
   const today = (await clock(sb)).data;
   // PRD v5.1 R40: the start date of v5 costing (value.since) is set here; without it the lot revaluation does not run
   const since = sinceOf((must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null)?.value);
+  // R66 (K63): how the two v5 costing rows count in the journal columns of the P&L ('cogs' until Admin picks 'memo')
+  const costingMode = costingModeOf((must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as { value?: unknown } | null)?.value);
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/modul">
       <h1>Modul v3</h1>
@@ -48,6 +51,14 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
                       <input type="hidden" name="key" value={k} />
                       <label className="row" style={{ gap: 4 }}><input type="checkbox" name="enabled" value="1" defaultChecked={on} /> aktif</label>
                       {k === "v5_costing" ? <label className="row" style={{ gap: 4 }}>mulai <input name="since" type="date" defaultValue={since ?? ""} aria-label="tanggal mulai v5 costing" /></label> : null}
+                      {k === "v5_pl" ? (
+                        <label className="row" style={{ gap: 4 }}>baris costing di P&amp;L
+                          <select name="costing_rows_mode" defaultValue={costingMode} aria-label="mode baris selisih costing dan biaya idle">
+                            <option value="cogs">cogs: di dalam COGS (perilaku v5)</option>
+                            <option value="memo">memo: di bawah NIBT jurnal (K63)</option>
+                          </select>
+                        </label>
+                      ) : null}
                       {ROLES.map((r) => (
                         <label key={r} className="row" style={{ gap: 2 }}>
                           <input type="checkbox" name={`role_${r}`} value="1" defaultChecked={!!s?.roles?.includes(r)} /> <span className="muted">{ROLE_LABEL[r]}</span>

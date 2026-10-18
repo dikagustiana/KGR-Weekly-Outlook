@@ -149,6 +149,15 @@ export interface WeeklyDemandRow {
   source_forecast?: "sales" | "stat" | null;
 }
 
+/**
+ * K2: the forecast lines that count for the week — a key with a Sales forecast for the week ignores the statistical one.
+ * One rule for the weekly demand (weeklyDemand) and for the class demand of PPIC v5 (R49), so the two never differ.
+ */
+export function effectiveForecasts(forecasts: ForecastLine[], weekStart: ISODate): ForecastLine[] {
+  const salesKeys = new Set(forecasts.filter((f) => f.week_start === weekStart && (f.source ?? "sales") === "sales").map((f) => f.key));
+  return forecasts.filter((f) => f.week_start === weekStart && !((f.source ?? "sales") === "stat" && salesKeys.has(f.key)));
+}
+
 /** Step 1: Σ open PO lines with delivery date in [weekStart, weekStart+6] per status, + forecast lines of the week. */
 export function weeklyDemand(x: { orders: OrderLine[]; forecasts: ForecastLine[]; weights: DemandWeights; weekStart: ISODate }): WeeklyDemandRow[] {
   const m = new Map<string, WeeklyDemandRow>();
@@ -167,15 +176,10 @@ export function weeklyDemand(x: { orders: OrderLine[]; forecasts: ForecastLine[]
     else if (o.demand_status === "Forecast") r.forecast_kg = r.forecast_kg.plus(open);
     else r.confirmed_kg = r.confirmed_kg.plus(open);
   }
-  // K2: a key with a Sales forecast for the week ignores the statistical one
-  const salesKeys = new Set(x.forecasts.filter((f) => f.week_start === x.weekStart && (f.source ?? "sales") === "sales").map((f) => f.key));
-  for (const f of x.forecasts) {
-    if (f.week_start !== x.weekStart) continue;
-    const src = f.source ?? "sales";
-    if (src === "stat" && salesKeys.has(f.key)) continue;
+  for (const f of effectiveForecasts(x.forecasts, x.weekStart)) {
     const r = row(f.key);
     r.forecast_kg = r.forecast_kg.plus(D(f.kg));
-    r.source_forecast = src;
+    r.source_forecast = f.source ?? "sales";
   }
   for (const r of m.values()) r.weighted_kg = r.confirmed_kg.plus(r.tentative_kg.times(D(x.weights.tentative))).plus(r.forecast_kg.times(D(x.weights.forecast)));
   return [...m.values()].sort((a, b) => a.key.localeCompare(b.key));

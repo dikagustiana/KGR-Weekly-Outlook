@@ -101,7 +101,9 @@ export function managementSlots(m: ManagementV3): V3Slots {
       </Card>
     );
   }
-  if (m.demand) {
+  if (m.demandHidden) {
+    s.demand = <Card id="demand" title="Demand minggu ini"><p className="muted">Tidak ditampilkan untuk Sales (data perencanaan).</p></Card>;
+  } else if (m.demand) {
     const t = m.demand.totals;
     s.demand = (
       <Card id="demand" title="Demand minggu ini">

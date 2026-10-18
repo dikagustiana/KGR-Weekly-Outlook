@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Static checks for apps/web (PRD v5.2-A: K41/K56 R43, K42 R47). Exits 1 when any rule is broken.
 
-  python3 -I scripts/lint.py k41 [dir ...]   fail-closed reads
-  python3 -I scripts/lint.py k42 [dir ...]   stable pagination and chunked .in()
+  python3 -I scripts/lint.py k41 [dir ...]      fail-closed reads
+  python3 -I scripts/lint.py k42 [dir ...]      stable pagination and chunked .in()
+  python3 -I scripts/lint.py missing [dir ...]  missing is not zero (R64): no `?? 0`, `?? "0"`, `|| 0`, `|| "0"`
 
-Default dir: apps/web. Test files (*.test.*, *.spec.*) are skipped. A line may opt out of one rule with a marker
+Default dir: apps/web (missing: apps/web/lib and apps/web/app). Test files (*.test.*, *.spec.*) are skipped. A line may opt out of one rule with a marker
 comment that names the reason, e.g. `// k41-ok: cookies() is read-only in a Server Component`. The marker without a
 reason is itself a hit. K41 also skips lib/clock.ts and lib/loader.ts (PRD v5.2-A Bab 5.3).
+
+The `missing` rule (PRD v5.2-A R64) has no whitelist: a default of zero on money, kg or a rate hides a missing value, so
+the code turns it into null with "belum ada" / "belum diisi" or a control. A zero that is not a missing value (a count, an
+index, a sort result, the start of an accumulator) says why on the same line: `// missing-ok: jumlah baris, bukan uang`.
+Zero written as 0, 0.0, 0.00 (also as "0", '0', `0`) after `??` or `||` is a hit; 0.5 is not; text inside "…" and '…' is not code.
+Not covered: a default written as D(0) / ZERO (accumulators and counters of maps; reviewed by hand, docs/v5.2/a3.md).
 
 K42 reads the unique keys of every table from supabase/migrations: a fetchAll builder must order by one of them, so
 page boundaries never duplicate or drop a row (R47).
@@ -247,12 +254,64 @@ def k42(dirs):
     return rep.hits
 
 
+# ---------------------------------------------------------------- missing (R64)
+MISSING_ZERO = re.compile(r"(?:\?\?|\|\|)\s*(?:0(?:\.0+)?|\"0(?:\.0+)?\"|'0(?:\.0+)?'|`0(?:\.0+)?`)(?![\w.])")
+
+
+def code_part(line):
+    """The line without its trailing `// …` comment (a `//` inside a string literal stays); None for a comment line."""
+    stripped = line.strip()
+    if stripped.startswith(("//", "/*", "*")):
+        return None
+    quote = None
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == "\\":
+                continue
+            if ch == quote and line[i - 1] != "\\":
+                quote = None
+        elif ch in "\"'`":
+            quote = ch
+        elif line.startswith("//", i):
+            return line[:i]
+    return line
+
+
+STRING_LITERAL = re.compile(r"\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*'")
+
+
+def mask_strings(code):
+    """Blank the text of "…" and '…' literals so that prose is not read as code; the literal right after `??` / `||` stays (it may be `"0"`)."""
+    def blank(m):
+        before = code[:m.start()].rstrip()
+        if before.endswith(("??", "||")):
+            return m.group(0)
+        q = m.group(0)[0]
+        return q + q
+    return STRING_LITERAL.sub(blank, code)
+
+
+def missing(dirs):
+    rep = Report("missing")
+    for path in source_files(dirs):
+        lines = open(path, encoding="utf-8").read().split("\n")
+        for i, line in enumerate(lines, 1):
+            code = code_part(line)
+            if code is not None:
+                code = mask_strings(code)
+            if code is None or not MISSING_ZERO.search(code):
+                continue
+            rep.check(path, lines, i, "nilai kosong dibaca sebagai 0 (?? 0 / || 0)")
+    return rep.hits
+
+
 def main(argv):
-    if len(argv) < 2 or argv[1] not in ("k41", "k42"):
+    if len(argv) < 2 or argv[1] not in ("k41", "k42", "missing"):
         print(__doc__)
         return 2
-    dirs = argv[2:] or [os.path.join(ROOT, "apps", "web")]
-    hits = {"k41": k41, "k42": k42}[argv[1]](dirs)
+    default = [os.path.join(ROOT, "apps", "web", "lib"), os.path.join(ROOT, "apps", "web", "app")] if argv[1] == "missing" else [os.path.join(ROOT, "apps", "web")]
+    dirs = argv[2:] or default
+    hits = {"k41": k41, "k42": k42, "missing": missing}[argv[1]](dirs)
     print("%s: %d hit" % (argv[1].upper(), hits))
     return 1 if hits else 0
 

@@ -201,21 +201,21 @@ describe("P13 accuracy against FINAL (fixture accuracy-2026-08)", () => {
   });
   const rev = rows.find((r) => r.metric === "revenue")!, gp = rows.find((r) => r.metric === "gp")!;
   it("revenue: V1 7.712,4 vs FINAL 8.361,8 = 649,4 jt below (+8,4% of V1), 49% of the forecast part", () => {
-    expect(jt(rev.absError)).toBe(gold.revenue.abs_error_jt);
+    expect(jt(rev.absError!)).toBe(gold.revenue.abs_error_jt);
     expect(rev.pctOfVersion!.toFixed(3)).toBe(gold.revenue.pct_of_version);
     expect(rev.shareOfForecast!.toFixed(2)).toBe(gold.revenue.share_of_forecast_part);
     expect(rev.mape!.toFixed(4)).toBe(gold.revenue.mape);
-    expect(rev.bias.lt(0)).toBe(true);
+    expect(rev.bias!.lt(0)).toBe(true);
   });
   it("GP: V1 293,4 vs FINAL 306,7 = 13,3 jt; GP and NIBT carry abs error and bias, no MAPE", () => {
-    expect(jt(gp.absError)).toBe(gold.gp.abs_error_jt);
+    expect(jt(gp.absError!)).toBe(gold.gp.abs_error_jt);
     expect(gp.mape).toBeNull();
     expect(rows.find((r) => r.metric === "nibt")!.mape).toBeNull();
   });
   it("before and after the closing adjustments: equal while none is recorded; with the adjustment of the PRD the 'before' error shrinks", () => {
-    expect(rev.absErrorPre.toFixed(2)).toBe(rev.absError.toFixed(2));
+    expect(rev.absErrorPre!.toFixed(2)).toBe(rev.absError!.toFixed(2));
     const adj = accuracyV4({ final: f.final, adjustments: { revenue: "500000000", gp: "0", nibt: "0" }, versions: [{ version: "V1", revenue: D(f.v1.revenue_jt).times(1e6), gp: 0, nibt: 0 }] }).find((r) => r.metric === "revenue")!;
-    expect(jt(adj.absErrorPre)).toBe("149.4");
+    expect(jt(adj.absErrorPre!)).toBe("149.4");
   });
   it("MAPE is N/A when FINAL is 0", () => {
     expect(accuracyV4({ final: { revenue: "0", gp: "0", nibt: "0" }, adjustments: { revenue: "0", gp: "0", nibt: "0" }, versions: [{ version: "V1", revenue: "10", gp: "1", nibt: "1" }] })[0].mape).toBeNull();

@@ -9,6 +9,9 @@ import type { Supa } from "../supabase";
 import { fetchAll, loadWeek } from "../data";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { v5CostingPlRows } from "../v5/costing-pl";
+import { v5CostingMode } from "../v5/pl";
+import { isModuleOn, type CostingRowsMode, type ModuleSettings } from "../modules-core";
+import type { Role } from "../roles";
 
 let built = new Set<string>();
 
@@ -36,4 +39,13 @@ registerBuilder({ module: "v4_design", unless: "m4_monthly", name: "pl minggu", 
 export async function weekPlRows(sb: Supa, weekStart: string): Promise<Record<string, unknown>[]> {
   return fetchAll<Record<string, unknown>>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly")
     .gte("date", weekStart).lte("date", addDays(weekStart, 6)).order("date").order("segment").order("pl_line").order("basis").range(a, b));
+}
+
+/**
+ * R66 (K63): how the two v5 costing rows count in the journal columns of the weekly P&L the viewer sees. The rows of the week
+ * are written the same in both modes (the builder above); the mode is applied when totals are made from them, so the weekly
+ * view and the month view read one setting. 'cogs' unless v5_pl is on for the role and the setting says 'memo'.
+ */
+export async function weekPlMode(sb: Supa, settings: ModuleSettings, role: Role): Promise<CostingRowsMode> {
+  return isModuleOn(settings.v5_pl, role) ? v5CostingMode(sb) : "cogs";
 }

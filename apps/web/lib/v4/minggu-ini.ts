@@ -7,7 +7,7 @@
  */
 import {
   D, Decimal, addDays, cogsBySegment, dayName, gpBridge, inputSummary, stockAgeBuckets, stockOverAge, weekCash, weekHeadline, weekOutlook,
-  type AgeBucketRow, type ControlV3, type PlRowV4, type RollForward, type WeekOutlook, type WeekResult,
+  type AgeBucketRow, type ControlV3, type CostingRowsMode, type PlRowV4, type RollForward, type WeekOutlook, type WeekResult,
 } from "@kgr/engine";
 import { jtV4, num, pctV4, rpJt, tgl, tglShort } from "../fmt";
 import type { CardCompare } from "@/components/v4/Card";
@@ -97,7 +97,7 @@ export interface MingguIniInput {
   cashMart: { date: string; closing: string | null; planned: boolean; without?: string | null }[] | null;
   month: { label: string; revenue: string; gp: string; gpPct: string | null; budgetRevenue: string | null; budgetGp: string | null } | null;
   /** `basis` = the NIBT the months rest on; null = unknown (K52: no fixed nominal), not "profit". */
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; interest: string | null } | null;
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; interest: string | null } | null;
   demand: { confirmed: string; tentative: string; forecast: string; weighted: string; fromStock: string; net: string; heads: number | null; planHeads: number | null; variance: string | null } | null;
   groups: { group: string; cogsPerKg: string | null }[] | null;
   roll: RollForward | null;
@@ -105,6 +105,8 @@ export interface MingguIniInput {
   pdfHref: string | null;
   /** PRD v5 §4.7 (flag v5_pl): the month's rows with the fixed-cost estimate for the P&L tile; absent = v4. */
   v5Pl?: MingguIniV5Pl | null;
+  /** R66 (K63): how the two v5 costing rows count in the weekly totals ('cogs' = v5 behaviour). */
+  costingMode?: CostingRowsMode;
   /** PRD v5 §6.1 (flag v5_management): LB simulation, decisions, loop status, source labels; absent = v4 / v5_pl. */
   v5Mgmt?: ManagementV5Input | null;
   /** PRD v5.1 K41: tile id → message of the read that failed. */
@@ -155,14 +157,15 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   });
   const c = r.controls;
   const counts = x.release?.counts ?? c.counts;
-  const total = Object.values(counts).reduce<number>((a, b) => a + (b ?? 0), 0);
+  const total = Object.values(counts).reduce<number>((a, b) => a + (b ?? 0), 0); // missing-ok: jumlah kontrol per status (hitungan)
   const relText = x.release?.releasedAt
-    ? `Rilis ${tgl(x.release.releasedAt.slice(0, 10))} · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`
-    : `Belum dirilis, angka draft · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`;
+    ? `Rilis ${tgl(x.release.releasedAt.slice(0, 10))} · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}` // missing-ok: jumlah kontrol berstatus LULUS (hitungan); tanpa kontrol lulus memang 0
+    : `Belum dirilis, angka draft · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`; // missing-ok: jumlah kontrol berstatus LULUS (hitungan); tanpa kontrol lulus memang 0
   tiles.push({ id: "rilis", pos: P(9, 0, 3, 1), kind: "bare", content: { type: "release", text: relText, pdfHref: x.pdfHref } });
 
   // ---------------------------------------------------------------- engine numbers
-  const wo = x.plRows ? weekOutlook(x.plRows, { weekStart: r.week.weekStart, today }, x.lastWeek) : null;
+  const costingMode = x.costingMode ?? "cogs";
+  const wo = x.plRows ? weekOutlook(x.plRows, { weekStart: r.week.weekStart, today }, x.lastWeek, costingMode) : null;
   const total1 = r.block1.find((b) => b.segment === "TOTAL KGR")!;
   const cash = weekCash(r);
   const stockFallback = r.block4.find((b) => b.status === "PERHATIAN") ?? null;
@@ -265,7 +268,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         type: "card", value: jtV4(s.equity), unit: "Rp jt", negative: D(s.equity).lt(0),
         compare: [
           { label: "ekuitas / modal disetor", value: pctV4(D(s.equity).div(D(s.paidIn)), 0) },
-          { label: "utang pihak berelasi", value: `${jtV4(s.affiliate)} jt` },
+          { label: "utang pihak berelasi", value: s.affiliate === null ? "belum ada" : `${jtV4(s.affiliate)} jt` },
           { label: "bulan sampai ekuitas negatif", value: monthsToNegative(s.months, s.basis) },
         ],
         href: "/kas",
@@ -296,7 +299,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       note: missingDays.length ? `${missingDays.map((d) => `${dayName(d.date)} ${tglShort(d.date)}`).join(", ")} tanpa jurnal penjualan; dibaca sebagai data hilang, bukan nol, sampai Sales dan Finance memastikan.` : undefined,
       content: { type: "combo", points, legend: [{ tone: "s1", label: "aktual (jurnal)" }, { tone: "s2", label: "PO / run-rate" }, { tone: "ln", label: "GP P&L" }] },
     });
-    const b = gpBridge({ revenueProduk: total1.revenueProjection, gpProduk: total1.gpProjection, rows: x.plRows!, week: { weekStart: r.week.weekStart, today } });
+    const b = gpBridge({ revenueProduk: total1.revenueProjection, gpProduk: total1.gpProjection, rows: x.plRows!, week: { weekStart: r.week.weekStart, today }, mode: costingMode });
     const steps = b.steps.filter((s) => s.code !== "cogs_other" || !s.value.isZero()).filter((s) => s.code !== "residual" || s.value.abs().gt(1));
     const SHORT: Record<string, string> = { gp_produk: "GP produk", timing: "Timing faktur", cogs_mapping: "COGS vs HPP", expedition: "Ekspedisi", blasting: "Blasting", cogs_other: "COGS lain", residual: "Belum terjelaskan", gp_pl: "GP P&L" };
     tiles.push({
@@ -313,7 +316,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   // ---------------------------------------------------------------- rows 8–11: segment table, COGS/kg
   const segs = r.block1;
   const b6 = r.block6.rows.find((x) => x.status === "Aktual") ?? null;
-  const dayRows = x.hari && x.plRows ? daySegments(x.plRows, x.hari, today) : null;
+  const dayRows = x.hari && x.plRows ? daySegments(x.plRows, x.hari, today, costingMode) : null;
   const segCols: Col[] = x.mode === "aktual"
     ? [{ key: "seg", label: "Segmen", kind: "key" }, { key: "kg", label: "kg aktual", num: true }, { key: "rev", label: "Revenue aktual", num: true }, { key: "gp", label: "GP aktual", num: true, kind: "key" }, { key: "pct", label: "GP %", num: true }, { key: "lw", label: "GP/kg lalu", num: true, kind: "sup" }]
     : [{ key: "seg", label: "Segmen", kind: "key" }, { key: "kg", label: "kg", num: true }, { key: "rev", label: "Revenue", num: true }, { key: "gpa", label: "GP aktual", num: true, kind: "sup" }, { key: "gpo", label: "GP order", num: true, kind: "sup" }, { key: "gp", label: "GP produk", num: true, kind: "key" }, { key: "pct", label: "GP %", num: true }, { key: "lw", label: "GP/kg lalu", num: true, kind: "sup" }, { key: "d", label: "Δ GP/kg", num: true }];
@@ -497,9 +500,9 @@ function lowestOf(days: { date: string; closing: string | null }[]): { date: str
   return { date: lo.date, balance: lo.b, average: v.reduce((a, b) => a.plus(b.b), D(0)).div(v.length) };
 }
 
-function daySegments(rows: PlRowV4[], day: string, today: string) {
+function daySegments(rows: PlRowV4[], day: string, today: string, mode: CostingRowsMode) {
   // one day as a one-day "week": actual when the day is before the update date, forecast from it
-  const wo = weekOutlook(rows.filter((r) => r.date === day), { weekStart: day, today: day < today ? addDays(day, 1) : day });
+  const wo = weekOutlook(rows.filter((r) => r.date === day), { weekStart: day, today: day < today ? addDays(day, 1) : day }, null, mode);
   return wo.bySegment.filter((s) => !s.revenue.isZero() || !s.gp.isZero());
 }
 
