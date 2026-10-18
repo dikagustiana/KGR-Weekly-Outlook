@@ -28,6 +28,7 @@ export default async function AdminPage() {
             <li><Link href={`/admin/minggu${q}`}>Minggu</Link></li>
             <li><Link href={`/master/item${q}`}>Master (item, SKU, COA)</Link></li>
             <li><Link href={`/admin/pengguna${q}`}>Pengguna dan peran</Link></li>
+            <li><Link href="/komersial/assignment">Penugasan Sales (SKU dan pelanggan per Sales)</Link></li>
             <li><Link href={`/admin/modul${q}`}>Modul dan antrian bangun ulang</Link></li>
             <li><Link href={`/admin/audit${q}`}>Audit</Link></li>
           </ul>

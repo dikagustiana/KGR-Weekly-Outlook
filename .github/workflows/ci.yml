@@ -97,7 +97,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: next build (NEXT_PUBLIC_SUPABASE_URL = the mock origin)
         run: pnpm e2e:build
-      - name: e2e (stack, matrix, journey O, T7, A6, L, P, R69, F19, volume)
+      - name: e2e (stack, matrix, journey O, T7, A6, A7, L, P, R69, F19, volume)
         env:
           E2E_BUILD: never
           # A1d (Q-v5.2-51): no XFAIL is left; a step marked expected-to-fail that passes now fails the job (the marker is then due for removal)

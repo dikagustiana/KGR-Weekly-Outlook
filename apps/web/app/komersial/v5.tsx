@@ -16,6 +16,8 @@ import type { ReactNode } from "react";
 import { spotSaleAction } from "./actions";
 import { answerSurplusAction, lockCommitmentsAction, saveCommitmentsAction } from "./actions-v5";
 import { CommitmentForm } from "@/components/v5/CommitmentForm";
+import { AssignmentLink } from "@/components/v5/AssignmentLink";
+import { can } from "@/lib/roles";
 
 /** PRD v5 §6.2 Commercial (flag v5_commercial): stock to sell, commitments for PPIC, PPIC's surplus, spot. */
 export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: StockFilter }) {
@@ -27,6 +29,8 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
   // PRD v5 K36 (flag v5_management): the source label under the main numbers, read for the week shown (R76)
   const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("commercial", sb, week ? periodOf(week.week_start, week.week_end, week.update_date) : undefined)) } : model0;
   const extras: Record<string, ReactNode> = {};
+  // A7: Admin and Kepala Sales set up who sees which SKU (the card next to the approval queue)
+  if (!mgmt && can(viewer.role, "sales_assignment")) extras["c-approval"] = <AssignmentLink />;
   const c = input.commitment;
   if (!mgmt && c.canEdit && c.rows.length) extras["t-komitmen"] = <CommitmentForm c={c} save={saveCommitmentsAction} lock={lockCommitmentsAction} />;
   // R56: the answer is about a surplus row of PPIC's saved plan — the key comes from that row, not from the screen

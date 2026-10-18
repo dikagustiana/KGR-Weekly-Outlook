@@ -36,3 +36,20 @@ describe("commercial view model (PRD v3 §8 M7)", () => {
     expect(v[0].cost_per_kg_ma).toBe("37411.0000");
   });
 });
+
+describe("A7: assigned keys are read as the database cover (O21(b), assignment_covers)", () => {
+  const forms = ["RPA|Karkas|Fresh", "RPA|Karkas|Frozen", "RPA|Karkas|n/a", "RPA|Sayap|Fresh", "RPA|Sayap|Frozen"].map((key, i) => ({ ...row, key, rank: i + 1 }));
+  const seen = (assigned: string[]) => commercialView(forms, { role: "sales", salesSeesCost: true, assignedKeys: assignedKeysFor("sales", assigned.map((key) => ({ key }))) }).map((r) => r.key);
+  it("a base key (no form suffix) shows every form of its SKU, and nothing of another SKU", () => {
+    expect(seen(["RPA|Karkas"])).toEqual(["RPA|Karkas|Fresh", "RPA|Karkas|Frozen", "RPA|Karkas|n/a"]);
+  });
+  it("a key with a form shows only that form", () => {
+    expect(seen(["RPA|Sayap|Fresh"])).toEqual(["RPA|Sayap|Fresh"]);
+    expect(seen(["RPA|Karkas|n/a"])).toEqual(["RPA|Karkas|n/a"]);
+  });
+  it("several assignments add up; a key the SKU list does not have shows nothing", () => {
+    expect(seen(["RPA|Sayap|Frozen", "RPA|Karkas"])).toEqual(["RPA|Karkas|Fresh", "RPA|Karkas|Frozen", "RPA|Karkas|n/a", "RPA|Sayap|Frozen"]);
+    expect(seen(["RPA|Nope"])).toEqual([]);
+  });
+});
+

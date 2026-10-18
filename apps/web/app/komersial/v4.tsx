@@ -17,6 +17,8 @@ import { num } from "@/lib/fmt";
 import type { Viewer } from "@/lib/session";
 import type { ReactNode } from "react";
 import { decideAction, orderFromApprovalAction, spotSaleAction } from "./actions";
+import { AssignmentLink } from "@/components/v5/AssignmentLink";
+import { can } from "@/lib/roles";
 
 type Row = Record<string, unknown>;
 
@@ -60,6 +62,8 @@ export async function KomersialV4({ viewer }: { viewer: Viewer }) {
   });
 
   const extras: Record<string, ReactNode> = {};
+  // A7: Admin and Kepala Sales set up who sees which SKU
+  if (!mgmt && can(viewer.role, "sales_assignment")) extras["c-approval"] = <AssignmentLink />;
   const spot = model.actions.find((a) => a.action === "spot");
   if (spot) {
     extras["t-spot"] = (

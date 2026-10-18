@@ -44,6 +44,10 @@
   {
    "id": "print",
    "path": "/w/{week}/print"
+  },
+  {
+   "id": "penugasan",
+   "path": "/komersial/assignment"
   }
  ],
  "costProbes": [
@@ -212,421 +216,421 @@
  "expect": {
   "1": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "2": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
-    "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
+    "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "3": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
-    "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
+    "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "4": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
-    "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
+    "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=1 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "5": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=1 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "6": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=1 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "7": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=1 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=200 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    }
   },
   "8": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "9": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
-    "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
+    "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=1 rencana-biaya=- minggu-ini-cogs=0"
    }
   },
   "10": {
    "admin": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=200 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=1 komersial-status-biaya=1 rencana-biaya=1 minggu-ini-cogs=1"
    },
    "finance": {
-    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=200 input=404 outlook-bulan=200 kas=200 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=0 minggu-ini-cogs=0"
    },
    "commercial_lead": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=200",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "sales": {
-    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=-"
    },
    "ppic": {
-    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=200 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=0 minggu-ini-cogs=-"
    },
    "operations_director": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    },
    "cost_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "inventory_accounting": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "purchasing": {
-    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200",
+    "status": "minggu-ini=404 komersial=404 rencana=404 input=404 outlook-bulan=200 kas=404 outlook-preparer=200 print=200 penugasan=404",
     "cost": "komersial-lantai=- komersial-status-biaya=- rencana-biaya=- minggu-ini-cogs=-"
    },
    "management": {
-    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200",
+    "status": "minggu-ini=200 komersial=200 rencana=404 input=404 outlook-bulan=200 kas=200 outlook-preparer=307→/minggu-ini/2026-08-24 print=200 penugasan=404",
     "cost": "komersial-lantai=0 komersial-status-biaya=0 rencana-biaya=- minggu-ini-cogs=0"
    }
   }
@@ -638,8 +642,9 @@
   "Input v5 ada (200) hanya bila v5_input hidup untuk role itu, lalu untuk semua role pemilik input; dengan roles [admin] hanya Admin (kombinasi 8, 10); mati = 404 untuk semua, juga Admin.",
   "Kas: Admin, Finance, Direktur Operasional, Manajemen; Sales dan role operasional lain 404 (K48).",
   "Outlook preparer dan print: semua role (200); Direktur Operasional dan Manajemen dialihkan ke Minggu ini (307) di halaman Outlook preparer. Outlook bulan: semua role.",
-  "Kolom biaya v5 (K53): status biaya Komersial terlihat bagi role yang termasuk v5_costing, kecuali Sales di tata letak v4 (v5_commercial mati); Lantai/kg berangka hanya di tata letak Komersial v5 (v5_commercial hidup); Biaya/kg Rencana hanya dengan v5_ppic_class; COGS rencana Minggu ini hanya dengan v5_management.",
+  "Kolom biaya v5 (K53): status biaya Komersial terlihat bagi role yang termasuk v5_costing, juga Sales di tata letak v4 (v5_commercial mati; A7: sebelumnya tertulis 0 untuk Sales di sana karena penugasan key dasar RPA|Karkas tidak cocok dengan baris RPA|Karkas|Fresh di layar v4 dan tabelnya kosong, Q-v5.2-122, docs/v5.2/a7.md); Lantai/kg berangka hanya di tata letak Komersial v5 (v5_commercial hidup); Biaya/kg Rencana hanya dengan v5_ppic_class; COGS rencana Minggu ini hanya dengan v5_management.",
   "Dengan roles [admin] (kombinasi 8 dan 10) hanya Admin melihat angka v5; role lain melihat layar v4 tanpa kolom biaya v5 (K25, K54).",
-  "Sales melihat kolom biaya v5 di Komersial hanya bila flag v5_costing mencakup Sales dan parameter.sales_sees_cost bukan false; API Sales dicek terpisah (langkah API)."
+  "Sales melihat kolom biaya v5 di Komersial hanya bila flag v5_costing mencakup Sales dan parameter.sales_sees_cost bukan false; API Sales dicek terpisah (langkah API).",
+  "A7: Penugasan Sales (/komersial/assignment) terbuka (200) hanya untuk Admin dan Kepala Sales, pada setiap kombinasi flag (halamannya tidak memakai flag modul); semua role lain 404, juga Manajemen dan Direktur Operasional."
  ]
 }
