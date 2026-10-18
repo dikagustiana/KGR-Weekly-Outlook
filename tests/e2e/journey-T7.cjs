@@ -39,6 +39,22 @@ async function drain(J, finance, why) {
   J.check(`antrean rebuild terkuras (${why})`, open() === 0);
 }
 
+// Q-v5.2-52: PPIC drains the queue up to the day of the allocation screen with the button of that screen (shown when C45 is STALE), so the
+// allocation does not wait for Finance. The rebuild runs with the service client behind the action; the role is checked in the action.
+async function ppicDrain(J, ppic, date) {
+  await ppic.goto(`/hari/${date}/alokasi`);
+  const label = "Bangun ulang antrean (sampai hari ini)";
+  const stale = (await ppic.page.getByRole("button", { name: label, exact: true }).count()) > 0;
+  J.log(`    ppic  C45 STALE di layar alokasi ${date}: ${stale ? "ya, tombol bangun ulang antrean ada" : "tidak (antrean kosong sampai hari itu)"}`);
+  if (!stale) return;
+  const m = await ppic.act(label, { exact: true, timeout: 280_000 });
+  // when the queue is drained the screen refreshes itself: C45 is no longer STALE, so the form with its message is gone — no error is the answer
+  J.log(`    ppic  ${short(m.error || m.ok || "(layar menyegarkan dirinya: C45 tidak lagi STALE)", 200)}`);
+  J.check(`PPIC membangun ulang antrean dari layar alokasi ${date} (Q-v5.2-52)`, !m.error, m.error || "tanpa galat");
+  const left = Number(J.dbOne(`select count(*) from public.rebuild_queue where status in ('queued','running','failed') and date <= '${date}'`));
+  J.check(`antrean sampai ${date} kosong (C45 tidak STALE)`, left === 0, `${left} tanggal tersisa`);
+}
+
 (async () => {
   const J = new Journey("T7", "satu putaran mingguan utuh (minggu 24–30 Agu 2026, jam uji maju Kam 27 Agu → Jum 28 Agu)");
   const A = {};
@@ -231,8 +247,8 @@ async function drain(J, finance, why) {
   // ------------------------------------------------------------------------------------ allocation Thursday (PPIC)
   await J.step("6b", A.ppic, "PPIC: alokasi FEFO hari ini, Kam 27 Agu (sebelum cut-off 14.00)", async () => {
     J.clock("2026-08-27T13:45:00+07:00");
-    // C45 STALE holds the allocation while the queue is not drained (see drain())
-    await drain(J, A.finance, "sebelum alokasi 27/08");
+    // C45 STALE holds the allocation while the queue is not drained: PPIC drains it from the screen itself (Q-v5.2-52, see ppicDrain())
+    await ppicDrain(J, A.ppic, "2026-08-27");
     await A.ppic.goto("/hari/2026-08-27/alokasi");
     { const t0 = await A.ppic.text("main"); J.log(`    ppic  halaman alokasi: ${short(t0, 500)}`); }
     const m = await A.ppic.act("Alokasikan hari ini");
@@ -259,7 +275,7 @@ async function drain(J, finance, why) {
   // -------------------------------------------------------------------------------------- Friday allocation
   await J.step("7b", A.ppic, "PPIC: alokasi FEFO hari ini, Jum 28 Agu (sebelum cut-off 14.00)", async () => {
     J.clock("2026-08-28T13:00:00+07:00");
-    await drain(J, A.finance, "sebelum alokasi 28/08");
+    await ppicDrain(J, A.ppic, "2026-08-28");
     await A.ppic.goto("/hari/2026-08-28/alokasi");
     { const t0 = await A.ppic.text("main"); J.log(`    ppic  halaman alokasi: ${short(t0, 500)}`); }
     const m = await A.ppic.act("Alokasikan hari ini");

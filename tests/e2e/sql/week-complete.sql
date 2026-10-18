@@ -65,10 +65,6 @@ from ins i
 where (select lot_ref from public.lot_balance_daily where key = 'RPA|Karkas|Fresh' and date = i.delivery_date order by kg desc limit 1) is not null
 on conflict (sales_line_id, lot_ref) do nothing;
 
--- C42 sees every yield row of the plan's class (STD) with a "Placeholder" note, also rows that a newer effective date has replaced.
--- The upload of PPIC replaces the karkas rows (with berlaku_mulai 2026-01-01); the boneless rows (I_Yield of the workbook) cannot be
--- uploaded (the check asks for a Karkas key). PPIC's decision on them is the setup below. Finding: docs/v5.2/a5.md (Q-v5.2-50).
-update public.yield_matrix set note = 'e2e: yield pola boneless ditetapkan PPIC (setup)' where weight_class = 'STD' and cut_pattern = 'boneless' and note ilike 'placeholder%';
 
 ------------------------------------------------------------------------------------------------------------------
 -- 4. PO prices of the fixture are below the cost floor of the v5 costing (commercial_daily.price_floor = cost per kg), so C38
