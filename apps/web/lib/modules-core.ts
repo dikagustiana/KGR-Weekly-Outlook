@@ -59,6 +59,27 @@ export function parseSetting(v: unknown): ModuleSetting {
   };
 }
 
+/**
+ * Q-v5.2-5: the value Admin → Modul writes for a flag. It rewrites the fields the form manages (enabled, roles, since of
+ * v5_costing, costing_rows_mode of v5_pl) and keeps every other field of the stored value as it is — a toggle must never
+ * wipe a setting it does not show (costing_rows_mode, a note, a field a later release adds).
+ */
+export function mergeFlagValue(prev: unknown, x: { key: ModuleKey; enabled: boolean; roles: Role[]; allRoles: number; since?: string | null; costingRowsMode?: CostingRowsMode | null }): Record<string, unknown> {
+  const old = prev && typeof prev === "object" && !Array.isArray(prev) ? (prev as Record<string, unknown>) : {};
+  const kept = Object.fromEntries(Object.entries(old).filter(([k]) => k !== "enabled" && k !== "roles" && k !== "since" && k !== "costing_rows_mode"));
+  const value: Record<string, unknown> = { ...kept, enabled: x.enabled };
+  if (x.roles.length && x.roles.length < x.allRoles) value.roles = x.roles;
+  // `since` belongs to v5_costing (K22, R40): typed in the form or kept; another flag's `since` is not ours to drop
+  const since = x.key === "v5_costing" ? x.since : (typeof old.since === "string" ? old.since : null);
+  if (since) value.since = since;
+  // costing_rows_mode belongs to v5_pl (R66, K63): the choice of the form, else the stored one; another flag's field is kept
+  if (x.key === "v5_pl") {
+    const mode = x.costingRowsMode ?? (old.costing_rows_mode === "memo" || old.costing_rows_mode === "cogs" ? old.costing_rows_mode : null);
+    if (mode) value.costing_rows_mode = mode;
+  } else if (old.costing_rows_mode !== undefined) value.costing_rows_mode = old.costing_rows_mode;
+  return value;
+}
+
 /** On for this role: the flag is enabled and the role is in its list (or there is no list). Missing flag = off. */
 export function isModuleOn(setting: ModuleSetting | undefined, role: Role | null | undefined): boolean {
   if (!setting || !setting.enabled || !role) return false;
