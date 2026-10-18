@@ -1,0 +1,105 @@
+# journey L — Commercial ↔ PPIC: versi 2 komitmen dengan alasan, input Sales nonaktif, jawaban surplus, Outlook bulan dan Kas (v5.1 L4–L7)
+# lingkungan: PG16 lokal + PostgREST 12 + mock auth · app http://127.0.0.1:3100 · jam dinding mesin 2026-10-18T10:54:23.623Z
+
+0 - — SETUP: jam uji Jum 28 Agu 17.10; login empat role   [jam uji 2026-08-28T17:05:58+07:00]
+JAM UJI → jam uji: 2026-08-28 17:10:00 WIB (offset -4409064s)
+    commercial_lead GET /login → HTTP 200
+    commercial_lead POST /login (server action) → HTTP 303
+    sales      GET /login → HTTP 200
+    sales      POST /login (server action) → HTTP 303
+    ppic       GET /login → HTTP 200
+    ppic       POST /login (server action) → HTTP 303
+    finance    GET /login → HTTP 200
+    finance    POST /login (server action) → HTTP 303
+    CEK lulus: empat role masuk — commercial_lead, sales, ppic, finance
+    DB komitmen 2026-08-31: v1 locked 15000/2000 @36705 kunci lead@e2e.test
+    DB price list 2026-08-31: RPA|Karkas 36705.0000 28000.0000 lead@e2e.test 2026-08-28 09:00:03.481817+00 form
+    CEK lulus: awal: komitmen v1 terkunci (T7 langkah 2) dan price list terkunci
+    Supabase (mock origin) selama langkah: 18× auth 200, 208× rest 200
+
+L4 commercial_lead — Kepala Sales: komitmen terkunci diubah — versi baru wajib alasan; dengan alasan v2 draft, kunci → v1 superseded, v2 terkunci   [jam uji 2026-08-28T17:10:04+07:00]
+    commercial_lead GET /komersial → HTTP 200
+    CEK lulus: Komersial terbuka untuk Kepala Sales — HTTP 200
+    CEK lulus: form komitmen: baris Karkas terkunci v1 15.000 / 2.000, bisa diubah oleh Kepala Sales — 15.000
+    commercial_lead POST /komersial (server action) → HTTP 200
+    commercial_lead  tanpa alasan: Tidak ada komitmen yang disimpan: Komitmen sudah dikunci: versi baru wajib alasan
+    CEK lulus: tanpa alasan: ditolak 'Komitmen sudah dikunci: versi baru wajib alasan', tidak ada yang disimpan — Tidak ada komitmen yang disimpan: Komitmen sudah dikunci: versi baru wajib alasan
+    DB komitmen sesudah penolakan: v1 locked 15000/2000 @36705 kunci lead@e2e.test
+    CEK lulus: DB: komitmen tidak berubah (hanya v1 terkunci) — v1 locked 15000/2000 @36705 kunci lead@e2e.test
+    commercial_lead POST /komersial (server action) → HTTP 200
+    commercial_lead  dengan alasan: 1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+    CEK lulus: dengan alasan: v2 tersimpan sebagai draft — 1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+    DB komitmen: v1 locked 15000/2000 @36705 kunci lead@e2e.test; v2 draft 16000/2000 @36705 alasan "PO tambahan PT A"
+    CEK lulus: DB: v1 tetap terkunci dan v2 draft 16.000 / 2.000 dengan alasan 'PO tambahan PT A' — v1 locked 15000/2000 @36705 kunci lead@e2e.test; v2 draft 16000/2000 @36705 alasan "PO tambahan PT A"
+    commercial_lead  dialog "Kunci komitmen dan price list minggu depan? Perubahan sesudahnya menjadi versi …" → ok
+    commercial_lead POST /komersial (server action) → HTTP 200
+    commercial_lead  1 draft komitmen dikunci bersama price list minggu depan
+    CEK lulus: kunci: 1 draft komitmen dikunci bersama price list — 1 draft komitmen dikunci bersama price list minggu depan
+    DB komitmen: v1 superseded 15000/2000 @36705 kunci lead@e2e.test; v2 locked 16000/2000 @36705 alasan "PO tambahan PT A" kunci lead@e2e.test
+    CEK lulus: DB: v1 superseded, v2 terkunci oleh Kepala Sales (16.000 fresh) — v1 superseded 15000/2000 @36705 kunci lead@e2e.test; v2 locked 16000/2000 @36705 alasan "PO tambahan PT A" kunci lead@e2e.test
+    DB price list sesudah: RPA|Karkas 36705.0000 28000.0000 lead@e2e.test 2026-08-28 09:00:03.481817+00 form
+    CEK lulus: DB: price list yang sudah terkunci tidak ditimpa (harga, harga frozen dari form, waktu kunci sama; Q-v5.1-8) — RPA|Karkas 36705.0000 28000.0000 lead@e2e.test 2026-08-28 09:00:03.481817+00 form vs RPA|Karkas 36705.0000 28000.0000 lead@e2e.test 2026-08-28 09:00:03.481817+…
+    commercial_lead  tangkapan layar: screens/L-L4-lead-versi-2.png
+    diharapkan: rest (lead@e2e.test) POST sales_commitment → HTTP 400 (penolakan yang diharapkan: versi baru komitmen terkunci tanpa alasan (tg_commitment_guard))
+    Supabase (mock origin) selama langkah: 12× auth 200, 937× rest 200, 3× rest 201, 12× rest 204, 1× rest 400
+
+L5 sales — Sales: komitmen terkunci v2 — fresh, frozen, harga dan harga frozen semua nonaktif (R15); Sales tidak membaca tabel rencana (Q-v5.2-15)   [jam uji 2026-08-28T17:10:12+07:00]
+    sales      GET /komersial → HTTP 200
+    CEK lulus: Komersial terbuka untuk Sales — HTTP 200
+    sales  input baris Karkas: fresh_0=16.000 (nonaktif), frozen_0=2.000 (nonaktif), price_0=36.705 (nonaktif), price_frozen|RPA|Karkas=28.000 (nonaktif)
+    CEK lulus: keempat input baris Karkas nonaktif dan berisi v2 (16.000 / 2.000 / 36.705 / 28.000) — [["fresh_0","16.000",true],["frozen_0","2.000",true],["price_0","36.705",true],["price_frozen|RPA|Karkas","28.000",true]]
+    CEK lulus: Sales: 'terkunci v2' dan 'Dikunci Kepala Sales.', tanpa tombol kunci
+    sales  tile Dari PPIC: Dari PPIC: surplus untuk SKU Anda · rencana v1 SKU Surplus kg Jawaban Anda Karkas 0 belum dijawab Karkas · 0 kg Sanggup serap semua Sanggup sebagian Tidak sanggup, kurangi potong Kirim jawaban ke PPIC Surplus karkas dan bagian lain dari rencana PPIC untuk SKU…
+    CEK lulus: tile Dari PPIC untuk Sales = surplus SKU sendiri dari view; detail rencana tidak ditampilkan (v5.2, Q-v5.2-15) — Dari PPIC: surplus untuk SKU Anda · rencana v1 SKU Surplus kg Jawaban Anda Karkas 0 belum dijawab Karkas · 0 kg Sanggup serap semua Sanggup sebagian Tidak sang…
+    sales (langsung ke PostgREST)  GET /rest/v1/plan_week?select=id&limit=5 → HTTP 200 0 baris
+    CEK lulus: plan_week: Sales tidak membaca baris rencana (B6/B7) — HTTP 200, 0 baris
+    sales (langsung ke PostgREST)  GET /rest/v1/surplus_for_sales_v52?select=*&limit=20 → HTTP 200 1 baris
+    CEK lulus: surplus_for_sales_v52: Sales membaca view itu (SKU yang ditugaskan saja) — HTTP 200, 1 baris
+    sales  tangkapan layar: screens/L-L5-sales-terkunci.png
+    Supabase (mock origin) selama langkah: 3× auth 200, 32× rest 200
+
+L6 commercial_lead — Kepala Sales menjawab surplus rencana PPIC (sebagian), PPIC melihat 'dijawab'; komitmen dan price list minggu depan terkunci   [jam uji 2026-08-28T17:10:13+07:00]
+JAM UJI → jam uji: 2026-08-28 17:20:00 WIB (offset -4408477s)
+    DB rencana PPIC 2026-08-24: v1 surplus {"Lemak": "350.42", "Karkas": "0.09"}
+    CEK lulus: DB: rencana tersimpan punya surplus nyata (> 1 kg) untuk dijawab — {"Lemak": "350.42", "Karkas": "0.09"}
+    commercial_lead GET /komersial → HTTP 200
+    CEK lulus: Komersial terbuka untuk Kepala Sales — HTTP 200
+    commercial_lead  tile Dari PPIC: Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana ± 14.054 kg turun −70,9 jt HJA 2.019 1.011 −1.009 Usus 1.673 783 −890 Kepala 1.674 827 −847 Ceker 1.071 537 −534 Lemak · 350 kg Karkas · 0 kg Sanggup serap semua Sanggup sebagian Tidak sanggup, kurangi potong Kirim jawaban ke PPIC Jadi frozen bila tidak terjual fresh; biaya renc…
+    CEK lulus: tile Dari PPIC menyebut surplus karkas dari batch rencana dan belum dijawab — Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana ± 14.054 kg turun −70,9 jt HJA 2.019 1.…
+    commercial_lead  baris surplus yang dijawab: Lemak · 350 kg (DB Lemak 350.42 kg)
+    CEK lulus: daftar jawaban memuat baris surplus rencana (R56: kunci dari baris rencana) — Lemak · 350 kg
+    commercial_lead POST /komersial (server action) → HTTP 200
+    commercial_lead  Jawaban terkirim ke PPIC.
+    CEK lulus: jawaban terkirim ke PPIC — Jawaban terkirim ke PPIC.
+    DB surplus_response: RPA|Lemak · 350.42 · partial · 300.00 · 25000.0000 · lead@e2e.test
+    CEK lulus: DB: satu jawaban 'partial' 300 kg @ 25.000 oleh Kepala Sales, untuk baris surplus itu dengan kg surplus rencana — RPA|Lemak 350.42 partial 300.00 25000.0000 lead@e2e.test
+    DB antrean tanggal rencana 2026-08-24 (jawaban surplus): 2026-08-24 · surplus_response insert · done
+    CEK lulus: DB: jawaban surplus masuk antrean rebuild untuk tanggal rencana (24/08) — 2026-08-24 surplus_response insert done
+    commercial_lead  tangkapan layar: screens/L-L6-lead-jawaban-surplus.png
+    ppic       GET /w/2026-08-24/rencana → HTTP 200
+    CEK lulus: Rencana terbuka untuk PPIC — HTTP 200
+    ppic  Dari Commercial: Dari Commercial Status Komitmen minggu depan dikunci Tenggat 28/08 17.00. Price list minggu depan dikunci Dipakai costing minggu depan. Jawaban surplus dijawab Sanggup serap atau kurangi potong. Spot fresh hari ini belum ada Sisa diblast 14.00. 2 · Rencana mingguan: output per SKU dan biaya rencana…
+    CEK lulus: Rencana PPIC: 'Jawaban surplus' dijawab — Dari Commercial Status Komitmen minggu depan dikunci Tenggat 28/08 17.00. Price list minggu depan dikunci Dipakai costing minggu depan. Jawaban surplus dijawab…
+    CEK lulus: Rencana PPIC: komitmen dan price list minggu depan dikunci — Dari Commercial Status Komitmen minggu depan dikunci Tenggat 28/08 17.00. Price list minggu depan dikunci Dipakai costing minggu depan. Jawaban surplus dijawab…
+    ppic  tangkapan layar: screens/L-L6-ppic-dijawab.png
+    Supabase (mock origin) selama langkah: 7× auth 200, 696× rest 200, 2× rest 201, 10× rest 204
+
+L7 finance — Finance: kas Agustus belum diisi (baris mart 0, R21) dan bulan sampai ekuitas negatif 'tidak berlaku (laba)' (R20), di Outlook bulan dan Kas   [jam uji 2026-08-28T17:20:08+07:00]
+JAM UJI → jam uji: 2026-08-28 17:30:00 WIB (offset -4407885s)
+    DB cash_position_daily Agustus: 31 hari, accounts = 0 di 31, total_closing = 0 di 31, Σ accounts 0, Σ total 0.00; cash_daily (upload kas): 0 baris
+    CEK lulus: DB: 31 hari Agustus ada di mart kas, semuanya accounts = 0 dan total_closing = 0 (tidak ada upload kas) — 31 31 31 0 0.00
+    finance    GET /m/2026-08 → HTTP 200
+    CEK lulus: Outlook bulan Agustus terbuka untuk Finance — HTTP 200
+    finance  /m/2026-08 solvabilitas: Solvabilitas Agustus 2026 Rp jt Ekuitas (36% modal disetor) 1.804,4 Utang pihak berelasi 5.600,0 Bunga Agustus 3,9 Kas belum diisi Bulan sampai ekuitas negatif tidak berlaku (laba) Finance · Agustus 2026 Kunci V1 pada Kamis 20 Agu; dasar rebuild terakhir 28 Agu. run-rate menyimpang 20.0% dari rata-rata actual; alasan wajib di
+    CEK lulus: Outlook bulan: 'Kas belum diisi' (bukan Rp 0) — Solvabilitas Agustus 2026 Rp jt Ekuitas (36% modal disetor) 1.804,4 Utang pihak berelasi 5.600,0 Bunga Agustus 3,9 Kas belum diisi Bulan sampai ekuitas negatif…
+    CEK lulus: Outlook bulan: 'Bulan sampai ekuitas negatif tidak berlaku (laba)' — Solvabilitas Agustus 2026 Rp jt Ekuitas (36% modal disetor) 1.804,4 Utang pihak berelasi 5.600,0 Bunga Agustus 3,9 Kas belum diisi Bulan sampai ekuitas negatif…
+    finance  tangkapan layar: screens/L-L7-finance-outlook-bulan.png
+    finance    GET /kas → HTTP 200
+    CEK lulus: Kas terbuka untuk Finance — HTTP 200
+    finance  /kas: Kas & solvabilitas Saldo kas per 27 Agu 2026 belum diisi; ekuitas Rp 1.804,4 jt. Saldo kas 27 Agu cara hitung belum diisi Terendah 13 minggu cara hitung tidak tersedia Utang pihak berelasi cara hitung 5.600,0 Rp jt bunga Agu 3,9 jt Ekuitas cara hitung 1.804,4 Rp jt modal disetor 36% Bulan sampai ekuitas negatif cara hitung tidak berlaku (laba) Saldo akhir per minggu, 13 minggu dengan pendanaan afiliasi tanpa fasilita
+    CEK lulus: Kas: 'Saldo kas per 27 Agu 2026 belum diisi' dan 'Saldo kas 27 Agu belum diisi' (bukan Rp 0) — Kas & solvabilitas Saldo kas per 27 Agu 2026 belum diisi; ekuitas Rp 1.804,4 jt. Saldo kas 27 Agu cara hitung belum diisi Terendah 13 minggu cara hitung tidak …
+    CEK lulus: Kas: 'Bulan sampai ekuitas negatif tidak berlaku (laba)'
+    finance  tangkapan layar: screens/L-L7-finance-kas.png
+    Supabase (mock origin) selama langkah: 4× auth 200, 31× rest 200
+
+RINGKASAN L: 34 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 22 (18× 200, 4× 303); respons tak terduga 0; SETUP 0

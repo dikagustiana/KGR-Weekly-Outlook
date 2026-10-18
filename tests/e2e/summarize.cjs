@@ -6,7 +6,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const OUT = process.env.E2E_OUT || path.join(__dirname, "out");
-const ORDER = ["prepare", "matrix", "T7", "A6", "A7", "F19", "volume"];
+const ORDER = ["prepare", "matrix", "O", "T7", "A6", "A7", "L", "P", "R69", "F19", "volume"];
 const only = process.env.E2E_ONLY ? new Set(["prepare", ...process.env.E2E_ONLY.split(/\s+/)]) : null;
 const env = process.env.E2E_ENV_LABEL || "PG16 lokal + PostgREST 12 + mock auth";
 let bad = 0;
@@ -14,7 +14,7 @@ const rows = [];
 const md = [`# Ringkasan e2e`, ``, `Lingkungan: **${env}** (bukan Supabase). Dijalankan ${new Date().toISOString()} (jam dinding mesin).`, ``,
   `| Journey | Cek lulus | Gagal | XFAIL | XPASS | Respons app | Tak terduga | SETUP | Detik |`, `|---|---|---|---|---|---|---|---|---|`];
 const xf = [], xp = [];
-for (const name of ORDER.filter((n) => !only || only.has(n) || (n === "T7" && (only.has("A6") || only.has("A7") || only.has("F19") || only.has("volume"))))) {
+for (const name of ORDER.filter((n) => !only || only.has(n) || (n === "T7" && ["A6", "A7", "L", "P", "R69", "F19", "volume"].some((j) => only.has(j))))) {
   const f = path.join(OUT, `${name}.result.json`);
   if (!fs.existsSync(f)) { rows.push(`${name.padEnd(8)} TIDAK ADA HASIL (journey terhenti sebelum selesai)`); md.push(`| ${name} | tidak ada hasil | | | | | | | |`); bad++; continue; }
   const r = JSON.parse(fs.readFileSync(f, "utf8"));
