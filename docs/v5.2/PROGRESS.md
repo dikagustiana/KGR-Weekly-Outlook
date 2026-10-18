@@ -41,22 +41,22 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | B6 sumber data Agu–Sep | ditemukan di repo | GL `Agt 26` (2.431 baris) dan `Sep 26` (1.930 baris) di workbook FS v2; GL KGR-OS 1–26 Agu adalah ekspor lama (5 tanggal berbeda) → B-R90 mengganti rentang 1–31 Agu. FINAL bulan butuh app terhadap KGR-OS (D2/D3) |
 | BT-1 | **selesai** | PR #40 merge `3efb3db`: parser GL gagal-tertutup; backtest dari sumber repo |
 | B2 (B-R82–84) | **merge** `8a2af21` (PR #41) | migrasi `v52_meta`/`v52_security`/`v52_release` + 14 blok RLS + bundel `kgr-os-migrasi-v52-b2.sql` (sha gabungan `e33e5716…8c7b`). test:rls OK 37 blok, 0 `(!)` (PG16 lokal, diulang reviewer di `5b25755`); probe main 118 `(!)` → 0. CI run 39050114343 engine ✓ lint ✓ rls ✓. **Belum di staging / KGR-OS** (B3/B4 menunggu D1). Q-v5.2-10…19 diputuskan di QUESTIONS |
-| B5 | WIP (agen berjalan 18 Okt) | cabang `v5.2/b5-costing-fs` (`v52_fs` ada di `c287407`): `v52_costing` (hanya `batch.lb_price_source`; O33(b) → tanpa `save_class_plan`), Q-v5.2-13 (`opening_stock_flag` IA/Finance minggu open), Q-v5.2-18 (dua kolom view Sales + `price_floor_rule`), `v52_fs` (B-R86 + C59). Brief: pola B2 |
+| B5 (B-R85, B-R86) | **merge** (#47 `dbf2a3f`) | test:rls OK 46 blok, 0 `(!)` (diulang reviewer di `e1f3722`); probe main 175 `(!)` → 0; bundel `kgr-os-migrasi-v52-b5.sql` (sha gabungan `bb43b8ff…56e7`, `schema_version` 5.2.4). Q-v5.2-60…69 diputuskan. **Belum di staging/KGR-OS**. Isi: `v52_costing` (hanya `batch.lb_price_source`; O33(b) → tanpa `save_class_plan`), Q-v5.2-13 (`opening_stock_flag` IA/Finance minggu open), Q-v5.2-18 (dua kolom view Sales + `price_floor_rule`), `v52_fs` (B-R86 + C59). Brief: pola B2 |
 | backup.yml | **merge** (#43 `da0c179`) | dump tidak lagi jadi artifact (repo publik); tanpa bucket → job gagal |
 | A4 R68 | **merge** (#42 `443bbf0`) | `fsRecon` + C59 engine + fixture Agu/Sep; CI run 39100986309 ✓. Temuan D9 (ekuitas b.71) |
 | A1b K69 | **merge** (#44 `bed6039`) | `update_date` hanya Admin/Finance di minggu open; CI main run 39101702229 ✓ |
 | A2 R48–R58 | **merge** (#45 `4b440d8`) | gate agen di `e70e495` (engine 426, web 341, parity 17161, test:rls 37 blok); golden B.5 diubah sesuai R58; CI main run 39101910881 ✓. Sisa R51/R52 menunggu kolom B-R85 (B5) |
-| A1b schema_version | siap, **ditahan** | cabang `v5.2/a1b-schema-version` `81d6f88` (`EXPECTED_SCHEMA` 5.2.2, RPC `schema_version()`); merge sesudah B2 di KGR-OS |
-| A4 R69 | siap, **ditahan** | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
+| A1b schema_version | draft PR #50, **ditahan** | cabang `v5.2/a1b-schema-version` `81d6f88` (`EXPECTED_SCHEMA` 5.2.2, RPC `schema_version()`); merge sesudah B2 di KGR-OS |
+| A4 R69 | draft PR #49, **ditahan** | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
-| Workflow `db-ops` | PR #46 | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
+| Workflow `db-ops` | **merge** (#46 `e532204`); pemicu push `ops/db-run` di PR #48 (integrasi agen tidak bisa `workflow_dispatch`, 403) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
 | B1 data master | sebagian | `kgr-os-master.sql` (sha256 `6dcadd03…afb1`): jadwal beban tetap Agu–Sep diterapkan 23.04 WIB sesudah uji kering + backup `bak_20261017t1603`. K/S/B, yield kelas, size_class_map, kapasitas, C8/C9, users: D5/D7/D8 |
 
 ## Berikutnya
 
-Sesi 18 Okt (berjalan). Agen Sonnet aktif: B5 (`v5.2/b5-costing-fs`), A3 (`v5.2/a3-costing-pl`), A5 (`v5.2/a5-e2e-ci`). A2 dan A4 selesai.
+Sesi 18 Okt (berjalan). Agen Sonnet aktif: A3 (`v5.2/a3-costing-pl`), A5 (`v5.2/a5-e2e-ci`). A2, A4, B5 selesai.
 
-1. Review + PR B5 → merge; lalu A4 R69 (PR dari `880db36`, merge hanya sesudah B5 di KGR-OS).
+1. (selesai) B5 merge; R69 draft #49 menunggu B5 di KGR-OS.
 2. Review + PR A3 (R59–R67), A5 (R70–R74, job CI `e2e`).
 3. Sesudah D1 + D4: `db-ops` staging-migrate → staging-test-rls (T21) → staging-bundle v5.1/B2/B5 → kgr-os-apply v5.1 → kgr-os-apply B2 → restore-test (T23) → merge A1b schema_version → kgr-os-apply B5 → merge R69.
 4. Q-v5.2-15: komersial Sales lewat `surplus_for_sales_v52` (sesudah B2 di KGR-OS), lalu migrasi B berikut mencabut baca `plan_week`/`demand_weekly` untuk Sales.
