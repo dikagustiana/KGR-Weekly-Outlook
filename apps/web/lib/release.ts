@@ -120,7 +120,7 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     if (error) throw new WriteError(error.message);
     return { id: String(data), sha, overall: result.controls.overall, ops: ops.length };
   } catch (e) {
-    await removeReleaseFiles(sb, stored);
+    await removeReleaseFiles(sb, stored, `${base}.pdf`);
     throw e;
   }
 }
@@ -130,9 +130,17 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
  * (kgr_storage_release allows insert only), so the service client removes them; without the key the session client is
  * tried, and whatever stays is logged by path so Admin can remove it by hand. Never throws: the caller's error is the one
  * the user must see.
+ * An RPC error is not always a refusal: when the transaction committed and only its answer was lost, a release row already
+ * names the PDF. So before anything is removed the `release` table is asked for that path; a row there (or a read that
+ * fails) keeps the files — a release without its files is worse than two orphan files.
  */
-export async function removeReleaseFiles(sb: Supa, paths: string[]): Promise<void> {
+export async function removeReleaseFiles(sb: Supa, paths: string[], pdfPath?: string): Promise<void> {
   if (!paths.length) return;
+  if (pdfPath) {
+    const rel = await sb.from("release").select("id").eq("pdf_path", pdfPath).limit(1);
+    if (rel.error) { console.error(`[release] berkas tidak dihapus: tidak bisa memastikan apakah rilis tercatat (${rel.error.message}); periksa release.pdf_path = ${pdfPath}`); return; }
+    if ((rel.data as unknown[] | null)?.length) { console.error(`[release] berkas tidak dihapus: rilis ${pdfPath} ternyata tercatat walau RPC menjawab galat`); return; }
+  }
   const client = supabaseService() ?? sb;
   let left = paths, why = "";
   try {

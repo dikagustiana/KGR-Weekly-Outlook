@@ -33,17 +33,27 @@ const { releaseWeek } = await import("./release");
 
 const mem = () => ({
   release_override: [] as Record<string, unknown>[], rebuild_queue: [] as Record<string, unknown>[], release_override_policy: [] as Record<string, unknown>[], app_setting: [] as Record<string, unknown>[],
+  release: [] as Record<string, unknown>[],
 });
+/** What the `release` table answers when asked for the PDF path: rows, or an error (the reconcile read of removeReleaseFiles). */
+let releaseRows: Record<string, unknown>[] | { error: string } = [];
+const releaseReads: string[] = [];
 /** A session client whose reads are empty, whose RPC answers as told, with the session's own (RLS-bound) storage. */
 function sb(rpc: () => { data: unknown; error: { message: string } | null }, sessionRemoves: (paths: string[]) => unknown = (paths) => ({ data: paths.map((name) => ({ name })), error: null })) {
   const t = mem();
-  const q = (rows: unknown) => { const o: Record<string, unknown> = {}; const self = () => o; for (const k of ["select", "eq", "is", "in", "gte", "lte"]) o[k] = self; o.maybeSingle = async () => ({ data: null, error: null }); o.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(ok); return o; };
-  return { from: (n: keyof ReturnType<typeof mem>) => q(t[n] ?? []), rpc: async () => rpc(), storage: storageOf("session", sessionRemoves) };
+  const q = (rows: unknown, table?: string) => {
+    const o: Record<string, unknown> = {}; const self = () => o; for (const k of ["select", "is", "in", "gte", "lte", "limit"]) o[k] = self;
+    o.eq = (c: string, v: unknown) => { if (table === "release" && c === "pdf_path") releaseReads.push(String(v)); return o; };
+    o.maybeSingle = async () => ({ data: null, error: null });
+    o.then = (ok: (v: unknown) => unknown) => Promise.resolve(table === "release" && !Array.isArray(releaseRows) ? { data: null, error: { message: releaseRows.error } } : { data: table === "release" ? releaseRows : rows, error: null }).then(ok);
+    return o;
+  };
+  return { from: (n: keyof ReturnType<typeof mem>) => q(t[n] ?? [], n), rpc: async () => rpc(), storage: storageOf("session", sessionRemoves) };
 }
 const uploaded: string[] = [];
 
 beforeEach(() => {
-  removed.length = 0; uploaded.length = 0;
+  removed.length = 0; uploaded.length = 0; releaseRows = []; releaseReads.length = 0;
   uploadFn = async (path: string) => { uploaded.push(path); return { error: null }; };
   service = { storage: storageOf("service", (p) => serviceRemoves(p)) };
   serviceRemoves = (paths) => ({ data: paths.map((name) => ({ name })), error: null });
@@ -81,6 +91,23 @@ describe("V7: a refused release leaves no file behind", () => {
     expect(removed).toEqual([{ who: "session", paths: uploaded }]);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("berkas yatim"));
     expect(log.mock.calls[0][0]).toContain(uploaded[1]);
+    log.mockRestore();
+  });
+  it("the RPC answered an error but the release row exists (answer lost after commit): nothing is removed, the user still sees the error", async () => {
+    releaseRows = [{ id: "rel-x" }];
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(releaseWeek(sb(() => ({ data: null, error: { message: "TypeError: fetch failed" } })) as never, "2026-08-24", "finance@e2e.test")).rejects.toThrow(/fetch failed/);
+    expect(releaseReads).toEqual([uploaded[1]]);
+    expect(removed).toEqual([]);
+    expect(log.mock.calls[0][0]).toMatch(/berkas tidak dihapus.*tercatat/);
+    log.mockRestore();
+  });
+  it("the reconcile read itself fails: nothing is removed (a release without its files is worse than orphans), the path is logged", async () => {
+    releaseRows = { error: "connection reset" };
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(releaseWeek(sb(() => ({ data: null, error: { message: "Rilis ditolak — C7" } })) as never, "2026-08-24", "finance@e2e.test")).rejects.toThrow(/Rilis ditolak — C7/);
+    expect(removed).toEqual([]);
+    expect(log.mock.calls[0][0]).toMatch(/tidak bisa memastikan.*connection reset/);
     log.mockRestore();
   });
   it("a failing remove never hides the release error", async () => {
