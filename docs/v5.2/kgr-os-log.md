@@ -62,5 +62,8 @@ view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat 
 | 06.41 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0641`** |
 | 06.42 | ✎ O24(b) mode memo | `update app_setting set value = value \|\| '{"costing_rows_mode":"memo"}' where key = 'v5_pl'` (dibatalkan bila ≠ 1 baris), sesudah kode A3 (#51 `b408a9a`) di `main` | `v5_pl` = `{"roles":["admin"],"enabled":true,"costing_rows_mode":"memo"}` |
 
+| 08.08 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0808`**: 96 tabel, 3.328 kB, anon/authenticated tanpa `usage` |
+| 08.09 | ✎ B-R91 impor FS acuan | `docs/v5.2/kgr-os-data-fs.sql` (dibangkitkan `scripts/fs_import.py`; sumber `reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx` sha256 `7e68aa89…04c5`). Alasan SQL, bukan upload: app belum punya jenis upload "FS acuan" (PRD B B-R91 "bila belum: skrip … menghasilkan SQL") | sebelum: `fs_statement_line` 0 baris. Tabel cek **11/11 true**: PL 33 + BS 40 baris per bulan Agu dan Sep, versi 1, terkunci (Q-v5.2-66); angka cek PRD Agu revenue 8.361,8 jt, GP 306,7 jt, NIBT −26,5 jt; Sep 5.039,9 jt, −475,4 jt, −910,1 jt. md5 isi 146 baris = DB lokal (`d17710dc…`). `fs_line_map` tetap 15 `draft` |
+
 Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
 memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.
