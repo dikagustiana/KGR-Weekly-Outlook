@@ -1,6 +1,6 @@
 /**
- * PRD v5.2-A irisan A1 — the evidence the PRD asks for: R41 (flags fail closed), R42 (release context), R44 (schema
- * banner + early refusal), R45 (builder order, stuck rows), R46 (cron route), R47 (paging without duplicates).
+ * PRD v5.2-A irisan A1 (+ A1b) — the evidence the PRD asks for: R41 (flags fail closed), R42 (release context), R44 (schema
+ * banner + early refusal, schema_version() K65), R45 (builder order, stuck rows), R46 (cron route), R47 (paging without duplicates).
  * F19 (rebuild one date twice → identical solvency_monthly) needs a real database: tests/e2e (A5).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,7 +18,7 @@ vi.mock("./session", () => ({ requireViewer: async () => ({ email: "fin@x.test",
 
 const { moduleSettingsOf, requireModuleAction } = await import("./modules");
 const { releaseContext, k35State } = await import("./release");
-const { classifySchemaError, schemaStatusOf, EXPECTED_SCHEMA } = await import("./schema");
+const { classifySchemaError, compareVersions, schemaStatusOf, EXPECTED_SCHEMA } = await import("./schema");
 const { fetchAll } = await import("./data");
 const { processRebuildQueue } = await import("./rebuild");
 const { BUILDERS, orderedBuilders, registerBuilder } = await import("./rebuild-registry");
@@ -71,22 +71,37 @@ describe("R44 (K57): a schema behind the code is one message, and writes stop ea
     expect(classifySchemaError({ code: "PGRST202", message: "Could not find the function public.lock_commitments(p_price_frozen, p_week_start) in the schema cache" }).schema).toBe(true);
     expect(classifySchemaError({ code: "42501", message: "permission denied for table week" })).toEqual({ schema: false });
   });
-  it("the probe returns the banner for a schema error, null for anything else (tiles still fail per tile)", async () => {
+  it("schema_version(): missing function or an older DB = the banner; same or newer = null; other errors = null, logged", async () => {
     const log = quiet();
-    sb = fakeSb({ fail: { price_list_week: { code: "42703", message: "column price_list_week.deleted_at does not exist" } } });
-    expect(await schemaStatusOf(sb as never)).toBe(`Skema database belum diperbarui ke v${EXPECTED_SCHEMA}; hubungi Admin (price_list_week.deleted_at)`);
-    sb = fakeSb({ fail: { parameter: { code: "42501", message: "permission denied" } } });
+    sb = fakeSb({ fail: { "rpc:schema_version": { code: "PGRST202", message: "Could not find the function public.schema_version without parameters in the schema cache" } } });
+    expect(await schemaStatusOf(sb as never)).toBe(`Skema database belum diperbarui ke v${EXPECTED_SCHEMA}; hubungi Admin (schema_version())`);
+    sb = fakeSb({ rpc: { schema_version: "5.1.0" } });
+    expect(await schemaStatusOf(sb as never)).toBe(`Skema database belum diperbarui ke v${EXPECTED_SCHEMA}; hubungi Admin (DB v5.1.0)`);
+    sb = fakeSb();
+    expect(await schemaStatusOf(sb as never)).toContain("(schema_registry kosong)");
+    for (const v of [EXPECTED_SCHEMA, "5.2.4", "5.10.0", "6.0.0"]) {
+      sb = fakeSb({ rpc: { schema_version: v } });
+      expect(await schemaStatusOf(sb as never)).toBeNull();
+    }
+    sb = fakeSb({ fail: { "rpc:schema_version": { code: "42501", message: "permission denied for function schema_version" } } });
     expect(await schemaStatusOf(sb as never)).toBeNull();
-    expect(log).toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("permission denied"));
+  });
+  it("compareVersions orders by number, as schema_version() does", () => {
+    expect(compareVersions("5.10.0", "5.9.3")).toBe(1);
+    expect(compareVersions("5.2.2", "5.2.2")).toBe(0);
+    expect(compareVersions("5.2", "5.2.0")).toBe(0);
+    expect(compareVersions("5.1.0", "5.2.2")).toBe(-1);
+    expect(() => compareVersions("5.x", "5.2.2")).toThrow("Versi skema tidak dikenal");
   });
   it("a module write action is refused with the banner's message", async () => {
     quiet();
-    sb = fakeSb({ rows: { app_setting: [{ key: "v5_commercial", value: { enabled: true } }] }, fail: { parameter: { code: "42703", message: "column parameter.po_unsized_mode does not exist" } } });
-    await expect(requireModuleAction("v5_commercial", ["finance"])).rejects.toThrow(/Skema database belum diperbarui ke v.*parameter\.po_unsized_mode/);
+    sb = fakeSb({ rows: { app_setting: [{ key: "v5_commercial", value: { enabled: true } }] }, rpc: { schema_version: "5.1.0" } });
+    await expect(requireModuleAction("v5_commercial", ["finance"])).rejects.toThrow(/Skema database belum diperbarui ke v.*DB v5\.1\.0/);
   });
   it("the rebuild leaves the queue alone with the banner's message", async () => {
     quiet();
-    svc = fakeSb({ rows: { rebuild_queue: [{ id: "q1", date: "2026-08-24" }] }, fail: { price_list_week: { code: "42703", message: "column price_list_week.deleted_at does not exist" } } });
+    svc = fakeSb({ rows: { rebuild_queue: [{ id: "q1", date: "2026-08-24" }] }, fail: { "rpc:schema_version": { code: "PGRST202", message: "Could not find the function public.schema_version without parameters in the schema cache" } } });
     const r = await processRebuildQueue({ m1_costing: { enabled: true } });
     expect(r).toEqual({ done: 0, failed: 0, notes: [expect.stringContaining("Skema database belum diperbarui")] });
     expect(svc.calls.filter((c) => c === "rebuild_queue:update")).toEqual([]);
@@ -103,7 +118,7 @@ describe("R45 (K60, K61): builder order and stuck rows", () => {
     const saved = BUILDERS.splice(0);
     const built: string[] = [];
     registerBuilder({ module: "m1_costing", name: "probe", build: async (_s, d) => { built.push(d); return "ok"; } });
-    svc = fakeSb({ rows: { rebuild_queue: [{ id: "q1", date: "2026-08-24" }, { id: "q2", date: "2026-08-25" }] } });
+    svc = fakeSb({ rows: { rebuild_queue: [{ id: "q1", date: "2026-08-24" }, { id: "q2", date: "2026-08-25" }] }, rpc: { schema_version: EXPECTED_SCHEMA } });
     const r = await processRebuildQueue({ m1_costing: { enabled: true } });
     BUILDERS.splice(0, BUILDERS.length, ...saved);
     expect(built).toEqual(["2026-08-24", "2026-08-25"]);
@@ -136,7 +151,7 @@ describe("R46 (K61): the cron route", () => {
     const saved = BUILDERS.splice(0);
     const built: string[] = [];
     registerBuilder({ module: "m1_costing", name: "probe", build: async (_s, d) => { built.push(d); return "ok"; } });
-    svc = fakeSb({ rows: { app_setting: [{ key: "m1_costing", value: { enabled: true } }], rebuild_queue: [{ id: "q1", date: "2026-08-24" }, { id: "q2", date: "2026-08-25" }] } });
+    svc = fakeSb({ rows: { app_setting: [{ key: "m1_costing", value: { enabled: true } }], rebuild_queue: [{ id: "q1", date: "2026-08-24" }, { id: "q2", date: "2026-08-25" }] }, rpc: { schema_version: EXPECTED_SCHEMA } });
     // the anon client of the request has no session: it must not be used for the flags
     sb = fakeSb({ fail: { app_setting: "should not be read" } });
     const res = await GET(req("Bearer s3cret"));
