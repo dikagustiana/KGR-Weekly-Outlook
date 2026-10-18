@@ -52,7 +52,7 @@ pnpm build
   PostgreSQL 16 (`apt-get install postgresql-16`), `faketime`, binari PostgREST 12 di PATH, Chromium untuk Playwright
   (`npx playwright install --with-deps chromium`), `pnpm install`. Variabel: `tests/e2e/stack/env.sh` (semua path, port, URL, kunci dan
   user bisa diganti; journey yang sama dapat dijalankan terhadap URL staging dengan `E2E_SKIP_UP=1`, PRD v5.2-B T19). `E2E_BUILD=never`
-  memakai `apps/web/.next` yang dibuat `pnpm e2e:build`; `E2E_ONLY="T7 F19"` menjalankan sebagian; `E2E_SCREENS=1` membuat A6 juga mengambil 18 tangkapan layar enam layar utama (1366x768, 899, 390 px) di `tests/e2e/out/screens`.
+  memakai `apps/web/.next` yang dibuat `pnpm e2e:build`; `E2E_ONLY="T7 F19"` menjalankan sebagian; `E2E_SCREENS=1` membuat A6 juga mengambil 22 tangkapan layar (enam layar utama di 1366x768, 899, 390 px, ditambah layar khusus) di `tests/e2e/out/screens`.
   A6 menulis ke database lokal (SETUP) dan hanya untuk tumpukan lokal; terhadap staging jalankan `E2E_ONLY="T7"`. Penjelasan lengkap: `docs/v5.2/a5.md`, `docs/v5.2/a6.md`.
   Ketergantungan `cdn.sheetjs.com` (`xlsx` 0.20.3 di `@kgr/parsers`): job CI memakai cache pnpm store; bila host itu diblokir pada cache dingin,
   `pnpm install --frozen-lockfile` gagal dan job `engine`, `lint`, `e2e` ikut gagal (di lingkungan tanpa akses ke host itu pasang `xlsx@0.18.5`

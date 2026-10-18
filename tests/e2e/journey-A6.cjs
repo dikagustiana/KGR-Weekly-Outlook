@@ -13,7 +13,7 @@
 //   (7) O16   the free stock of Commercial is less the locked commitments of next week not covered by a PO (note with both numbers, and
 //             Manajemen's status line); O17 the Manajemen P&L is collapsed by default at 390 px and "Perlu keputusan" is in view without
 //             opening it; O19 the note of the P&L explains a positive "Beban tetap belum dijurnal"
-// Screenshots (E2E_SCREENS=1, opt-in: 18 PNG, about 20 s) go to out/screens/A6-<screen>-<width>.png; nothing in them but fixture data
+// Screenshots (E2E_SCREENS=1, opt-in: 22 PNG, about 20 s) go to out/screens/A6-<screen>-<width>.png; nothing in them but fixture data
 // and the synthetic e2e users.
 const fs = require("node:fs");
 const path = require("node:path");
