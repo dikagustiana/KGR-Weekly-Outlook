@@ -581,3 +581,49 @@ Q-v5.2-104. Uji RLS di KGR-OS (pengganti T21) **dihentikan** di blok 04: connect
 destruktif di dalam blok (yang tetap di-rollback) dan konfirmasi tidak diberikan. Tidak diulang dan tidak dicari jalan lain;
 blok 01–03 lulus (0 `(!)`), tidak ada sisa data. T21 tetap butuh staging (D1) atau persetujuan Dika menjalankan 45 blok
 sisanya di KGR-OS.
+
+## Review kesiapan pilot 19 Okt (Q-v5.3-n, reviewer Fable, 18 Okt 2026)
+
+Konteks: PRD v5.3 bab "Kesiapan pilot 19 Okt" (V1–V13); laporan di `docs/v5.3/KESIAPAN-PILOT.md`. Butir yang butuh objek DB
+baru atau keputusan Dika ditulis di sini supaya masuk bundel v5.3 berikutnya, bukan dikerjakan diam-diam.
+
+Q-v5.3-1. **Policy delete `storage.objects` untuk bucket `releases` (V7).** `kgr_storage_release` hanya mengizinkan insert, jadi
+berkas rilis yang ditolak RPC hanya bisa dihapus klien servis (PR #67). Usulan bundel B1: policy delete untuk `admin` dan
+`finance` pada `bucket_id = 'releases'`, supaya pembersihan jalan juga tanpa `SUPABASE_SERVICE_ROLE_KEY`. Pemilik: Dika (bagian
+B). Default sementara: tanpa kunci servis, path berkas yatim tercatat di log server dan dihapus Admin lewat dashboard Storage.
+
+Q-v5.3-2. **`rebuild_queue.done` ≠ mart terbangun (V9).** `done` juga ditulis untuk tanggal "di luar jendela data" (KGR-OS 18 Okt:
+42 baris `done` dengan catatan itu, 0 baris `data_status`), dan `data_status.status` hanya pernah `draft` (ditulis `mart_replace`).
+Tidak ada tempat yang menyatakan "mart X untuk scope Y lengkap / segar / terekonsiliasi". Usulan v5.3 (agen pembangun, bersama
+R97): status per mart dipisah dari status eksekusi — `built` (ada baris `data_status`), `complete` (semua input wajib periode itu
+ada, dari grid kelengkapan), `reconciled` (C59/C13/C8-C9 lulus) — dan layar Admin → Modul menampilkannya, bukan hitungan antrean.
+Pemilik: Dika. Default sementara: angka dashboard bukan angka resmi (vonis PRD v5.3).
+
+Q-v5.3-3. **Identitas Sales lewat ID pengguna (V10).** Akses sudah per e-mail (`sales_assignment.email` = `current_email()`), tetapi
+`sales_rep` (nama) tetap kunci unik dan label scorecard. PR #68 menolak satu nama untuk dua e-mail. Jangka panjang: kolom
+`sales_assignment.user_id` (FK `app_user`), `sales_rep` menjadi label turunan; `sales_line.sales_rep` dari upload dipetakan ke
+user lewat tabel alias. Butuh skema → bundel v5.3. Pemilik: Dika.
+
+Q-v5.3-4. **A8 / #418 (V13).** Cabang `v5.2/a8-fixes` `5a6613c`: CI run 39135162350 merah hanya di e2e T7 langkah 1b (role sales,
+`GET /w/2026-08-24/input/harga`, React #418); jurnal lain hijau (matrix 120, A6 82, A7 78, L 38, P 16, R69 66, F19 16, volume 13).
+Tidak di-merge untuk 19 Okt (gate CI hijau wajib, §3.11). Butir A8 yang paling berguna besok (Q-v5.2-114, formulir komitmen tetap
+terisi) ikut tertahan; pengguna Kepala Sales perlu tahu angka harus diketik ulang bila simpan ditolak. Pemilik: agen yang memegang
+cabang itu; reviewer tidak push ke sana (koordinasi). **Temuan reviewer 18 Okt:** #418 juga muncul di `main` `9d10f83` — 2 dari 420
+muatan sapuan UI (Admin `/w/2026-08-24/input/harga` 1366 px, `/master/item` 390 px; PG16 lokal + PostgREST 12 + mock auth, Chromium).
+Jadi galat ini bukan akibat A8; A8 hanya korban pertama di CI. Komponen klien yang sama di kedua halaman: `Shell` → `WeekSelect`,
+`ViewToggle` (`usePathname`/`useSearchParams`). Sampai sebabnya ditemukan, CI e2e PR mana pun bisa merah sekali karena ini; aturan:
+jalankan ulang job sekali bila kegagalan hanya "galat JS halaman … #418" tanpa cek lain yang gagal, dan catat run-nya.
+
+Q-v5.3-5. **Label sumber "belum ada" pada kartu berangka (V5).** Kartu "Stok di atas batas umur" (685,4 jt di data uji; 2.782,2 jt
+di layar production 18 Okt) dan "Kas terendah" (289,7 jt) menampilkan "Sumber: … · belum ada" karena `loadSources` tidak menemukan
+input (kartu stok, `cash_daily`) di periode minggu itu, padahal angkanya datang dari mart hasil seed/parity. Ini bukan K41 (bukan
+error yang disembunyikan), tetapi melanggar K36: angka tanpa sumber yang jelas. Diserahkan ke R97 (agen pembangun, label
+"contoh" untuk angka dari seed/workbook parity) supaya tidak dikerjakan dua kali; reviewer tidak mengubah tile K25/kartu. Sampai
+R97 ada, SIAP-PAKAI menyebut angka kartu Stok dan Kas minggu 24 Agu sebagai angka contoh.
+
+Q-v5.3-6. **Kartu 2 kolom di 390 px memotong satuan.** Nilai besar ("1.067,8") dengan satuan "Rp jt" di kartu 2 kolom (`.tg` pada
+≤ 899 px) terpotong menjadi "Rp j" di lebar 390 px (tangkapan layar Manajemen dan Commercial, PG16 lokal). Perbaikan CSS kecil
+(satuan turun baris: `.card-n { flex-wrap: wrap }` ≤ 899 px) dikerjakan di PR UI reviewer (#69, cabang `v5.3/review-ui-390`) bersama
+tiga hal kecil lain yang ditemukan sapuan UI: chip langkah PPIC yang tautannya menjejalkan tiga baris jadi satu (`.step > a`),
+header tile yang membuat Outlook bulan scroll samping di 390 px (`.tile-h, .tile-x { flex-wrap: wrap }`), dan halaman 404 bawaan
+Next berbahasa Inggris (`app/not-found.tsx`). CSS dan satu halaman statis; tidak mengubah angka atau alur.

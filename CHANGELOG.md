@@ -2,6 +2,18 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.3-review] Kesiapan pilot 19 Okt: review V1–V13 (docs/PRD-v5.3.md bab "Kesiapan pilot"; docs/v5.3/KESIAPAN-PILOT.md; Q-v5.3-1 … 6)
+
+### Fixed
+- V8 (PR #66): `processRebuildQueue` claims a queued date with one conditional update (`status = 'queued'` → `running`, returning ids); the cron and the "Bangun ulang" button no longer build the same date twice (`lib/rebuild-claim.test.ts`).
+- V7 (PR #67): a release refused by `public.release_week` (or a failed PDF upload) no longer leaves its JSON/PDF in the `releases` bucket; the files are removed with the service client, what stays is logged by path (`lib/release-orphans.test.ts`).
+- V10 (PR #68): a `sales_rep` name another Sales user already has is refused whatever the key (one rep name = one user; access itself is per e-mail).
+- V12: `docs/v5.2/SIAP-PAKAI.md` names the production commit through GitHub Deployments instead of a stale hash.
+
+### Docs
+- `docs/v5.3/KESIAPAN-PILOT.md`: three-status table per area, V1–V13 with evidence, GO/NO-GO per use, ordered steps for Dika; UI checklist results (PG16 lokal + PostgREST 12 + mock auth).
+- `docs/v5/QUESTIONS.md` Q-v5.3-1 … 6: storage delete policy (V7), mart status vs queue status (V9), Sales identity by user id (V10), A8/#418 (V13), "belum ada" labels on seeded cards (V5), 390 px card unit clipping.
+
 ## [v5.2-a7] Layar Penugasan Sales: Admin dan Kepala Sales mengatur `sales_assignment` (K49, O21(b); docs/v5.2/a7.md; Q-v5.2-120 … 123)
 
 ### Added
