@@ -12,6 +12,8 @@ reason is itself a hit. K41 also skips lib/clock.ts and lib/loader.ts (PRD v5.2-
 The `missing` rule (PRD v5.2-A R64) has no whitelist: a default of zero on money, kg or a rate hides a missing value, so
 the code turns it into null with "belum ada" / "belum diisi" or a control. A zero that is not a missing value (a count, an
 index, a sort result, the start of an accumulator) says why on the same line: `// missing-ok: jumlah baris, bukan uang`.
+Zero written as 0, 0.0, 0.00 (also as "0", '0', `0`) after `??` or `||` is a hit; 0.5 is not; text inside "…" and '…' is not code.
+Not covered: a default written as D(0) / ZERO (accumulators and counters of maps; reviewed by hand, docs/v5.2/a3.md).
 
 K42 reads the unique keys of every table from supabase/migrations: a fetchAll builder must order by one of them, so
 page boundaries never duplicate or drop a row (R47).
@@ -253,7 +255,7 @@ def k42(dirs):
 
 
 # ---------------------------------------------------------------- missing (R64)
-MISSING_ZERO = re.compile(r"(?:\?\?|\|\|)\s*(?:0|\"0\"|'0'|`0`)(?![\w.])")
+MISSING_ZERO = re.compile(r"(?:\?\?|\|\|)\s*(?:0(?:\.0+)?|\"0(?:\.0+)?\"|'0(?:\.0+)?'|`0(?:\.0+)?`)(?![\w.])")
 
 
 def code_part(line):
@@ -275,12 +277,28 @@ def code_part(line):
     return line
 
 
+STRING_LITERAL = re.compile(r"\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*'")
+
+
+def mask_strings(code):
+    """Blank the text of "…" and '…' literals so that prose is not read as code; the literal right after `??` / `||` stays (it may be `"0"`)."""
+    def blank(m):
+        before = code[:m.start()].rstrip()
+        if before.endswith(("??", "||")):
+            return m.group(0)
+        q = m.group(0)[0]
+        return q + q
+    return STRING_LITERAL.sub(blank, code)
+
+
 def missing(dirs):
     rep = Report("missing")
     for path in source_files(dirs):
         lines = open(path, encoding="utf-8").read().split("\n")
         for i, line in enumerate(lines, 1):
             code = code_part(line)
+            if code is not None:
+                code = mask_strings(code)
             if code is None or not MISSING_ZERO.search(code):
                 continue
             rep.check(path, lines, i, "nilai kosong dibaca sebagai 0 (?? 0 / || 0)")
