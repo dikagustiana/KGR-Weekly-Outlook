@@ -22,6 +22,7 @@ import { loadPlanning } from "../v3/planning";
 import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
 import { surplusKeys } from "./surplus";
+import { loadSurplusForSales } from "./surplus-view";
 import { v5CostingSetting } from "./costing";
 import { isModuleOn } from "../modules-core";
 import type { CommitmentRow, KomersialV5Input } from "./komersial";
@@ -129,6 +130,11 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     };
   }), null);
 
+  // Q-v5.2-15 (A1c): Sales read the surplus of their own SKUs through the view surplus_for_sales_v52, never the plan or the demand mart
+  const surplusForSales: KomersialV5Input["surplusForSales"] = !sales ? undefined
+    : !week ? null
+      : fail(failed, ["t-ppic"], await tileData("commercial: surplus untuk Sales", () => loadSurplusForSales(sb, week.week_start)), null);
+
   return {
     today, spotToday: today === c.wall, roleLabel: ROLE_LABEL[viewer.role], sales, base: "/komersial", filter, stockDate: st.mart.date,
     rows: filterRows(all, filter), summary: stockSummary(all), holdingRate: rate, approvalsWaiting: approvals, cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."),
@@ -136,6 +142,6 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
       weekStart: next, weekEnd: addDays(next, 6), deadline: `${DAYS[new Date(`${dlDate}T00:00:00Z`).getUTCDay()]} ${Number(dlDate.slice(8, 10))}/${dlDate.slice(5, 7)} ${time.replace(":", ".")}`,
       rows, canEdit: ["admin", "sales", "commercial_lead"].includes(viewer.role), canLock: ["admin", "commercial_lead"].includes(viewer.role), priceListLocked: cm.lists.length > 0 && cm.lists.every((l) => l.locked_at),
     },
-    ppic, spot: spotRows(all, frozen), controls, failed,
+    ppic, surplusForSales, spot: spotRows(all, frozen), controls, failed,
   };
 }

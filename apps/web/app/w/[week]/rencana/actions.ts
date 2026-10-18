@@ -39,7 +39,8 @@ export async function savePlanAction(_: ActionState, form: FormData): Promise<Ac
  * (plan_week_class: kg LB and heads per class of the need). C42 PERIKSA may be saved, labelled "yield sementara".
  * R52: header, plan_day and plan_week_class are written in that order with the id the insert returned (no "latest
  * version" lookup); the class demand is read before the first write; a plan whose class rows did not go in is retired,
- * so a copy never falls back to the v4 plan days of a plan that was meant to be per class.
+ * so a copy never falls back to the v4 plan days of a plan that was meant to be per class. Q-v5.2-21 (B5): each class row
+ * carries `detail`, its split over the cut dates, `[{ cut_date, heads, kg_lb }]`; the copy makes exactly those batches.
  */
 export async function saveClassPlanAction(_: ActionState, form: FormData): Promise<ActionState> {
   try {
@@ -47,7 +48,7 @@ export async function saveClassPlanAction(_: ActionState, form: FormData): Promi
     const { sb, week } = await ctx(form, ["admin", "ppic"]);
     const cs = await loadClassDemand(sb, await loadPlanning(sb, week));
     const { id, msg } = await savePlan(sb, v, week, { classCode: "STD", supplyCommittedHeads: null, note: "v5: rencana per kelas" });
-    const rows = planWeekClassRows(id, cs.demand);
+    const rows = planWeekClassRows(id, cs.demand, cs.daily);
     if (rows.length) {
       const { error } = await sb.from("plan_week_class").insert(rows);
       if (error) {
@@ -125,19 +126,23 @@ export async function reasonAction(_: ActionState, form: FormData): Promise<Acti
     // PRD v5.1 R29 (§7): C57 holds without exception — the operations director decides the LB price
     if (code === "C57") return { error: "C57 tidak bisa diberi alasan: tunggu keputusan harga LB Direktur Operasional" };
     if (reason.length < 5) return { error: "Tulis alasannya (paling sedikit 5 huruf)" };
-    // R51: a C58 reason belongs to the plan version saved before it (stage 1, by time — the column that binds it is B-R85): a
-    // reason older than the latest version is retired so the new one can be written; one still valid is not written twice
+    // R51 (B5, plan_check_reason.plan_week_id): a C58 reason belongs to the plan version it is written for — the latest saved one.
+    // A reason of another version (or, without a version, written before the latest one) is stale and is retired so the new one can
+    // be written (the index on week and code allows one live reason); one still valid is not written twice.
+    let planWeekId: string | null = null;
     if (code === "C58") {
-      const latest = must(await sb.from("plan_week").select("created_at").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "alasan C58 rencana") as { created_at?: string } | null;
-      const old = mustRows<{ id: string; created_at: string }>(await sb.from("plan_check_reason").select("id, created_at").eq("week_start", week.week_start).eq("code", code).is("deleted_at", null), "alasan C58");
-      const stale = latest?.created_at ? old.filter((o) => Date.parse(o.created_at) < Date.parse(latest.created_at!)) : [];
+      const latest = must(await sb.from("plan_week").select("id, created_at").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "alasan C58 rencana") as { id: string; created_at?: string } | null;
+      const old = mustRows<{ id: string; created_at: string; plan_week_id: string | null }>(await sb.from("plan_check_reason").select("id, created_at, plan_week_id").eq("week_start", week.week_start).eq("code", code).is("deleted_at", null), "alasan C58");
+      const stale = latest ? old.filter((o) => (o.plan_week_id ? o.plan_week_id !== latest.id : !!latest.created_at && Date.parse(o.created_at) < Date.parse(latest.created_at))) : [];
+      if (old.length > stale.length) return { error: "Alasan untuk kontrol ini sudah ada" };
       const ids = stale.map((o) => o.id);
       for (let i = 0; i < ids.length; i += 200) {
         const r = await sb.from("plan_check_reason").update({ deleted_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
         if (r.error) return { error: r.error.message };
       }
+      planWeekId = latest?.id ?? null;
     }
-    const { error } = await sb.from("plan_check_reason").insert({ week_start: week.week_start, code, reason });
+    const { error } = await sb.from("plan_check_reason").insert({ week_start: week.week_start, code, reason, ...(planWeekId ? { plan_week_id: planWeekId } : {}) });
     if (error) return { error: error.message.includes("duplicate") ? "Alasan untuk kontrol ini sudah ada" : error.message };
     done(week.week_start);
     return { ok: `Alasan ${code} disimpan` };

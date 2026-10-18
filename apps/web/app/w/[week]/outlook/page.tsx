@@ -22,7 +22,7 @@ export default async function OutlookPage({ params }: PageProps) {
   // block 5); the preparer view, the print view and the PDF keep every v1 block (parity)
   if (ctx.view === "management" && mingguIniAllowed(ctx.viewer.role) && v4On(all, ctx.viewer.role)) redirect(`/minggu-ini/${week}`);
   const mine: ModuleSettings = Object.fromEntries(MODULE_KEYS.map((k) => [k, { enabled: isModuleOn(all[k], ctx.viewer.role) }]));
-  const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r) : null;
+  const m3 = ctx.view === "management" ? await managementV3(await supabaseServer(), ctx.week, mine, r, ctx.viewer.role) : null;
   // PRD v5 K25 / v5.1 K54 (v5_costing or v5_management for the role): the live-bird block shows the simulation only
   const k25 = k25On(all, ctx.viewer.role);
   return (

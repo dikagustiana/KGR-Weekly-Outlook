@@ -7,6 +7,7 @@ import type { ControlV3, V3Snapshot, WeekResult } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
+import type { Role } from "../roles";
 import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "./costing";
 import { v5CostingControls } from "../v5/costing";
 import { ledgerForWeek } from "./ledger";
@@ -31,7 +32,12 @@ export function bsInventoryYesterday(v1: WeekResult | undefined): string | null 
   return v.toFixed(2);
 }
 
-export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSettings, v1?: WeekResult): Promise<WeekV3> {
+/**
+ * `role` is the role of the session `sb` runs as (omit it for the service client or a release by Admin/Finance). Q-v5.2-15 (A1c):
+ * for Sales the planning block is left out — no demand rows, no plan, no C28/C30 — because they do not read plan_week,
+ * demand_weekly or plan_day as of B6: a Sales reader gets a snapshot without those keys, never one with zeros for them.
+ */
+export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSettings, v1?: WeekResult, role?: Role): Promise<WeekV3> {
   const controls: ControlV3[] = [];
   const snapshot: V3Snapshot = {};
   if (settings.m1_costing?.enabled) {
@@ -58,7 +64,7 @@ export async function v3ForWeek(sb: Supa, week: WeekRow, settings: ModuleSetting
       } : null;
     }
   }
-  if (settings.m3_planning?.enabled) {
+  if (settings.m3_planning?.enabled && role !== "sales") {
     const src = await loadPlanning(sb, week);
     controls.push(...weekPlanningControls(src, week.update_date));
     snapshot.demand = (await demandWeekly(sb, week.week_start)).map((r) => ({

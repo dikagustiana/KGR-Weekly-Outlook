@@ -9,7 +9,7 @@ import { CostingV5 } from "@/components/v5/CostingV5";
 import { loadV5BatchCosts, sinceOf, v5CostingControls } from "@/lib/v5/costing";
 import { must } from "@/lib/loader";
 import { supabaseServer } from "@/lib/supabase";
-import { groupsOfWeek, loadCostingWeek, weekCostingControls } from "@/lib/v3/costing";
+import { groupsOfWeek, loadCostingWeek, unpricedLines, weekCostingControls } from "@/lib/v3/costing";
 import { tgl } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,7 @@ export default async function CostingPage({ params }: PageProps) {
     : null;
   const d = await loadCostingWeek(sb, ctx.week);
   const runs = [...d.latestRun.values()];
+  const heldRuns = runs.filter((r) => r.status === "draft" && unpricedLines(d, r.id).length > 0).length;
   const lines = runs.flatMap((r) => (d.lines.get(r.id) ?? []).map((l) => ({ ...l, batch_id: r.batch_id })));
   // per SKU key (sum of the engine's allocated cost and kg — the cost per kg is their ratio)
   const byKey = new Map<string, { kg: ReturnType<typeof D>; cost: ReturnType<typeof D>; sv: ReturnType<typeof D>; wd: ReturnType<typeof D> }>();
@@ -57,6 +58,7 @@ export default async function CostingPage({ params }: PageProps) {
       <h1>Costing — biaya per batch, per SKU dan per grup</h1>
       <p className="muted">Biaya batch (live bird, ekspedisi, potong) dibagi ke SKU menurut nilai jualnya (kg × harga daftar minggu potong). Angka dari alokasi terakhir per batch{runs.some((r) => r.status === "draft") ? "; sebagian masih draft" : ""}.</p>
       {runs.length === 0 ? <Card><p>Belum ada alokasi minggu ini.{!mgmt ? <> Jalankan di <Link href={`/w/${week}/input/costing`}>Input costing</Link>.</> : null}</p></Card> : null}
+      {!mgmt && (viewer.role === "finance" || viewer.role === "admin") && heldRuns > 0 ? <Card title="Posting ditahan: harga acuan kosong (K50)"><p>{heldRuns} alokasi draft punya SKU tanpa harga acuan. Finance atau Admin mempostingnya dengan alasan di <Link href={`/w/${week}/input/costing`}>Posting dengan override</Link>.</p></Card> : null}
       <div className="kpis">
         {modes.map((x) => (
           <div className="kpi" key={x.m}><div className="l">{x.m === "maklon" ? "Maklon" : "RPA sendiri"}: {x.n} batch</div><div className="v">{x.kg.isZero() ? "—" : <><N v={x.cost.div(x.kg)} /> Rp/kg</>}</div>

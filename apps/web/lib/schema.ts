@@ -10,8 +10,13 @@ import { WriteError } from "./write";
  * function, is a "skema DB tertinggal" state, shown once as a banner in the header; writes, the rebuild and the release
  * stop early with the same message. Raise this constant in the PR whose code needs the newer objects, and merge that
  * PR only after the bundle is in KGR-OS (brief v5.2 Bab 4).
+ *
+ * 5.2.4 (v5.2 A1c): the code writes `plan_check_reason.plan_week_id`, `plan_week_class.detail` and `batch.lb_price_source`
+ * and calls `post_allocation_override` (B5, 5.2.3); `fs_statement_line` / `fs_line_map` (B5, 5.2.4) are read by A4. KGR-OS
+ * has been at 5.2.4 since 18 Okt 2026. B6 (5.2.5, a separate branch) closes the Sales read of `plan_week` and
+ * `demand_weekly`: this code no longer reads them as Sales, so it does not need 5.2.5 and works before and after it.
  */
-export const EXPECTED_SCHEMA = "5.2.2";
+export const EXPECTED_SCHEMA = "5.2.4";
 
 /** Numeric comparison of dotted versions ("5.10.0" > "5.9.3"), as `schema_version()` orders them. */
 export function compareVersions(a: string, b: string): number {

@@ -15,8 +15,18 @@ const READERS = ["admin", "sales", "commercial_lead", "ppic", "management", "ope
 /** PRD v3 §6 /w/[week]/demand: PO (berbobot) vs forecast vs stok bebas → net → ekor, SKU penentu. Numbers from demand_weekly. */
 export default async function DemandPage({ params }: PageProps) {
   const { week } = await params;
-  await requireModulePage("m3_planning", [...READERS]);
+  const viewer = await requireModulePage("m3_planning", [...READERS]);
   const ctx = await weekContext(week);
+  // Q-v5.2-15 (A1c): Sales do not read demand_weekly or plan_week (B6 closes it in the database): nothing of the planning is read or
+  // shown for them — no zero, no empty table — and the page says so
+  if (viewer.role === "sales") {
+    return (
+      <WeekShell ctx={ctx} active={`/w/${week}/demand`}>
+        <h1>Demand minggu {tgl(ctx.week.week_start)} – {tgl(ctx.week.week_end)}</h1>
+        <Card><p>Demand, kebutuhan potong dan rencana potong tidak ditampilkan untuk Sales (data perencanaan). Surplus untuk SKU Anda dan komitmen minggu depan ada di <Link href="/komersial">Komersial</Link>; pesanan Anda di <Link href={`/w/${week}/input/penjualan`}>Pesanan</Link>.</p></Card>
+      </WeekShell>
+    );
+  }
   const mgmt = ctx.view === "management";
   const sb = await supabaseServer();
   const [rows, src] = await Promise.all([demandWeekly(sb, week), loadPlanning(sb, ctx.week)]);

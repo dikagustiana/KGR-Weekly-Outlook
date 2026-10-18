@@ -57,8 +57,11 @@ export interface PlanningSources {
   yieldRows: { weight_class: string; cut_pattern: string; key: string; yield_pct: string; note: string | null }[];
   /** K2: Aktual sales of the 8 weeks before the week (key, date, kg) and the days a key had no free stock. */
   history: { from: string; to: string; sales: { date: string; key: string; kg: string }[]; stockout: Set<string> };
-  /** Written reasons that let a PERIKSA control open the next step (§6.4); `created_at` binds a C58 reason to the plan version saved before it (R51). */
-  reasons: { code: string; reason: string; created_at?: string | null }[];
+  /**
+   * Written reasons that let a PERIKSA control open the next step (§6.4). A C58 reason is bound to the plan version it was written
+   * for by `plan_week_id` (B5, 5.2.3; R51); one without it (written before v5.2, or with no plan saved yet) is judged by `created_at`.
+   */
+  reasons: { code: string; reason: string; created_at?: string | null; plan_week_id?: string | null }[];
   substitutions: Substitution[];
   stock: { date: string | null; lots: { key: string; form: "fresh" | "frozen"; free_kg: string; age_days: number }[] };
   windows: { fresh: number; frozen: number };
@@ -89,7 +92,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).order("date").order("key").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason, created_at").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason, created_at, plan_week_id").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
   ]);
   // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
   const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
@@ -147,7 +150,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
       sales: hist.filter((h) => s(h.kg) !== null).map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg) })),
       stockout: new Set(outs.map((o) => `${String(o.key)}|${String(o.date)}`)),
     },
-    reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason), created_at: s(r.created_at) })),
+    reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason), created_at: s(r.created_at), plan_week_id: s(r.plan_week_id) })),
     substitutions: subs.map((x) => ({ key_demand: String(x.key_demand), key_substitute: String(x.key_substitute), priority: Number(x.priority ?? 1), max_pct: String(x.max_pct ?? 1) })),
     // a lot without age cannot be judged against the window: it is not counted as eligible stock (never as a lot of age 0, i.e. fresh)
     stock: { date: sdate, lots: lots.filter((l) => l.age_days !== null && l.age_days !== undefined).map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days) })) },
