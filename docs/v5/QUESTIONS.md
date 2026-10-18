@@ -545,6 +545,38 @@ production dari runner GitHub (`ops/smoke`: `/login` 200, cron 401 tanpa rahasia
 tak terdaftar → pesan Supabase Auth). T19 di staging tetap terbuka (D1, D4). **Menunggu konfirmasi Dika** (pengaman auto mode
 menandai penulisan flag); kembali ke Admin saja = tambahkan `{"roles":["admin"]}` ke 6 flag `v5_*` (log 18 Okt ±10.10).
 
+**Q-v5.2-110 … 116 (A5b, `docs/v5.2/a5b.md`) dan 120 … 123 (A7, `docs/v5.2/a7.md`).** Diputuskan agen atas delegasi Dika,
+18 Okt 2026.
+
+Q-v5.2-110. PO dan Rencana minggu depan butuh baris minggu itu (Admin: rollover/buat minggu). Diterima; langkah operasional
+di `SIAP-PAKAI.md` §4.
+
+Q-v5.2-111. Tile akurasi menulis "Belum ada bulan yang FINAL" bila FINAL ada tanpa V1/V2. Teks diperbaiki di v5.3 (tidak
+memengaruhi angka).
+
+Q-v5.2-112. Dua angka surplus karkas di Komersial (tile hidup vs daftar jawaban tersimpan). Dicatat untuk v5.3; jawaban
+tersimpan adalah yang dipakai PPIC.
+
+Q-v5.2-113. `release_week` untuk minggu yang sudah dirilis menulis baris rilis baru (riwayat). Diterima (rilis ulang tercatat).
+
+Q-v5.2-114. Formulir komitmen kosong lagi sesudah ditolak. Perbaikan UX v5.3 (pola `AssignmentForm` A7).
+
+Q-v5.2-115. FINAL Agustus pada data T7 juga ditahan C22–C24, C35, C36, C49: catatan untuk T20 di KGR-OS, bukan cacat kode.
+
+Q-v5.2-116. Fixture FS e2e = angka app, jadi membuktikan mekanisme C59, bukan kecocokan dengan FS asli (itu T20). Diterima.
+
+Q-v5.2-120. Pemilih Sales untuk Kepala Sales membaca `app_user` dengan klien servis (hanya e-mail dan nama Sales aktif, sesudah
+cek role); tanpa `SUPABASE_SERVICE_ROLE_KEY` hanya Admin yang bisa menugaskan. Diterima: kunci servis dibutuhkan juga untuk
+rebuild (D2). Alternatif DB (policy baca untuk `commercial_lead`) bila dibutuhkan nanti.
+
+Q-v5.2-121. Layar penugasan berbasis role (Admin, Kepala Sales), tanpa flag modul. Diterima.
+
+Q-v5.2-122. Perbaikan `commercialView` (key dasar menutupi semua bentuk, O21 b) dan empat sel matriks e2e "Status biaya"
+Sales di tata letak v4 (0 → 1, hanya kata status, tanpa angka). Diterima. Tile komitmen K43 untuk assignment satu bentuk:
+v5.3.
+
+Q-v5.2-123. Dua Sales bernama sama ditolak (tidak saling menimpa `sales_rep`). Diterima.
+
 Q-v5.2-104. Uji RLS di KGR-OS (pengganti T21) **dihentikan** di blok 04: connector meminta konfirmasi untuk pernyataan
 destruktif di dalam blok (yang tetap di-rollback) dan konfirmasi tidak diberikan. Tidak diulang dan tidak dicari jalan lain;
 blok 01–03 lulus (0 `(!)`), tidak ada sisa data. T21 tetap butuh staging (D1) atau persetujuan Dika menjalankan 45 blok
