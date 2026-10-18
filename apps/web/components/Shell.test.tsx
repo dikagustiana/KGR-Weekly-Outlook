@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("server-only", () => ({}));
 let schema: string | null = null;
-vi.mock("@/lib/schema", () => ({ schemaStatus: async () => schema }));
+vi.mock("@/lib/schema-session", () => ({ schemaStatus: async () => schema }));
 vi.mock("@/lib/view-server", () => ({ currentView: async () => "preparer" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }), usePathname: () => "/", useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/lib/modules", async () => {

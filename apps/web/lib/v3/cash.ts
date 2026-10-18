@@ -73,7 +73,7 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   const cashDay = Object.fromEntries(sched.map((r) => [String(r.id), r.cash_day_of_month === null ? null : Number(r.cash_day_of_month)]));
   const scheduled = scheduledPayments(schedule, planRows, cashDay, addDays(date, 1), horizon);
   const projection = cashProjection({ start: date, balances, plans: [...planRows, ...scheduled] });
-  const c = week ? await computeForWeek(week.week_start) : null;
+  const c = week ? await computeForWeek(sb, week.week_start) : null;
   const r = c?.result ?? null;
   const affLine = r?.statements.cf.lines.find((l) => l.category === "Pinjaman afiliasi (net)");
   const affiliateReceived = affLine ? affLine.values.actual : D(0);

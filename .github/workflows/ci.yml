@@ -100,6 +100,8 @@ jobs:
       - name: e2e (stack, matrix, journey T7, F19, volume)
         env:
           E2E_BUILD: never
+          # A1d (Q-v5.2-51): no XFAIL is left; a step marked expected-to-fail that passes now fails the job (the marker is then due for removal)
+          E2E_STRICT_XFAIL: "1"
         run: pnpm e2e
       - name: Artifact (logs, request log, screenshots; synthetic data only)
         if: always()
