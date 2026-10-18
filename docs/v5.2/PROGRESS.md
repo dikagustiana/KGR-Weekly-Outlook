@@ -32,7 +32,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 |---|---|---|
 | Fase 0 — lint benar | **selesai di A1** | `scripts/lint.py` + `scripts/test-lint.sh` (berkas melanggar → 1, bersih → 0). A1: 4 hit K41 + 177 hit K42 diperbaiki (`f340e55`). Gate lokal A1: typecheck ✓; engine 362 + 1 todo; parsers 23; web 265; parity 17161/17161; snapshot EMPTY; test:rls OK (PG16). CI run 39045685561: engine ✓ lint ✓ rls ✓ |
 | Fase 0 — lint-missing (A3) | belum | penanda `// missing-ok: <alasan>` |
-| Fase 0 — rebase A2 ke A1 | belum | |
+| Fase 0 — rebase A2 ke A1 | **selesai** | A2 di-rebase ke `da0c179` dan merge (#45) |
 | Fase 0 — audit-handover.md | berjalan | |
 | B0 | sebagian | backup `bak_20261017t1539`; B0-5 flag, O36 since, B0-6 (42) selesai. B0-2 (D2), B0-3 (D1), B0-7/8 menunggu |
 | Merge #37 | **selesai** | `0055cb7` (CI run 39020687202 engine ✓ rls ✓) |
@@ -41,29 +41,26 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | B6 sumber data Agu–Sep | ditemukan di repo | GL `Agt 26` (2.431 baris) dan `Sep 26` (1.930 baris) di workbook FS v2; GL KGR-OS 1–26 Agu adalah ekspor lama (5 tanggal berbeda) → B-R90 mengganti rentang 1–31 Agu. FINAL bulan butuh app terhadap KGR-OS (D2/D3) |
 | BT-1 | **selesai** | PR #40 merge `3efb3db`: parser GL gagal-tertutup; backtest dari sumber repo |
 | B2 (B-R82–84) | **merge** `8a2af21` (PR #41) | migrasi `v52_meta`/`v52_security`/`v52_release` + 14 blok RLS + bundel `kgr-os-migrasi-v52-b2.sql` (sha gabungan `e33e5716…8c7b`). test:rls OK 37 blok, 0 `(!)` (PG16 lokal, diulang reviewer di `5b25755`); probe main 118 `(!)` → 0. CI run 39050114343 engine ✓ lint ✓ rls ✓. **Belum di staging / KGR-OS** (B3/B4 menunggu D1). Q-v5.2-10…19 diputuskan di QUESTIONS |
-| B5 | WIP | cabang `v5.2/b5-costing-fs`: `v52_costing` (hanya `batch.lb_price_source`; O33(b) → tanpa `save_class_plan`), Q-v5.2-13 (`opening_stock_flag` IA/Finance minggu open), Q-v5.2-18 (dua kolom view Sales + `price_floor_rule`), `v52_fs` (B-R86 + C59). Brief: pola B2 |
-| backup.yml | cabang docs | dump tidak lagi jadi artifact (repo publik); tanpa bucket → job gagal, bukan menyimpan diam-diam |
+| B5 | WIP (agen berjalan 18 Okt) | cabang `v5.2/b5-costing-fs` (`v52_fs` ada di `c287407`): `v52_costing` (hanya `batch.lb_price_source`; O33(b) → tanpa `save_class_plan`), Q-v5.2-13 (`opening_stock_flag` IA/Finance minggu open), Q-v5.2-18 (dua kolom view Sales + `price_floor_rule`), `v52_fs` (B-R86 + C59). Brief: pola B2 |
+| backup.yml | **merge** (#43 `da0c179`) | dump tidak lagi jadi artifact (repo publik); tanpa bucket → job gagal |
+| A4 R68 | **merge** (#42 `443bbf0`) | `fsRecon` + C59 engine + fixture Agu/Sep; CI run 39100986309 ✓. Temuan D9 (ekuitas b.71) |
+| A1b K69 | **merge** (#44 `bed6039`) | `update_date` hanya Admin/Finance di minggu open; CI main run 39101702229 ✓ |
+| A2 R48–R58 | **merge** (#45 `4b440d8`) | gate agen di `e70e495` (engine 426, web 341, parity 17161, test:rls 37 blok); golden B.5 diubah sesuai R58; CI main run 39101910881 ✓. Sisa R51/R52 menunggu kolom B-R85 (B5) |
+| A1b schema_version | siap, **ditahan** | cabang `v5.2/a1b-schema-version` `81d6f88` (`EXPECTED_SCHEMA` 5.2.2, RPC `schema_version()`); merge sesudah B2 di KGR-OS |
+| A4 R69 | siap, **ditahan** | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
+| Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
+| Workflow `db-ops` | PR #46 | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
 | B1 data master | sebagian | `kgr-os-master.sql` (sha256 `6dcadd03…afb1`): jadwal beban tetap Agu–Sep diterapkan 23.04 WIB sesudah uji kering + backup `bak_20261017t1603`. K/S/B, yield kelas, size_class_map, kapasitas, C8/C9, users: D5/D7/D8 |
 
 ## Berikutnya
 
-Sesi 17 Okt dihentikan atas permintaan Dika ("lanjut besok"). Semua sub-agen (Sonnet) menyimpan WIP ke cabangnya; belum ada yang direview Opus. Commit berawalan `wip(` = belum lulus.
+Sesi 18 Okt (berjalan). Agen Sonnet aktif: B5 (`v5.2/b5-costing-fs`), A3 (`v5.2/a3-costing-pl`), A5 (`v5.2/a5-e2e-ci`). A2 dan A4 selesai.
 
-| Cabang | Head | Keadaan (laporan agen, belum diverifikasi) | Lanjut dari |
-|---|---|---|---|
-| `v5.2/a2-loop` | `01fcfd7` | R48–R58 berkode + tes; typecheck, web 338, k41/k42 0 hijau. Belum: parity/snapshot (engine `demand.ts`, `upload-validate.ts` disentuh), `a2.md`, CHANGELOG. **Golden B.5 diubah** (C22 6,9% → 17,1%, baris tertahan tidak dihitung) — review khusus. Butuh B-R85: `plan_check_reason.plan_week_id`, `plan_week_class.detail` | gate penuh → tes `splitClassPlan` → docs |
-| `v5.2/a3-costing-pl` | `5e98cb2` | R60–R63, R66, R67 berkode + tes; **typecheck merah** (3 galat di `forecast-cost.test.ts`). Belum: R64 (lint `missing` 132 hit), R65, Q-v5.2-5 `setFlag`, O13, `a3.md`. Butuh: hak Finance untuk override posting alokasi | typecheck → R65 → Q-v5.2-5 → R64 |
-| `v5.2/a4-fs-recon` | `7bb1225` | R68 selesai, gate penuh hijau di `63173f2` (bisa di-merge sendiri). R69 WIP (tes layar belum jalan; butuh B-R86). Temuan Finance: BS MR b.71 laba ditahan awal beda Rp 2,71 dari TB → C59 ekuitas GAGAL tiap bulan | PR R68 dari `63173f2`; R69 sesudah B5 |
-| `v5.2/a5-e2e-ci` | `7015bd9` | R70 tumpukan lokal jalan (PG16 + faketime + PostgREST + mock auth/storage). T7 draf: 28 lulus / 12 gagal. Belum: F19, matriks R72, volume, `run.sh`, job CI `e2e`, `a5.md`. Keputusan perlu: alokasi 27–28 Agu lewat SQL setup atau harga PO dinaikkan (C38) | perbaiki T7 |
-| `v5.2/b5-costing-fs` | `8a2af21` (= main) | belum ada kode | `docs/v5.2/brief-b5.md` (sudah memuat permintaan A2/A3) |
-
-Urutan sesi berikut:
-1. Lanjutkan agen per tabel di atas di worktree yang sama (`/home/user/wt-*`; bila container baru: `git worktree add` dari cabang remote). B5 dulu (jalur kritis A4 R69 dan A2).
-2. Review + PR A2 → merge (tanpa objek DB baru). Review + PR A3, A5, B5. A4 R69 sesudah B5 merge.
-3. Staging (D1): Dika membuat `KGR-OS-staging` (Seoul, Micro) — connector `create_project` timeout 4×. Lalu: migrasi s.d. B2 + seed → test:rls di staging (T21) → bundel v5.1 ke KGR-OS (backup dulu) → T23 uji pulih → bundel B2 ke KGR-OS.
-4. A1b sesudah B2 di KGR-OS: `EXPECTED_SCHEMA` = versi registry; `roles.ts` `update_date` hanya Admin/Finance (Q-v5.2-12); komersial Sales lewat `surplus_for_sales_v52` (Q-v5.2-15), lalu migrasi B berikut mencabut baca `plan_week`/`demand_weekly` untuk Sales.
-5. PR cabang docs `claude/nice-gauss-tblqrt` (QUESTIONS, PROGRESS, backup.yml) ke `main`.
+1. Review + PR B5 → merge; lalu A4 R69 (PR dari `880db36`, merge hanya sesudah B5 di KGR-OS).
+2. Review + PR A3 (R59–R67), A5 (R70–R74, job CI `e2e`).
+3. Sesudah D1 + D4: `db-ops` staging-migrate → staging-test-rls (T21) → staging-bundle v5.1/B2/B5 → kgr-os-apply v5.1 → kgr-os-apply B2 → restore-test (T23) → merge A1b schema_version → kgr-os-apply B5 → merge R69.
+4. Q-v5.2-15: komersial Sales lewat `surplus_for_sales_v52` (sesudah B2 di KGR-OS), lalu migrasi B berikut mencabut baca `plan_week`/`demand_weekly` untuk Sales.
 
 ## Blocker aktif
 
-D1 staging (belum ada di daftar project, dicek 17 Okt 16.40 UTC), D2 Vercel, D3/D4 akses T19, D5 users, D6 berkas data (rinci di BUTUH-DIKA).
+D1 staging (belum ada, dicek 18 Okt 05.3x UTC; connector create_project ×5 dan create_branch timeout), D4 secret repo untuk `db-ops`, D2 Vercel, D3 jaringan (tidak lagi memblokir B3/B4), D5 users, D6 berkas data (rinci di BUTUH-DIKA).
