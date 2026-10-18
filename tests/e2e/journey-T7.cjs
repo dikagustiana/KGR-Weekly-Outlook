@@ -10,8 +10,9 @@
 // Steps run in the order of the clock, not of the numbers above (the lock is on Friday, the plan is copied on Thursday:
 // the copy needs the LB price of the cut dates that are still ahead, C57). Everything the app has an upload path for is done
 // through that path by the role that owns the input; the rest is `week-complete.sql` and labelled setup in the log.
-// Steps that wait for code still being finished on another branch are kept and marked XFAIL with the R they wait for:
-// they do not fail the job; an XPASS means the R is in and the marker should go.
+// Steps that wait for code still being finished on another branch are marked XFAIL with the R they wait for (they do not fail the job;
+// an XPASS means the R is in and the marker goes). On main at b408a9a (A1, A1b, A2, A3, A4, B2, B5) R52, R54 and R60 are in: those three
+// steps are plain checks now, T7 has no XFAIL left.
 const path = require("node:path");
 const { Journey, cfg, short, sleep } = require("./lib/e2e.cjs");
 
@@ -177,8 +178,8 @@ async function drain(J, finance, why) {
     const tot = J.db(`select round(sum(c.kg_lb)), sum(c.heads) from public.plan_week_class c join public.plan_week p on p.id = c.plan_week_id where p.week_start = '${WEEK}' and p.version = (select max(version) from public.plan_week where week_start = '${WEEK}')`)[0];
     const copied = rows.reduce((a, r) => a + Number(r[1]), 0), copiedHeads = rows.reduce((a, r) => a + Number(r[2] || 0), 0);
     J.log(`    DB rencana kelas tersimpan: ${tot[0]} kg LB, ${tot[1]} ekor; salinan batch: ${Math.round(copied)} kg LB, ${copiedHeads} ekor`);
-    // R52 (A2): the batches carry the saved class plan (kg per day and the class yield), not a recomputation on the STD yield
-    J.xcheck("angka batch hasil salin = rencana kelas tersimpan (kg LB dan ekor)", "R52 (irisan A2, cabang v5.2/a2-loop)", Math.abs(copied - Number(tot[0])) <= 1 && copiedHeads === Number(tot[1]), `salinan ${Math.round(copied)} kg LB / ${copiedHeads} ekor vs tersimpan ${tot[0]} / ${tot[1]}`);
+    // R52 (merged with A2): the batches carry the saved class plan (kg per day and the class yield), not a recomputation on the STD yield
+    J.check("angka batch hasil salin = rencana kelas tersimpan, kg LB dan ekor (R52)", Math.abs(copied - Number(tot[0])) <= 1 && copiedHeads === Number(tot[1]), `salinan ${Math.round(copied)} kg LB / ${copiedHeads} ekor vs tersimpan ${tot[0]} / ${tot[1]}`);
     await A.ppic.shot("T7-3c-ppic-disalin");
   });
 
@@ -207,8 +208,8 @@ async function drain(J, finance, why) {
     await A.cost_accounting.goto(`/w/${WEEK}/costing`);
     const before = (await A.cost_accounting.text("main")).split("\n").find((l) => l.includes(BATCH) && /final|sementara|estimasi/.test(l)) || "";
     J.log(`    cost_accounting  status biaya sesudah faktur tie, sebelum posting: ${short(before, 160)}`);
-    // K59 (R60, irisan A3): `final` only from a posted allocation; a tied invoice is the condition to post, not the status
-    J.xcheck("faktur tie belum membuat biaya final (status tetap sementara sampai posting)", "R60 (irisan A3, cabang v5.2/a3-costing-pl)", /sementara/.test(before) && !/final/.test(before), short(before, 140));
+    // K59 (R60, merged with A3): `final` only from a posted allocation; a tied invoice is the condition to post, not the status
+    J.check("faktur tie belum membuat biaya final: status tetap sementara sampai posting (R60, K59)", /sementara/.test(before) && !/final/.test(before), short(before, 140));
     await A.cost_accounting.goto(`/w/${WEEK}/input/costing`);
     const row = A.cost_accounting.page.locator("tr", { hasText: BATCH }).first();
     const al = await A.cost_accounting.act("Alokasikan", { within: `tr:has-text("${BATCH}")`, exact: true });
@@ -278,9 +279,9 @@ async function drain(J, finance, why) {
     J.log(`    DB komitmen ${NEXT}: ${J.db(`select key, version, status, locked_by from public.sales_commitment where week_start = '${NEXT}' order by key, version`).map((r) => r.join(" ")).join("; ")}`);
     J.check("DB: komitmen terkunci oleh Kepala Sales", J.dbOne(`select count(*) from public.sales_commitment where week_start = '${NEXT}' and status = 'locked' and locked_by = 'lead@${cfg.domain}'`) === "1");
     J.check("DB: price list minggu depan terkunci", Number(J.dbOne(`select count(*) from public.price_list_week where week_start = '${NEXT}' and locked_at is not null`)) >= 1);
-    // R54 (irisan A2): the lock queues the task date (Friday) and the cell is green without "Perbarui status tugas"
+    // R54 (merged with A2): the lock queues the task date (Friday) and the cell is green without "Perbarui status tugas"
     const cell = J.dbOne(`select status from public.input_completeness_daily where date = '2026-08-28' and kind = 'commitment_lock'`);
-    J.xcheck("sel K35 commitment_lock 28/08 lolos tanpa 'Perbarui status tugas'", "R54 (irisan A2, cabang v5.2/a2-loop)", cell === "passed", `status tersimpan: ${cell}`);
+    J.check("sel K35 commitment_lock 28/08 lolos tanpa 'Perbarui status tugas' (R54)", cell === "passed", `status tersimpan: ${cell}`);
     await A.commercial_lead.shot("T7-2-lead-kunci");
   });
 
