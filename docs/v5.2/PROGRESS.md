@@ -16,7 +16,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 | # | Butir | Status | Bukti / blocker |
 |---|---|---|---|
-| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **KGR-OS 5.2.6** (18 Okt, tanpa staging atas keputusan Dika); `EXPECTED_SCHEMA` 5.2.6 di `main` (#59) — **menunggu deploy** (kuota Vercel) | v5.1 + B2 + B5 + B6 + B7 diterapkan, tabel cek 12/24/26/15/16 true, sidik = repo 9/9 tiap bundel (`kgr-os-log.md` 18 Okt). Production `0a7dc7d` (EXPECTED 5.2.4 ≤ DB) jalan tanpa banner |
+| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **KGR-OS 5.2.6** (18 Okt, tanpa staging atas keputusan Dika); `EXPECTED_SCHEMA` 5.2.6 di `main` (#59) — **menunggu deploy** (kuota Vercel) | v5.1 + B2 + B5 + B6 + B7 diterapkan, tabel cek 12/24/26/15/16 true, sidik = repo 9/9 tiap bundel (`kgr-os-log.md` 18 Okt). Production `5879930` (deploy 7152132583, 08.37 UTC; EXPECTED 5.2.4 ≤ DB) jalan tanpa banner |
 | 2 | Antrean 0 queued/failed; cron sukses di Vercel | sebagian | 42 baris di luar jendela → done (log 22.41). 7 queued 24–30 Agu menunggu v5.1 + rebuild. Cron: D2 |
 | 3 | Mart production 24 Agu–30 Sep | belum | menunggu 1, 2, data Sep (D6) |
 | 4 | FINAL Agu & Sep, C12/C49 LULUS | belum | B6 |
@@ -24,14 +24,14 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian: **CI 4 job hijau, T7 49/0 xfail, matriks 120** (#52); T19 staging belum | lint baru di A1 (run 39045685561 hijau); e2e: A5; T19: D1, D3/D4 |
 | 7 | Parity 17.161/17.161, snapshot byte-identik | lulus (A1, lokal) | `pnpm parity` 17161/17161, `pnpm snapshot:diff` EMPTY di `f340e55`, container cloud PG16 |
 | 8 | Flag v5 dibuka untuk semua role sesudah T19 | belum | O29(b) aktif sejak 17 Okt 22.41 |
-| 9 | Status R41–R79, B-R80–B-R94 | berjalan | `docs/v5.2/audit-handover.md` (audit Fase 0); R41–R47 di PR #38; B-R82–84 di PR #41 (lokal PG16; staging/KGR-OS belum) |
+| 9 | Status R41–R79, B-R80–B-R94 | berjalan: **`docs/v5.2/status-r.md`** (35 lulus, 11 sebagian, 3 belum, 5 menunggu A6) | `docs/v5.2/audit-handover.md` (audit Fase 0); R41–R47 di PR #38; B-R82–84 di PR #41 (lokal PG16; staging/KGR-OS belum) |
 
 ## Langkah (brief Bab 8)
 
 | Langkah | Status | Catatan |
 |---|---|---|
 | Fase 0 — lint benar | **selesai di A1** | `scripts/lint.py` + `scripts/test-lint.sh` (berkas melanggar → 1, bersih → 0). A1: 4 hit K41 + 177 hit K42 diperbaiki (`f340e55`). Gate lokal A1: typecheck ✓; engine 362 + 1 todo; parsers 23; web 265; parity 17161/17161; snapshot EMPTY; test:rls OK (PG16). CI run 39045685561: engine ✓ lint ✓ rls ✓ |
-| Fase 0 — lint-missing (A3) | belum | penanda `// missing-ok: <alasan>` |
+| Fase 0 — lint-missing (A3) | **selesai** (A3 #51) | `python3 -I scripts/lint.py missing` di job CI `lint`; penanda `// missing-ok: <alasan>` (43, semua beralasan; `docs/v5.2/status-r.md`) |
 | Fase 0 — rebase A2 ke A1 | **selesai** | A2 di-rebase ke `da0c179` dan merge (#45) |
 | Fase 0 — audit-handover.md | berjalan | |
 | B0 | sebagian | backup `bak_20261017t1539`; B0-5 flag, O36 since, B0-6 (42) selesai. B0-2 (D2), B0-3 (D1), B0-7/8 menunggu |
@@ -64,7 +64,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 ## Berikutnya
 
-Sesi 18 Okt (±08.45 UTC). KGR-OS = repo 5.2.6. Production = `0a7dc7d`.
+Sesi 18 Okt (±09.00 UTC). KGR-OS = repo 5.2.6. Production = `5879930` (memuat #57, #58); `f5ec2be` (#59) tertahan kuota.
 
 1. Deploy `main` berikutnya (kuota Vercel) membawa #57–#59; cek "Vercel" success, lalu DoD 1 = 5.2.6/5.2.6.
 2. A6 (agen berjalan): R75–R79, Q-v5.2-36/50/52, layar 1366/899/390; PR → CI → merge (satu push `main`).
