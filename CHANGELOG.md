@@ -2,6 +2,16 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a5b] e2e evidence gaps of R48, R69 and R70 (docs/PRD-v5.2-A-kode.md R48, R69, R70; docs/v5.2/a5b.md)
+
+No application code changed: everything is under `tests/e2e/` (plus README, the CI step name and the document).
+
+### Added
+- e2e R48 (journey T7 step 11): PPIC opens the Rencana of the week a locked commitment belongs to (31 Aug); the class demand holds the PO and the kg of the commitment beyond it (15.000 kg = 4.000 PO + 11.000 beyond, numbers from the database), and the same page without the commitment (flag `v5_commercial` off) differs by exactly the kg beyond the PO. The week row (the Monday rollover is an Admin step) and the PO line of that week are SETUP (`sql/next-week.sql`) and are taken away again (`sql/next-week-undo.sql`); the step compares the row counts of the 92 tables before and after. Step 1c now also shows that the PO upload holds a line of next week with "minggu ... belum ada".
+- e2e journey R69 (`tests/e2e/journey-R69.cjs`, `sql/fs-app-lines.sql`): the FS fixture (`fs_statement_line` version 1, `fs_line_map` agreed) is built from the app's numbers derived by plain SQL from the tables (compared with the page to the cent), then C59 LULUS (15 sama), a Rp 1,00 correction (version 2) stays within the tolerance, a correction with Rp 2.500.000,00 and Rp 2,71 (version 3) is C59 GAGAL, the FINAL lock is held on C59 (button off, the server action refuses when forced) until Finance records the override of C59 with a reason, then FINAL is locked; accuracy tile with the C59 line; access of 10 roles to the page and to the FS tables (RLS); the override of C59 is Finance's alone.
+- e2e journeys L (v5.1 L4-L7: new commitment version with a reason, Sales inputs off, answer to the surplus, Outlook bulan and Kas), P (v5.1 P8: `POST /rpc/release_week` to PostgREST with the Finance JWT, three SETUP variants of the K35 grid, 400/400/200, and 403 for PPIC) and O (v5.1 O2 and O5: the WP upload moves the data date and the queue, the cut date comes from the wall clock).
+- `E2E_ONLY` names `O`, `L`, `P`, `R69`; `run.sh` saves the T7 database once (`afterT7`) and every journey that writes puts it back; `summarize.cjs` and the CI step name list them. About 115 s added to `pnpm e2e` in the CI order (436 s in all after the build step, two-core container).
+
 ## [v5.2-a6] UI: urutan tile, label sumber per periode, nav Finance, .xls, ribuan ambigu, PPIC membangun ulang antrean (docs/PRD-v5.2-A-kode.md irisan A6, R75–R79; Q-v5.2-36, -50, -52; docs/v5.2/a6.md)
 
 ### Added
