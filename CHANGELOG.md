@@ -2,6 +2,21 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a7] Layar Penugasan Sales: Admin dan Kepala Sales mengatur `sales_assignment` (K49, O21(b); docs/v5.2/a7.md; Q-v5.2-120 … 123)
+
+### Added
+- `/komersial/assignment` (`app/komersial/assignment`): list of every assignment (active first), a one-line cover summary per Sales user in the words of O21(b) ("RPA|Karkas = semua bentuk", "RPA|Sayap|Fresh = hanya Fresh"), an add / change form and a switch per row. Admin and Kepala Sales only (area `sales_assignment`, as RLS); every other role gets a 404; not behind a module flag. Links from Komersial (card next to the approval queue; v5, v4 and the old layout), Admin → Pengguna and Admin.
+- Actions `saveAssignmentAction` (upsert on the unique triple `sales_rep,customer,key`; the Sales user is an active `app_user` with role `sales`; the key is a SKU key of the master or its base key, anything else is refused with the key it probably means; `sales_rep` is the one the e-mail already has, else the name) and `toggleAssignmentAction` (deactivate / activate, never a delete). Both check the role first, then `assertSchemaCurrent` (K57), tell the database's own error (an RLS denial or an update RLS hides = "Tidak berwenang") and revalidate every page that reads an assignment.
+- Kepala Sales cannot read `app_user` (policy `app_user_select`): the Sales list is read server side with the service client, read only, after the role check; without `SUPABASE_SERVICE_ROLE_KEY` only Admin can pick a user (Q-v5.2-120).
+- `lib/v5/assignment.ts` (pure rules), `lib/v5/assignment-data.ts` (K41 fail-closed reads), `components/v5/AssignmentForm.tsx` (keeps what was typed after a refusal), `components/v5/AssignmentLink.tsx`.
+- Tests: web `assignment` (19), `assignment-actions` (54), `assignment-page` (22), `commercial-view` (+3); e2e: the page in the role matrix (`penugasan`, 200 for Admin and Kepala Sales, 404 for the other eight roles, in all ten flag combinations) and journey A7 (`tests/e2e/journey-A7.cjs`, wired in `run.sh` after A6).
+
+### Fixed
+- `commercialView` (Komersial in the v4 and old layouts, SKU page `/komersial/[key]`) read the assigned keys by exact match, so an assignment with a base key (`RPA|Karkas`, what Q-v5.2-53 asks for) showed Sales an empty table although the database lets them see it. It now reads them as `assignment_covers` does (O21(b)): a key without a form suffix covers every form, one with a suffix only itself (Q-v5.2-122).
+
+### Changed
+- `tests/e2e/matrix-expect.json`: the written cell "Status biaya in Komersial" of Sales in the v4 layout (combinations 2, 3, 4, 9) is 1, it was 0 — the 0 recorded the empty table of the bug above; the exception in `rules` is withdrawn (Q-v5.2-122, docs/v5.2/a7.md; to be confirmed by the product owner).
+
 ## [v5.2-a5b] e2e evidence gaps of R48, R69 and R70 (docs/PRD-v5.2-A-kode.md R48, R69, R70; docs/v5.2/a5b.md)
 
 No application code changed: everything is under `tests/e2e/` (plus README, the CI step name and the document).

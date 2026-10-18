@@ -16,6 +16,8 @@ import { moduleEnabled, moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
 import { KomersialV4 } from "./v4";
 import { KomersialV5 } from "./v5";
+import { AssignmentLink } from "@/components/v5/AssignmentLink";
+import { can } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,7 @@ export default async function KomersialPage({ searchParams }: { searchParams: Pr
     <Shell viewer={viewer} weeks={weeks} week={week} active="/komersial">
       <h1>Komersial — stok yang harus dijual {mart.date ? `(${tgl(mart.date)})` : ""}</h1>
       <p className="muted">Urutan: status umur (di atas batas umur → jual hari ini → jual minggu ini → aman), lalu kerugian simpan per hari + risiko turun ke frozen. Harga lantai = biaya rata-rata + markup. </p>
+      {!mgmt && can(v.role, "sales_assignment") ? <AssignmentLink /> : null}
       {sales && own.length === 0 ? <Card><p>Belum ada penugasan SKU untuk Anda. Minta penugasan ke commercial lead.</p></Card> : null}
       {!mart.date ? <Card><p>Belum dibangun untuk tanggal ini.</p></Card> : null}
       <div className="kpis">
