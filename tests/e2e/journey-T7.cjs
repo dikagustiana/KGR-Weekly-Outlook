@@ -127,7 +127,7 @@ async function drain(J, finance, why) {
     const yr = await A.ppic.paste("yield_matrix", y);
     J.check("yield per kelas tersimpan (C42)", !!yr.ok && !yr.error, yr.ok || yr.error || "");
     await A.ppic.goto(`/w/${WEEK}/rencana`);
-    for (let d = 24; d <= 30; d++) await A.ppic.page.locator(`input[name="head_2026-08-${d}"]`).fill("9000");
+    for (let d = 24; d <= 30; d++) await A.ppic.page.locator(`input[name="head_2026-08-${d}"]`).fill("20000");
     const cap = await A.ppic.act("Simpan kapasitas");
     J.check("kapasitas potong tersimpan (C47)", !!cap.ok, cap.ok || cap.error || "");
     await A.ppic.goto(`/w/${WEEK}/rencana`);
