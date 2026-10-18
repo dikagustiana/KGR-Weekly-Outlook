@@ -58,10 +58,18 @@ Bukti tes merah di kode lama: tes yang sama dijalankan terhadap tahap sebelum pe
 | `scripts/test-lint.sh`, `lint-k41.sh`, `lint-k42.sh`, `lint.py missing` | semua 0 hit |
 | `pnpm test:rls` (DB `a1d_rls`, socket `/tmp`) | OK |
 | `E2E_STRICT_XFAIL=1 pnpm e2e` lokal | HIJAU: prepare 3, matrix 120, T7 49, **F19 16 (0 XFAIL)**, volume 13; tak terduga 0 |
-| CI | lihat bagian bukti CI di bawah |
+| CI GitHub Actions | run 39107283779 (head `863efaf`): engine, lint, rls, e2e hijau (rinci di bawah) |
 
 F19 sesudah perbaikan: cron ke-1 = ke-2 (idempoten), `solvency_monthly` ditulis ulang oleh cron, dan sidik `solvency_monthly` dan `pl_daily_v4` Agustus
 sesudah cron = sesudah rebuild sesi Finance (sebelumnya empat XFAIL). Tidak ada XFAIL tersisa di e2e.
+
+## Bukti CI
+
+| Run | Head | Hasil |
+|---|---|---|
+| **39107283779** | `863efaf` (di atas main `9431b44`) | engine, lint, rls, e2e: success. Anotasi job e2e (`E2E_STRICT_XFAIL=1`): `prepare` lulus 3 · `matrix` lulus 120 · `T7` lulus 49 · **`F19` lulus 16, xfail 0, xpass 0** · `volume` lulus 13; respons app tak terduga 0 di semua; `==== e2e HIJAU ====` |
+
+Commit sesudahnya hanya menambah baris bukti ini (dokumen); kodenya sama dengan `863efaf`.
 
 ## Pertanyaan baru (Q-v5.2-80 … 89)
 
