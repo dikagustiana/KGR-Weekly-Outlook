@@ -22,11 +22,20 @@ const PI = { no: "PI26080085", date: "2026-08-26", value: "327933293.00" }; // t
 const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const parseId = (s) => Number(String(s).replace(/\./g, "").replace(",", "."));
 
-async function cron(J) {
-  const r = await fetch(`${cfg.base}/api/cron/rebuild`, { headers: { authorization: `Bearer ${cfg.cronSecret}` } });
-  const b = await r.json();
-  J.log(`    cron  GET /api/cron/rebuild (Authorization: Bearer CRON_SECRET, tanpa sesi) → HTTP ${r.status} ${JSON.stringify({ selesai: b.drained?.done ?? b.done, gagal: b.drained?.failed ?? b.failed, tugas: b.tasks })}`);
-  return { status: r.status, body: b };
+// The queue the role actions leave (ledger balances roll forward: more than the 7 dates an action does inline) holds C45 until it is drained.
+// Finance's "Perbarui status tugas" drains it with a session. (The nightly route /api/cron/rebuild is covered by journey F19: its rebuild runs
+// without a session and writes a different P&L forecast and no solvency, see docs/v5.2/a5.md Q-v5.2-51; so T7 does not use it.)
+async function drain(J, finance, why) {
+  // what is held is a queued date up to today (the refresh builds up to the wall date; later dates wait for their day)
+  const open = () => Number(J.dbOne(`select count(*) from public.rebuild_queue where status in ('queued','running','failed') and date <= '${J.now().slice(0, 10)}'`));
+  for (let i = 1; i <= 5; i++) {
+    const left = open();
+    if (left === 0) { J.log(`    antrean rebuild kosong (${why})`); return; }
+    J.log(`    antrean rebuild: ${left} tanggal (${why}); Finance: Input → Perbarui status tugas, putaran ${i}`);
+    await finance.goto("/input?panel=grid");
+    await finance.act("Perbarui status tugas");
+  }
+  J.check(`antrean rebuild terkuras (${why})`, open() === 0);
 }
 
 (async () => {
@@ -38,9 +47,9 @@ async function cron(J) {
   await J.step("0", null, "SETUP: jam uji Kamis 27 Agu 09.00, week-complete.sql (riwayat Sen–Rab dan master tanpa editor), antrean rebuild", async () => {
     J.clock("2026-08-27T09:00:00+07:00");
     J.setupFile("week-complete.sql: master kelas berat dan peta ukuran, mart minggu sebelumnya, riwayat keputusan LB 25–27/08, kartu stok 24–28, jurnal 27–28, PO dan alokasi 24–26", path.join(__dirname, "sql/week-complete.sql"));
-    await cron(J);
-    J.log(`    DB flag v4_release: ${J.dbOne("select value ->> 'enabled' from public.app_setting where key = 'v4_release'")} (ketat, seperti KGR-OS)`);
     for (const a of Object.values(A)) await a.login();
+    await drain(J, A.finance, "setelah SETUP");
+    J.log(`    DB flag v4_release: ${J.dbOne("select value ->> 'enabled' from public.app_setting where key = 'v4_release'")} (ketat, seperti KGR-OS)`);
     J.check("sembilan role non-admin masuk", Object.values(A).every((a) => a.loggedIn), Object.keys(A).join(", "));
   });
 
@@ -207,9 +216,8 @@ async function cron(J) {
   // ------------------------------------------------------------------------------------ allocation Thursday (PPIC)
   await J.step("6b", A.ppic, "PPIC: alokasi FEFO hari ini, Kam 27 Agu (sebelum cut-off 14.00)", async () => {
     J.clock("2026-08-27T13:45:00+07:00");
-    // the queue the WP, the invoice and the posting left (ledger balances roll forward) is more than the 7 dates an action does inline:
-    // C45 STALE holds the allocation until the scheduler (Vercel Cron, daily 05.00 WIB) drains it; here the route is called with its secret
-    await cron(J);
+    // C45 STALE holds the allocation while the queue is not drained (see drain())
+    await drain(J, A.finance, "sebelum alokasi 27/08");
     await A.ppic.goto("/hari/2026-08-27/alokasi");
     { const t0 = await A.ppic.text("main"); J.log(`    ppic  halaman alokasi: ${short(t0, 500)}`); }
     const m = await A.ppic.act("Alokasikan hari ini");
@@ -220,7 +228,7 @@ async function cron(J) {
   // --------------------------------------------------------------------------------- 7 Commercial shows new cost
   await J.step("7", A.commercial_lead, "Komersial: biaya baru tampil (WP dan posting batch sudah masuk)", async () => {
     J.clock("2026-08-27T14:30:00+07:00");
-    await cron(J);
+    await drain(J, A.finance, "sebelum layar Komersial");
     const after = J.db(`select key, cost_per_kg, cost_status from public.commercial_daily where date = '2026-08-27' and key = 'RPA|Karkas|Fresh'`)[0];
     J.log(`    DB commercial_daily 27/08 Karkas fresh sesudah: Rp ${after ? `${after[1]}/kg, status ${after[2]}` : "tidak ada"} (sebelum: ${costBefore ? `${costBefore[1]}/kg, ${costBefore[2]}` : "-"})`);
     J.check("DB: biaya/kg Karkas fresh berubah sesudah WP dan posting", !!after && !!costBefore && Number(after[1]) !== Number(costBefore[1]), `${costBefore?.[1]} → ${after?.[1]}`);
@@ -236,7 +244,7 @@ async function cron(J) {
   // -------------------------------------------------------------------------------------- Friday allocation
   await J.step("7b", A.ppic, "PPIC: alokasi FEFO hari ini, Jum 28 Agu (sebelum cut-off 14.00)", async () => {
     J.clock("2026-08-28T13:00:00+07:00");
-    await cron(J);
+    await drain(J, A.finance, "sebelum alokasi 28/08");
     await A.ppic.goto("/hari/2026-08-28/alokasi");
     { const t0 = await A.ppic.text("main"); J.log(`    ppic  halaman alokasi: ${short(t0, 500)}`); }
     const m = await A.ppic.act("Alokasikan hari ini");
