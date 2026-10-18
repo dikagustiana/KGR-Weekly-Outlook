@@ -15,6 +15,7 @@ import type { StockFilter } from "@kgr/engine";
 import type { ReactNode } from "react";
 import { spotSaleAction } from "./actions";
 import { answerSurplusAction, lockCommitmentsAction, saveCommitmentsAction } from "./actions-v5";
+import { surplusOptionLabel } from "@/lib/v5/surplus";
 import { CommitmentForm } from "@/components/v5/CommitmentForm";
 import { AssignmentLink } from "@/components/v5/AssignmentLink";
 import { can } from "@/lib/roles";
@@ -43,7 +44,7 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
       <div className="actionbar">
         <ActionForm v4 action={answerSurplusAction} submit="Kirim jawaban ke PPIC" className="tile-form">
           <input type="hidden" name="week_start" value={answerWeek} />
-          <select name="key" aria-label="SKU surplus">{surplus.map((r) => <option key={r.key} value={r.key}>{r.key.replace(/^RPA\|/, "")} · {num(r.kg, 0)} kg</option>)}</select>
+          <select name="key" aria-label="SKU surplus">{surplus.map((r) => <option key={r.key} value={r.key}>{surplusOptionLabel(r.key, r.kg)}</option>)}</select>
           <select name="response" aria-label="jawaban surplus"><option value="absorb">Sanggup serap semua</option><option value="partial">Sanggup sebagian</option><option value="reduce">Tidak sanggup, kurangi potong</option></select>
           <input name="absorb_kg" size={6} placeholder="kg" aria-label="kg diserap" />
           <input name="price" size={7} placeholder="Rp/kg" aria-label="harga" />

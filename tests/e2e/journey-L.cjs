@@ -117,10 +117,13 @@ const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))
     const t = ((await A.commercial_lead.page.locator('section[data-tile="t-ppic"]').first().innerText()) || "").replace(/\s+/g, " ");
     J.log(`    commercial_lead  tile Dari PPIC: ${short(t, 400)}`);
     J.check("tile Dari PPIC menyebut surplus karkas dari batch rencana dan belum dijawab", /Karkas surplus dari batch rencana/.test(t) && /Belum dijawab/.test(t), short(t, 200));
+    // Q-v5.2-112 (A8): two numbers for the surplus — the row of the tile is recomputed now, the answer list is the saved plan: the labels say which is which
+    J.check("tile Dari PPIC: angka surplus karkas bertanda 'rencana saat ini' dan catatannya menyebut daftar jawaban = surplus rencana tersimpan", /Karkas surplus dari batch rencana saat ini/.test(t) && /daftar jawaban memuat surplus rencana tersimpan/.test(t), short(t, 300));
     const sel = A.commercial_lead.page.locator('select[aria-label="SKU surplus"]');
     const opt = await sel.evaluate((e, k) => { const o = [...e.options].find((x) => x.text.startsWith(k)); return o ? [o.value, o.text] : null; }, skey);
     J.log(`    commercial_lead  baris surplus yang dijawab: ${opt?.[1]} (DB ${skey} ${skg} kg)`);
     J.check("daftar jawaban memuat baris surplus rencana (R56: kunci dari baris rencana)", !!opt, opt ? opt[1] : `tidak ada ${skey}`);
+    J.check("baris itu bertanda '(surplus rencana tersimpan)' (Q-v5.2-112)", !!opt && /\(surplus rencana tersimpan\)$/.test(opt[1]), opt ? opt[1] : "");
     await sel.selectOption(opt[0]);
     await A.commercial_lead.page.locator('select[aria-label="jawaban surplus"]').selectOption("partial");
     await A.commercial_lead.page.locator('input[aria-label="kg diserap"]').fill("300");

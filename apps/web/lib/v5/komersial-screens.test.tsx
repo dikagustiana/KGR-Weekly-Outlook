@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { D, c52, commitmentDeadline, filterRows, spotRows, stockSellRows, stockSummary, type StockSellItem } from "@kgr/engine";
 import { komersialV5Model, type KomersialV5Input } from "./komersial";
+import { surplusOptionLabel } from "./surplus";
 import { TilePage } from "@/components/v4/TilePage";
 import type { TileModel } from "../v4/minggu-ini";
 
@@ -76,7 +77,7 @@ describe("Commercial v5 content", () => {
   });
   it("from PPIC: surplus ± 6.332 kg, downgrade −32,0 jt, plan cost 37.592 at LB 24.600; by-product shortfall", () => {
     const v = text(tile("t-ppic"));
-    expect(v).toContain("Karkas surplus dari batch rencana ± 6.332 kg turun −32,0 jt");
+    expect(v).toContain("Karkas surplus dari batch rencana saat ini ± 6.332 kg turun −32,0 jt");
     expect(v).toContain("HJA 2.019 997 −1.022");
     expect(v).toContain("biaya rencana 37.592/kg di LB 24.600");
     expect(v).toContain("Belum dijawab; PPIC menunggu jawaban sebelum potong.");
@@ -102,5 +103,30 @@ describe("Commercial v5 content", () => {
     expect(lead).not.toContain("tidak ditampilkan");
     expect(lead).toContain("829");
     expect(tile("t-ranking")!.note ?? "").not.toContain("tidak ditampilkan");
+  });
+});
+
+describe("Q-v5.2-112 (A8): the two surplus numbers say which is which", () => {
+  const ppic = (over: object) => ({ ...input().ppic!, ...over });
+  const note = (i: KomersialV5Input) => komersialV5Model(i).tiles.find((t) => t.id === "t-ppic")!.note ?? "";
+  it("the tile row is 'rencana saat ini' (recomputed now) and its note says the answer list is the saved plan, which PPIC uses", () => {
+    const i = input("all", { ppic: ppic({ surplus: [{ key: "RPA|Karkas", kg: "0.09" }] }) });
+    expect(text(komersialV5Model(i).tiles.find((t) => t.id === "t-ppic"))).toContain("Karkas surplus dari batch rencana saat ini ± 6.332 kg");
+    expect(note(i)).toContain("Surplus di tabel = rencana saat ini, dihitung ulang dengan data sekarang; daftar jawaban memuat surplus rencana tersimpan, yang dijawab dan dipakai PPIC (bisa berbeda).");
+  });
+  it("the sentence is only there when there is a surplus to answer (a plan without surplus has no second number)", () => {
+    expect(note(input("all", { ppic: ppic({ surplusKg: D(0), surplus: [] }) }))).not.toContain("rencana tersimpan");
+    expect(note(input("all", { ppic: ppic({ surplusKg: D(0), surplus: [{ key: "RPA|Lemak", kg: "350" }] }) }))).toContain("rencana tersimpan");
+  });
+  it("an option of the answer form carries the saved plan's kg and says so", () => {
+    expect(surplusOptionLabel("RPA|Karkas", "0.09")).toBe("Karkas · 0 kg (surplus rencana tersimpan)");
+    expect(surplusOptionLabel("RPA|Lemak", "350")).toBe("Lemak · 350 kg (surplus rencana tersimpan)");
+    expect(surplusOptionLabel("RPA|Sayap|Fresh", "14054.4")).toBe("Sayap|Fresh · 14.054 kg (surplus rencana tersimpan)");
+  });
+  it("Sales: the surplus table is headed 'rencana tersimpan' and its note names the plan version", () => {
+    const sales = komersialV5Model(input("all", { sales: true, roleLabel: "Sales", ppic: null, surplusForSales: { planWeekId: "p1", weekStart: "2026-08-24", version: 3, rows: [{ key: "RPA|Lemak", kg: D("350"), response: null, absorbKg: null }] } as never }));
+    const t = sales.tiles.find((x) => x.id === "t-ppic")!;
+    expect(text(t)).toContain("Surplus kg (rencana tersimpan)");
+    expect(t.note).toContain("Kg = surplus rencana tersimpan v3, yang dijawab dan dipakai PPIC.");
   });
 });
