@@ -107,8 +107,12 @@ export async function loadOutlookBulan(sb: Supa, x: {
 
   // accuracy of the last month with a FINAL version
   let accuracy: AccuracyInput | null = null;
+  // A8 (Q-v5.2-111): a FINAL that exists but cannot be compared is told apart from "no FINAL" (the tile's text only)
+  let accuracyGap: OutlookBulanInput["accuracyGap"] = null;
   {
     const f = must(await sb.from("month_outlook_version").select("month_outlook_id, revenue, gp, nibt, month_outlook!inner(month)").eq("version", "FINAL").order("locked_at", { ascending: false }).limit(1).maybeSingle(), "month_outlook_version FINAL") as (Row & { month_outlook: { month: string } }) | null;
+    const fMonth = s(f?.month_outlook?.month); // month_outlook!inner always brings it; a stand-in without it just has no month to name
+    if (f && fMonth && f.revenue === null) accuracyGap = { month: fMonth, reason: "no_revenue" };
     if (f && f.revenue !== null) {
       const id = String(f.month_outlook_id);
       const [vs, adj, daily] = await Promise.all([
@@ -141,7 +145,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
           month, version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion,
           fsRecon: recon === null ? null : "ok" in recon ? recon.ok : { error: recon.error },
         };
-      }
+      } else if (fMonth) accuracyGap = { month: fMonth, reason: "no_versions" };
     }
   }
 
@@ -183,7 +187,7 @@ export async function loadOutlookBulan(sb: Supa, x: {
 
   const input: OutlookBulanInput = {
     first, today: x.today, cutOff, tolerance, windowDays, rows, base: `/m/${first.slice(0, 7)}`, months, budget: budgetRows, register, versions,
-    selected: effectiveSelected, accuracy, solvency, on, v5,
+    selected: effectiveSelected, accuracy, accuracyGap, solvency, on, v5,
     pdfHref: `/api/m/${first.slice(0, 7)}/pdf${effectiveSelected ? `?version=${effectiveSelected}` : ""}`,
   };
   const extra: OutlookBulanExtra = {

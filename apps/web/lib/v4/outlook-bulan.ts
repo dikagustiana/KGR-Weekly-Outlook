@@ -70,6 +70,11 @@ export interface OutlookBulanInput {
   /** Selected version (?versi=); null = the live draft. */
   selected: string | null;
   accuracy: AccuracyInput | null;
+  /**
+   * A8 (Q-v5.2-111): why `accuracy` is null although the last FINAL month exists — it has no locked V1 or V2 to compare with, or its FINAL
+   * carries no revenue. Absent/null = there is no FINAL at all ("Belum ada bulan yang FINAL.").
+   */
+  accuracyGap?: { month: string; reason: "no_versions" | "no_revenue" } | null;
   solvency: { label: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; cash: string | null } | null;
   on: { m6: boolean };
   pdfHref: string | null;
@@ -390,7 +395,12 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
       content: { type: "table", cols: aCols, rows: aRows },
     });
   } else {
-    tiles.push({ id: "akurasi", pos: P(0, 16, 6, 3), title: "Akurasi bulan terakhir yang FINAL", content: { type: "list", items: ["Belum ada bulan yang FINAL."] } });
+    const g = x.accuracyGap;
+    // a FINAL that cannot be compared is not "no FINAL": say which of the two it is (the numbers of the tile are unchanged: there are none here)
+    const none = !g ? "Belum ada bulan yang FINAL."
+      : g.reason === "no_versions" ? `FINAL ${monthName(g.month)} sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan.`
+        : `FINAL ${monthName(g.month)} sudah ada, tetapi belum punya angka revenue untuk dibandingkan.`;
+    tiles.push({ id: "akurasi", pos: P(0, 16, 6, 3), title: "Akurasi bulan terakhir yang FINAL", content: { type: "list", items: [none] } });
   }
 
   if (x.on.m6 && x.solvency) {

@@ -292,8 +292,13 @@ async function readClose(actor) {
     J.check("baris yang beda masih PL b.12 dan BS b.77 (FINAL = angka jurnal yang sama)", nominal === "BS b.77,PL b.12", nominal);
     J.check("bagian 'Override C59' menampilkan alasan, bukti dan Finance; C59 tetap tampil di atas", /Override C59/.test(r.text) && r.text.includes(reason) && r.text.includes("e2e-fs-agustus-2026-v3.xlsx") && /oleh finance/.test(r.text), short(r.text.slice(r.text.indexOf("Override C59")), 200));
     await fin.shot("R69-R7-final-terkunci");
-    // the accuracy tile of Outlook bulan: it compares a locked V1 or V2 with the FINAL, and V1/V2 of August do not exist in this database (the lock of V1 is
-    // Thursday 20 Aug in production): SETUP puts a V1 next to the FINAL, 2% above it, only so that the tile has a version to compare
+    // Q-v5.2-111 (A8): the FINAL is locked, and V1/V2 of August do not exist in this database (the lock of V1 is Thursday 20 Aug in production): the accuracy
+    // tile has nothing to compare, and says exactly that (it used to say "Belum ada bulan yang FINAL." although a FINAL exists)
+    const s0 = await fin.goto(`/m/${M}`);
+    const bare = ((await fin.page.locator('section[data-tile="akurasi"]').first().innerText()) || "").replace(/\s+/g, " ");
+    J.log(`    finance  /m/2026-08 tile akurasi tanpa V1/V2: ${short(bare, 260)}`);
+    J.check("Outlook bulan: FINAL Agustus ada tetapi belum ada V1/V2: tile akurasi menyebutnya, bukan 'Belum ada bulan yang FINAL'", s0 === 200 && /FINAL Agustus 2026 sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan/.test(bare) && !/Belum ada bulan yang FINAL/.test(bare), short(bare, 300));
+    // the accuracy tile of Outlook bulan compares a locked V1 or V2 with the FINAL: SETUP puts a V1 next to the FINAL, 2% above it, only so that the tile has a version to compare
     J.setup("V1 Agustus (dikunci Kam 20 Agu di produksi, tidak ada di data uji) di samping FINAL: revenue, COGS, GP dan NIBT 2% di atas FINAL; hanya agar tile akurasi punya versi pembanding", `
       insert into public.month_outlook_version (month_outlook_id, version, cut_off_date, locked_at, locked_by, snapshot, snapshot_sha256, revenue, cogs, gp, opex, nibt, rule_version)
       select f.month_outlook_id, 'V1', date '2026-08-19', timestamptz '2026-08-20 03:00:00+00', 'e2e (setup)', '{"days": [], "rows": []}'::jsonb, encode(sha256(convert_to('e2e-v1-agustus', 'UTF8')), 'hex'),
