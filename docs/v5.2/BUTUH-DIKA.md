@@ -2,19 +2,20 @@
 
 Hanya data/akses, bukan keputusan (keputusan: `docs/v5/QUESTIONS.md` § "Keputusan v5.2"). Status per 18 Okt 2026.
 
-**Paling membuka jalan (18 Okt): D1 + D4, dua langkah di dashboard, ±5 menit.**
-1. **D1** Buat project `KGR-OS-staging` (org yang sama, Seoul `ap-northeast-2`, compute terkecil). Connector tidak bisa
-   membuatnya (`create_project` timeout ×5, `create_branch` timeout).
-2. **D4** Isi secret repo (Settings → Secrets and variables → Actions), connection string **session pooler port 5432**
-   (Project → Connect → Session pooler; runner GitHub tanpa IPv6):
-   `STAGING_DB_URL` (staging), `SUPABASE_DB_URL` (KGR-OS), `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` (KGR-OS, untuk
-   bucket privat `backups`); untuk T19 juga `STAGING_SUPABASE_URL`, `STAGING_ANON_KEY`, `STAGING_SERVICE_ROLE_KEY`.
-
-Sesudah itu agen menjalankan sendiri lewat workflow `db-ops` (PR #46): migrasi + seed staging, test:rls staging (T21),
-bundel di staging, backup `pg_dump` KGR-OS ke bucket privat, uji kering + bundel v5.1 dan B2 ke KGR-OS, uji pulih (T23).
-D3 (jaringan container ke `*.supabase.co`) tetap mempercepat B6 (upload lewat app ke KGR-OS) tetapi tidak lagi
-memblokir B3/B4. Yang tetap butuh Dika: D2 (env Vercel dan promosi), D5 (email user), D7/D8/D9 (angka dan keputusan
-yang tidak ada di sumber mana pun).
+**Paling membuka jalan (18 Okt, ±08.20 UTC).** Skema KGR-OS sudah 5.2.4 tanpa staging (keputusan Dika), FS acuan Agu–Sep
+sudah diimpor (B-R91). Yang tersisa untuk Definisi Selesai 2–5 butuh **app yang berjalan terhadap KGR-OS dan bisa
+digerakkan**: bangun ulang mart, minggu September, jurnal 1–31 Agu dan 1–30 Sep lewat upload, posting DI, FINAL. Itu
+tidak bisa dengan SQL saja (FINAL mengunci snapshot hasil hitung app).
+1. **D2** Vercel Production: `SUPABASE_SERVICE_ROLE_KEY` (KGR-OS) dan `CRON_SECRET` (`openssl rand -hex 32`); tanpa kunci
+   servis, rebuild dan cron berhenti dengan "server belum punya SUPABASE_SERVICE_ROLE_KEY". Kode cron yang benar (A1d,
+   #54) sudah di `main`. **Deploy production sedang tertahan kuota Vercel** ("Deployment rate limited — retry in 24
+   hours", sejak ±07.40 UTC; preview cabang kini dimatikan, #55): bila sampai besok belum ada deploy `main` yang
+   "Ready", tekan *Redeploy* pada commit `main` terbaru di dashboard Vercel. Alternatif: beri connector Vercel izin
+   project (env, deployments) — sekarang hanya bisa melihat daftar project (detail 404, deployment 403).
+2. **D4** secret repo (`SUPABASE_DB_URL` session pooler 5432, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`): workflow
+   `db-ops` (backup `pg_dump` ke bucket privat, bundel lewat `psql -1`) dan langkah data lewat runner GitHub.
+3. **D5** daftar user (lewat chat, bukan repo): tanpa user Finance, upload dan FINAL hanya bisa oleh Admin.
+4. **D1** staging hanya untuk T19/T21/T23 (bundel tidak lagi menunggu staging).
 
 | # | Butuh | Kenapa agen tidak bisa | Memblokir | Cara paling cepat |
 |---|---|---|---|---|
@@ -28,6 +29,4 @@ yang tidak ada di sumber mana pun).
 | D8 | Data master PPIC: rentang min/maks/rata-rata kelas K/S/B, yield per kelas × pola, `size_class_map` (ukuran → kelas), kapasitas potong/chiller/ABF per hari | PRD v5 menyatakan angka mockup hanya ilustrasi (Q-v5.2-8) | kebutuhan per kelas (tanpa ini STD), C30/C47 kapasitas | tabel dari PPIC |
 | D9 | **Finance: ekuitas FS b.77 selisih Rp 2,71** — laba ditahan awal di `BS - Management Report` b.71 (−2.698.434.665,91) ≠ TB/sheet `BS` (−2.698.434.668,62); FS sendiri tidak seimbang Rp −4,93 | temuan R68 (`docs/v5.2/fs-recon-fixture.md`); app tidak menyesuaikan angka (K62) | C59 ekuitas GAGAL tiap bulan pada toleransi Rp 1 (DoD 5 tetap terpenuhi lewat sebab tertulis) | koreksi b.71 di workbook FS, **atau** setujui override C59 bulanan oleh Finance dengan alasan ini |
 
-Catatan keamanan (bukan permintaan): `.github/workflows/backup.yml` menyimpan `pg_dump` production sebagai artifact
-workflow. Di repo publik artifact bisa diunduh pengguna GitHub mana pun. Jangan isi secret `SUPABASE_DB_URL` sebelum
-langkah artifact dihapus (agen akan mengubah workflow di PR B berikutnya).
+Catatan keamanan lama tentang artifact `pg_dump` di `backup.yml` sudah selesai: dump tidak lagi diunggah sebagai artifact (#43).
