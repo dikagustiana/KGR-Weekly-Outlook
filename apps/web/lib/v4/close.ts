@@ -9,8 +9,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import {
   D, accuracyDays, accuracyV4, addDays, c48, calibrationV4, finalTotalsV4, firstOfMonth, isCogsLine, isRevenueLine, jakartaToday, monthEnd, monthMandatory,
-  plRowsToMart, releaseVerdict, unbilledRevaluation, versionDaysV4, worstByCode,
-  type AccuracyLineV4, type ControlV3, type VersionDayV4,
+  plLineAmounts, plRowsToMart, releaseVerdict, unbilledRevaluation, versionDaysV4, worstByCode,
+  type AccuracyLineV4, type ControlV3, type PlRowV4, type VersionDayV4,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
@@ -21,6 +21,8 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
 import { loadCostingWeek, weekCostingControls } from "../v3/costing";
 import { loadCash } from "../v3/cash";
+import { fsReconJudged, inFsReconScope, type FsReconModel } from "../v5/fs-recon";
+import { loadFinalSnapshotPl, loadFsRecon } from "../v5/fs-recon-data";
 import { computeMonthV4, ensureOutlook, RULE_VERSION, type MonthStateV4 } from "./month";
 import type { Row } from "../v3/uploads";
 
@@ -63,15 +65,50 @@ export interface FinalPreview {
   totals: ReturnType<typeof finalTotalsV4>;
 }
 
-async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
+/** The rows and the posted closing adjustments of the month as FINAL would take them: the journal of the whole month. */
+async function finalRows(sb: Supa, first: string, settings: ModuleSettings) {
   const last = monthEnd(first);
   const st = await computeMonthV4(sb, first, addDays(last, 1), settings, { cutOff: last });
   const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
   const moId = (mo as Row | null)?.id ? String((mo as Row).id) : null;
   const adj = moId ? mustRows<Row>(await sb.from("closing_adjustment").select("code, pl_line, amount").eq("month_outlook_id", moId).eq("posted", true).is("deleted_at", null), "closing_adjustment") : [];
   const adjustments = adj.map((a) => ({ code: String(a.code), pl_line: String(a.pl_line), amount: String(a.amount) }));
-  const rows = st.plan.rows.filter((r) => r.actual !== null);
-  return { state: st, controls: await finalControlsV4(sb, st, settings), adjustments, totals: finalTotalsV4({ rows, adjustments }) };
+  const rows: PlRowV4[] = st.plan.rows.filter((r) => r.actual !== null);
+  return { state: st, rows, adjustments };
+}
+
+/**
+ * C59 (PRD v5.2-A R69, K62): the app's FINAL numbers against the FS, from August 2026 (O27) and only once an FS has been
+ * imported for the month and Finance has agreed the map: the FS comes after the close in the first run (B-R91), so no
+ * import (or a map still in draft) is not a rejection.
+ * [] = not judged. A GAGAL holds the FINAL lock unless Finance records an override of C59 (policy B-R86).
+ */
+async function finalC59(sb: Supa, first: string, rows: PlRowV4[], adjustments: { pl_line: string; amount: string }[]): Promise<ControlV3[]> {
+  if (!inFsReconScope(first)) return [];
+  const r = await loadFsRecon(sb, first, { plLines: plLineAmounts(rows, adjustments), appSource: "berjalan", today: jakartaToday() });
+  return r && fsReconJudged(r) ? [r.result.c59] : [];
+}
+
+/** The controls a FINAL lock needs: the §7.1 list, and C59 when it was judged (R69). The page and the lock read the same list. */
+export const finalMandatory = (controls: { code: string }[]): string[] => [...monthMandatory("FINAL"), ...(controls.some((c) => c.code === "C59") ? ["C59"] : [])];
+
+async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
+  const { state: st, rows, adjustments } = await finalRows(sb, first, settings);
+  const controls = worstByCode([...await finalControlsV4(sb, st, settings), ...await finalC59(sb, first, rows, adjustments)]);
+  return { state: st, controls, adjustments, totals: finalTotalsV4({ rows, adjustments }) };
+}
+
+/**
+ * The Rekonsiliasi page (R69): the app's month against the FS. The locked FINAL when there is one (its snapshot is the
+ * reference), else the journal of the month so far. null = before August 2026.
+ */
+export async function loadRekonsiliasi(sb: Supa, first: string, settings: ModuleSettings): Promise<FsReconModel | null> {
+  if (!inFsReconScope(first)) return null;
+  const today = jakartaToday();
+  const fin = await loadFinalSnapshotPl(sb, first);
+  if (fin) return loadFsRecon(sb, first, { plLines: fin, appSource: "FINAL", today });
+  const { rows, adjustments } = await finalRows(sb, first, settings);
+  return loadFsRecon(sb, first, { plLines: plLineAmounts(rows, adjustments), appSource: "berjalan", today });
 }
 
 /**
@@ -84,7 +121,7 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   if (today <= last) throw new WriteError(`FINAL dikunci setelah akhir bulan (${last})`);
   const p = await finalPreview(sb, first, settings);
   const ov = mustRows<Row>(await sb.from("release_override").select("code").eq("scope_kind", "month").eq("scope", `${first}:FINAL`).is("deleted_at", null), "release_override");
-  const verdict = releaseVerdict({ controls: p.controls.map((c) => ({ code: c.code, status: c.status })), mandatory: monthMandatory("FINAL"), overrides: ((ov ?? []) as { code: string }[]).map((r) => r.code), strict: true });
+  const verdict = releaseVerdict({ controls: p.controls.map((c) => ({ code: c.code, status: c.status })), mandatory: finalMandatory(p.controls), overrides: ((ov ?? []) as { code: string }[]).map((r) => r.code), strict: true });
   if (!verdict.ok) throw new WriteError(`FINAL ditolak: ${verdict.rejections.map((r) => `${r.code} ${r.status}`).join("; ")}`);
   const st = p.state;
   const rows = st.plan.rows.filter((r) => r.actual !== null);
