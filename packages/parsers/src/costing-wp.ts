@@ -153,21 +153,39 @@ export function parseWpSheet(s: Sheet, labels: WpLabels = WP_LABELS): WpBatch | 
 export interface WpParseResult {
   batches: WpBatch[];
   skipped: string[];
+  /** Hidden sheets that look like a batch sheet: not read (BT-COGS-1). */
+  hidden: string[];
   issues: string[];
 }
 
-/** All batch sheets of a WP workbook (sheet names starting with "Pot_" first; other sheets are tried too). */
+/**
+ * All batch sheets of a WP workbook (sheet names starting with "Pot_" first; other sheets are tried too).
+ * BT-COGS-1: a hidden sheet is not a cut batch (the WP keeps its template `Pot_ISA` and old copies such as
+ * `Pot_ISA10+Blasting` of the previous month hidden); it is listed in `hidden` and named in the issues, and the user
+ * unhides it in the file when it is a batch after all.
+ */
 export function parseCostingWorkbook(sheets: Sheet[], labels: WpLabels = WP_LABELS): WpParseResult {
   const batches: WpBatch[] = [];
   const skipped: string[] = [];
+  const hidden: string[] = [];
   for (const s of sheets) {
     const b = parseWpSheet(s, labels);
-    if (b) batches.push(b);
+    if (b && s.hidden) hidden.push(s.name);
+    else if (b) batches.push(b);
     else if (/^pot_/i.test(s.name)) skipped.push(s.name);
   }
   const issues = batches.flatMap((b) => b.issues);
+  if (hidden.length) issues.push(`Sheet tersembunyi tidak dibaca sebagai batch: ${hidden.join(", ")} — tampilkan (unhide) sheet di file bila memang batch potong`);
+  // BT-COGS-2: two sheets with the same cut date and the same cost lines are most likely one batch twice (a revision kept next to the original)
+  const sig = new Map<string, string[]>();
+  for (const b of batches) {
+    if (!b.date || !b.costs.length) continue;
+    const k = `${b.date}|${b.costs.map((c) => `${costComponentOf(c.label)}:${D(c.amount).toFixed(2)}`).sort().join(",")}|${D(b.cost_bl).toFixed(2)}`;
+    sig.set(k, [...(sig.get(k) ?? []), b.sheet]);
+  }
+  for (const [k, names] of sig) if (names.length > 1) issues.push(`Kemungkinan duplikat: ${names.join(", ")} — tanggal potong ${k.split("|")[0]} dan biaya sama; sembunyikan atau hapus sheet yang tidak berlaku sebelum commit, kalau tidak biayanya terhitung ${names.length}×`);
   if (!batches.length) issues.push("Tidak ada sheet batch (header 'Produk' + total biaya) di file ini");
-  return { batches, skipped, issues };
+  return { batches, skipped, hidden, issues };
 }
 
 /** Batch reference used as batch.batch_ref / line key: the sheet name (Pot_ISA30) — unique per WP file. */

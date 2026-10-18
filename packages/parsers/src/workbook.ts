@@ -5,6 +5,8 @@ import type { Cell } from "./values";
 export interface Sheet {
   name: string;
   rows: Cell[][];
+  /** The sheet is hidden (or very hidden) in the workbook; set only when true (BT-COGS-1). */
+  hidden?: boolean;
 }
 
 export function readWorkbook(data: ArrayBuffer | Uint8Array, fileName = ""): Sheet[] {
@@ -13,10 +15,11 @@ export function readWorkbook(data: ArrayBuffer | Uint8Array, fileName = ""): She
   const wb = isText
     ? XLSX.read(new TextDecoder("utf-8").decode(bytes), { type: "string", raw: true, cellDates: false, FS: detectDelimiter(bytes) })
     : XLSX.read(bytes, { type: "array", cellDates: false, cellNF: false, cellText: false, dense: false });
+  const hidden = new Set((wb.Workbook?.Sheets ?? []).filter((x) => x.Hidden).map((x) => x.name));
   return wb.SheetNames.map((name) => {
     const ws = wb.Sheets[name];
     const rows = XLSX.utils.sheet_to_json<Cell[]>(ws, { header: 1, raw: true, defval: null, blankrows: true }) as Cell[][];
-    return { name, rows };
+    return hidden.has(name) ? { name, rows, hidden: true } : { name, rows };
   });
 }
 
