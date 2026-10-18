@@ -73,15 +73,19 @@ const DI = {
     ["DI-02", "Biaya RPA yang sudah terjadi: bagian beban lain", "Other Expense", "other", "100.000"],
   ],
 };
+/** Drain the queue through the cron route; returns the HTTP statuses (the step checks them and the queue left). */
 async function cron(J) {
+  const statuses = [];
   for (let i = 0; i < 12; i++) {
     const res = await fetch(`${cfg.base}/api/cron/rebuild`, { headers: { authorization: `Bearer ${cfg.cronSecret}` } });
+    statuses.push(res.status);
     const body = await res.json().catch(() => ({}));
     const q = J.dbOne("select count(*) from public.rebuild_queue where status in ('queued','running')");
     J.log(`    cron #${i + 1}: HTTP ${res.status} drained ${JSON.stringify(body.drained ? { done: body.drained.done, failed: body.drained.failed } : body).slice(0, 200)}; antrean tersisa ${q}`);
     if (body.drained && body.drained.failed) J.log(`      catatan: ${short((body.drained.notes || []).filter((n) => /GAGAL/.test(n)).join(" | "), 600)}`);
-    if (q === "0") return;
+    if (q === "0") return statuses;
   }
+  return statuses;
 }
 
 (async () => {
@@ -116,12 +120,15 @@ async function cron(J) {
   await J.step("3", null, "bangun ulang lewat cron sampai antrean habis", async () => {
     const q0 = J.db("select status, count(*), min(date), max(date) from public.rebuild_queue group by status order by status");
     J.log(`    antrean sebelum: ${q0.map((r) => r.join(" ")).join("; ")}`);
-    await cron(J);
+    const statuses = await cron(J);
     const q1 = J.db("select status, count(*), min(date), max(date) from public.rebuild_queue group by status order by status");
     J.log(`    antrean sesudah: ${q1.map((r) => r.join(" ")).join("; ")}`);
     const ds = J.db("select table_name, count(*), min(scope), max(scope) from public.data_status group by table_name order by table_name");
     J.log(`    data_status: ${ds.map((r) => r.join(" ")).join("; ")}`);
     J.check("tidak ada tanggal gagal dibangun", !q1.some((r) => r[0] === "failed"), q1.map((r) => r.join(" ")).join("; "));
+    // the reconciliation below reads the marts: the queue must be empty and every cron call answered 200
+    J.check("antrean habis (tidak ada queued/running) dan cron selalu HTTP 200", !q1.some((r) => r[0] === "queued" || r[0] === "running") && statuses.every((x) => x === 200),
+      `cron ${statuses.join(",")}; ${q1.map((r) => r.join(" ")).join("; ")}`);
   });
 
   for (const m of ["2026-08", "2026-09"]) {

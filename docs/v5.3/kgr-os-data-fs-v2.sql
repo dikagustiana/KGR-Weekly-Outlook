@@ -2,12 +2,32 @@
 -- Lama (versi 1, docs/v5.2/kgr-os-data-fs.sql): reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx sha256 7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5
 -- Baru (versi 2): 09. Laporan Keuangan Per Sep 2026 PT KGR v2.xlsx sha256 fb2e3cf19025c6145a973148907f1112bdafa8be82174d2b7f445faaaeb938f3 (salinan 18 Okt; tidak di-commit)
 -- 12 baris berubah; baris lain tetap versi 1. App membaca versi terbaru tiap baris (lib/v5/fs-recon-data.ts).
--- Prasyarat: versi 1 dari berkas lama ada untuk Agustus dan September. Bisa dijalankan ulang. Tabel cek di akhir: semua true.
+-- Prasyarat: ke-12 baris versi 1 dari berkas lama ada dengan nilai lama; bila tidak, skrip berhenti sebelum menyisipkan.
+-- Bisa dijalankan ulang. Tabel cek di akhir: semua true.
 
+-- every corrected row must find its version 1 with the old amount (or its version 2 from this file, on a re-run): otherwise
+-- nothing is inserted (a missing month or another FS file in KGR-OS would otherwise be skipped row by row, silently)
 do $$
 begin
-  if (select count(*) from public.fs_statement_line where version = 1 and source_sha256 = '7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5' and month in ('2026-08-01','2026-09-01')) = 0 then
-    raise exception 'versi 1 FS dari berkas lama tidak ada: jalankan dulu docs/v5.2/kgr-os-data-fs.sql';
+  if (select count(*) from (values
+    ('2026-09-01'::date, 'BS', 53, 43845011.00, -2.00),
+    ('2026-09-01'::date, 'BS', 58, 10983908421.92, 10940063408.92),
+    ('2026-09-01'::date, 'BS', 65, 10983908421.92, 10940063408.92),
+    ('2026-09-01'::date, 'BS', 72, -1642856872.19, -1599011859.19),
+    ('2026-09-01'::date, 'BS', 77, 658708461.90, 702553474.90),
+    ('2026-09-01'::date, 'PL', 19, -11593192.60, -5620863.60),
+    ('2026-09-01'::date, 'PL', 24, -192772535.65, -154899851.65),
+    ('2026-09-01'::date, 'PL', 37, -356010180.06, -312165167.06),
+    ('2026-09-01'::date, 'PL', 39, -831442595.32, -787597582.32),
+    ('2026-09-01'::date, 'PL', 51, -953903552.73, -910058539.73),
+    ('2026-09-01'::date, 'PL', 58, -953903552.73, -910058539.73),
+    ('2026-09-01'::date, 'PL', 68, -953903552.73, -910058539.73)
+  ) as v(month, statement, row_no, amount, old_amount)
+  where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no
+                  and o.version = 1 and o.source_sha256 = '7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5' and o.amount = v.old_amount)
+     or exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no
+                  and o.version = 2 and o.source_sha256 = 'fb2e3cf19025c6145a973148907f1112bdafa8be82174d2b7f445faaaeb938f3' and o.amount = v.amount)) <> 12 then
+    raise exception 'koreksi FS tidak dijalankan: tidak semua 12 baris versi 1 (berkas lama, nilai lama) ada; jalankan dulu docs/v5.2/kgr-os-data-fs.sql';
   end if;
 end $$;
 
@@ -27,7 +47,7 @@ from (values
   ('2026-09-01'::date, 'PL', 'PL - Management Report', 58, 'NET INCOME FOR THE YEAR', -953903552.73, -910058539.73),
   ('2026-09-01'::date, 'PL', 'PL - Management Report', 68, 'TOTAL COMPREHENSIVE INCOME FOR THE YEAR', -953903552.73, -910058539.73)
 ) as v(month, statement, sheet, row_no, line, amount, old_amount)
-where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no and o.version = 1 and o.amount = v.old_amount)
+where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no and o.version = 1 and o.source_sha256 = '7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5' and o.amount = v.old_amount)
 on conflict (month, statement, row_no, version) do nothing;
 
 select cek, ada from (values

@@ -69,6 +69,7 @@ def main():
     so, sn = sha(OLD), sha(a.source)
     name = os.path.basename(a.source)
     values = ",\n".join(f"  ({lit(m)}::date, {lit(st)}, {lit(new[(m, st, r)][0])}, {r}, {lit(new[(m, st, r)][1])}, {new[(m, st, r)][2]}, {old[(m, st, r)][2]})" for m, st, r in changed)
+    guard = ",\n".join(f"    ({lit(m)}::date, {lit(st)}, {r}, {new[(m, st, r)][2]}, {old[(m, st, r)][2]})" for m, st, r in changed)
     checks = [
         f"  ('{len(changed)} baris versi 2 dari berkas baru, terkunci',\n   (select count(*) = {len(changed)} and count(locked_at) = {len(changed)} and bool_and(source_sha256 = {lit(sn)}) from public.fs_statement_line where version = 2 and month in ('2026-08-01','2026-09-01')))",
     ]
@@ -78,12 +79,21 @@ def main():
 -- Lama (versi 1, docs/v5.2/kgr-os-data-fs.sql): reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx sha256 {so}
 -- Baru (versi 2): {name} sha256 {sn} (salinan 18 Okt; tidak di-commit)
 -- {len(changed)} baris berubah; baris lain tetap versi 1. App membaca versi terbaru tiap baris (lib/v5/fs-recon-data.ts).
--- Prasyarat: versi 1 dari berkas lama ada untuk Agustus dan September. Bisa dijalankan ulang. Tabel cek di akhir: semua true.
+-- Prasyarat: ke-{len(changed)} baris versi 1 dari berkas lama ada dengan nilai lama; bila tidak, skrip berhenti sebelum menyisipkan.
+-- Bisa dijalankan ulang. Tabel cek di akhir: semua true.
 
+-- every corrected row must find its version 1 with the old amount (or its version 2 from this file, on a re-run): otherwise
+-- nothing is inserted (a missing month or another FS file in KGR-OS would otherwise be skipped row by row, silently)
 do $$
 begin
-  if (select count(*) from public.fs_statement_line where version = 1 and source_sha256 = {lit(so)} and month in ('2026-08-01','2026-09-01')) = 0 then
-    raise exception 'versi 1 FS dari berkas lama tidak ada: jalankan dulu docs/v5.2/kgr-os-data-fs.sql';
+  if (select count(*) from (values
+{guard}
+  ) as v(month, statement, row_no, amount, old_amount)
+  where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no
+                  and o.version = 1 and o.source_sha256 = {lit(so)} and o.amount = v.old_amount)
+     or exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no
+                  and o.version = 2 and o.source_sha256 = {lit(sn)} and o.amount = v.amount)) <> {len(changed)} then
+    raise exception 'koreksi FS tidak dijalankan: tidak semua {len(changed)} baris versi 1 (berkas lama, nilai lama) ada; jalankan dulu docs/v5.2/kgr-os-data-fs.sql';
   end if;
 end $$;
 
@@ -92,7 +102,7 @@ select v.month, v.statement, v.sheet, v.row_no, v.line, v.amount, {lit(name)}, {
 from (values
 {values}
 ) as v(month, statement, sheet, row_no, line, amount, old_amount)
-where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no and o.version = 1 and o.amount = v.old_amount)
+where exists (select 1 from public.fs_statement_line o where o.month = v.month and o.statement = v.statement and o.row_no = v.row_no and o.version = 1 and o.source_sha256 = {lit(so)} and o.amount = v.old_amount)
 on conflict (month, statement, row_no, version) do nothing;
 
 select cek, ada from (values
