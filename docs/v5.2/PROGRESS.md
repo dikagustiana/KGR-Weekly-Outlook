@@ -16,22 +16,22 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 | # | Butir | Status | Bukti / blocker |
 |---|---|---|---|
-| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **KGR-OS 5.2.4** (18 Okt, tanpa staging atas keputusan Dika) | v5.1 + B2 + B5 diterapkan, tabel cek 12/24/26 true, sidik = repo 9/9 (`kgr-os-log.md` 18 Okt). Banner skema hilang sesudah #50 (`EXPECTED_SCHEMA` 5.2.2) di production |
+| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **lulus** (KGR-OS via connector + GitHub Deployments, 18 Okt 09.47 UTC) | KGR-OS `schema_version()` 5.2.6 (registry 5.2.0–5.2.6 dengan `bundle_sha256` tiap bundel); Production deploy 7152837375 (`85f7684`, 09.46.55 UTC) dengan `EXPECTED_SCHEMA` 5.2.6. Bundel v5.1 + B2 + B5 + B6 + B7: tabel cek 12/24/26/15/16 true, sidik = repo 9/9 tiap bundel, tanpa staging atas keputusan Dika (`kgr-os-log.md`) |
 | 2 | Antrean 0 queued/failed; cron sukses di Vercel | sebagian | 42 baris di luar jendela → done (log 22.41). 7 queued 24–30 Agu menunggu v5.1 + rebuild. Cron: D2 |
 | 3 | Mart production 24 Agu–30 Sep | belum | menunggu 1, 2, data Sep (D6) |
 | 4 | FINAL Agu & Sep, C12/C49 LULUS | belum | B6 |
-| 5 | FS v2 diimpor, C59 | belum | B5/A4/B6 |
-| 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian: **CI 4 job hijau, T7 49/0 xfail, matriks 120** (#52); T19 staging belum | lint baru di A1 (run 39045685561 hijau); e2e: A5; T19: D1, D3/D4 |
+| 5 | FS v2 diimpor, C59 | sebagian: **FS Agu–Sep diimpor** ke KGR-OS (B-R91, 18 Okt 08.09 UTC, cek 11/11) | C59 butuh mart (DoD 3) dan `fs_line_map` agreed; D9 (ekuitas Rp 2,71) |
+| 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian: **CI 4 job hijau** (matriks 120 + penugasan, O 15, T7 58, A6 82, A7 70, L 34, P 16, R69 65, F19 16, volume 13, 0 XFAIL); smoke production `ops/smoke` lulus; T19 staging belum | PG16 + PostgREST 12 + mock auth (bukan Supabase); T19: D1, D4 |
 | 7 | Parity 17.161/17.161, snapshot byte-identik | lulus (A1, lokal) | `pnpm parity` 17161/17161, `pnpm snapshot:diff` EMPTY di `f340e55`, container cloud PG16 |
-| 8 | Flag v5 dibuka untuk semua role sesudah T19 | belum | O29(b) aktif sejak 17 Okt 22.41 |
-| 9 | Status R41–R79, B-R80–B-R94 | berjalan | `docs/v5.2/audit-handover.md` (audit Fase 0); R41–R47 di PR #38; B-R82–84 di PR #41 (lokal PG16; staging/KGR-OS belum) |
+| 8 | Flag v5 dibuka untuk semua role sesudah T19 | sebagian: **dibuka 18 Okt ±10.10 UTC tanpa T19** (Q-v5.2-103, menunggu konfirmasi Dika) | log 18 Okt; kembali ke Admin saja = satu perubahan |
+| 9 | Status R41–R79, B-R80–B-R94 | **lulus** (dokumen): `docs/v5.2/status-r.md` 43 lulus (semua R41–R79), 8 sebagian, 3 belum | B-R yang belum lulus menunggu D1–D9 |
 
 ## Langkah (brief Bab 8)
 
 | Langkah | Status | Catatan |
 |---|---|---|
 | Fase 0 — lint benar | **selesai di A1** | `scripts/lint.py` + `scripts/test-lint.sh` (berkas melanggar → 1, bersih → 0). A1: 4 hit K41 + 177 hit K42 diperbaiki (`f340e55`). Gate lokal A1: typecheck ✓; engine 362 + 1 todo; parsers 23; web 265; parity 17161/17161; snapshot EMPTY; test:rls OK (PG16). CI run 39045685561: engine ✓ lint ✓ rls ✓ |
-| Fase 0 — lint-missing (A3) | belum | penanda `// missing-ok: <alasan>` |
+| Fase 0 — lint-missing (A3) | **selesai** (A3 #51) | `python3 -I scripts/lint.py missing` di job CI `lint`; penanda `// missing-ok: <alasan>` (43, semua beralasan; `docs/v5.2/status-r.md`) |
 | Fase 0 — rebase A2 ke A1 | **selesai** | A2 di-rebase ke `da0c179` dan merge (#45) |
 | Fase 0 — audit-handover.md | berjalan | |
 | B0 | sebagian | backup `bak_20261017t1539`; B0-5 flag, O36 since, B0-6 (42) selesai. B0-2 (D2), B0-3 (D1), B0-7/8 menunggu |
@@ -52,6 +52,17 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | A1c objek B5 di kode + Q-v5.2-15 sisi kode | **merge** (#53 `5119dc1`); **belum di production** | CI run 39108199326 (PR) dan 39108195839 (push): engine ✓ lint ✓ rls ✓ e2e ✓. Run PR sebelumnya merah palsu: `test-rls.sh` memakai `echo "$OUT" | grep -q` di bawah pipefail (SIGPIPE → "no results"); diperbaiki dengan here-string (`e2b09eb`, diulang lokal 50/50 → 0/50). Deploy Vercel `5119dc1` gagal: **"Deployment rate limited — retry in 24 hours"** (kuota harian habis oleh preview cabang) → PR #55 (deploy hanya `main`). Bundel B6 menunggu A1c di production (Q-v5.2-79) |
 | A1d Q-v5.2-51 | PR #54 (`1a9c8f9`, sudah memuat #53) | merge lokal A1c: satu konflik `snapshot.json`; typecheck ✓, web 681/681, lint ✓ |
 | B6 Q-v5.2-15 sisi DB | cabang `b2faa52` (sudah memuat #53); `ref_b6` lokal siap | test:rls OK 47 blok (lokal PG16); sidik `ref_b6` vs `ref_b5`: hanya fn, pol, view berubah. Menunggu A1c di production |
+| B-R91 impor FS acuan | **di KGR-OS** 18 Okt 08.09 UTC (#56) | `scripts/fs_import.py` → `kgr-os-data-fs.sql`; cek 11/11, md5 146 baris = lokal; backup `bak_20261018t0808` |
+| B6 Q-v5.2-15/71/73/74 | **di KGR-OS** ±08.21 UTC (5.2.5); **merge** (#57 `3e3a276`) | sesudah deploy Production `0a7dc7d` (A1c); backup `bak_20261018t0819`; cek 15/15, sidik 9/9 |
+| B7 Q-v5.2-72/84 | **di KGR-OS** ±08.30 UTC (5.2.6); **merge** (#58 `5879930`) | `plan_day`, `plan_variance_daily`, `demand_shortfall`, `plan_check_reason` tanpa Sales; backup `bak_20261018t0828`; cek 16/16, sidik 9/9; Q-v5.2-85/86 (release, batch) batas v5.2 |
+| A1d Q-v5.2-51 (merge) | **merge** (#54 `f258c0a`), di production sejak deploy `0a7dc7d` 08.19 UTC | cron boleh dinyalakan setelah D2 (kunci servis + `CRON_SECRET`) |
+| Vercel deploy hanya `main` | **merge** (#55 `3860588`) | kuota deploy harian: deploy `5119dc1`/`f258c0a`/`3860588`/`f5ec2be` tertahan "rate limited"; `0a7dc7d` sukses |
+| A6 R75–R79 + O16/O17/O19 + Q-v5.2-36/50/52 | **merge** (#60 `85f7684`), di production (deploy 7152837375) | CI engine ✓ lint ✓ rls ✓ e2e ✓ (A6 82 cek, 0 XFAIL); layar `docs/v5.2/bukti/a6/` |
+| EXPECTED_SCHEMA 5.2.6 | **merge** (#59 `f5ec2be`), di production bersama #60 | DoD 1 |
+| A5b R48/R69/R70 | **merge** (#61 `95ff91e`) | journey O, L, P, R69 + T7 langkah 11; CI hijau |
+| A7 penugasan Sales | **merge** (#62 `d2731cc`) | `/komersial/assignment` (Admin, Kepala Sales); key dasar di `commercialView`; CI hijau (A7 70) |
+| Smoke production | **lulus** (`ops/smoke`, 18 Okt ±10.05 UTC) | `/login` 200, cron 401, halaman terlindung → login, login alamat tak terdaftar → pesan Supabase Auth |
+| Flag v5 semua role | **di KGR-OS** ±10.10 UTC (Q-v5.2-103) | backup `bak_20261018t0959`; uji RLS KGR-OS berhenti di blok 04 (Q-v5.2-104), 0 sisa data |
 | A4 R69 | **merge** (#49 `f3b33cb`, sesudah B5 di KGR-OS) | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
 | Workflow `db-ops` | **merge** (#46 `e532204`, #48 `c7b5714`) | pemicu push `ops/db-ops.json` ke cabang `ops/db-run` (integrasi agen tidak bisa `workflow_dispatch`, 403). Uji pemicu run 39103012742 (18 Okt 06.09 UTC): guard berhenti benar — `STAGING_DB_URL` dan `SUPABASE_DB_URL` belum diisi (D4) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
@@ -59,13 +70,14 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 ## Berikutnya
 
-Sesi 18 Okt (berjalan, ±08.00 UTC). KGR-OS = repo 5.2.4.
+Sesi 18 Okt ditutup ±11.30 UTC. KGR-OS = repo 5.2.6. `main` = A7 (#62) + dokumen; flag v5 untuk semua role.
+Langkah Dika untuk 19 Okt: `docs/v5.2/SIAP-PAKAI.md`. Ringkasan penutupan: `docs/v5.2/SUMMARY-v52.md`.
 
-1. Kuota deploy Vercel pulih → push `main` berikutnya men-deploy A1c (+ #54/#55 bila sudah merge). Cek status commit
-   `main` ("Vercel" = success) sebelum langkah 2.
-2. B6: backup → `docs/v5.2/kgr-os-migrasi-v52-b6.sql` (cek 15/15) → sidik = `ref_b6` → log → PR cabang B6 → merge.
-3. A1d (#54) merge sesudah CI hijau; cron (CRON_SECRET) baru boleh dinyalakan sesudah A1d di production.
-4. A6 (Q-v5.2-50/52/72, .xls, R75–R79), B6 data Agu–Sep (D2/D3/D4), flag ke semua role sesudah T19.
+1. D2: `SUPABASE_SERVICE_ROLE_KEY` + `CRON_SECRET` di Vercel Production, lalu Redeploy (rebuild, cron, pemilih Sales Kepala Sales).
+2. Pengguna di Admin → Pengguna; penugasan Sales di Komersial → Penugasan Sales; minggu 19 Okt di Admin → Minggu.
+3. Konfirmasi Q-v5.2-103 (flag) dan Q-v5.2-104 (uji RLS penuh di KGR-OS atau staging).
+4. Data Agu–Sep + FINAL + rekonsiliasi FS (B-R90/T20) lewat app; T19/T21/T23 di staging (D1 + D4).
+5. Check-in otomatis 18 Okt 22.20 UTC: apakah cron 22.00 UTC menguras antrean (tanda D2 sudah diisi).
 
 ## Blocker aktif
 

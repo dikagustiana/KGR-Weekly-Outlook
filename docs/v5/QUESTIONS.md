@@ -487,3 +487,97 @@ Q-v5.2-83. Preview Deployment Vercel dimatikan untuk cabang kerja (`v*/**`, `ops
 `git.deploymentEnabled` di `apps/web/vercel.json` (PR #55). Alasan: kuota deploy harian habis oleh preview, sehingga
 merge #53 tidak sampai ke production ("Deployment rate limited — retry in 24 hours"). Preview tidak dipakai di Definisi
 Selesai (T19 memakai staging). Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+**Q-v5.2-84 … 86 (dari B7, `docs/v5.2/b7.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-84. Mart dan tabel turunan rencana/demand ditutup untuk Sales di B7 bersama `plan_day` (Q-v5.2-72):
+`plan_variance_daily`, `demand_shortfall`, `plan_check_reason`; keempatnya masuk `audit_log_sales_redact`. Tidak ada
+jalur kode Sales yang membacanya (Rencana: PPIC; Minggu ini: manajemen dan Finance, K48; `demand_shortfall` hanya ditulis
+builder). Satu migrasi, versi 5.2.6.
+
+Q-v5.2-85. `release.snapshot` (blok demand, rencana, kas, solvabilitas, CCC, costing) terbaca semua app user lewat API;
+`lib/page.ts` membaca `release` untuk setiap role. **Tidak diubah di v5.2**: sama kelasnya dengan Q-v5.2-86. Usulan
+v5.3: view `release` tanpa `snapshot` untuk Sales, kode Sales pindah ke view, lalu `release_read` tanpa Sales. Pemilik:
+pemilik produk.
+
+Q-v5.2-86. `batch` terbaca semua app user, termasuk baris `Rencana` (salinan `plan_day`) dan kolom biaya (`lb_price`,
+`freight`, `maklon`): mesin outlook v1 menghitung dengan sesi pengguna untuk setiap role (`lib/data.ts` `loadWeek`),
+jadi menyembunyikannya dari Sales mengubah angka outlook Sales. **Tidak diubah di v5.2** (batas arsitektur sejak v1, di
+luar Q-v5.2-15). Usulan v5.3: outlook untuk Sales dihitung di server dengan klien servis (seperti rebuild A1d) dan
+ditampilkan tanpa kolom biaya, lalu baca mentah `batch`/`release` ditutup untuk Sales. Pemilik: pemilik produk.
+
+**Q-v5.2-90 … 100 (dari A6, `docs/v5.2/a6.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-90. `apps/web` tetap `xlsx` 0.18.5 (parse di browser, berkas milik pengguna sendiri) sampai `pnpm install` bisa
+menjangkau `cdn.sheetjs.com` (D3); `packages/parsers` 0.20.3. Diterima untuk v5.2; naikkan bersama D3.
+
+Q-v5.2-91. Pembacaan label sumber R76 (simulasi = PO + yield + harga LB; rencana biaya = yield + harga LB; biaya
+Komersial = WP/faktur minggu itu; alur per minggu, keadaan sampai tanggal update). Diterima.
+
+Q-v5.2-92. "Lewat tenggat" tetap tampil untuk tugas minggu lampau yang tidak pernah masuk. Diterima (jujur terhadap data).
+
+Q-v5.2-93. Upload tetap di nav Finance hanya saat panel Input tidak aktif untuk Finance. Diterima.
+
+Q-v5.2-94. `upNum` membaca "1,234.5" sebagai 1234,5; hanya "1,234" yang ditahan "format ribuan ambigu". Diterima.
+
+Q-v5.2-95. Rilis membangun ulang grid kelengkapan dengan klien servis; tanpa kunci servis grid tersimpan yang dinilai
+(`release_week` juga menilai sel tersimpan) dan celahnya dicatat. Diterima: grid basi hanya bisa lebih merah, bukan lebih
+hijau, jadi arah kegagalannya tetap menahan.
+
+Q-v5.2-96. Tombol bangun ulang PPIC: ≤ 60 tanggal / 40 detik per tekan, tanggal `failed` tetap ke Admin → Modul. Diterima.
+
+Q-v5.2-97. "Pola yang dipakai rencana" = kunci `patternMix`, kosong = karkas (O33 b). Diterima.
+
+Q-v5.2-98. Catatan kapasitas idle hanya di layar costing mingguan, tanpa kontrol baru. Diterima.
+
+Q-v5.2-99. O16, O17, O19 **dikerjakan di A6**: keputusan v5.2 (tabel di atas) adalah keputusan pemilik yang ditunggu
+Larangan PRD A untuk O17. Agen A6 diminta melanjutkan di cabang yang sama.
+
+Q-v5.2-100. Galat hidrasi #418 sekali di `/komersial` (Kepala Sales), tidak terulang. Diamati; bila muncul di CI, dicari
+sebabnya (tanpa percobaan ulang otomatis).
+
+**Q-v5.2-103 … 104 (penutupan, 18 Okt 2026).**
+
+Q-v5.2-103. **Flag v5 dibuka untuk semua role tanpa T19**, atas arahan Dika 18 Okt ("Beresin semuanya bener bener sampe
+beres dan siap dipakai besok"): dengan flag hanya untuk Admin, pengguna lain tidak mendapat fitur v5. Pengganti T19 yang
+ada: matriks e2e 120 (semua role × layar, semua flag hidup) dan T7 di CI setiap PR (PG16 + PostgREST 12 + mock auth); smoke
+production dari runner GitHub (`ops/smoke`: `/login` 200, cron 401 tanpa rahasia, halaman terlindung → `/login`, login alamat
+tak terdaftar → pesan Supabase Auth). T19 di staging tetap terbuka (D1, D4). **Menunggu konfirmasi Dika** (pengaman auto mode
+menandai penulisan flag); kembali ke Admin saja = tambahkan `{"roles":["admin"]}` ke 6 flag `v5_*` (log 18 Okt ±10.10).
+
+**Q-v5.2-110 … 116 (A5b, `docs/v5.2/a5b.md`) dan 120 … 123 (A7, `docs/v5.2/a7.md`).** Diputuskan agen atas delegasi Dika,
+18 Okt 2026.
+
+Q-v5.2-110. PO dan Rencana minggu depan butuh baris minggu itu (Admin: rollover/buat minggu). Diterima; langkah operasional
+di `SIAP-PAKAI.md` §4.
+
+Q-v5.2-111. Tile akurasi menulis "Belum ada bulan yang FINAL" bila FINAL ada tanpa V1/V2. Teks diperbaiki di v5.3 (tidak
+memengaruhi angka).
+
+Q-v5.2-112. Dua angka surplus karkas di Komersial (tile hidup vs daftar jawaban tersimpan). Dicatat untuk v5.3; jawaban
+tersimpan adalah yang dipakai PPIC.
+
+Q-v5.2-113. `release_week` untuk minggu yang sudah dirilis menulis baris rilis baru (riwayat). Diterima (rilis ulang tercatat).
+
+Q-v5.2-114. Formulir komitmen kosong lagi sesudah ditolak. Perbaikan UX v5.3 (pola `AssignmentForm` A7).
+
+Q-v5.2-115. FINAL Agustus pada data T7 juga ditahan C22–C24, C35, C36, C49: catatan untuk T20 di KGR-OS, bukan cacat kode.
+
+Q-v5.2-116. Fixture FS e2e = angka app, jadi membuktikan mekanisme C59, bukan kecocokan dengan FS asli (itu T20). Diterima.
+
+Q-v5.2-120. Pemilih Sales untuk Kepala Sales membaca `app_user` dengan klien servis (hanya e-mail dan nama Sales aktif, sesudah
+cek role); tanpa `SUPABASE_SERVICE_ROLE_KEY` hanya Admin yang bisa menugaskan. Diterima: kunci servis dibutuhkan juga untuk
+rebuild (D2). Alternatif DB (policy baca untuk `commercial_lead`) bila dibutuhkan nanti.
+
+Q-v5.2-121. Layar penugasan berbasis role (Admin, Kepala Sales), tanpa flag modul. Diterima.
+
+Q-v5.2-122. Perbaikan `commercialView` (key dasar menutupi semua bentuk, O21 b) dan empat sel matriks e2e "Status biaya"
+Sales di tata letak v4 (0 → 1, hanya kata status, tanpa angka). Diterima. Tile komitmen K43 untuk assignment satu bentuk:
+v5.3.
+
+Q-v5.2-123. Dua Sales bernama sama ditolak (tidak saling menimpa `sales_rep`). Diterima.
+
+Q-v5.2-104. Uji RLS di KGR-OS (pengganti T21) **dihentikan** di blok 04: connector meminta konfirmasi untuk pernyataan
+destruktif di dalam blok (yang tetap di-rollback) dan konfirmasi tidak diberikan. Tidak diulang dan tidak dicari jalan lain;
+blok 01–03 lulus (0 `(!)`), tidak ada sisa data. T21 tetap butuh staging (D1) atau persetujuan Dika menjalankan 45 blok
+sisanya di KGR-OS.
