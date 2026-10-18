@@ -86,6 +86,20 @@ async function drain(J, finance, why) {
     J.check("harga acuan Lemak Fresh tersimpan (C46, K50)", Number(p) === 26000, `harga ${p}`);
   });
 
+  await J.step("1c", A.sales, "Sales: upload PO (tempel): baris sah tersimpan; pelanggan lain, tanggal lewat dan kode tak dikenal ditahan", async () => {
+    J.clock("2026-08-27T09:38:00+07:00");
+    const po = [["no_po", "tanggal_kirim", "kode_item", "kg", "harga", "pelanggan"],
+      ["KGR26.E2E01", "2026-08-29", "JLB0922", 250, 60000, "PT A"], ["KGR26.E2E02", "2026-08-29", "JLB1857", 300, 60000, "PT A"], ["KGR26.E2E03", "2026-08-29", "JLB0829", 100, 60000, "PT Lain"],
+      ["KGR26.E2E04", "2026-08-26", "JLB0763", 120, 60000, "PT A"], ["KGR26.E2E05", "2026-08-30", "X-999", 50, 60000, "PT A"]];
+    const r = await A.sales.paste("po_lines", po);
+    J.check("PO tersimpan: 2 dari 5 baris lolos cek", !!r.ok && /2 dari 5 baris lolos/.test(r.ok), r.ok || r.error || "");
+    const saved = J.db(`select document_ref, kg, price, created_by from public.sales_line where document_ref like 'KGR26.E2E%' and deleted_at is null order by document_ref`).map((x) => x.join(" "));
+    J.log(`    DB sales_line PO uji: ${saved.join("; ") || "tidak ada"}`);
+    J.check("DB: tepat dua baris PO tersimpan (E2E01 dan E2E02), oleh Sales", saved.length === 2 && saved.every((x) => x.endsWith(`sales@${cfg.domain}`)), saved.join("; "));
+    J.check("baris pelanggan lain, tanggal lewat dan kode tak dikenal tidak tersimpan", J.dbOne(`select count(*) from public.sales_line where document_ref in ('KGR26.E2E03','KGR26.E2E04','KGR26.E2E05')`) === "0");
+    await A.sales.shot("T7-1c-sales-po");
+  });
+
   // --------------------------------------------------------------------------------------- 3a Purchasing supply
   await J.step("3a", A.purchasing, "Purchasing: supply LB per kelas untuk tanggal potong 25–28/08 (upload)", async () => {
     J.clock("2026-08-27T09:45:00+07:00");
