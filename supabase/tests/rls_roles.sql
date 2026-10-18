@@ -3905,3 +3905,131 @@ begin
   exception when others then out := out || 'catalog: ERROR(!) ' || sqlerrm || '; '; end;
   raise exception 'RLS-RESULTS v5.2 B6 Q-v5.2-15 (rolled back): %', out;
 end $$;
+
+-- ================================================================================================================
+-- v5.2 B7 (docs/v5.2/b7.md; docs/v5/QUESTIONS.md Q-v5.2-72, Q-v5.2-74). Same convention as above: results in the final error,
+-- (!) = unexpected, the block is self-contained and rolls back, each assertion is guarded so that a missing object shows as
+-- ERROR(!) instead of stopping the block. Run against the migrations of B6 only (without 20261025000700) the block shows (!):
+-- that is the proof of what the migration changes. The B6 block above keeps running over the same schema: its line
+-- "observation: sales plan_day rows=" has no (!) of its own and now reads 0 (it read 1 before B7), so it is left as it is.
+-- ================================================================================================================
+
+-- Q-v5.2-72: plan_day is not read by Sales and is read as before by every other role; its audit trail follows (Q-v5.2-74) and the
+-- redaction of audit_log keeps every table it named before; the write side is untouched
+do $$
+declare out text := ''; n int; n2 int; n3 int; pw uuid; pd uuid; e text; t text; miss text := ''; ok boolean; ws date := '2033-09-05';
+begin
+  insert into public.app_user(email, role) values ('b7-sales@x.test','sales'),('b7-sales2@x.test','sales'),('b7-lead@x.test','commercial_lead'),('b7-ppic@x.test','ppic'),
+    ('b7-mgmt@x.test','management'),('b7-ops@x.test','operations_director'),('b7-fin@x.test','finance'),('b7-adm@x.test','admin'),
+    ('b7-ia@x.test','inventory_accounting'),('b7-pur@x.test','purchasing'),('b7-cost@x.test','cost_accounting');
+  -- the plan's days as the app saves them: heads, weight class, cut pattern, supplier and the plan's kg per SKU per day
+  insert into public.plan_week (week_start, version, head_count) values (ws, 1, 1000) returning id into pw;
+  insert into public.plan_day (plan_week_id, date, head_count, weight_class, cut_pattern, supplier, target_kg_by_key)
+    values (pw, ws, 100, 'STD', 'karkas', 'CV B7', '{"RPA|Karkas|Fresh": 500}'::jsonb) returning id into pd;
+  insert into public.plan_day (plan_week_id, date, head_count, supplier) values (pw, ws + 1, 80, 'CV B7');
+  update public.plan_day set head_count = 120 where id = pd;
+  -- a mart derived from plan_day (planned heads and kg per unit per day), only to observe it below
+  insert into public.plan_variance_daily (date, key, planned_kg, planned_heads) values (ws, 'Karkas', 500, 100);
+  -- the audit trigger has written the trail of plan_day: two inserts and an update, with the old and new values
+  select count(*) into n from public.audit_log where table_name = 'plan_day';
+  out := out || 'setup: audit rows of plan_day=' || n || case when n >= 3 then '' else '(!)' end || '; ';
+
+  -- Sales: no row of plan_day, whichever way they ask, and none of its trail
+  foreach e in array array['b7-sales', 'b7-sales2'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.plan_day; out := out || e || ' reads plan_day rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.plan_day where plan_week_id = pw; out := out || e || ' plan_day of the plan rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.plan_day where id = pd; out := out || e || ' plan_day by id rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.audit_log where table_name = 'plan_day';
+    out := out || e || ' audit_log rows of plan_day=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    -- the redaction is by table, not a blanket close: the trail of a table that was never on the list is still read
+    select count(*) into n from public.audit_log where table_name = 'app_user';
+    out := out || e || ' audit_log rows of app_user (not redacted)=' || n || case when n >= 1 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  end loop;
+
+  -- every other role reads the days and their trail as before; a signed-in user who is not an app user reads nothing (as before)
+  foreach e in array array['b7-lead','b7-ppic','b7-mgmt','b7-ops','b7-fin','b7-adm','b7-ia','b7-pur','b7-cost'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.plan_day where plan_week_id = pw; select count(*) into n2 from public.audit_log where table_name = 'plan_day';
+    out := out || e || ' plan_day=' || n || ' audit rows=' || n2 || case when n = 2 and n2 >= 3 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '{"email":"b7-stranger@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.plan_day where plan_week_id = pw; select count(*) into n2 from public.audit_log where table_name = 'plan_day';
+  out := out || 'not an app user: plan_day=' || n || ' audit rows=' || n2 || case when n = 0 and n2 = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+  -- anon: the platform default privilege is still on the table, RLS (no policy names anon) leaves nothing
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    execute 'set local role anon';
+    select count(*) into n from public.plan_day; out := out || 'anon plan_day rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  exception when others then execute 'reset role'; out := out || 'anon plan_day: denied; '; end;
+
+  -- Sales write nothing of the plan's days (as before): the policy refuses the insert, an update touches no row
+  perform set_config('request.jwt.claims', '{"email":"b7-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_day (plan_week_id, date, head_count) values (pw, ws + 3, 1); out := out || 'sales insert plan_day: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales insert plan_day: denied; ';
+            when others then out := out || 'sales insert plan_day: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_day set head_count = 1 where id = pd; get diagnostics n = row_count; out := out || 'sales update plan_day rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales update plan_day: denied; '; end;
+  -- observation, not a finding of this block: plan_variance_daily is derived from plan_day (planned heads and kg per unit per day),
+  -- is not part of Q-v5.2-72 and is still read by every app user (b7.md Q-v5.2-84); no code reads it as Sales
+  select count(*) into n from public.plan_variance_daily where date = ws;
+  out := out || 'observation: sales plan_variance_daily rows=' || n || ' (derived from plan_day, not closed here, b7.md Q-v5.2-84); ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- the write side stays as it was: Admin and PPIC write the days
+  foreach e in array array['b7-ppic', 'b7-adm'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    begin insert into public.plan_day (plan_week_id, date, head_count) values (pw, ws + case when e = 'b7-ppic' then 2 else 4 end, 50); out := out || e || ' insert plan_day: OK; ';
+    exception when others then out := out || e || ' insert plan_day: DENIED(!) ' || sqlerrm || '; '; end;
+    begin update public.plan_day set head_count = 130 where id = pd; get diagnostics n = row_count; out := out || e || ' update plan_day rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || e || ' update plan_day: DENIED(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '{"email":"b7-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_day (plan_week_id, date, head_count) values (pw, ws + 5, 1); out := out || 'finance insert plan_day: ALLOWED(!); ';
+  exception when others then out := out || 'finance insert plan_day: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- the policies, as the catalog says
+  begin
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'plan_day' and policyname = 'plan_day_read'
+       and cmd = 'SELECT' and permissive = 'PERMISSIVE' and qual like '%is_app_user%' and qual like '%has_role%' and qual like '%sales%' and qual like '%NOT%';
+    out := out || 'plan_day_read without Sales=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'plan_day' and cmd in ('SELECT', 'ALL');
+    out := out || 'policies that open plan_day to SELECT=' || n || case when n = 1 then '' else '(!)' end || ' (no second door); ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'plan_day' and policyname in ('plan_day_ins', 'plan_day_upd')
+       and with_check like '%admin%' and with_check like '%ppic%';
+    out := out || 'write policies kept (admin, ppic)=' || n || case when n = 2 then '' else '(!)' end || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'plan_day' and roles <> '{authenticated}';
+    out := out || 'plan_day policies for a role other than authenticated=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    -- audit_log_sales_redact: restrictive, plan_day and every table of before (B2, B5 and B6), each named as a quoted table name
+    select qual into e from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_sales_redact' and permissive = 'RESTRICTIVE';
+    foreach t in array array['cost_pool','cost_pool_line','overhead_rate','allocation_run','allocation_line','batch_output_sku',
+        'lot','lot_movement','lot_balance_daily','sku_balance_daily','commercial_daily',
+        'fixed_cost_schedule','cost_event','budget','bank_account','cash_daily','cash_daily_plan','cash_position_daily',
+        'ccc_daily','solvency_monthly','closing_adjustment','price_floor_rule',
+        'plan_week','plan_week_class','demand_weekly','demand_class_weekly','plan_day'] loop
+      if e is null or position('''' || t || '''::text' in e) = 0 then miss := miss || t || ' '; end if;
+    end loop;
+    out := out || 'audit_log_sales_redact is restrictive and names plan_day and the 26 older tables, missing=[' || trim(miss) || ']' || case when e is not null and miss = '' then '' else '(!)' end || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname in ('audit_log_read', 'audit_log_fs_redact', 'audit_log_sales_redact');
+    out := out || 'audit_log keeps its three policies=' || n || case when n = 3 then '' else '(!)' end || '; ';
+    out := out || 'anon: plan_day select privilege=' || has_table_privilege('anon', 'public.plan_day', 'select')::text
+      || ' (platform default, closed by RLS: no policy names anon); ';
+    out := out || 'version 5.2.6 registered=' || exists (select 1 from public.schema_registry where version = '5.2.6')::text || case when exists (select 1 from public.schema_registry where version = '5.2.6') then '' else '(!)' end
+      || ' schema_version()=' || coalesce(public.schema_version(), 'null') || case when string_to_array(public.schema_version(), '.')::int[] >= array[5,2,6] then '' else '(!)' end || '; ';
+  exception when others then out := out || 'catalog: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B7 Q-v5.2-72 (rolled back): %', out;
+end $$;

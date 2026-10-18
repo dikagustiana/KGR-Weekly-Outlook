@@ -1,0 +1,67 @@
+# v5.2 B7 — migrasi v52_sales_plan_day dijalankan ULANG di DB yang sudah memuatnya (shim + semua migrasi + seed, DB uji b7_rls dari scripts/test-rls.sh)
+# tanggal: 2026-10-18 08:07 UTC · server: 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+# sha256 20261025000700_v52_sales_plan_day.sql: 8ed656125d82d5aa03701ef997a7200321ea2913c1de8043b89d11e91b9b9acb
+
+## sebelum (putaran 1 = yang dipasang pertama kali oleh daftar migrasi)
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|-
+schema_version(): 5.2.6
+policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+audit_log_sales_redact quoted names (role sales + tables): 28
+all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+rows: plan_day=0, schema_registry=8
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000700_v52_sales_plan_day.sql  (putaran 2)
+  ALTER POLICY
+  DO
+  INSERT 0 0
+  exit: 0
+## sesudah putaran 2
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|-
+schema_version(): 5.2.6
+policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+audit_log_sales_redact quoted names (role sales + tables): 28
+all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+rows: plan_day=0, schema_registry=8
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000700_v52_sales_plan_day.sql  (putaran 3)
+  ALTER POLICY
+  DO
+  INSERT 0 0
+  exit: 0
+## sesudah putaran 3
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|-
+schema_version(): 5.2.6
+policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+audit_log_sales_redact quoted names (role sales + tables): 28
+all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+rows: plan_day=0, schema_registry=8
+
+## semua migrasi 2026101[6-9]* dan 202610[2-9]* sekali lagi, seperti scripts/test-rls.sh
+  selesai (tidak ada baris GAGAL = semua exit 0)
+## sesudah
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|-
+schema_version(): 5.2.6
+policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+audit_log_sales_redact quoted names (role sales + tables): 28
+all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+rows: plan_day=0, schema_registry=8

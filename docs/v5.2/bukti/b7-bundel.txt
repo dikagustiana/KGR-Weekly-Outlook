@@ -1,0 +1,149 @@
+# v5.2 B7 — bundel docs/v5.2/kgr-os-migrasi-v52-b7.sql di DB uji (PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu, bukan Supabase)
+# tanggal: 2026-10-18 08:09 UTC · sha256 bundel: ad1959d80fea5cff60a3a165b8879a4df6d7db9ddb3ded72880cfd05ad1e6099
+# sha256 file sumber 20261025000700_v52_sales_plan_day.sql: 8ed656125d82d5aa03701ef997a7200321ea2913c1de8043b89d11e91b9b9acb
+# isi berkas migrasi di dalam bundel identik dengan berkasnya (byte per byte): True
+# escape u-XXXX (backslash, u, empat heks) di bundel: 0 (harus 0; grep -c -P '\\u[0-9a-fA-F]{4}' = 0)
+
+## 1. DB di 5.2.5 (shim + migrasi s.d. B6 20261025000600 + seed); schema_version() sebelum:
+5.2.5
+
+## putaran 1: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b7.sql
+  DO
+  ALTER POLICY
+  DO
+  INSERT 0 1
+  UPDATE 1
+  NOTIFY
+   no |                                                                                        cek                                                                                        | ada 
+  ----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0700 plan_day_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-72)                                                                                                         | t
+    2 | 0700 policy tulis plan_day tidak berubah (plan_day_ins dan plan_day_upd, Admin dan PPIC)                                                                                          | t
+    3 | 0700 tidak ada policy lain yang membuka plan_day untuk SELECT (satu pintu), tiga policy seluruhnya, RLS aktif                                                                     | t
+    4 | 0700 tidak ada policy plan_day atau audit_log yang menyebut anon atau public                                                                                                      | t
+    5 | 0700 audit_log_sales_redact: restriktif, memuat plan_day dan dua puluh enam tabel lama (B2, B5, B6) (Q-v5.2-74)                                                                   | t
+    6 | 0700 audit_log tetap punya tiga policy (audit_log_read, audit_log_fs_redact, audit_log_sales_redact), tidak ada policy baru                                                       | t
+    7 | 0700 penutupan B6 tetap utuh: plan_week_read dan demand_weekly_read tanpa Sales                                                                                                   | t
+    8 | 0700 tidak ada fungsi, view, view materialized atau policy tabel lain yang menyebut plan_day, selain daftar audit_log_sales_redact (tidak ada pembaca plan_day sebagai pemanggil) | t
+    9 | semua SECURITY DEFINER di public: search_path tetap                                                                                                                               | t
+   10 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                                                             | t
+   11 | 0700 versi 5.2.6 tercatat dan schema_version() = 5.2.6 atau lebih                                                                                                                 | t
+   12 | bundle_sha256 terisi untuk 5.2.6                                                                                                                                                  | t
+   13 | versi sebelumnya tetap tercatat (5.2.0 sampai 5.2.5)                                                                                                                              | t
+  (13 rows)
+  
+  exit: 0
+    baris cek: 13, true: 13
+
+## putaran 2: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b7.sql
+  DO
+  ALTER POLICY
+  DO
+  INSERT 0 0
+  UPDATE 1
+  NOTIFY
+   no |                                                                                        cek                                                                                        | ada 
+  ----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0700 plan_day_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-72)                                                                                                         | t
+    2 | 0700 policy tulis plan_day tidak berubah (plan_day_ins dan plan_day_upd, Admin dan PPIC)                                                                                          | t
+    3 | 0700 tidak ada policy lain yang membuka plan_day untuk SELECT (satu pintu), tiga policy seluruhnya, RLS aktif                                                                     | t
+    4 | 0700 tidak ada policy plan_day atau audit_log yang menyebut anon atau public                                                                                                      | t
+    5 | 0700 audit_log_sales_redact: restriktif, memuat plan_day dan dua puluh enam tabel lama (B2, B5, B6) (Q-v5.2-74)                                                                   | t
+    6 | 0700 audit_log tetap punya tiga policy (audit_log_read, audit_log_fs_redact, audit_log_sales_redact), tidak ada policy baru                                                       | t
+    7 | 0700 penutupan B6 tetap utuh: plan_week_read dan demand_weekly_read tanpa Sales                                                                                                   | t
+    8 | 0700 tidak ada fungsi, view, view materialized atau policy tabel lain yang menyebut plan_day, selain daftar audit_log_sales_redact (tidak ada pembaca plan_day sebagai pemanggil) | t
+    9 | semua SECURITY DEFINER di public: search_path tetap                                                                                                                               | t
+   10 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                                                             | t
+   11 | 0700 versi 5.2.6 tercatat dan schema_version() = 5.2.6 atau lebih                                                                                                                 | t
+   12 | bundle_sha256 terisi untuk 5.2.6                                                                                                                                                  | t
+   13 | versi sebelumnya tetap tercatat (5.2.0 sampai 5.2.5)                                                                                                                              | t
+  (13 rows)
+  
+  exit: 0
+    baris cek: 13, true: 13
+
+## schema_version() sesudah:
+5.2.6
+## bundle_sha256 di registry:
+5.2.4|-
+5.2.5|-
+5.2.6|8ed656125d82d5aa03701ef997a7200321ea2913c1de8043b89d11e91b9b9acb
+
+## 2. hasil yang sama dengan migrasi satu per satu: sidik definisi dan ACL (docs/v5.2/bukti/b7-migrasi-rerun.txt memakai berkas yang sama)
+bundel (b7_bundle):
+  registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|8ed65612
+  schema_version(): 5.2.6
+  policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+  policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+  policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+  audit_log_sales_redact quoted names (role sales + tables): 28
+  all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+  acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+  all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+  all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+  rows: plan_day=0, schema_registry=8
+migrasi satu per satu (b7_rls):
+  registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|- ; 5.2.5|- ; 5.2.6|-
+  schema_version(): 5.2.6
+  policies plan_day (md5, 3 policy): 3335c22497c2812b5b7ed2d10e1349a1
+  policy plan_day_read (qual): (( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role)))
+  policy audit_log_sales_redact (md5): fd8442335b0987981666fdca3a370602 restrictive=true
+  audit_log_sales_redact quoted names (role sales + tables): 28
+  all policies of public (md5, 305 policy): 1f4dbc1a9d7b6fb10d2068e95510f90b
+  acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+  all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+  all public views (md5 of definitions, 3 views): 85e567094db9274320100b4ac73c6448
+  rows: plan_day=0, schema_registry=8
+beda yang diharapkan: hanya baris registry (bundel mengisi bundle_sha256 5.2.6 = sha256 file migrasi)
+semua baris lain sama: ya
+
+## 3. ditolak di DB 5.2.4 (shim + migrasi s.d. B5 20261025000500, tanpa B6), tanpa efek sisa
+sebelum:
+  registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|-
+  schema_version(): 5.2.4
+  policies plan_day (md5, 3 policy): c606c0649c8c296f5306a6f5b13f9c60
+  policy plan_day_read (qual): ( SELECT is_app_user() AS is_app_user)
+  policy audit_log_sales_redact (md5): 0e018ad605836db81736bf781d0e246b restrictive=true
+  audit_log_sales_redact quoted names (role sales + tables): 23
+  all policies of public (md5, 305 policy): 242c7597513ca56dbef429ecea6744ab
+  acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+  all public functions (md5 of definitions, 68 functions): 61ea8d4a39f836a05e7de9e557d6b3a7
+  all public views (md5 of definitions, 3 views): d6814cb1558ccbf0ecf6bd1c810fc6da
+  rows: plan_day=0, schema_registry=6
+bundel:
+  psql:docs/v5.2/kgr-os-migrasi-v52-b7.sql:39: ERROR:  schema_version() = 5.2.4, B7 butuh 5.2.5 atau lebih (bundel B6); v5.2 B7 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE
+  exit: 3
+sesudah:
+  registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|-
+  schema_version(): 5.2.4
+  policies plan_day (md5, 3 policy): c606c0649c8c296f5306a6f5b13f9c60
+  policy plan_day_read (qual): ( SELECT is_app_user() AS is_app_user)
+  policy audit_log_sales_redact (md5): 0e018ad605836db81736bf781d0e246b restrictive=true
+  audit_log_sales_redact quoted names (role sales + tables): 23
+  all policies of public (md5, 305 policy): 242c7597513ca56dbef429ecea6744ab
+  acl plan_day, audit_log (md5): e7cfad1117d8bf5362a43a5b398ba5de
+  all public functions (md5 of definitions, 68 functions): 61ea8d4a39f836a05e7de9e557d6b3a7
+  all public views (md5 of definitions, 3 views): d6814cb1558ccbf0ecf6bd1c810fc6da
+  rows: plan_day=0, schema_registry=6
+sidik sebelum = sesudah: ya
+
+## 4. ditolak di DB v5.1 saja (tanpa B2): schema_registry tidak ada
+  psql:docs/v5.2/kgr-os-migrasi-v52-b7.sql:39: ERROR:  Bundel B6 belum terpasang di database ini (docs/v5.2/kgr-os-migrasi-v52-b6.sql); v5.2 B7 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+  exit: 3
+sesudah: schema_registry ada = f; plan_day_read = ( SELECT is_app_user() AS is_app_user)
+
+## 5. rantai lengkap di DB baru: v5.1 -> bundel B2 -> bundel B5 -> bundel B6 -> bundel B7 (dua kali), tabel cek B7 tiap putaran
+  kgr-os-migrasi-v52-b2.sql: exit 0; schema_version() = 5.2.2
+  kgr-os-migrasi-v52-b5.sql: exit 0; schema_version() = 5.2.4
+  kgr-os-migrasi-v52-b6.sql: exit 0; schema_version() = 5.2.5
+  bundel B7 putaran 1: exit 0
+    baris cek: 13, true: 13
+  bundel B7 putaran 2: exit 0
+    baris cek: 13, true: 13
+  schema_version() = 5.2.6; sidik (tanpa baris registry) sama dengan migrasi satu per satu (b7_rls): ya
+
+## 6. cek 8 tidak kosong: pembaca plan_day yang ditanam (fungsi SQL biasa yang membaca plan_day sebagai pemanggil) membuatnya false; cek lain tetap true
+  bundel di DB 5.2.5 dengan fungsi b7_planted_reader: exit 0
+    baris cek: 13, true: 12
+  baris yang false: 8 
