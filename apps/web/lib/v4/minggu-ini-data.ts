@@ -54,8 +54,10 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
     const lines = (data?.snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined)?.pnl?.lines;
     const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
-    if (lines && get("GROSS PROFIT") !== null) {
-      lastWeek = { revenue: D(get("TOTAL REVENUE") ?? 0), gp: D(get("GROSS PROFIT")!), nibt: D(get("NET INCOME") ?? 0), basis: "rilis" };
+    // the release is last week's base only when it carries all three lines: a missing line is not 0 (then the journal is the base)
+    const rev = get("TOTAL REVENUE"), gp = get("GROSS PROFIT"), ni = get("NET INCOME");
+    if (lines && rev !== null && gp !== null && ni !== null) {
+      lastWeek = { revenue: D(rev), gp: D(gp), nibt: D(ni), basis: "rilis" };
     }
   }
   if (!lastWeek) {
@@ -174,7 +176,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       // heads of the binding main product per cut pattern (K1: by-products never bind), as the demand rebuild wrote them
       heads: rs.some((x) => x.binding === true && x.heads !== null) ? rs.filter((x) => x.binding === true && x.heads !== null).reduce((a, x) => a + Math.ceil(Number(x.heads)), 0) : null,
       planHeads: plan ? Number(plan.head_count) : null,
-      variance: vr.length ? vr.reduce((a, x) => a.plus(D(s(x.variance_kg) ?? 0)), D(0)).toFixed(2) : null,
+      // one day without variance makes the week unknown, never a smaller number
+      variance: vr.length && vr.every((x) => s(x.variance_kg) !== null) ? vr.reduce((a, x) => a.plus(D(String(x.variance_kg))), D(0)).toFixed(2) : null,
     };
   }), null);
 

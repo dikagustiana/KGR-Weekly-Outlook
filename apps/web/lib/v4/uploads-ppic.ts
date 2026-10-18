@@ -63,7 +63,8 @@ registerV3Kind({
       const line = must(await sb.from("sales_line").select("kg, fulfilled_kg, cancelled_kg, status").eq("id", id).maybeSingle(), "uploads-ppic.sales_line");
       const l = line as Row | null;
       if (!l || l.status !== "Order") continue;
-      const chk = deliveryCheck({ kg: String(l.kg), fulfilled_kg: String(l.fulfilled_kg ?? 0), cancelled_kg: String(l.cancelled_kg ?? 0) }, String(r.data.kg));
+      if (l.kg === null || l.kg === undefined) throw new WriteError(`PO ${String(r.data.po_ref)} ${String(r.data.item_code)}: kg order belum diisi, pengiriman tidak bisa dicek`);
+      const chk = deliveryCheck({ kg: String(l.kg), fulfilled_kg: String(l.fulfilled_kg), cancelled_kg: String(l.cancelled_kg) }, String(r.data.kg)); // fulfilled_kg / cancelled_kg NOT NULL default 0
       if (!chk.ok) throw new WriteError(`PO ${String(r.data.po_ref)} ${String(r.data.item_code)}: ${chk.error}`);
       const e = await sb.from("delivery").insert({ sales_line_id: id, date: r.data.date, kg: r.data.kg, document_ref: r.data.document_ref, source: "Manual", upload_id: uploadId });
       if (e.error) {

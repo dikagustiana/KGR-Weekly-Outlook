@@ -131,7 +131,9 @@ export function kasModel(x: KasInput): KasModel {
   if (sv) {
     const aff = D(sv.affiliate), prev = dn(sv.prevAffiliate);
     // Interest Expense of the month (actual + forecast rows of pl_daily_v4), a cost: shown positive
-    const interest = sv.interestRows ? sv.interestRows.reduce((a, r) => a.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).neg() : null;
+    // (a row carries its actual or its forecast; a row with neither has no amount and adds nothing, no interest rows at all = unknown)
+    const interestParts = sv.interestRows ? sv.interestRows.flatMap((r) => [r.actual, r.forecast]).filter((v): v is string => v !== null && v !== undefined) : [];
+    const interest = interestParts.length ? interestParts.reduce((a, v) => a.plus(D(v)), D(0)).neg() : null;
     tiles.push({
       id: "c-afiliasi", pos: P(5, 1, 3, 2), kind: "card", title: "Utang pihak berelasi",
       cara: { title: "Utang pihak berelasi", fn: "solvency", rule: "Other Payable – Related Parties + Trade Payables – Affiliates dari neraca mingguan terakhir; bunga = Interest Expense outlook bulan ini.", period: sv.label, basis: "neraca mingguan", status: "draft", sources: [{ label: "Tabel", value: "solvency_monthly, pl_daily_v4" }] },
@@ -223,7 +225,7 @@ export function kasModel(x: KasInput): KasModel {
       ];
       tiles.push({
         id: "ccc", pos: P(6, 7, 6, 4), kind: "tall", title: "Siklus kas",
-        note: `HPP dan penjualan dari jurnal ${c.windowDays ?? 0} hari terakhir (maks. 90).`,
+        note: c.windowDays ? `HPP dan penjualan dari jurnal ${c.windowDays} hari terakhir (maks. 90).` : "HPP dan penjualan dari jurnal (jumlah hari belum diketahui, maks. 90).",
         cara: { title: "Siklus kas", fn: "ccc, simulateCcc", rule: "DIO = persediaan ÷ HPP per hari; DSO = piutang ÷ penjualan per hari; DPO = utang dagang ÷ HPP per hari; CCC = DIO + DSO − DPO. Simulasi: termin LB dan trading dibobot porsi pembelian menjadi DPO; target hari stok menggantikan DIO.", period: tgl(c.date), basis: "neraca mingguan, jurnal 90 hari", status: "draft", sources: [{ label: "Tabel", value: "ccc_daily" }] },
         content: {
           type: "table", cols, rows,
@@ -240,8 +242,8 @@ export function kasModel(x: KasInput): KasModel {
       { key: "a", label: "Pendanaan afiliasi rencana", num: true, kind: "sup" }, { key: "r", label: "Afiliasi sudah masuk", num: true, kind: "sup" }, { key: "c", label: "Saldo akhir", num: true, kind: "key" }, { key: "x", label: "Tanpa fasilitas", num: true },
     ];
     const rows: TRow[] = h.weeks.map((w) => {
-      const i = dn(w.operating_in) ?? D(0), o = dn(w.operating_out) ?? D(0);
-      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: jtV4(i), o: jtV4(o), n: jtV4(i.plus(o)), a: jtV4(w.affiliate_net ?? 0), r: w.affiliate_received ? jtV4(w.affiliate_received) : "", c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
+      const i = dn(w.operating_in), o = dn(w.operating_out), na = "belum diisi";
+      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: i ? jtV4(i) : na, o: o ? jtV4(o) : na, n: i && o ? jtV4(i.plus(o)) : na, a: w.affiliate_net === null || w.affiliate_net === undefined ? na : jtV4(w.affiliate_net), r: w.affiliate_received ? jtV4(w.affiliate_received) : "", c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
     });
     const drivers = h.drivers.filter((d) => d.amount !== null).slice(0, 3);
     tiles.push({

@@ -36,8 +36,8 @@ export interface AccuracyInput {
   version: string;
   lines: AccuracyLineV4[];
   /** FINAL minus the closing adjustments, per metric (the "before adjustment" columns). */
-  poDays: { n: number; diff: string } | null;
-  runrateDays: { n: number; diff: string } | null;
+  poDays: { n: number; diff: string | null } | null;
+  runrateDays: { n: number; diff: string | null } | null;
   /** PRD v5.1 R38 (§6.5): the fixed-cost estimate the version carried (P&L sign); null = the version had none. */
   fixedOfVersion?: string | null;
 }
@@ -71,9 +71,6 @@ const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h
 const tone = (v: Decimal | null | undefined): "neg" | undefined => (v !== null && v !== undefined && v.lt(0) ? "neg" : undefined);
 const deltaTone = (v: Decimal | null | undefined): "better" | "worse" | undefined => (v === null || v === undefined || v.isZero() ? undefined : v.gt(0) ? "better" : "worse");
 const jtText = (v: Decimal) => `${jtV4(v)} jt`;
-const sumRev = (rows: PlRowV4[], date: string, pick: "actual" | "forecast", seg?: (s: string) => boolean) =>
-  rows.filter((r) => r.date === date && isRevenueLine(r.pl_line) && (!seg || seg(r.segment))).reduce((a, r) => a.plus(r[pick] ?? 0), D(0));
-
 /** Short name of an assumption for the register tile (the long name stays in the drawer and the PDF). */
 function registerLabel(r: RegisterRow, windowDays: number): string {
   if (r.code.startsWith("anomaly_")) return `${tglShort(r.code.slice(8))} anomali`;
@@ -370,7 +367,7 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
       ...(withFixed ? [withFixed] : []),
       ...(rev ? [{ id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } }] : []),
       ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: rev.absErrorPre === null ? "belum ada" : jtV4(rev.absErrorPre) } }] : []),
-      ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? jtV4(a.poDays.diff) : "belum ada"} / ${a.runrateDays ? jtV4(a.runrateDays.diff) : "belum ada"}` } }] : []),
+      ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? (a.poDays.diff === null ? "belum lengkap" : jtV4(a.poDays.diff)) : "belum ada"} / ${a.runrateDays ? (a.runrateDays.diff === null ? "belum lengkap" : jtV4(a.runrateDays.diff)) : "belum ada"}` } }] : []),
     ];
     tiles.push({
       id: "akurasi", pos: P(0, 16, 6, 3), title: "Akurasi bulan terakhir yang FINAL",
@@ -384,8 +381,9 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
 
   if (x.on.m6 && x.solvency) {
     const s = x.solvency;
-    const interest = rows.filter((r) => r.pl_line === "Interest Expense").reduce((a, r) => a.plus(r.actual ?? 0).plus(r.forecast ?? 0), D(0));
-    const hasInterest = rows.some((r) => r.pl_line === "Interest Expense");
+    // a row carries its actual or its forecast; a row with neither has no amount, and no amount at all = "belum diisi"
+    const interestParts = rows.filter((r) => r.pl_line === "Interest Expense").flatMap((r) => [r.actual, r.forecast]).filter((v): v is Decimal => v !== null && v !== undefined);
+    const interest = interestParts.reduce((a, v) => a.plus(v), D(0)), hasInterest = interestParts.length > 0;
     const sCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: "Rp jt", num: true }];
     const sRows: TRow[] = [
       { id: "eq", cells: { k: `Ekuitas (${pctV4(D(s.equity).div(D(s.paidIn)), 0)} modal disetor)`, v: jtV4(s.equity) } },

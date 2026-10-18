@@ -159,8 +159,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   const counts = x.release?.counts ?? c.counts;
   const total = Object.values(counts).reduce<number>((a, b) => a + (b ?? 0), 0); // missing-ok: jumlah kontrol per status (hitungan)
   const relText = x.release?.releasedAt
-    ? `Rilis ${tgl(x.release.releasedAt.slice(0, 10))} · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`
-    : `Belum dirilis, angka draft · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`;
+    ? `Rilis ${tgl(x.release.releasedAt.slice(0, 10))} · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}` // missing-ok: jumlah kontrol berstatus LULUS (hitungan); tanpa kontrol lulus memang 0
+    : `Belum dirilis, angka draft · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`; // missing-ok: jumlah kontrol berstatus LULUS (hitungan); tanpa kontrol lulus memang 0
   tiles.push({ id: "rilis", pos: P(9, 0, 3, 1), kind: "bare", content: { type: "release", text: relText, pdfHref: x.pdfHref } });
 
   // ---------------------------------------------------------------- engine numbers

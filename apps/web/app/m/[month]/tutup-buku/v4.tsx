@@ -69,7 +69,7 @@ export async function TutupBukuV4({ first, viewer }: { first: string; viewer: Vi
     { key: "v", label: "Versi", kind: "key" }, { key: "k", label: "Hari" }, { key: "n", label: "Jumlah hari", num: true }, { key: "d", label: "Selisih revenue (Rp jt)", num: true },
     { key: "q", label: "dari kg kirim", num: true }, { key: "h", label: "dari harga", num: true },
   ];
-  const dRows: TRow[] = v.daily.map((d) => ({ id: `${d.version}-${d.kind}`, cells: { v: d.version, k: d.kind === "po" ? "ber-PO" : "run-rate", n: String(d.days), d: jtV4(d.diff), q: d.diffKg === null ? "" : jtV4(d.diffKg), h: d.diffPrice === null ? "" : jtV4(d.diffPrice) } }));
+  const dRows: TRow[] = v.daily.map((d) => ({ id: `${d.version}-${d.kind}`, cells: { v: d.version, k: d.kind === "po" ? "ber-PO" : "run-rate", n: String(d.days), d: d.diff === null ? "belum lengkap" : jtV4(d.diff), q: d.diffKg === null ? "" : jtV4(d.diffKg), h: d.diffPrice === null ? "" : jtV4(d.diffPrice) } }));
   const kCols: Col[] = [{ key: "c", label: "Kode", kind: "key" }, { key: "n", label: "Asumsi", wrap: true }, { key: "v", label: "Nilai", num: true }, { key: "s", label: "Status" }];
   const kRows: TRow[] = v.calibration.map((r) => ({
     id: r.id,

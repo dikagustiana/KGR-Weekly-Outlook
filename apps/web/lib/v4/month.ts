@@ -159,7 +159,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const opex: OpexInputV4 = {
     fixed: (drivers?.fixed ?? []).map((f) => ({ pl_line: f.pl_line, scheduled: f.scheduled, actual_mtd: f.actual_mtd, day_basis: f.day_basis, missing: f.missing.length > 0 })),
     runrateActual: runrateActualLines({ gl: glRows, coa: coaRows, from: first, to: cutOff, events }),
-    runrateTable: rrTable.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
+    runrateTable: rrTable.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount) })), // runrate.monthly_amount NOT NULL
     variable: drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && c.rp_per_kg !== undefined).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [],
     events: events.filter((e) => e.date > cutOff),
   };

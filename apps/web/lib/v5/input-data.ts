@@ -23,6 +23,11 @@ import { ROLE_KINDS, rulesOfRole } from "./input";
 import { jtV4, num } from "../fmt";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
+/** Sum of the kg that are filled and the number of rows without one: a blank is "belum ada", never 0 kg (R64). */
+export function knownKg(rows: Row[], key: string): { kg: ReturnType<typeof D>; blank: number } {
+  const known = rows.filter((r) => s(r[key]) !== null);
+  return { kg: sum(known.map((r) => D(String(r[key])))), blank: rows.length - known.length };
+}
 const isOn = (v: unknown) => ((v as { enabled?: boolean } | null | undefined)?.enabled) === true;
 
 export async function v5InputOn(sb: Supa): Promise<boolean> {
@@ -121,7 +126,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   if (kind === "lb_supply") {
     const lead = Number(par.lead_time_days ?? 1);
     const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").order("size_code").order("week_start").range(a, b));
-    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: s(r.kg_lb) ?? "0" }));
+    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: String(r.kg_lb) })); // kolom kg_lb NOT NULL (mart)
   }
   return ctx;
 }
@@ -340,9 +345,10 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
     const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;
-    const uk = sum(unsized.map((r) => D(s(r.net_kg) ?? "0")));
+    const uk = sum(unsized.map((r) => D(String(r.net_kg)))); // net_kg NOT NULL (mart)
+    const poKg = knownKg(po, "kg");
     return [
-      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(sum(po.map((r) => D(s(r.kg) ?? "0"))), 0)} kg`, tone: "plain" },
+      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(poKg.kg, 0)} kg${poKg.blank ? ` (${poKg.blank} baris belum ada kg)` : ""}`, tone: poKg.blank ? "warn" : "plain" },
       { title: "Gagal cek (upload terakhir)", value: String(failed), sub: failed ? "baris perlu dilengkapi" : "tidak ada", tone: failed ? "bad" : "plain" },
       { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
       { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }]; // missing-ok: jumlah permintaan approval (hitungan), tanpa baris = 0
@@ -364,11 +370,11 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
       sb.from("lb_price_decision").select("price, volume_kg_lb, decided_at").eq("date", tmr).order("decided_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const sup = mustRows<Row>(supR, "kartu supply LB");
-    const kg = sum(sup.map((r) => D(s(r.kg) ?? "0")));
+    const supKg = knownKg(sup, "kg"), kg = supKg.kg;
     const d = must(decR, "kartu keputusan LB") as Row | null;
     return [first,
       { title: `Harga LB potong ${dmy(tmr)}`, value: d ? num(s(d.price), 0) : "belum", sub: d ? "diputuskan Direktur Operasional" : "C57: simulasi memakai harga kemarin", tone: d ? "plain" : "bad" },
-      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: "plain" },
+      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: supKg.blank ? `${supKg.blank} baris belum ada kg, belum terhitung` : d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: supKg.blank ? "warn" : "plain" },
       { title: "Supply tanpa kelas", value: String(sup.filter((r) => !s(r.weight_class)).length), sub: "baris (C58 tidak bisa dicek)", tone: "plain" }];
   }
   if (role === "inventory_accounting") {

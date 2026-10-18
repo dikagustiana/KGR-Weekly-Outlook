@@ -36,7 +36,7 @@ async function monthC48(sb: Supa, first: string, last: string): Promise<ControlV
   const ref = new Map(batches.map((b) => [String(b.id), s(b.batch_ref) ?? String(b.id)]));
   return c48({
     batches: batches.map((b) => ({ ref: ref.get(String(b.id))!, status: String(b.status ?? ""), date: s(b.date) })),
-    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg ?? 0) })),
+    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg) })), // batch_output_sku.kg NOT NULL
   });
 }
 
@@ -111,7 +111,7 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const mo = await ensureOutlook(sb, first);
   const v1 = must(await sb.from("month_outlook_version").select("revenue, gp").eq("month_outlook_id", String(mo.id)).eq("version", "V1").maybeSingle(), "month_outlook_version") as Row | null;
   const v1r = v1 as Row | null;
-  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: D(String(v1r.gp ?? 0)).minus(t.after.gp).toFixed(2) } : null });
+  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: v1r.gp === null || v1r.gp === undefined ? null : D(String(v1r.gp)).minus(t.after.gp).toFixed(2) } : null });
   const next = await ensureOutlook(sb, addDays(last, 1));
   const have = mustRows<Row>(await sb.from("assumption_register").select("code").eq("month_outlook_id", String(next.id)).eq("source", "kalibrasi").neq("status", "superseded").is("deleted_at", null), "assumption_register");
   const fresh = cal.filter((r) => !have.some((h) => String(h.code) === r.code));
@@ -170,7 +170,7 @@ export interface CloseViewV4 {
   hasFinal: boolean;
   preview: { controls: { code: string; name: string; status: string; detail: string[] }[]; before: Record<string, string>; adjustments: Record<string, string>; after: Record<string, string> } | null;
   accuracy: AccuracyLineV4[];
-  daily: { version: string; kind: string; days: number; diff: string; diffKg: string | null; diffPrice: string | null }[];
+  daily: { version: string; kind: string; days: number; diff: string | null; diffKg: string | null; diffPrice: string | null }[];
   calibration: { id: string; code: string; name: string; value: string | null; status: string }[];
   /** DI-01 from the ledger: DOs of the previous month invoiced in this month, and DOs of this month invoiced later. */
   unbilled: { month: string; dos: number; kg: string; cogsRevenue: string; cogsInvoice: string; revaluation: string }[];
@@ -221,8 +221,9 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
     for (const r of rows) { const k = `${String(r.version)}|${String(r.day_kind)}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
-    const tot = (rs: Row[], k: string) => rs.some((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0)).toFixed(2) : null;
-    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff") ?? "0", diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
+    // a total over days is shown only when every day has the value: one unknown day makes it unknown, never a smaller number
+    const tot = (rs: Row[], k: string) => rs.length && rs.every((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k]))), D(0)).toFixed(2) : null;
+    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff"), diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
   }
   const nextMo = must(await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle(), "month_outlook") as Row | null;
   const cal = nextMo?.id ? mustRows<Row>(await sb.from("assumption_register").select("id, code, name, value_num, status").eq("month_outlook_id", String(nextMo.id)).eq("source", "kalibrasi").is("deleted_at", null).order("code"), "assumption_register") : [];

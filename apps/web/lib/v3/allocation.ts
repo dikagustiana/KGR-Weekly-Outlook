@@ -5,7 +5,7 @@ import "server-only";
  * allocateFEFO, cutoffBlasts, planningControls) on the M2 ledger; this file loads rows and writes the results.
  */
 import {
-  addDays, allocateFEFO, sum, computeLedger, cutoffBlasts, frozenKeyOf, lotsForAllocation, planningControls, toFixedString,
+  D, addDays, allocateFEFO, sum, computeLedger, cutoffBlasts, frozenKeyOf, lotsForAllocation, planningControls, toFixedString,
   type AllocOrder, type ControlV3, type CutoffBlast, type Decimal, type FefoResult, type LedgerResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -35,6 +35,8 @@ export interface DayAllocation {
   led: LedgerResult;
   /** PO lines delivering on the date (open Orders and the lines already delivered that day). */
   orders: DayOrder[];
+  /** Lines of the window without kg: left out of the allocation, listed by the control C29 as "BELUM DIISI". */
+  noKg: { id: string; po_ref: string | null; key: string }[];
   allocations: Row[];
   /** Lots available on the date (before this day's allocations). */
   lots: ReturnType<typeof lotsForAllocation>;
@@ -78,10 +80,13 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const keyFor = (r: Row) => keyOf.get(String(r.id)) ?? s(r.key_manual) ?? "";
   const toOrder = (r: Row): DayOrder => ({
     id: String(r.id), ref: String(r.id), key: keyFor(r), delivery_date: s(r.delivery_date) ?? s(r.date), demand_status: s(r.demand_status) ?? "Confirmed",
-    kg: s(r.kg) ?? "0", fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg), price: s(r.price),
+    kg: String(r.kg), fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg), price: s(r.price),
     status: String(r.status), customer: s(r.customer), po_ref: s(r.po_ref), sales_rep: s(r.sales_rep), document_ref: s(r.document_ref),
   });
-  const today = lines.filter((r) => (s(r.delivery_date) ?? s(r.date)) === date).map(toOrder);
+  // a line without kg cannot be allocated or compared: it stays out of the engine and is reported by the control (never 0 kg)
+  const noKg = lines.filter((r) => s(r.kg) === null).map((r) => ({ id: String(r.id), po_ref: s(r.po_ref), key: keyFor(r) }));
+  const withKg = lines.filter((r) => s(r.kg) !== null);
+  const today = withKg.filter((r) => (s(r.delivery_date) ?? s(r.date)) === date).map(toOrder);
   // an Aktual line that day counts as delivered only when it was a PO line (or carries allocations)
   const allocatedIds = new Set(allocations.map((a) => String(a.sales_line_id)));
   const orders = today.filter((o) => o.status === "Order" || allocatedIds.has(o.id) || o.po_ref !== null);
@@ -96,8 +101,8 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
     date, orders: orders.filter((o) => o.status === "Order"), lots, windows: W,
     existing: keep.map((a) => ({ sales_ref: String(a.sales_line_id), lot_ref: String(a.lot_ref), kg: String(a.kg) })),
   });
-  const futureOrders = lines.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
-    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: s(r.kg) ?? "0", fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
+  const futureOrders = withKg.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
+    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: String(r.kg), fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
   const p = (must(param, "allocation.parameter") ?? {}) as Row;
   const priceMap = new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)]));
   const info = new Map(src.inputs.keys.map((k) => [k.key, k]));
@@ -107,7 +112,7 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
     date, lotsLeft: current.lotsLeft, futureOrders, windows: W, frozenKeyOf: (k) => frozenKeyOf(k, info.get(k)),
     price: (k) => priceMap.get(k) ?? null, blastCostPerKg,
   });
-  return { date, week, src, led, orders, allocations, lots, current, proposal, futureOrders, cutoff, cutoffKg: sum(cutoff.map((b) => b.kg)), cutoffDone: blasts, cutOffTime: s(p.cut_off_time) ?? "14:00:00", prices: priceMap, blastCostPerKg };
+  return { date, week, src, led, orders, noKg, allocations, lots, current, proposal, futureOrders, cutoff, cutoffKg: sum(cutoff.map((b) => b.kg)), cutoffDone: blasts, cutOffTime: s(p.cut_off_time) ?? "14:00:00", prices: priceMap, blastCostPerKg };
 }
 
 /** "Alokasikan hari ini": write the FEFO allocations of the open PO lines (upsert on line × lot; stale FEFO rows soft-deleted). */
@@ -180,5 +185,10 @@ export function dayControls(d: DayAllocation): ControlV3[] {
     // the frozen lot of a blast is the ledger's conversion lot blast:<id>
     blasts: d.cutoffDone.map((b) => ({ ref: String(b.id), lot_ref_to: s(b.lot_ref_to) ?? (d.led.lots.some((l) => l.ref === `blast:${b.id}`) ? `blast:${b.id}` : null) })),
   });
-  return all.filter((c) => c.code === "C29" || c.code === "C31");
+  const out = all.filter((c) => c.code === "C29" || c.code === "C31");
+  if (d.noKg.length) out.push({
+    code: "C29", module: "M2", name: "Alokasi tidak melebihi kg baris PO", value: D(d.noKg.length), comparator: D(0), difference: D(d.noKg.length), status: "BELUM DIISI", // jumlah baris tanpa kg (hitungan)
+    action: "Isi kg di baris order berikut; alokasinya belum bisa dicek", detail: d.noKg.map((x) => `${x.po_ref ?? x.id} ${x.key}`.trim()),
+  });
+  return out;
 }

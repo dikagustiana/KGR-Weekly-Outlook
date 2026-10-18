@@ -189,7 +189,7 @@ export function worstByCode(controls: ControlV3[]): ControlV3[] {
  * with source kalibrasi, status proposed, owner Group Project Finance. The run-rate and margin at the month end (K3, K5)
  * and the bias of V1 against FINAL. They stay proposals until Finance agrees them for the next month (P10).
  */
-export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { revenue: Num; gp: Num } | null }): RegisterRow[] {
+export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { revenue: Num; gp: Num | null } | null }): RegisterRow[] {
   const m = x.month.slice(0, 7);
   const mk = (code: string, name: string, basis: string, num: Num): RegisterRow => ({
     code, name, value_num: D(num).toFixed(6), value_text: null, basis, owner: "Group Project Finance", agreed_at: null, deviation_note: null, status: "proposed",
@@ -202,7 +202,8 @@ export function calibrationV4(x: { month: string; plan: MonthPlanV4; v1Bias?: { 
   ];
   if (x.v1Bias) {
     out.push(mk("kal_bias_v1_revenue", "Bias V1 terhadap FINAL, revenue (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.revenue));
-    out.push(mk("kal_bias_v1_gp", "Bias V1 terhadap FINAL, GP (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.gp));
+    // V1 without a GP has no GP bias: the proposal is left out, never written as a bias of 0 (R64)
+    if (x.v1Bias.gp !== null) out.push(mk("kal_bias_v1_gp", "Bias V1 terhadap FINAL, GP (kalibrasi)", `V1 − FINAL ${m}`, x.v1Bias.gp));
   }
   return out;
 }

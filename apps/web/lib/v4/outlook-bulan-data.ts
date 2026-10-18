@@ -117,19 +117,21 @@ export async function loadOutlookBulan(sb: Supa, x: {
       if (vs.length) {
         const sumAdj = (pred: (l: string) => boolean) => adj.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0));
         const lines = accuracyV4({
-          final: { revenue: String(f.revenue), gp: String(f.gp ?? 0), nibt: String(f.nibt ?? 0) },
+          final: { revenue: String(f.revenue), gp: s(f.gp), nibt: s(f.nibt) },
           adjustments: { revenue: sumAdj(isRevenueLine).toFixed(2), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)).toFixed(2), nibt: sumAdj(() => true).toFixed(2) },
-          versions: vs.map((v) => ({ version: String(v.version), revenue: String(v.revenue ?? 0), gp: String(v.gp ?? 0), nibt: String(v.nibt ?? 0) })),
+          versions: vs.map((v) => ({ version: String(v.version), revenue: s(v.revenue), gp: s(v.gp), nibt: s(v.nibt) })),
         });
         const version = String(vs[0].version);
         const kind = (k: string) => {
           const r = daily.filter((d) => String(d.version) === version && String(d.day_kind) === k);
-          return r.length ? { n: new Set(r.map((d) => String(d.date))).size, diff: r.reduce((a, d) => a.plus(D(String(d.diff ?? 0))), D(0)).toFixed(2) } : null;
+          // a total over days is known only when every day has its difference; one blank day makes it unknown (null), never a smaller number
+          return r.length ? { n: new Set(r.map((d) => String(d.date))).size, diff: r.every((d) => d.diff !== null && d.diff !== undefined) ? r.reduce((a, d) => a.plus(D(String(d.diff))), D(0)).toFixed(2) : null } : null;
         };
         // R38: the fixed-cost estimate the version carried in its snapshot (v5_pl at the lock); none = null, never 0
         const snap = must(await sb.from("month_outlook_version").select("snapshot").eq("month_outlook_id", id).eq("version", version).maybeSingle(), "month_outlook_version snapshot") as Row | null;
         const fe = ((snap?.snapshot ?? null) as { fixed_estimate?: { actual: string | null; forecast: string | null }[] } | null)?.fixed_estimate;
-        const fixedOfVersion = fe ? fe.reduce((acc, r) => acc.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).toFixed(2) : null;
+        const feParts = (fe ?? []).flatMap((r) => [r.actual, r.forecast]).filter((v): v is string => v !== null && v !== undefined);
+        const fixedOfVersion = feParts.length ? feParts.reduce((acc, v) => acc.plus(D(v)), D(0)).toFixed(2) : null;
         accuracy = { month: String(f.month_outlook.month), version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion };
       }
     }

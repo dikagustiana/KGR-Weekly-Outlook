@@ -114,7 +114,8 @@ export async function loadWeekInputs(
     inputs.sku_keys.filter((k) => known.has(k.key)).map((k) => ({ week_id: weekId, key: k.key, ref_sell_price: k.ref_sell_price, replacement_buy_price: k.replacement_buy_price, note: k.note ?? null })),
     { onConflict: "week_id,key" }), "sku_price");
   await must(sb.from("runrate").upsert(
-    inputs.runrate.map((r, i) => ({ week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount ?? 0, week_adjustment: r.week_adjustment ?? 0, basis: r.basis ?? null, seq: i + 1 })),
+    // a line without a monthly amount is not written (NOT NULL column: a blank would be stored as 0, missing ≠ 0)
+    inputs.runrate.flatMap((r, i) => r.monthly_amount === null || r.monthly_amount === undefined ? [] : [{ week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount, week_adjustment: r.week_adjustment ?? 0 /* missing-ok: penyesuaian kosong = tidak ada penyesuaian (kolom NOT NULL default 0) */, basis: r.basis ?? null, seq: i + 1 }]),
     { onConflict: "week_id,pl_line" }), "runrate");
 
   const src = opts.source;
