@@ -8,7 +8,7 @@ import { fakeSb } from "../fake-sb";
 
 vi.mock("server-only", () => ({}));
 const { loadV5BatchCosts, v5CostingControls, lbDecisionOf, yieldOfClass } = await import("./costing");
-const { postWeek } = await import("../v3/costing");
+const { postWeek, postWeekOverride } = await import("../v3/costing");
 
 const REF = "126/PO/KGR/08/2026";
 const batch = { id: "b126", week_id: "w35", date: "2026-08-26", status: "Aktual", batch_ref: REF, lb_kg: "12089.6", lb_price: null, freight: "5000000", maklon: "4000000", out_karkas_fresh: "5004.7", out_karkas_frozen: "3214.5", wp_received_at: "2026-08-27T09:04:00+07:00", invoice_status: "pending" };
@@ -70,20 +70,71 @@ describe("R61: posting refuses a batch with an unpriced SKU (probe: Lemak withou
     await expect(postWeek(sb as never, viewer("cost_accounting"), week as never)).resolves.toBe("Diposting: 1 batch");
     expect(sb.calls).toContain("allocation_run:update");
   });
-  it("the override (Admin for now) posts it, with a reason of 10+ characters, recorded as an issue of the run; Finance and other roles cannot until B-R85", async () => {
-    const rows = rowsOf([line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", null)]);
+  it("a week with a priced and an unpriced run: the priced one is posted the normal way, the unpriced one is held and named (no RPC from this path)", async () => {
+    const b2 = { ...batch, id: "b127", batch_ref: "127/PO/KGR/08/2026", cost_mode: "maklon", seq: 2 };
+    const r2 = { ...draft, id: "r2", batch_id: "b127" };
+    const rows = { ...rowsOf([line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", "5000.0000")]), batch: [{ ...batch, cost_mode: "maklon", seq: 1 }, b2], allocation_run: [draft, r2],
+      allocation_line: [line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", "5000.0000"), { ...line("RPA|Lemak|Fresh", "28.8", null), allocation_run_id: "r2" }], batch_output_sku: [...wp, { batch_id: "b127", key: "RPA|Lemak|Fresh", kg: "28.8" }] };
     const sb = fakeSb({ rows });
-    await expect(postWeek(sb as never, viewer("admin"), week as never, { override: { reason: "pendek" } })).rejects.toThrow(/alasan minimal 10/);
-    for (const role of ["finance", "cost_accounting"]) {
-      await expect(postWeek(sb as never, viewer(role), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } })).rejects.toThrow(/sementara hanya oleh Admin; hak Finance menunggu B-R85/);
+    const msg = await postWeek(sb as never, viewer("cost_accounting"), week as never);
+    expect(msg).toBe("Diposting: 1 batch; ditahan karena harga acuan kosong: 127/PO/KGR/08/2026: RPA|Lemak|Fresh (override Finance atau Admin dengan alasan)");
+    // the filter right after each write names the row: the priced run r1 and its batch b126, nothing else
+    const after = (call: string) => { const at = sb.args.map((a) => a.call); const i = at.indexOf(call); return [at.filter((c) => c === call).length, sb.args[i + 1].args] as const; };
+    expect(after("allocation_run:update")).toEqual([1, ["id", "r1"]]);
+    expect(after("batch:update")).toEqual([1, ["id", "b126"]]);
+    expect(sb.rpcCalls).toEqual([]);
+  });
+});
+
+describe("R61 override (Q-v5.2-30, -61): Finance and Admin post the unpriced runs through post_allocation_override; nobody writes the tables", () => {
+  const draft = { id: "r1", batch_id: "b126", status: "draft", diff: "0", issues: [], run_at: "2026-08-27T10:00:00+07:00" };
+  const line = (key: string, kg: string, price_ref: string | null, run = "r1") => ({ allocation_run_id: run, key, item_code: null, kg, price_ref, sales_value: "0", share: "0", allocated_cost: "0", cost_per_kg: "0", by_product_method: "joint", nrv_floor: null, nrv_writedown: "0" });
+  const week = { id: "w35", week_start: "2026-08-24", week_end: "2026-08-30", update_date: "2026-08-28", status: "open" };
+  const viewer = (role: string) => ({ email: `${role}@x.id`, role, fullName: null }) as never;
+  const REASON = "harga Lemak menyusul dari pemasok";
+  const unpriced = () => ({ ...base(), batch: [{ ...batch, cost_mode: "maklon", seq: 1 }], allocation_run: [draft], allocation_line: [line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", null)], cost_pool: [], cost_pool_line: [], overhead_rate: [], sku_key: [] });
+  const mixed = () => {
+    const b2 = { ...batch, id: "b127", batch_ref: "127/PO/KGR/08/2026", cost_mode: "maklon", seq: 2 };
+    return { ...unpriced(), batch: [{ ...batch, cost_mode: "maklon", seq: 1 }, b2], allocation_run: [draft, { ...draft, id: "r2", batch_id: "b127" }],
+      allocation_line: [line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", "5000.0000"), line("RPA|Lemak|Fresh", "28.8", "0.0000", "r2"), line("RPA|Lemak|Fresh", "30.0", null, "r2")] };
+  };
+
+  it("Finance and Admin call the RPC with the id of the unpriced run and the reason; no direct write to allocation_run or batch", async () => {
+    for (const role of ["finance", "admin"]) {
+      const sb = fakeSb({ rows: unpriced(), rpc: { post_allocation_override: 1 } });
+      const msg = await postWeekOverride(sb as never, viewer(role), week as never, `  ${REASON}  `);
+      expect(sb.rpcCalls).toEqual([{ name: "post_allocation_override", args: { p_run_ids: ["r1"], p_reason: REASON } }]);
+      expect(sb.calls).not.toContain("allocation_run:update");
+      expect(sb.calls).not.toContain("batch:update");
+      expect(msg).toBe("Override: 1 batch diposting tanpa harga acuan (126/PO/KGR/08/2026: RPA|Lemak|Fresh); batch tetap di bawah final");
     }
-    expect(sb.calls).not.toContain("allocation_run:update");
-    const ok = fakeSb({ rows });
-    const msg = await postWeek(ok as never, viewer("admin"), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } });
-    expect(msg).toContain("override Finance");
-    const upd = ok.args.find((a) => a.call === "allocation_run:update")!.args[0] as { status: string; issues: string[] };
-    expect(upd.status).toBe("posted");
-    expect(upd.issues.join(" ")).toMatch(/override Finance: diposting tanpa harga acuan RPA\|Lemak\|Fresh — harga Lemak menyusul dari pemasok \(admin@x\.id/);
+  });
+  it("only the unpriced runs of a mixed week go to the RPC: a run with a complete price never does (a price of 0 is no price)", async () => {
+    const sb = fakeSb({ rows: mixed(), rpc: { post_allocation_override: 1 } });
+    await postWeekOverride(sb as never, viewer("finance"), week as never, REASON);
+    expect(sb.rpcCalls.map((c) => c.args.p_run_ids)).toEqual([["r2"]]);
+  });
+  it("Cost Accounting and every other role cannot override; a reason under 10 characters is refused; neither reaches the RPC", async () => {
+    const sb = fakeSb({ rows: unpriced(), rpc: { post_allocation_override: 1 } });
+    for (const role of ["cost_accounting", "ppic", "sales", "management", "inventory_accounting", "purchasing", "commercial_lead", "operations_director"]) {
+      await expect(postWeekOverride(sb as never, viewer(role), week as never, REASON)).rejects.toThrow("Override posting alokasi hanya oleh Finance atau Admin");
+    }
+    await expect(postWeekOverride(sb as never, viewer("finance"), week as never, "pendek")).rejects.toThrow("Override posting: alasan minimal 10 karakter");
+    await expect(postWeekOverride(sb as never, viewer("finance"), week as never, "         x         ")).rejects.toThrow("alasan minimal 10 karakter");
+    expect(sb.rpcCalls).toEqual([]);
+  });
+  it("a week whose runs all have a complete price has nothing to override: refused before the RPC, the normal posting is the way", async () => {
+    const rows = { ...unpriced(), allocation_line: [line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", "5000.0000")] };
+    const sb = fakeSb({ rows, rpc: { post_allocation_override: 1 } });
+    await expect(postWeekOverride(sb as never, viewer("finance"), week as never, REASON)).rejects.toThrow("Tidak ada alokasi draft dengan harga acuan kosong; alokasi berharga lengkap diposting dengan posting biasa");
+    expect(sb.rpcCalls).toEqual([]);
+  });
+  it("the database's refusal is shown as it is (K41), and a count that does not match is not taken as posted", async () => {
+    const msg = "Alokasi batch 126/PO/KGR/08/2026 belum seimbang (selisih 12): override tidak berlaku untuk C21";
+    const sb = fakeSb({ rows: unpriced(), fail: { "rpc:post_allocation_override": { message: msg, code: "23514" } } });
+    await expect(postWeekOverride(sb as never, viewer("finance"), week as never, REASON)).rejects.toHaveProperty("message", msg);
+    const none = fakeSb({ rows: unpriced(), rpc: { post_allocation_override: 0 } });
+    await expect(postWeekOverride(none as never, viewer("finance"), week as never, REASON)).rejects.toThrow("Override posting: 0 dari 1 alokasi tercatat diposting");
   });
 });
 
