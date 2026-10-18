@@ -3,6 +3,9 @@
 // journey F19 (PRD v5.2-A R45 "rebuild satu tanggal dua kali → solvency_monthly identik", R46 route cron): the nightly route
 // drains the queue; rebuilding the same date again must not change the monthly solvency (idempotent builders).
 // The queue row is what the database trigger `needs_rebuild` writes after a data change; here it is inserted as a labelled SETUP.
+// A1d (Q-v5.2-51): the route and every builder read with the client the caller gives (the cron: the service client), so the
+// cron builds the same marts as the Finance session (before, the cash builder read the week through an anon client and
+// wrote a degraded solvency_monthly / pl_daily_v4). These were four XFAIL in A5; they are plain checks now.
 const { Journey, cfg, short } = require("./lib/e2e.cjs");
 
 const DATE = "2026-08-28"; // Friday: the date the data stands on after journey T7 (run.sh runs F19 on the database T7 leaves)
@@ -60,8 +63,8 @@ async function cron(J, headers) {
       const r = await cron(J, { authorization: `Bearer ${cfg.cronSecret}` });
       J.log(`    cron  GET /api/cron/rebuild (Authorization: Bearer CRON_SECRET) → HTTP ${r.status} ${JSON.stringify({ antrean: queued, selesai: r.body.drained?.done, gagal: r.body.drained?.failed })}`);
       J.check("route cron 200 dan menguras antrean", r.status === 200 && r.body.drained?.done >= 1 && r.body.drained?.failed === 0, short(JSON.stringify(r.body.drained?.notes?.[0] ?? r.body), 200));
-      J.xcheck("rebuild lewat route cron menulis ulang solvency_monthly", "temuan A5 Q-v5.2-51 (belum ada R)", J.dbOne("select count(*) from public.solvency_monthly") === "1",
-        "builder kas membaca minggu lewat computeForWeek → klien sesi; route cron tanpa sesi = anon, minggu terbaca kosong, solvabilitas dan CCC tidak dibangun");
+      J.check("rebuild lewat route cron menulis ulang solvency_monthly (Q-v5.2-51)", J.dbOne("select count(*) from public.solvency_monthly") === "1",
+        "solvency_monthly tidak ditulis ulang oleh route cron");
       J.check("tidak ada antrean tersisa", J.dbOne(`select count(*) from public.rebuild_queue where status in ('queued','running','failed')`) === "0");
       const [h] = J.db(HASH)[0], [hp] = J.db(HASH_PL)[0];
       hashes.push({ label: `rebuild ke-${i}`, solvency: h, pl: hp });
@@ -71,9 +74,9 @@ async function cron(J, headers) {
   await J.step("4", null, "hasil: sidik solvency_monthly dan pl_daily_v4 identik", async () => {
     const [a, b, c] = hashes;
     J.check("solvency_monthly: rebuild cron ke-1 = ke-2 (F19)", b.solvency === c.solvency, `${b.solvency} vs ${c.solvency}`);
-    J.xcheck("solvency_monthly: rebuild cron = rebuild sesi Finance", "temuan A5 Q-v5.2-51 (belum ada R)", a.solvency === b.solvency, `${a.solvency} vs ${b.solvency}`);
+    J.check("solvency_monthly: rebuild cron = rebuild sesi Finance (Q-v5.2-51)", a.solvency === b.solvency, `${a.solvency} vs ${b.solvency}`);
     J.check("pl_daily_v4 Agustus: rebuild cron ke-1 = ke-2 (F19)", b.pl === c.pl, `${b.pl} vs ${c.pl}`);
-    J.xcheck("pl_daily_v4 Agustus: rebuild cron = rebuild sesi Finance (forecast po → runrate di tanggal data)", "temuan A5 Q-v5.2-51 (belum ada R)", a.pl === b.pl, `${a.pl} vs ${b.pl}`);
+    J.check("pl_daily_v4 Agustus: rebuild cron = rebuild sesi Finance (Q-v5.2-51)", a.pl === b.pl, `${a.pl} vs ${b.pl}`);
   });
   process.exit(await J.done());
 })().catch((e) => { console.error(e); process.exit(2); });
