@@ -274,6 +274,17 @@ describe("add = upsert on the unique triple (sales_rep, customer, key)", () => {
     expect(r.error).toBe('Nama Sales "Budi S" sudah dipakai budi@x.test (penugasan RPA|Karkas); dua pengguna Sales tidak boleh memakai satu nama — ubah nama salah satu pengguna di Admin → Pengguna');
     expect(writes(sb)).toEqual([]);
   });
+  it("V10: reactivating an existing assignment is refused too while another e-mail still owns the rep name (rows from before the rule); own rows alone reactivate", async () => {
+    sb = make([row("a1", { email: "budi@x.test", key: "RPA|Karkas", active: false }), row("a2", { email: "nama@x.test", key: "RPA|Sayap", active: true })]);
+    const r = await saveAssignmentAction({}, form({ email: "budi@x.test", key: "RPA|Karkas" }));
+    expect(r.error).toContain('Nama Sales "Budi S" sudah dipakai nama@x.test (penugasan RPA|Sayap)');
+    expect(writes(sb)).toEqual([]);
+    expect(sb.tables.sales_assignment[0].active).toBe(false);
+    sb = make([row("a1", { email: "budi@x.test", key: "RPA|Karkas", active: false }), row("a2", { email: "budi@x.test", key: "RPA|Sayap", active: true })]);
+    const ok = await saveAssignmentAction({}, form({ email: "budi@x.test", key: "RPA|Karkas" }));
+    expect(ok.error).toBeUndefined();
+    expect(sb.tables.sales_assignment[0].active).toBe(true);
+  });
   it("V10: a user whose name changed in Admin → Pengguna keeps the sales_rep of their rows (no second rep for one person); a brand-new user gets their current name", async () => {
     svc = memSb({ app_user: USERS.map((u) => (u.email === "budi@x.test" ? { ...u, full_name: "Budi Santoso" } : u)) });
     sb = make([row("a1", { email: "budi@x.test", sales_rep: "Budi S", key: "RPA|Karkas" })]);
