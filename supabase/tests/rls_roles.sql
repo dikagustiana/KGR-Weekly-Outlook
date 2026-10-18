@@ -3737,3 +3737,171 @@ begin
   exception when others then out := out || 'columns: ERROR(!) ' || sqlerrm || '; '; end;
   raise exception 'RLS-RESULTS v5.2 B5 hygiene (rolled back): %', out;
 end $$;
+
+-- ================================================================================================================
+-- v5.2 B6 (docs/v5.2/b6.md; docs/v5/QUESTIONS.md Q-v5.2-15, Q-v5.2-71). Same convention as above: results in the final error,
+-- (!) = unexpected, the block is self-contained and rolls back, each assertion is guarded so that a missing object shows as
+-- ERROR(!) instead of stopping the block. Run against the migrations of origin/main only (without 20261025000600) the block
+-- shows (!): that is the proof of what the migration changes. The blocks of B2 (T30, B13: a Sales answer to the surplus) keep
+-- running over the same schema: they are the proof that the foreign key to plan_week still lets a Sales answer in.
+-- ================================================================================================================
+
+-- Q-v5.2-15: plan_week and demand_weekly are not read by Sales, and are read as before by every other role; the view
+-- surplus_for_sales_v52 still gives Sales their rows (a unit-keyed surplus named by the base key of its RPA SKU, joined with its
+-- answer); a Sales answer to the surplus still goes in; the write rights are untouched
+do $$
+declare out text := ''; n int; n2 int; n3 int; pw uuid; r record; e text; cols text; ws date := '2033-08-01'; ok boolean;
+begin
+  insert into public.app_user(email, role) values ('b6-sales@x.test','sales'),('b6-sales2@x.test','sales'),('b6-lead@x.test','commercial_lead'),('b6-ppic@x.test','ppic'),
+    ('b6-mgmt@x.test','management'),('b6-ops@x.test','operations_director'),('b6-fin@x.test','finance'),('b6-adm@x.test','admin'),
+    ('b6-ia@x.test','inventory_accounting'),('b6-pur@x.test','purchasing'),('b6-cost@x.test','cost_accounting');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B6a', 'b6-sales@x.test', 'RPA|Karkas'), ('B6b', 'b6-sales2@x.test', 'RPA|Kepala|Fresh');
+  -- the plan lists its surplus per production unit ("Karkas") and for one SKU key, as the app saves it
+  insert into public.plan_week (week_start, version, head_count, surplus_kg_by_key) values (ws, 1, 1000, '{"Karkas": 6332.00, "RPA|Kepala|Fresh": 55}'::jsonb) returning id into pw;
+  insert into public.plan_day (plan_week_id, date, head_count) values (pw, ws, 100);
+  insert into public.demand_weekly (week_start, key, net_kg) values (ws, 'RPA|Karkas|Fresh', 1000);
+  insert into public.plan_week_class (plan_week_id, weight_class, kg_lb, heads, fresh_kg_by_key, frozen_kg_by_key) values (pw, 'K', 5000, 1000, '{}'::jsonb, '{}'::jsonb);
+  insert into public.demand_class_weekly (week_start, ship_date, size_code, size_kg, weight_class, net_kg, kg_lb, heads) values (ws, ws + 2, '1.2', 1.2, 'K', 1000, 1500, 600);
+  -- the audit trigger has written the trail of the four tables (old and new values of the rows: kg, heads, surplus)
+  select count(*) into n from public.audit_log where table_name in ('plan_week', 'plan_week_class', 'demand_weekly', 'demand_class_weekly');
+  out := out || 'setup: audit rows of the four tables=' || n || case when n >= 4 then '' else '(!)' end || '; ';
+  -- the lead answers the unit-keyed surplus the way the app stores an answer: with the SKU key of the assignment
+  perform set_config('request.jwt.claims', '{"email":"b6-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  insert into public.surplus_response (plan_week_id, key, surplus_kg, response, absorb_kg, price) values (pw, 'RPA|Karkas', 6332, 'absorb', 6332, 30000);
+  execute 'reset role';
+
+  -- Sales: no row of plan_week or demand_weekly, whichever way they ask
+  foreach e in array array['b6-sales', 'b6-sales2'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.plan_week; out := out || e || ' reads plan_week rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.plan_week where week_start = ws; out := out || e || ' plan_week of the week rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.plan_week where id = pw; out := out || e || ' plan_week by id rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.demand_weekly; out := out || e || ' reads demand_weekly rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    select count(*) into n from public.demand_weekly where week_start = ws; out := out || e || ' demand_weekly of the week rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    -- and not through the trail of the tables either
+    select count(*) into n from public.audit_log where table_name in ('plan_week', 'plan_week_class', 'demand_weekly', 'demand_class_weekly');
+    out := out || e || ' audit_log rows of the four tables=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  end loop;
+
+  -- every other role reads both as before; a signed-in user who is not an app user reads nothing (as before)
+  foreach e in array array['b6-lead','b6-ppic','b6-mgmt','b6-ops','b6-fin','b6-adm','b6-ia','b6-pur','b6-cost'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', e), true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.plan_week where week_start = ws; select count(*) into n2 from public.demand_weekly where week_start = ws;
+    select count(*) into n3 from public.audit_log where table_name in ('plan_week', 'plan_week_class', 'demand_weekly', 'demand_class_weekly');
+    out := out || e || ' plan_week=' || n || ' demand_weekly=' || n2 || ' audit rows=' || n3 || case when n = 1 and n2 = 1 and n3 >= 4 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '{"email":"b6-stranger@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  select count(*) into n from public.plan_week where week_start = ws; select count(*) into n2 from public.demand_weekly where week_start = ws;
+  out := out || 'not an app user: plan_week=' || n || ' demand_weekly=' || n2 || case when n = 0 and n2 = 0 then '' else '(!)' end || '; ';
+  execute 'reset role';
+
+  -- the view: Sales A (assignment RPA|Karkas) one row for the unit-keyed surplus with its answer; Sales B (RPA|Kepala|Fresh) one row
+  -- without an answer; the lead both; the stranger none; no plan detail in the columns
+  perform set_config('request.jwt.claims', '{"email":"b6-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    select count(*) as n, min(key) as k, max(plan_surplus_kg) as kg, max(response) as resp, max(plan_version) as v into r from public.surplus_for_sales_v52 where week_start = ws;
+    out := out || 'sales A surplus_for_sales_v52 rows=' || r.n || ' key=' || coalesce(r.k, 'null') || ' surplus=' || coalesce(r.kg::text, 'null') || ' answer=' || coalesce(r.resp, 'null') || ' version=' || coalesce(r.v::text, 'null')
+      || case when r.n = 1 and r.k = 'RPA|Karkas' and r.kg = 6332.00 and r.resp = 'absorb' and r.v = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales A view: ERROR(!) ' || sqlerrm || '; '; end;
+  -- a Sales answer still goes in: the foreign key to plan_week is checked as the owner, not as a user who cannot read the plan
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response, absorb_kg, price) values (pw, 'RPA|Karkas', 6332, 'partial', 3000, 28500); out := out || 'sales A answers the surplus of the assigned key: OK; ';
+  exception when others then out := out || 'sales A answers the surplus: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.surplus_response (plan_week_id, key, surplus_kg, response) values (pw, 'RPA|Kepala|Fresh', 55, 'absorb'); out := out || 'sales A answers an unassigned key: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales A answers an unassigned key: denied; ';
+            when others then out := out || 'sales A unassigned key: ERROR(!) ' || sqlerrm || '; '; end;
+  -- two answers of the key (the lead's and this one, stamped in one transaction: same responded_at): still one row of the view
+  begin
+    select count(*) as n, max(plan_surplus_kg) as kg into r from public.surplus_for_sales_v52 where week_start = ws and key = 'RPA|Karkas';
+    out := out || 'after two answers the key is still one row=' || r.n || ' surplus=' || coalesce(r.kg::text, 'null') || case when r.n = 1 and r.kg = 6332.00 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'two answers: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b6-sales2@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    select count(*) as n, min(key) as k, max(plan_surplus_kg) as kg, max(response) as resp into r from public.surplus_for_sales_v52 where week_start = ws;
+    out := out || 'sales B surplus_for_sales_v52 rows=' || r.n || ' key=' || coalesce(r.k, 'null') || ' surplus=' || coalesce(r.kg::text, 'null') || ' answer=' || coalesce(r.resp, 'null')
+      || case when r.n = 1 and r.k = 'RPA|Kepala|Fresh' and r.kg = 55.00 and r.resp is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales B view: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b6-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    select count(*) into n from public.surplus_for_sales_v52 where week_start = ws;
+    out := out || 'lead surplus_for_sales_v52 rows=' || n || case when n = 2 then '' else '(!)' end || ' (one per key: the unit and its answer are one row); ';
+  exception when others then out := out || 'lead view: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b6-stranger@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin select count(*) into n from public.surplus_for_sales_v52 where week_start = ws; out := out || 'not an app user: view rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'stranger view: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- Sales write nothing of the plan or the demand (as before) and the closed class tables stay closed
+  perform set_config('request.jwt.claims', '{"email":"b6-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_week(week_start, version, head_count) values ('2033-08-08', 1, 1); out := out || 'sales insert plan_week: ALLOWED(!); '; exception when others then out := out || 'sales insert plan_week: denied; '; end;
+  begin insert into public.demand_weekly(week_start, key) values ('2033-08-08', 'x'); out := out || 'sales insert demand_weekly: ALLOWED(!); '; exception when others then out := out || 'sales insert demand_weekly: denied; '; end;
+  begin update public.plan_week set head_count = 1 where id = pw; get diagnostics n = row_count; out := out || 'sales update plan_week rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sales update plan_week: denied; '; end;
+  -- a reason bound to a plan version is not Sales' to write: the policy refuses it (the trigger that checks the version runs as its owner,
+  -- so it does not answer with its own message to a user who cannot read the plan)
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values (ws, 'C58', 'alasan dari sales', pw); out := out || 'sales writes a bound reason: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales writes a bound reason: denied by the policy; ';
+            when others then out := out || 'sales writes a bound reason: ERROR(!) ' || sqlerrm || '; '; end;
+  select count(*) into n from public.plan_week_class; select count(*) into n2 from public.demand_class_weekly;
+  out := out || 'sales plan_week_class=' || n || ' demand_class_weekly=' || n2 || case when n = 0 and n2 = 0 then '' else '(!)' end || '; ';
+  -- observation, not a finding of this block: plan_day (the plan's days) is not part of Q-v5.2-15 and is still read by every app user
+  select count(*) into n from public.plan_day where plan_week_id = pw; select count(*) into n2 from public.audit_log where table_name = 'plan_day';
+  out := out || 'observation: sales plan_day rows=' || n || ' and its audit rows=' || n2 || ' (not closed here, b6.md Q-v5.2-72); ';
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- the write side stays as it was: ppic writes the plan, the demand mart has no client write, Finance still approves
+  perform set_config('request.jwt.claims', '{"email":"b6-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_week(week_start, version, head_count) values ('2033-08-15', 1, 10); out := out || 'ppic insert plan_week: OK; ';
+  exception when others then out := out || 'ppic insert plan_week: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.demand_weekly(week_start, key) values ('2033-08-15', 'x'); out := out || 'ppic insert demand_weekly: ALLOWED(!); '; exception when others then out := out || 'ppic insert demand_weekly: denied; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b6-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.plan_week set approved_by = 'b6-fin@x.test', approved_at = now() where id = pw; get diagnostics n = row_count; out := out || 'finance approves the plan rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance approves the plan: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- the policies and the view, as the catalog says
+  begin
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename in ('plan_week', 'demand_weekly') and policyname in ('plan_week_read', 'demand_weekly_read')
+       and cmd = 'SELECT' and permissive = 'PERMISSIVE' and qual like '%is_app_user%' and qual like '%has_role%' and qual like '%sales%' and qual like '%NOT%';
+    out := out || 'read policies of plan_week and demand_weekly without Sales=' || n || case when n = 2 then '' else '(!)' end || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_sales_redact' and permissive = 'RESTRICTIVE'
+       and qual like '%plan_week%' and qual like '%plan_week_class%' and qual like '%demand_weekly%' and qual like '%demand_class_weekly%' and qual like '%price_floor_rule%' and qual like '%allocation_run%' and qual like '%closing_adjustment%';
+    out := out || 'audit_log Sales redaction names the four tables and keeps the older list=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and policyname in ('plan_week_ins', 'plan_week_upd', 'plan_week_approve', 'demand_weekly_ins', 'demand_weekly_upd', 'demand_weekly_no_client_ins', 'demand_weekly_no_client_upd');
+    out := out || 'write policies kept=' || n || case when n = 7 then '' else '(!)' end || '; ';
+    select string_agg(column_name, ',' order by ordinal_position) into cols from information_schema.columns where table_schema = 'public' and table_name = 'surplus_for_sales_v52';
+    out := out || 'surplus_for_sales_v52 columns=' || coalesce(cols, 'null')
+      || case when cols = 'week_start,plan_version,plan_week_id,key,plan_surplus_kg,answered_surplus_kg,response,absorb_kg,price,responded_by,responded_at' then '' else '(!)' end || '; ';
+    out := out || 'anon: view=' || has_table_privilege('anon', 'public.surplus_for_sales_v52', 'select')::text || ' plan_week=' || has_table_privilege('anon', 'public.plan_week', 'select')::text || ' demand_weekly=' || has_table_privilege('anon', 'public.demand_weekly', 'select')::text
+      || case when has_table_privilege('anon', 'public.surplus_for_sales_v52', 'select') then '(!)' else '' end || ' (the two tables keep the platform default privilege and are closed by RLS: no policy names anon); ';
+    select p.prosecdef and exists (select 1 from unnest(p.proconfig) x where x = 'search_path=""') and not has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute')
+      into ok from pg_proc p where p.oid = 'public.tg_plan_check_reason_scope()'::regprocedure;
+    out := out || 'tg_plan_check_reason_scope is definer with a fixed search_path and not for clients=' || coalesce(ok::text, 'null') || case when ok then '' else '(!)' end || '; ';
+    select count(*) into n from pg_trigger where tgname = 'plan_check_reason_scope' and tgrelid = 'public.plan_check_reason'::regclass and tgfoid = 'public.tg_plan_check_reason_scope()'::regprocedure;
+    out := out || 'its trigger is still on plan_check_reason=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select reloptions::text like '%security_barrier=true%' into ok from pg_class where oid = 'public.surplus_for_sales_v52'::regclass;
+    out := out || 'view security_barrier=' || coalesce(ok::text, 'null') || case when ok then '' else '(!)' end || '; ';
+    out := out || 'version 5.2.5 registered=' || exists (select 1 from public.schema_registry where version = '5.2.5')::text || case when exists (select 1 from public.schema_registry where version = '5.2.5') then '' else '(!)' end
+      || ' schema_version()=' || coalesce(public.schema_version(), 'null') || case when string_to_array(public.schema_version(), '.')::int[] >= array[5,2,5] then '' else '(!)' end || '; ';
+  exception when others then out := out || 'catalog: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B6 Q-v5.2-15 (rolled back): %', out;
+end $$;
