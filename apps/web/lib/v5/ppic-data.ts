@@ -6,8 +6,8 @@ import "server-only";
  * (planCost mode rencana); C50, C51, C58. The demand builder writes demand_class_weekly; the PPIC page reads this.
  */
 import {
-  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, dailyClassPlan, forecastLinesByDate, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf,
-  tariffPerKgLb, toClassLB, weekClassPlan, weightedOpenKg,
+  D, addDays, batchBasisInputs, mondayOf, c50, c51, c58, classByProducts, classDetailOf, dailyClassPlan, forecastLinesByDate, needBasisOutputs, needByCutDate, netShareOf, planCost, registeredClasses, sizeKgOf,
+  splitClassPlan, tariffPerKgLb, toClassLB, weekClassPlan, weightedOpenKg,
   type ClassDemand, type ControlV3, type DailyClassRow, type Decimal, type PlanCostResult, type SizedLine, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -237,9 +237,16 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
   };
 }
 
-/** plan_week_class rows of a saved plan: kg LB and heads per class of the need (§4.3). */
-export function planWeekClassRows(planId: string, d: ClassDemand): Row[] {
-  return d.byClass.map((c) => ({ plan_week_id: planId, weight_class: c.weight_class, cut_pattern: "karkas", kg_lb: c.kg_lb.toFixed(2), heads: Number(c.heads.toFixed(0)) }));
+/**
+ * plan_week_class rows of a saved plan: kg LB and heads per class of the need (§4.3), and (B5, Q-v5.2-21) their `detail`: the
+ * split over the cut dates — `splitClassPlan` of the rows just built on the daily need of the same demand — as
+ * `[{ cut_date, heads, kg_lb }]`, so "Salin ke batch rencana" makes the batches the plan was saved with. A class with no daily
+ * need to place it on gets `detail: null` (the copy then holds it as unplaced, as before).
+ */
+export function planWeekClassRows(planId: string, d: ClassDemand, daily: DailyClassRow[]): Row[] {
+  const rows = d.byClass.map((c) => ({ plan_week_id: planId, weight_class: c.weight_class, cut_pattern: "karkas", kg_lb: c.kg_lb.toFixed(2), heads: Number(c.heads.toFixed(0)) }));
+  const { cuts } = splitClassPlan({ saved: rows.map((r) => ({ weight_class: r.weight_class, kg_lb: r.kg_lb, heads: r.heads })), profile: needByCutDate(daily) });
+  return rows.map((r) => { const detail = classDetailOf(cuts, r.weight_class); return { ...r, detail: detail.length ? detail : null }; });
 }
 
 export type { Decimal };
