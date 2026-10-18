@@ -7,6 +7,7 @@ import { ControlsV3Table } from "@/components/v3/ControlsV3Table";
 import { moduleEnabled, requireModulePage } from "@/lib/modules";
 import { CostingV5 } from "@/components/v5/CostingV5";
 import { loadV5BatchCosts, sinceOf, v5CostingControls } from "@/lib/v5/costing";
+import { idleSkipped, idleSkippedNote } from "@/lib/v5/costing-pl";
 import { must } from "@/lib/loader";
 import { supabaseServer } from "@/lib/supabase";
 import { groupsOfWeek, loadCostingWeek, unpricedLines, weekCostingControls } from "@/lib/v3/costing";
@@ -53,6 +54,9 @@ export default async function CostingPage({ params }: PageProps) {
   });
   const ownLb = modes[1].lb;
   const idle = d.rates.map((r) => ({ r, ...idleCapacity({ rate_per_kg_lb: r.rate_per_kg_lb, basis_kg: r.basis_kg }, ownLb) }));
+  // Q-v5.2-36: a tariff period that holds a batch without kg LB has no idle capacity (an unknown day is not a day of 0 kg): say so
+  const skipped = await idleSkipped(sb, ctx.week.week_start, ctx.week.week_end);
+  const skippedOf = (r: { period_start: string; period_end: string }) => skipped.find((x) => x.period_start === r.period_start && x.period_end === r.period_end);
   return (
     <WeekShell ctx={ctx} active={`/w/${week}/costing`}>
       <h1>Costing — biaya per batch, per SKU dan per grup</h1>
@@ -64,7 +68,12 @@ export default async function CostingPage({ params }: PageProps) {
           <div className="kpi" key={x.m}><div className="l">{x.m === "maklon" ? "Maklon" : "RPA sendiri"}: {x.n} batch</div><div className="v">{x.kg.isZero() ? "—" : <><N v={x.cost.div(x.kg)} /> Rp/kg</>}</div>
             <div className="l">{x.kg.isZero() ? "" : <><N v={x.kg} /> kg hasil · <N v={x.lb.isZero() ? null : x.cost.div(x.lb)} /> Rp/kg LB</>}</div></div>
         ))}
-        {idle.map((x) => <div className="kpi" key={x.r.id}><div className="l">Kapasitas idle {tgl(x.r.period_start)}–{tgl(x.r.period_end)}</div><div className="v"><N v={x.idleCost} /></div><div className="l"><N v={x.idleKg} /> kg LB di bawah basis (biaya periode)</div></div>)}
+        {idle.map((x) => {
+          const sk = skippedOf(x.r);
+          return sk
+            ? <div className="kpi" key={x.r.id} data-idle-skipped=""><div className="l">Kapasitas idle {tgl(x.r.period_start)}–{tgl(x.r.period_end)}</div><div className="v">belum dihitung</div><div className="l">{idleSkippedNote(sk)}</div></div>
+            : <div className="kpi" key={x.r.id}><div className="l">Kapasitas idle {tgl(x.r.period_start)}–{tgl(x.r.period_end)}</div><div className="v"><N v={x.idleCost} /></div><div className="l"><N v={x.idleKg} /> kg LB di bawah basis (biaya periode)</div></div>;
+        })}
       </div>
       <Card title="Per batch">
         <table className="t compact">

@@ -5,7 +5,7 @@ import "server-only";
  * the loop status (§3.2) and the source labels of the main numbers (K36). The simulation itself is @kgr/engine.
  */
 import {
-  D, addDays, commitmentDeadline, effectiveStatus, simulateLivebird, stockSellRows, stockSummary,
+  D, addDays, commitmentDeadline, effectiveStatus, firstOfMonth, mondayOf, monthEnd, simulateLivebird, stockSellRows, stockSummary,
   type Decimal, type TaskStatus, type WeekResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -21,6 +21,8 @@ import { commercialMart } from "../v3/commercial";
 import { loadPlanning } from "../v3/planning";
 import { stockMartControl } from "../v3/stale";
 import { loadPpicV5 } from "./ppic-data";
+import { loadCommitmentCover } from "./free-stock-data";
+import { netFreeKg, reserveForCommitments } from "./free-stock";
 import { LOOP_MODULE, decisionLines, loopLines, simPrices, sourceLabel, type LoopRow, type ManagementV5Input, type SimBasis, type SourceLabel } from "./management";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -104,11 +106,17 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     // K53: the v5 cost of the stock only where v5_costing is on for this role (else the MA cost, as v4)
     const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
+    // PRD v5.2 O16: the same free stock as the Commercial screen — less the locked commitments of the week after the data date's week
+    // that no PO line covers yet (one number on both screens)
+    const freeKgOf = (m: Row) => D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))); // commercial_daily.free_*_kg NOT NULL
+    const coverWeek = addDays(mondayOf(today), 7);
+    const cover = await loadCommitmentCover(sb, coverWeek);
+    const reservation = reserveForCommitments({ free: mart.rows.map((m) => ({ key: String(m.key), kg: freeKgOf(m) })), commitments: cover.commitments, orders: cover.orders, weekStart: coverWeek });
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-      key: String(m.key), form: s(m.form), free_kg: D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
+      key: String(m.key), form: s(m.form), free_kg: netFreeKg(reservation, String(m.key), freeKgOf(m)).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
       over_age_kg: null, urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
     })), null));
-    return { kg: sum.kg, value: sum.value };
+    return { kg: sum.kg, value: sum.value, reservedKg: reservation.deductedKg };
   });
   // R28: a row whose module is not enabled says so instead of "late" (the flags, not the viewer's role: the process runs or not)
   const flagsT = await tileData("manajemen: flag modul", async () =>
@@ -126,7 +134,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     freeStock: "error" in free ? { error: free.error } : free.ok,
   });
 
-  const src = await tileData("manajemen: label sumber", () => loadSources(sb, c, ts));
+  // R76: the labels are those of the week opened (not the latest upload of any period)
+  const src = await tileData("manajemen: label sumber", () => loadSources(sb, c, periodOf(w.week_start, w.week_end, w.update_date)));
   const sources = "ok" in src ? sourcesFor("manajemen", src.ok) : sourcesFailed("manajemen", src.error);
 
   return {
@@ -145,22 +154,37 @@ export function managementFailed(message: string): ManagementV5Input {
 
 // ------------------------------------------------------------------------------------------------ K36 source labels
 
-export type SourceKey = "jurnal" | "stok" | "kas" | "beban_tetap" | "wp" | "po" | "lb" | "supply";
-type TaskRef = { kind: string; ref: string; st: TaskStatus };
+export type SourceKey = "jurnal" | "stok" | "kas" | "beban_tetap" | "wp" | "po" | "lb" | "supply" | "yield" | "simulasi" | "rencana";
 
-/** K36 per main screen: which tile carries which source. */
+/**
+ * PRD v5.2 R76: the period of the numbers on the screen — the week opened and the month of its update date. A label reads
+ * the inputs of that period only (an October upload never labels an August week), per source actually behind the number.
+ */
+export interface SourcePeriod { week: { from: string; to: string }; month: { from: string; to: string } }
+
+/** The period of a week row (Minggu ini, Rencana, Komersial): its days, and the month its update date falls in. */
+export function periodOf(weekStart: string, weekEnd: string, updateDate: string): SourcePeriod {
+  const first = firstOfMonth(updateDate);
+  return { week: { from: weekStart, to: weekEnd }, month: { from: first, to: monthEnd(first) } };
+}
+
+/** K36 per main screen: which tile carries which source. Simulation = PO + yield + harga LB; cost = WP / faktur (R76). */
 const SCREEN_SOURCES: Record<"manajemen" | "commercial" | "ppic", Record<string, SourceKey>> = {
-  manajemen: { "c-outlook": "jurnal", "c-stok": "stok", "c-kas": "kas", "c-bulan": "beban_tetap", "sim-lb": "wp" },
+  manajemen: { "c-outlook": "jurnal", "c-stok": "stok", "c-kas": "kas", "c-bulan": "beban_tetap", "sim-lb": "simulasi" },
   commercial: { "c-stok": "wp", "t-komitmen": "po" },
-  ppic: { "c-po": "po", "c-biaya": "lb", "c-batch": "supply" },
+  ppic: { "c-po": "po", "c-biaya": "rencana", "c-batch": "supply" },
 };
 export function sourcesFor(screen: keyof typeof SCREEN_SOURCES, src: Record<SourceKey, SourceLabel>): Record<string, SourceLabel> {
   return Object.fromEntries(Object.entries(SCREEN_SOURCES[screen]).map(([tile, key]) => [tile, src[key]]));
 }
 
-/** K36 labels of one screen on the wall clock, or the failure on each label (K41). */
-export async function sourcesOf(screen: keyof typeof SCREEN_SOURCES, sb: Supa): Promise<Record<string, SourceLabel>> {
-  const src = await tileData(`${screen}: label sumber`, async () => loadSources(sb, await clock(sb)));
+/** K36 labels of one screen for the period given (default: the week of the data date), or the failure on each label (K41). */
+export async function sourcesOf(screen: keyof typeof SCREEN_SOURCES, sb: Supa, period?: SourcePeriod): Promise<Record<string, SourceLabel>> {
+  const src = await tileData(`${screen}: label sumber`, async () => {
+    const c = await clock(sb);
+    const mon = mondayOf(c.data);
+    return loadSources(sb, c, period ?? periodOf(mon, addDays(mon, 6), c.data));
+  });
   return "ok" in src ? sourcesFor(screen, src.ok) : sourcesFailed(screen, src.error);
 }
 
@@ -169,37 +193,61 @@ export function sourcesFailed(screen: keyof typeof SCREEN_SOURCES, message: stri
   return Object.fromEntries(Object.keys(SCREEN_SOURCES[screen]).map((tile) => [tile, { text: `gagal dimuat (${message})`, late: true }]));
 }
 
-/** "WP sementara · Cost Accounting · 26 Agu 09.12" for each input behind a main number; late from input_task (§4.9). */
-export async function loadSources(sb: Supa, c: Clock, tasks?: TaskRef[]): Promise<Record<SourceKey, SourceLabel>> {
-  // K38: the task window and "late" of Input (wall − 13 … wall + 7, against now)
-  const win = taskWindow(c);
-  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)))
-    .map((t: Row) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, c.now) }));
-  const late = (k: string) => ts.some((t) => t.kind === k && t.st === "late");
+/** The input_task kinds behind each source: "late" is judged from these tasks and no others (R76). */
+export const SOURCE_TASKS: Record<SourceKey, string[]> = {
+  jurnal: ["gl_daily", "po_lines"], stok: ["stock_daily"], kas: [], beban_tetap: ["fixed_cost"], wp: ["costing_wp", "supplier_invoice"], po: ["po_lines"],
+  lb: ["lb_price_decision"], supply: ["lb_supply"], yield: [], simulasi: ["po_lines", "lb_price_decision"], rencana: ["lb_price_decision"],
+};
+
+/**
+ * "WP sementara · Cost Accounting · 26 Agu 09.12" for each input behind a main number (K36), read for the period of the
+ * screen (R76): flows by their own date inside the week (PO ship date, LB decision date, supply date, batch date), what
+ * stands "as of" (journal, stock card, cash balance) up to the week's last day, the fixed-cost schedule of the month.
+ * "Late" comes from the input_task rows of that source whose due date lies in the period, against now (K38).
+ */
+export async function loadSources(sb: Supa, c: Clock, period: SourcePeriod): Promise<Record<SourceKey, SourceLabel>> {
+  const { week: wk, month: mo } = period;
+  const winFrom = [addDays(wk.from, -1), mo.from].sort()[0], winTo = [addDays(wk.to, 1), mo.to].sort().reverse()[0];
+  const tasks = (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, due_date").gte("due_date", winFrom).lte("due_date", winTo).order("due_date").order("ref").order("rule_kind").range(a, b)))
+    .map((t: Row) => ({ kind: String(t.rule_kind), due: String(t.due_date), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, c.now) }));
+  // a week task falls due the day before (cut date − 1) to the day after (WP, H+1) its days; the month task on the 1st
+  const late = (key: SourceKey) => tasks.some((t) => SOURCE_TASKS[key].includes(t.kind) && t.st === "late"
+    && (t.kind === "fixed_cost" ? t.due >= mo.from && t.due <= mo.to : t.due >= addDays(wk.from, -1) && t.due <= addDays(wk.to, 1)));
   const first = async (q: PromiseLike<{ data: unknown; error: { message: string } | null }>, where: string) => must(await q, `label sumber ${where}`) as Row | null;
-  const [gl, st, ca, fx, wp, po, lb, sup, tied] = await Promise.all([
-    first(sb.from("gl_line").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(), "jurnal"),
-    first(sb.from("stock_card_snapshot").select("date, created_at").is("deleted_at", null).order("date", { ascending: false }).limit(1).maybeSingle(), "kartu stok"),
-    first(sb.from("cash_daily").select("date, updated_at").order("updated_at", { ascending: false }).limit(1).maybeSingle(), "kas"),
-    first(sb.from("fixed_cost_schedule").select("updated_at").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "beban tetap"),
-    first(sb.from("batch_output_sku").select("created_at").is("deleted_at", null).eq("source", "WP").order("created_at", { ascending: false }).limit(1).maybeSingle(), "WP"),
-    first(sb.from("sales_line").select("created_at").eq("status", "Order").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(), "PO"),
-    first(sb.from("lb_price_decision").select("date, decided_at").order("decided_at", { ascending: false }).limit(1).maybeSingle(), "harga LB"),
-    first(sb.from("lb_supply").select("date, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(), "supply LB"),
-    first(sb.from("batch").select("updated_at").eq("invoice_status", "tied").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "faktur"),
+  const [gl, st, ca, fx, wp, tied, po, lb, yl, sup] = await Promise.all([
+    first(sb.from("gl_line").select("date, created_at").is("deleted_at", null).lte("date", wk.to).order("date", { ascending: false }).limit(1).maybeSingle(), "jurnal"),
+    first(sb.from("stock_card_snapshot").select("date, created_at").is("deleted_at", null).lte("date", wk.to).order("date", { ascending: false }).limit(1).maybeSingle(), "kartu stok"),
+    first(sb.from("cash_daily").select("date, updated_at").lte("date", wk.to).order("date", { ascending: false }).limit(1).maybeSingle(), "kas"),
+    first(sb.from("fixed_cost_schedule").select("updated_at").is("deleted_at", null).lte("start_date", mo.to).or(`end_date.is.null,end_date.gte.${mo.from}`).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "beban tetap"),
+    // cost: the WP of the batches of the week and the invoices tied to them
+    first(sb.from("batch").select("wp_received_at").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", wk.from).lte("date", wk.to).not("wp_received_at", "is", null).order("wp_received_at", { ascending: false }).limit(1).maybeSingle(), "WP"),
+    first(sb.from("batch").select("updated_at").eq("status", "Aktual").eq("invoice_status", "tied").is("deleted_at", null).is("superseded_at", null).gte("date", wk.from).lte("date", wk.to).order("updated_at", { ascending: false }).limit(1).maybeSingle(), "faktur"),
+    first(sb.from("sales_line").select("created_at").eq("status", "Order").is("deleted_at", null).gte("date", wk.from).lte("date", wk.to).order("created_at", { ascending: false }).limit(1).maybeSingle(), "PO"),
+    first(sb.from("lb_price_decision").select("date, decided_at").gte("date", wk.from).lte("date", wk.to).order("decided_at", { ascending: false }).limit(1).maybeSingle(), "harga LB"),
+    first(sb.from("yield_matrix").select("created_at").is("deleted_at", null).lte("effective_from", wk.to).or(`effective_to.is.null,effective_to.gte.${wk.from}`).order("created_at", { ascending: false }).limit(1).maybeSingle(), "yield"),
+    first(sb.from("lb_supply").select("date, created_at").is("deleted_at", null).gte("date", wk.from).lte("date", wk.to).order("created_at", { ascending: false }).limit(1).maybeSingle(), "supply LB"),
   ]);
   const wib = (iso: string | null) => (iso ? new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 16).replace("T", " ") : null);
   const dmOf = (d: string | null) => (d ? `${Number(d.slice(8, 10))}/${d.slice(5, 7)}` : "—");
-  const lab = (what: string, role: Role, at: string | null, isLate: boolean): SourceLabel => sourceLabel({ what, role, at, late: isLate });
-  const at = (r: Row | null, c: string) => wib(s(r?.[c]));
+  const lab = (key: SourceKey, what: string, role: Role | null, at: string | null): SourceLabel => sourceLabel({ what, role, at, late: late(key) });
+  const at = (r: Row | null, col: string) => wib(s(r?.[col]));
+  const newest = (...xs: (string | null)[]) => xs.filter((x): x is string => !!x).sort().reverse()[0] ?? null;
+  // composite labels: every input behind the number is named; one that has nothing in the period says so; the time is the newest of them
+  const parts = (key: SourceKey, ps: { name: string; at: string | null }[]): SourceLabel =>
+    lab(key, ps.map((p) => (p.at ? p.name : `${p.name} belum ada`)).join(" + "), null, newest(...ps.map((p) => p.at)));
+  const poP = { name: "PO", at: at(po, "created_at") }, ylP = { name: "yield", at: at(yl, "created_at") };
+  const lbP = { name: `harga LB${lb ? ` ${dmOf(s(lb.date))}` : ""}`, at: at(lb, "decided_at") };
   return {
-    jurnal: lab(gl ? `jurnal s.d. ${dmOf(s(gl.date))} + PO` : "jurnal + PO", "inventory_accounting", at(gl, "created_at"), late("gl_daily")),
-    stok: lab(st ? `kartu stok ${dmOf(s(st.date))}` : "kartu stok", "inventory_accounting", at(st, "created_at"), late("stock_daily")),
-    kas: lab("saldo dan rencana kas", "finance", at(ca, "updated_at"), false),
-    beban_tetap: lab("jadwal beban tetap", "finance", at(fx, "updated_at"), late("fixed_cost")),
-    wp: lab(`WP ${tied ? "sementara/final" : "sementara"}`, "cost_accounting", at(wp, "created_at"), late("costing_wp")),
-    po: lab("PO", "sales", at(po, "created_at"), late("po_lines")),
-    lb: lab(`harga LB ${lb ? dmOf(s(lb.date)) : "belum diputuskan"}`, "operations_director", at(lb, "decided_at"), late("lb_price_decision")),
-    supply: lab("supply LB per kelas", "purchasing", at(sup, "created_at"), late("lb_supply")),
+    jurnal: lab("jurnal", gl ? `jurnal s.d. ${dmOf(s(gl.date))} + PO` : "jurnal + PO", "inventory_accounting", at(gl, "created_at")),
+    stok: lab("stok", st ? `kartu stok ${dmOf(s(st.date))}` : "kartu stok", "inventory_accounting", at(st, "created_at")),
+    kas: lab("kas", ca ? `saldo dan rencana kas ${dmOf(s(ca.date))}` : "saldo dan rencana kas", "finance", at(ca, "updated_at")),
+    beban_tetap: lab("beban_tetap", "jadwal beban tetap", "finance", at(fx, "updated_at")),
+    wp: lab("wp", tied ? "WP + faktur" : "WP sementara", "cost_accounting", newest(at(wp, "wp_received_at"), at(tied, "updated_at"))),
+    po: lab("po", "PO", "sales", poP.at),
+    lb: lab("lb", lbP.name, "operations_director", lbP.at),
+    supply: lab("supply", "supply LB per kelas", "purchasing", at(sup, "created_at")),
+    yield: lab("yield", "yield per kelas", "ppic", ylP.at),
+    simulasi: parts("simulasi", [poP, ylP, lbP]),
+    rencana: parts("rencana", [ylP, lbP]),
   };
 }

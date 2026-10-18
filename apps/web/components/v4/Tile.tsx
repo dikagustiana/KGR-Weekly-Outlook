@@ -11,7 +11,7 @@ export function TileGrid({ children, label }: { children: ReactNode; label?: str
 export interface TilePos { x: number; y: number; w: number; h: number }
 
 export function Tile({
-  id, pos, title, children, extra, note, source, kind, titleLevel = 2,
+  id, pos, title, children, extra, note, source, kind, titleLevel = 2, collapse,
 }: {
   id: string;
   pos: TilePos;
@@ -25,11 +25,13 @@ export function Tile({
   source?: { text: string; late: boolean };
   kind?: "card" | "tall" | "bare";
   titleLevel?: 2 | 3;
+  /** PRD v5.2 O17: collapsed by default at <= 768 px, opened by a button (what it opens, e.g. "tabel laba rugi"). */
+  collapse?: string;
 }) {
   const H = titleLevel === 2 ? "h2" : "h3";
   return (
     <section
-      className={`tile${kind ? ` ${kind}` : ""}`}
+      className={`tile${kind ? ` ${kind}` : ""}${collapse ? " has-collapse" : ""}`}
       data-tile={id} data-x={pos.x} data-y={pos.y} data-w={pos.w} data-h={pos.h}
       style={{ gridColumn: `${pos.x + 1} / span ${pos.w}`, gridRow: `${pos.y + 1} / span ${pos.h}` }}
       aria-label={typeof title === "string" ? title : undefined}
@@ -39,6 +41,13 @@ export function Tile({
           {title ? <H className="tile-t" data-tile-title="">{title}</H> : <span />}
           {extra}
         </div>
+      ) : null}
+      {collapse ? (
+        <>
+          {/* O17: a checkbox before the body; CSS shows the button and hides the body only at <= 768 px while it is unchecked */}
+          <input type="checkbox" id={`${id}-buka`} className="tile-collapse-toggle" data-tile-collapse="" aria-label={`Tampilkan ${collapse}`} />
+          <label htmlFor={`${id}-buka`} className="v4b tile-collapse-btn"><span className="when-closed">Tampilkan {collapse}</span><span className="when-open">Sembunyikan {collapse}</span></label>
+        </>
       ) : null}
       <div className="tile-b">{children}</div>
       {note || source ? (

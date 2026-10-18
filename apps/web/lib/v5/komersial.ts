@@ -10,6 +10,7 @@ import type { TilePos } from "@/components/v4/Tile";
 import { withFailures, type Failed } from "../v4/tile-errors";
 import type { TileModel } from "../v4/minggu-ini";
 import type { SalesSurplus, SalesSurplusRow } from "./surplus-view";
+import { freeStockNote, type Reservation } from "./free-stock";
 
 export interface CommitmentRow {
   /** Base key (RPA|Karkas). */
@@ -60,6 +61,11 @@ export interface KomersialV5Input {
   surplusForSales?: SalesSurplus | null;
   spot: SpotRow[];
   controls: ControlV3[];
+  /**
+   * PRD v5.2 O16: the free stock above is already less the locked commitments of next week that no PO line covers; this is the
+   * subtraction (both numbers go in the tile note). Undefined = not applicable; null = the commitments could not be read ("belum ada").
+   */
+  freeStock?: Reservation | null;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
@@ -85,7 +91,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   });
 
   // ---------------------------------------------------------------- rows 2–3: cards
-  tiles.push({ id: "c-stok", pos: P(0, 2, 3, 2), kind: "card", title: "Stok bebas belum ke PO", content: { type: "card", value: jtV4(s.value), unit: "Rp jt", compare: [{ label: "kg", value: kg(s.kg) }, { label: "SKU", value: String(s.skus) }, ...(s.missingCost ? [{ label: "tanpa biaya", value: `${s.missingCost} SKU` }] : [])] } });
+  tiles.push({ id: "c-stok", pos: P(0, 2, 3, 2), kind: "card", title: "Stok bebas belum ke PO", ...(x.freeStock === undefined ? {} : { note: freeStockNote(x.freeStock) }), content: { type: "card", value: jtV4(s.value), unit: "Rp jt", compare: [{ label: "kg", value: kg(s.kg) }, { label: "SKU", value: String(s.skus) }, ...(s.missingCost ? [{ label: "tanpa biaya", value: `${s.missingCost} SKU` }] : [])] } });
   tiles.push({ id: "c-hari", pos: P(3, 2, 2, 2), kind: "card", title: "Jual hari ini (fresh)", content: { type: "card", value: kg(s.fresh.kg), unit: "kg", compare: [{ label: "Rp jt", value: jtV4(s.fresh.value) }, { label: "SKU", value: String(s.fresh.skus) }] } });
   tiles.push({ id: "c-bawah", pos: P(5, 2, 3, 2), kind: "card", title: "Di bawah biaya pada harga acuan", content: { type: "card", value: String(s.below.skus), unit: "SKU", compare: [{ label: "bila dijual di acuan", value: `${jtV4(s.below.loss.neg())} jt`, tone: s.below.loss.gt(0) ? "neg" : undefined }] } });
   tiles.push({ id: "c-simpan", pos: P(8, 2, 2, 2), kind: "card", title: "Rugi simpan per hari", content: s.holdingPerDay ? { type: "card", value: jtV4(s.holdingPerDay), unit: "Rp jt", compare: [{ label: "tarif", value: x.holdingRate ? `${pctV4(x.holdingRate, 3)} per hari` : "" }] } : { type: "card", value: null, missing: "tarif simpan belum ada", compare: [] } });
@@ -114,6 +120,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
       checked.length ? `${checked.map((r) => skuLabel(r.key)).join(", ")}: biaya per kg di atas batas kali harga acuan (C54, periksa biaya).` : null,
       // R64: Sales cannot read the age of the stock; the column says so instead of 0
       x.rows.some((r) => r.over_age_kg === null) ? `Kolom "> batas" (kg di atas batas umur) tidak ditampilkan untuk ${x.sales ? "Sales" : "peran ini"}.` : null,
+      x.freeStock && x.freeStock.deductedKg.gt(0) ? `Kolom "Bebas kg" sudah dikurangi komitmen terkunci minggu depan yang belum tertutup PO (${kg(x.freeStock.deductedKg)} kg).` : null,
       x.stockDate ? `Stok per ${tglShort(x.stockDate)}.` : null].filter(Boolean).join(" ") || undefined,
     cara: {
       title: "Ranking stok", fn: "stockSellRows + filterRows", rule: "Urgensi: fresh = jual hari ini; frozen di atas batas umur; mendekati batas = jual minggu ini. Harga lantai = biaya per kg (markup default 0). Rugi simpan per hari = nilai stok × beban storage bulan lalu ÷ persediaan akhir bulan lalu ÷ hari. Rugi di acuan = (biaya − acuan) × kg bila acuan di bawah biaya.",

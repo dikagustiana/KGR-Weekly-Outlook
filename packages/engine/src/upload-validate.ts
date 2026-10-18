@@ -176,13 +176,33 @@ export function parseCsv(text: string): Grid {
   return parseDelimited(text, (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ";" : ",");
 }
 
-/** 1.234,5 · 36.705 · Rp 43.086 · 71,5% · 811.3 · 0.715 · Excel numbers; null when empty or not a number. */
+/** The cell as upNum reads it: no spaces, "Rp" or "%", a typographic minus made ASCII. */
+const numText = (v: string) => v.trim().replace(/\s|rp|%/gi, "").replace(/^−/, "-");
+
+/**
+ * PRD v5.2 R79: a comma followed by exactly three digits ("1,234", "12,345,678") reads as English thousands in an export of
+ * an English-locale Excel and as a decimal comma here: the two cannot be told apart, so the number is refused, never guessed.
+ * A leading 0 ("0,715") cannot be a thousands group: it stays a decimal (R32).
+ */
+export function upNumAmbiguous(v: Cell | undefined): boolean {
+  if (typeof v !== "string") return false;
+  const s = numText(v);
+  return !s.includes(".") && /^-?[1-9]\d{0,2}(,\d{3})+$/.test(s);
+}
+/** The row action of a number that is refused as ambiguous (R79). */
+export const AMBIGUOUS_THOUSANDS = "format ribuan ambigu: tulis 1234 atau 1.234, tanpa koma ribuan";
+/** `fallback` ("kg kosong"), or the ambiguity message when the cell holds an English-style thousands number. */
+const numFail = (v: Cell | undefined, label: string, fallback: string) => (upNumAmbiguous(v) ? `${label} "${String(v).trim()}": ${AMBIGUOUS_THOUSANDS}` : fallback);
+
+/** 1.234,5 · 36.705 · Rp 43.086 · 71,5% · 811.3 · 0.715 · Excel numbers; null when empty, not a number, or ambiguous (R79). */
 export function upNum(v: Cell | undefined): Decimal | null {
   if (typeof v === "number") return Number.isFinite(v) ? D(String(v)) : null;
   if (typeof v === "boolean" || v === null || v === undefined) return null;
-  let s = String(v).trim().replace(/\s|rp|%/gi, "").replace(/^−/, "-");
+  let s = numText(String(v));
   if (!s) return null;
-  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g, "").replace(",", ".");
+  if (upNumAmbiguous(s)) return null;
+  // both separators: the last one is the decimal point — "1.234,5" (id-ID) and "1,234.5" (en-US, unambiguous: commas before a dot)
+  if (s.includes(",") && s.includes(".")) s = s.lastIndexOf(",") > s.lastIndexOf(".") ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, "");
   else if (s.includes(",")) s = s.replace(",", ".");
   // PRD v5.1 R32: 0.715 is a decimal (a share, a yield), never 715; 1.234 stays a thousands group
   else if (/^-?0\.\d+$/.test(s)) { /* decimal as written */ }
@@ -355,7 +375,7 @@ function poLines(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult
       else { issues.push("ukuran karkas kosong: isi kolom ukuran atau biarkan STD"); if (level === "ok") level = "warn"; }
     }
     if (date && date >= ctx.today) dateOk++; else fail(date ? `tanggal kirim ${dm(date)} sudah lewat` : "tanggal kirim tidak terbaca");
-    if (kg?.gt(0) && price?.gt(0)) numOk++; else fail(!kg?.gt(0) ? "kg kosong" : "harga kosong");
+    if (kg?.gt(0) && price?.gt(0)) numOk++; else fail(!kg?.gt(0) ? numFail(g(r, "kg"), "kg", "kg kosong") : numFail(g(r, "harga"), "harga", "harga kosong"));
     const fl = it && ctx.floors && ctx.floors[it.key] !== undefined && ctx.floors[it.key] !== null ? D(ctx.floors[it.key]) : null;
     if (fl && price?.gt(0) && price.lt(fl)) { issues.push(`harga ${f0(price)} < lantai ${f0(fl)}: approval Kepala Sales`); if (level === "ok") level = "warn"; }
     else floorOk++;
@@ -414,7 +434,10 @@ function costingWp(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
     let level = "ok" as RowLevel;
     const fail = (m: string) => { issues.push(m); level = "fail"; };
     if (it) mapped++; else fail("kode tidak dikenal: petakan di master item");
-    if (!kg?.gt(0)) fail("kg kosong");
+    if (!kg?.gt(0)) fail(numFail(g(r, "kg"), "kg", "kg kosong"));
+    // R79: an ambiguous kg_lb or ekor holds the row with the reason (the batch check below then says it is empty)
+    if (lb === null && upNumAmbiguous(g(r, "kg_lb"))) fail(numFail(g(r, "kg_lb"), "kg_lb", ""));
+    if (hd === null && upNumAmbiguous(g(r, "ekor"))) fail(numFail(g(r, "ekor"), "ekor", ""));
     if (b.found === null) fail(`batch ${ref} tidak ada di data batch`);
     // R58: C22 is judged on the output that will be saved — the rows that pass (and the old output a held line keeps),
     // not the rejected ones
@@ -475,17 +498,18 @@ const YIELD_KEYS: Record<string, string> = {
 function yieldMatrix(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResult {
   const reg = new Set(registeredClasses(ctx.classes));
   const ymin = D(ctx.yieldKarkas?.min ?? "0.68"), ymax = D(ctx.yieldKarkas?.max ?? "0.76");
-  interface P { lines: number[]; sum: Decimal; karkas: Decimal | null; bad: number; badKeys: string[] }
+  interface P { lines: number[]; sum: Decimal; karkas: Decimal | null; bad: number; badKeys: string[]; ambiguous: string[] }
   const per = new Map<string, P>();
   const parsed = t.body.map((r) => {
     const k = txt(g(r, "kelas")).toUpperCase();
     let y = upNum(g(r, "yield_pct"));
     if (y && y.gt(1)) y = y.div(100);
     const raw = txt(g(r, "kunci")), key = YIELD_KEYS[raw.toLowerCase()] ?? null;
-    const p = per.get(k) ?? { lines: [], sum: ZERO, karkas: null, bad: 0, badKeys: [] };
+    const p = per.get(k) ?? { lines: [], sum: ZERO, karkas: null, bad: 0, badKeys: [], ambiguous: [] };
     per.set(k, p);
     p.lines.push(r.line);
     if (y && y.gte(0)) p.sum = p.sum.plus(y); else p.bad++;
+    if (y === null && upNumAmbiguous(g(r, "yield_pct"))) p.ambiguous.push(String(g(r, "yield_pct")).trim());
     if (!key) p.badKeys.push(raw || "—");
     if (key === "Karkas") p.karkas = y;
     return { r, k, y, key };
@@ -500,6 +524,7 @@ function yieldMatrix(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadRe
     const acts: string[] = [];
     if (!isReg) acts.push(`daftarkan kelas ${k || "—"}`);
     if (p.badKeys.length) acts.push(`kunci tidak dikenal: ${p.badKeys.join(", ")}`);
+    if (p.ambiguous.length) acts.push(`yield "${p.ambiguous.join('", "')}": ${AMBIGUOUS_THOUSANDS}`);
     if (!p.sum.lte("1.0001") || p.bad) acts.push("Σ yield > 100% atau ada angka kosong");
     if (!kOk) acts.push(`yield karkas di luar ${range(ymin, ymax)}`);
     rows.push({ ref: k || "—", name: `${p.lines.length} kunci`, kg: p.karkas === null ? "—" : pc1(p.karkas), level: lv, action: acts.join("; ") || `Σ ${pc1(p.sum)}` });
@@ -536,7 +561,7 @@ function lbSupply(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResul
     const fail = (m: string) => { issues.push(m); level = "fail"; };
     if (date) dateOk++; else fail("tanggal tidak terbaca");
     if (reg.has(cls)) regOk++; else fail(`kelas ${cls || "—"} belum terdaftar (C51)`);
-    if (kg?.gt(0)) kgOk++; else fail("kg LB kosong");
+    if (kg?.gt(0)) kgOk++; else fail(numFail(g(r, "kg_lb"), "kg_lb", "kg LB kosong"));
     if (!sup) fail("pemasok kosong");
     if (price && price.lt(0)) fail("harga negatif");
     if (level !== "fail" && date) got.set(`${date}|${cls}`, (got.get(`${date}|${cls}`) ?? ZERO).plus(kg!));
@@ -572,7 +597,7 @@ function fixedCost(grid: Grid, t: Table, g: Get, ctx: UploadContext): UploadResu
     const fail = (m: string) => { issues.push(m); level = "fail"; };
     if (fixedAcc.has(acc)) accOk++; else fail(`COA ${acc || "—"} bukan beban berdriver tetap`);
     if (month) monOk++; else fail("bulan tidak terbaca");
-    if (amt && amt.gte(0)) amtOk++; else fail("nominal kosong atau negatif");
+    if (amt && amt.gte(0)) amtOk++; else fail(numFail(g(r, "nominal"), "nominal", "nominal kosong atau negatif"));
     const code = month ? `v5:${acc}:${month.slice(0, 7)}` : null;
     let clash: string | null = null;
     if (month) {
@@ -607,7 +632,7 @@ function supplierInvoice(grid: Grid, t: Table, g: Get, ctx: UploadContext): Uplo
     if (!doc) fail("no faktur kosong");
     if (!date) fail("tanggal tidak terbaca");
     if (b) batchOk++; else fail(`batch ${ref || "—"} tidak ada`);
-    if (amt?.gt(0)) valOk++; else fail("nilai kosong");
+    if (amt?.gt(0)) valOk++; else fail(numFail(g(r, "nilai"), "nilai", "nilai kosong"));
     const glAmt = doc && gl[doc] !== undefined ? D(gl[doc]) : null;
     const tie = glAmt !== null && amt !== null && glAmt.minus(amt).abs().lte(1);
     if (tie) tied++;

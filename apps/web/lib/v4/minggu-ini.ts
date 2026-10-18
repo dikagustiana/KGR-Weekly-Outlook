@@ -56,6 +56,11 @@ export interface TileModel {
   /** Choices in the tile header (links; the page reads the query string), e.g. "Actual vs run-rate / Per minggu". */
   views?: { label: string; options: SlicerOption[]; current: string }[];
   content: TileContent;
+  /**
+   * PRD v5.2 O17: the body (and the note) of the tile is collapsed by default at <= 768 px and opens with a button; above 768 px the
+   * tile is as it was. `label` names what opens ("tabel laba rugi"). CSS only (a checkbox), so it works before hydration and without scripts.
+   */
+  collapse?: { label: string };
   /** PRD v5.1 K41: the read behind this tile failed; the tile shows this message (state error), the page stays. */
   error?: string;
 }

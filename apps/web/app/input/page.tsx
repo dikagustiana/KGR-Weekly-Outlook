@@ -29,11 +29,19 @@ export default async function InputPage({ searchParams }: { searchParams: Promis
   const mgmt = viewer.role === "management";
   const extras: Record<string, ReactNode> = {};
 
+  // R77 (O23 (b)): the v4 wizard (budget, daily cash, the v4 fixed-cost schedule) is opened from the Finance panel, not from the nav
+  const wizard = role === "finance" && ["admin", "finance"].includes(viewer.role) && input.uploadHref
+    ? <Link className="v4b link" href={input.uploadHref} data-wizard-v4="">Upload v4: budget, kas harian, jadwal beban tetap (wizard)</Link> : null;
   if (p.type === "upload") {
     const canSave = !mgmt && (ROLE_KINDS[viewer.role] ?? []).includes(p.kind);
     // the context is the viewer's own (the save action builds it again for the same viewer)
     const ctx = await uploadContext(sb, viewer, p.kind);
-    extras.panel = <UploadPanel kind={p.kind} ctx={ctx} sample={UPLOAD_SAMPLES[p.kind]?.grid ?? null} canSave={canSave} action={saveUploadAction} />;
+    extras.panel = (
+      <>
+        <UploadPanel kind={p.kind} ctx={ctx} sample={UPLOAD_SAMPLES[p.kind]?.grid ?? null} canSave={canSave} action={saveUploadAction} />
+        {wizard ? <div className="actionbar">{wizard}</div> : null}
+      </>
+    );
   }
   if (p.type === "grid" && input.grid && ["admin", "finance"].includes(viewer.role)) {
     const g = input.grid;
@@ -51,6 +59,7 @@ export default async function InputPage({ searchParams }: { searchParams: Promis
           </ActionForm>
         ) : null}
         <Link className="v4b link" href={`/w/${g.weekStart}/rilis`}>Ke halaman Rilis</Link>
+        {wizard}
       </div>
     );
   }
