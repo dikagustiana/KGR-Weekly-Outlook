@@ -38,6 +38,16 @@ Admin → Minggu → "Buat minggu kosong": minggu **19 Okt 2026**, tanggal saldo
 mengunggah TB, jurnal, dan data lain lewat Upload/Input; Inventory Accounting kartu stok; Purchasing dan PPIC rencana. Kontrol
 yang datanya belum ada tampil "BELUM DIISI" (bukan 0).
 
+## 4b. Jurnal Agustus dan September (B-R90)
+
+Dua berkas siap unggah dikirim agen di chat 18 Okt: `GL-Accurate-Agustus-2026.xlsx` (2.431 baris, 1–31 Agu) dan
+`GL-Accurate-September-2026.xlsx` (1.930 baris, 1–30 Sep), diambil apa adanya dari sheet `Agt 26` / `Sep 26` workbook FS v2.
+Sudah dibaca parser app (`accurate_journal`: 0 masalah, Σ debit = Σ kredit selisih Rp 0,02 / Rp 0,04 pembulatan Accurate) dan
+semua akunnya (75 / 72) ada di `coa_map` KGR-OS. Unggah sebagai **Admin atau Inventory Accounting**, jenis "Accurate — General
+Ledger / Journal". Berkas Agustus mengganti seluruh rentang 1–31 Agu: ekspor lama 1–26 Agu di KGR-OS berbeda di 5 tanggal
+(1, 10, 11, 12, 20 Agu: +18 baris, +Rp 601,6 jt), ditambah 573 baris 27–31 Agu. Sesudah itu: DI Agustus/September, bank,
+stok, lalu FINAL per bulan (B-R90).
+
 ## 5. Keputusan yang menunggu konfirmasi Dika
 
 - **Flag v5 untuk semua role** (Q-v5.2-103): dibuka 18 Okt ±10.10 UTC tanpa T19 di staging, agar semua peran memakai fitur
