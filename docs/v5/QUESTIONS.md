@@ -372,3 +372,25 @@ Q-v5.2-43. FINAL terkunci tanpa baris laba rugi v4 di snapshot ditolak dengan ga
 Q-v5.2-44. Neraca app akhir bulan = TB minggu terakhir (week_start ≤ akhir bulan) + jurnal sesudah tanggal TB. Diterima.
 
 Q-v5.2-45. `fs_line_map.status` ('draft'|'agreed') ada di migrasi B5; teks B-R86 PRD B dianggap diselaraskan oleh migrasi itu.
+
+**Q-v5.2-60 … 69 (dari B5, `docs/v5.2/b5.md` §6).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-60. Bentuk `fs_statement_line`/`fs_line_map` mengikuti B-R86 dan cocok dengan loader A4 (0 kolom tak dikenal). `fs_line_map.status` ('draft'|'agreed') dan `source_file`/`source_sha256` NOT NULL (K70) dianggap bagian B-R86. Peran di luar empat pembaca membaca 0 baris (bukan galat). Diterima.
+
+Q-v5.2-61. Override posting alokasi oleh Finance (R61) = RPC `post_allocation_override(uuid[], text)`, bukan hak UPDATE tabel. Diterima (paling sempit). Kode A3 beralih ke RPC sesudah bundel B5 ada di KGR-OS; sampai itu override hanya Admin.
+
+Q-v5.2-62. Indeks lama `plan_check_reason (week_start, code)` tidak dicabut (tanpa drop): alasan versi lama ditarik dulu sebelum versi baru menulis alasannya (perilaku A2 sekarang). Diterima.
+
+Q-v5.2-63. Bentuk isi `plan_week_class.detail` ditentukan kode A2; DB hanya menjaga tipe (object/array). Diterima.
+
+Q-v5.2-64. `audit_log`: jejak `price_floor_rule` disembunyikan dari Sales dan jejak tabel FS hanya untuk pembacanya. Jejak tabel biaya/kas masih terbaca peran non-Sales: diterima untuk v5.2 (peran itu internal; PRD tidak membatasi), dicatat untuk PRD berikutnya.
+
+Q-v5.2-65. C59 tidak ditegakkan `release_month` di v5.2; penahanan di pra-pemeriksaan FINAL app (A4, Q-v5.2-40). Diterima.
+
+Q-v5.2-66. `fs_statement_line.locked_at` diisi oleh impor B-R91 (bukan trigger); mengubah pasangan `fs_line_map` yang sudah `agreed` tidak mengembalikannya ke `draft` — perubahan pemetaan hanya oleh Finance/Admin dan tercatat `updated_by/updated_at`. Diterima untuk v5.2; persetujuan pemetaan untuk Agustus–September dicatat di `docs/v5.2/fs-recon-2026-08.md`/`-09.md` (B6).
+
+Q-v5.2-67. Q-v5.2-15 (cabut baca `plan_week`/`demand_weekly` untuk Sales) tetap menunggu kode komersial yang memakai `surplus_for_sales_v52`. Diterima.
+
+Q-v5.2-68. Penanda "jurnal bulan lengkap" tidak dibuat (sama dengan Q-v5.2-42). Diterima.
+
+Q-v5.2-69. Prasyarat bundel B5 = `schema_version() >= 5.2.2` (bundel bisa dijalankan ulang). Diterima.
