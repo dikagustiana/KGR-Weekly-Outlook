@@ -36,6 +36,13 @@ for (const r of rows) console.log(r);
 for (const x of xf) console.log(`  XFAIL ${x.journey} ${x.step}: ${x.name} — menunggu ${x.waits}`);
 for (const x of xp) console.log(`  XPASS ${x.journey} ${x.step}: ${x.name} — ${x.waits} sudah terpenuhi (hapus penanda)`);
 console.log(bad ? `==== e2e GAGAL: ${bad} journey bermasalah ====` : "==== e2e HIJAU ====");
+// GitHub Actions: the lines also as annotations (readable through the checks API) and as the job summary
+if (process.env.GITHUB_ACTIONS === "true") {
+  for (const r of rows) if (!r.startsWith("    ")) console.log(`::notice title=e2e ringkasan::${r.replace(/\s+/g, " ")}`);
+  for (const x of xf) console.log(`::notice title=e2e xfail::${x.journey} ${x.step}: ${x.name} — menunggu ${x.waits}`);
+  console.log(`::notice title=e2e hasil::${bad ? "GAGAL" : "HIJAU"} (${env})`);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md.join("\n") + "\n");
+}
 fs.writeFileSync(path.join(OUT, "SUMMARY.md"), md.join("\n") + "\n");
 fs.writeFileSync(path.join(OUT, "summary.json"), JSON.stringify({ environment: env, ok: bad === 0, xfail: xf, xpass: xp }, null, 2));
 process.exit(bad ? 1 : 0);
