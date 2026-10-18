@@ -23,6 +23,7 @@ import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
 import { loadCommitmentCover } from "./free-stock-data";
 import { netFreeKg, reserveForCommitments } from "./free-stock";
+import { commitmentScope } from "./commitment-scope";
 import { surplusKeys } from "./surplus";
 import { loadSurplusForSales } from "./surplus-view";
 import { v5CostingSetting } from "./costing";
@@ -74,6 +75,8 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const scope = assigned === "all" ? "all" as const
     : new Set(st.mart.rows.map((r) => String(r.key)).filter((k) => [...assigned].some((a) => baseKey(a) === baseKey(k))));
   const view = commercialView(st.mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: scope });
+  // `allowed` = the SKU is among the viewer's assigned ones in any form (it scopes the stock reservation below, and the candidates of the commitment rows);
+  // which of those the viewer may COMMIT is `commitmentScope`, the coverage rule of the database (Q-v5.2-122)
   const allowed = (k: string) => assigned === "all" || [...assigned].some((a) => baseKey(a) === k);
   // PRD v5.2 O16: the free stock is less the locked commitments of next week that no PO line covers yet; every stock tile depends on it
   const cover = fail(failed, [...STOCK_TILES, "t-komitmen"], await tileData("commercial: komitmen terkunci minggu depan (O16)", () => loadCommitmentCover(sb, next)), null);
@@ -104,8 +107,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   }), { commits: [] as Row[], lists: [] as Row[], orders: [] as Row[], items: [] as Row[] });
   const keyOf = new Map(cm.items.map((i) => [String(i.item_code), String(i.key)]));
   const weekKg = kgByBaseKey(cm.orders.filter((o) => s(o.kg) !== null).map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: String(o.kg) })).filter((o) => o.key.startsWith("RPA|")));
-  const keys = [...new Set([...weekKg.keys(), ...cm.commits.map((x) => String(x.key))])].filter((k) => k.startsWith("RPA|") && allowed(k))
+  const candidates = [...new Set([...weekKg.keys(), ...cm.commits.map((x) => String(x.key))])].filter((k) => k.startsWith("RPA|") && allowed(k))
     .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0)); // missing-ok: pengurutan: SKU tanpa kg minggu ini diurutkan terakhir; bukan nilai yang ditampilkan
+  // Q-v5.2-122: a commitment row is offered only where the database accepts the save (the viewer's assignment covers the base key)
+  const { rows: keys, formOnly } = commitmentScope(assigned, candidates);
   const rows: CommitmentRow[] = keys.map((k) => {
     const cc = cm.commits.filter((x) => String(x.key) === k).sort((a, b) => Number(b.version) - Number(a.version))[0];
     const pl = cm.lists.find((l) => String(l.key) === k);
@@ -146,7 +151,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     rows: filterRows(all, filter), summary: stockSummary(all), holdingRate: rate, approvalsWaiting: approvals, cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."),
     commitment: {
       weekStart: next, weekEnd: addDays(next, 6), deadline: `${DAYS[new Date(`${dlDate}T00:00:00Z`).getUTCDay()]} ${Number(dlDate.slice(8, 10))}/${dlDate.slice(5, 7)} ${time.replace(":", ".")}`,
-      rows, canEdit: ["admin", "sales", "commercial_lead"].includes(viewer.role), canLock: ["admin", "commercial_lead"].includes(viewer.role), priceListLocked: cm.lists.length > 0 && cm.lists.every((l) => l.locked_at),
+      rows, formOnly, canEdit: ["admin", "sales", "commercial_lead"].includes(viewer.role), canLock: ["admin", "commercial_lead"].includes(viewer.role), priceListLocked: cm.lists.length > 0 && cm.lists.every((l) => l.locked_at),
     },
     ppic, surplusForSales, spot: spotRows(all, frozen), controls, failed, freeStock: reservation,
   };

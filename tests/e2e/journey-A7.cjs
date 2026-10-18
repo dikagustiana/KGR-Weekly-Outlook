@@ -9,6 +9,9 @@
 //   (5) a key the app does not know, a key spelled in another case and an empty key are refused with a message; nothing is written
 //   (6) edit a row (note, customer); Admin writes too and reaches the screen from Admin → Pengguna
 //   (7) every other role gets a 404; Sales cannot write the table through the API (RLS), and Kepala Sales cannot read app_user
+// A8 (Q-v5.2-122, K43): the commitment tile of /komersial follows the coverage rule of the database. A commitment is per BASE key and the database
+// accepts it from Sales only with a base-key assignment (assignment_covers): with a one-form assignment (2) the tile offers no row for that SKU and says
+// why, and the database refuses the save the tile used to offer (probe); with the base key (3) the row is offered and the save is accepted.
 // Every assignment this journey makes carries the note "e2e-a7…" and is removed again by a SETUP at the end (run.sh also restores the
 // snapshot of the database T7 left).
 const { Journey, cfg, short, sleep } = require("./lib/e2e.cjs");
@@ -38,6 +41,16 @@ const baseOf = (k) => k.replace(/\|(Fresh|Frozen|n\/a)$/, "");
     if (st !== 200) throw new Error(`/komersial/${key} HTTP ${st}`);
     return a.page.locator("main table").first().locator("tbody tr").count();
   };
+  /** The commitment tile of /komersial for this actor: the SKU rows of its form (the label of a row is "<unit> fresh") and the note under the tile. */
+  const commitmentTile = async (a) => {
+    const st = await a.goto("/komersial");
+    if (st !== 200) throw new Error(`/komersial HTTP ${st}`);
+    return a.page.evaluate(() => {
+      const t = document.querySelector('section[data-tile="t-komitmen"]');
+      return { units: [...t.querySelectorAll('input[name^="fresh_"]')].map((i) => i.closest("label").innerText.replace(/\s*fresh\s*$/, "").trim()), note: ((t.querySelector("[data-tile-note]") || {}).innerText || "").replace(/\s+/g, " ") };
+    });
+  };
+  const NOTE_FORM_ONLY = /Komitmen per key dasar butuh penugasan key dasar: penugasan Anda untuk/;
   const form = (a) => ({
     pick: (email) => a.page.locator("#as-email").selectOption(email),
     key: (v) => a.page.locator("#as-key").fill(v),
@@ -113,6 +126,10 @@ const baseOf = (k) => k.replace(/\|(Fresh|Frozen|n\/a)$/, "");
     // the SKU page reads the assigned keys too: a base-key assignment (RPA|Karkas) must show the history of every form (before A7 it showed an empty table)
     const n = await skuPageRows(sales, keys[0]);
     J.check(`halaman SKU ${keys[0]}: Sales dengan penugasan key dasar melihat riwayat 14 hari (bukan tabel kosong)`, n > 0, `${n} baris`);
+    // K43 (A8): with the base-key assignment RPA|Karkas the commitment tile offers the Karkas row and has nothing to explain
+    const k0 = await commitmentTile(sales);
+    J.log(`    sales  tile komitmen: baris ${k0.units.join(", ") || "tidak ada"}`);
+    J.check("tile komitmen: Sales dengan penugasan key dasar RPA|Karkas mendapat baris Karkas, tanpa catatan 'butuh penugasan key dasar'", k0.units.includes("Karkas") && !NOTE_FORM_ONLY.test(k0.note), `${k0.units.join(", ")} | ${short(k0.note, 120)}`);
   });
 
   await J.step("3", lead, "Kepala Sales menugaskan SATU bentuk SKU ke Sales uji; Sales melihat bentuk itu dan bukan bentuk lain (O21 b)", async () => {
@@ -137,9 +154,22 @@ const baseOf = (k) => k.replace(/\|(Fresh|Frozen|n\/a)$/, "");
     J.check(`Sales tidak melihat ${S.other} (bentuk lain dari unit yang sama)`, !keys.includes(S.other), keys.join(", "));
     J.check("Sales tetap melihat RPA|Karkas", keys.some((k) => baseOf(k) === "RPA|Karkas"));
     await sales.shot("A7-3-sales-melihat-satu-bentuk");
+    // K43 (A8): a commitment is per base key, and a one-form assignment does not cover it: no row is offered for the unit, and the tile says why
+    const unit = S.base.split("|")[1];
+    const k1 = await commitmentTile(sales);
+    J.log(`    sales  tile komitmen: baris ${k1.units.join(", ") || "tidak ada"}; catatan: ${short(k1.note, 360)}`);
+    J.check(`tile komitmen: tidak ada baris ${unit} untuk Sales dengan penugasan satu bentuk (${S.form}); baris Karkas (key dasar) tetap`, !k1.units.includes(unit) && k1.units.includes("Karkas"), k1.units.join(", "));
+    J.check(`tile komitmen: satu kalimat menjelaskan 'komitmen per key dasar butuh penugasan key dasar' dan menyebut ${unit}`, NOTE_FORM_ONLY.test(k1.note) && new RegExp(`penugasan Anda untuk [^.]*\\b${unit.replace(/[()/]/g, "\\$&")}\\b`).test(k1.note), short(k1.note, 300));
+    // the refusal the tile used to lead to, by the database itself: Sales write a draft commitment of the base key of the unit with only the one-form assignment
+    const tok = await (await fetch(`${cfg.supa}/auth/v1/token?grant_type=password`, { method: "POST", headers: { "content-type": "application/json", apikey: cfg.anon }, body: JSON.stringify({ email: sales.email, password: cfg.password }) })).json();
+    const ins = await fetch(`${cfg.supa}/rest/v1/sales_commitment`, { method: "POST", headers: { apikey: cfg.anon, authorization: `Bearer ${tok.access_token}`, "content-type": "application/json", prefer: "return=representation" }, body: JSON.stringify({ week_start: "2026-08-31", key: S.base, fresh_kg: 100, frozen_kg: 0 }) });
+    const ib = await ins.json().catch(() => null);
+    J.log(`    sales (langsung ke PostgREST)  POST sales_commitment ${S.base} → HTTP ${ins.status} ${short(JSON.stringify(ib), 160)}`);
+    J.check(`PostgREST: komitmen key dasar ${S.base} oleh Sales dengan penugasan ${S.form} ditolak database (assignment_covers: tg_commitment_guard)`, (ins.status === 403 || ins.status === 401) && /tidak ditugaskan kepada Anda/.test(JSON.stringify(ib)), `HTTP ${ins.status} ${short(JSON.stringify(ib), 120)}`);
+    J.check("DB: tidak ada komitmen baru untuk unit itu", Number(J.dbOne(`select count(*) from public.sales_commitment where week_start = '2026-08-31' and key = '${S.base}'`)) === 0);
     const [rf, ro] = [await skuPageRows(sales, S.form), await skuPageRows(sales, S.other)];
     J.check(`halaman SKU: ${S.form} berisi riwayat, ${S.other} kosong (bentuk lain tidak ditugaskan)`, rf > 0 && ro === 0, `${rf} baris / ${ro} baris`);
-  });
+  }, { allow: [{ area: "rest", status: 403, path: /sales_commitment/, why: "penolakan yang diharapkan: komitmen key dasar tanpa penugasan key dasar (tg_commitment_guard, probe API Sales)" }, { area: "rest", status: 401, path: /sales_commitment/, why: "penolakan yang diharapkan: komitmen key dasar tanpa penugasan key dasar (tg_commitment_guard, probe API Sales)" }] });
 
   await J.step("4", lead, "Kepala Sales menugaskan key dasar (satu unit); Sales melihat semua bentuk; menyimpan yang sama lagi tidak menggandakan baris", async () => {
     await lead.goto("/komersial/assignment");
@@ -153,6 +183,20 @@ const baseOf = (k) => k.replace(/\|(Fresh|Frozen|n\/a)$/, "");
     J.check(`Sales melihat ${S.form} dan ${S.other} (key dasar mencakup semua bentuk)`, keys.includes(S.form) && keys.includes(S.other), keys.join(", "));
     const ro = await skuPageRows(sales, S.other);
     J.check(`halaman SKU ${S.other} sekarang berisi riwayat`, ro > 0, `${ro} baris`);
+    // K43 (A8): with the base key the row is offered, nothing is left out, and the save is accepted by the database
+    const unit = S.base.split("|")[1];
+    const k2 = await commitmentTile(sales);
+    J.log(`    sales  tile komitmen: baris ${k2.units.join(", ") || "tidak ada"}`);
+    J.check(`tile komitmen: dengan penugasan key dasar ${S.base} baris ${unit} ditawarkan, tanpa catatan 'butuh penugasan key dasar'`, k2.units.includes(unit) && !NOTE_FORM_ONLY.test(k2.note), `${k2.units.join(", ")} | ${short(k2.note, 100)}`);
+    const idx = await sales.page.evaluate((u) => { const i = [...document.querySelectorAll('input[name^="fresh_"]')].find((x) => x.closest("label").innerText.replace(/\s*fresh\s*$/, "").trim() === u); return i ? i.name.slice("fresh_".length) : null; }, unit);
+    await sales.page.locator(`input[name="fresh_${idx}"]`).fill("100");
+    await sales.page.locator(`input[name="frozen_${idx}"]`).fill("0");
+    const saved = await sales.act("Simpan draft", { within: 'section[data-tile="t-komitmen"]' });
+    J.log(`    sales  ${short(saved.ok || saved.error || "", 220)}`);
+    J.check(`Sales menyimpan draft komitmen ${unit} dari tile: diterima database (1 versi baru)`, !!saved.ok && /1 SKU komitmen disimpan sebagai draft/.test(saved.ok) && /1 versi baru/.test(saved.ok), saved.ok || saved.error || "");
+    const crow = J.db(`select key, status, fresh_kg::text, created_by from public.sales_commitment where week_start = '2026-08-31' and key = '${S.base}' and deleted_at is null`);
+    J.check(`DB: draft komitmen ${S.base} 100 kg oleh Sales`, crow.length === 1 && crow[0][1] === "draft" && Number(crow[0][2]) === 100 && crow[0][3] === sales.email, JSON.stringify(crow));
+    J.setup(`draft komitmen uji ${S.base} (A7 langkah 4) dihapus`, `delete from public.sales_commitment where week_start = '2026-08-31' and key = '${S.base}' and created_by = '${sales.email}'`);
     // the same assignment again (a new note): activated and refreshed, still one row
     const n = countAll();
     await lead.goto("/komersial/assignment");

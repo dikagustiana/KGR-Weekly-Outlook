@@ -45,7 +45,14 @@ export interface KomersialV5Input {
   holdingRate: Decimal | null;
   approvalsWaiting: number;
   cutOffTime: string;
-  commitment: { weekStart: string; weekEnd: string; deadline: string; rows: CommitmentRow[]; canEdit: boolean; canLock: boolean; priceListLocked: boolean };
+  commitment: {
+    weekStart: string; weekEnd: string; deadline: string; rows: CommitmentRow[]; canEdit: boolean; canLock: boolean; priceListLocked: boolean;
+    /**
+     * Q-v5.2-122 (K43): base keys the viewer is assigned only by form ("RPA|Karkas|Fresh"): no row is offered for them, because a commitment is per base key
+     * and the database accepts it only with a base-key assignment. Absent/empty = nothing left out.
+     */
+    formOnly?: string[];
+  };
   ppic: {
     shipRange: string; surplusKg: Decimal | null;
     /** R56: the surplus rows of PPIC's saved plan — the SKU key an answer is about, and its kg (empty = no saved plan or no surplus in it). */
@@ -75,6 +82,11 @@ const URG: Record<string, string> = { jual_hari_ini: "jual hari ini", di_atas_um
 const STATUS: Record<string, string> = { estimasi: "estimasi", sementara: "sementara", final: "final", rencana: "rencana" };
 const skuLabel = (key: string) => { const [seg, sku, form] = key.split("|"); return `${sku}${form && form !== "n/a" ? ` ${form.toLowerCase()}` : ""} · ${seg}`; };
 const FILTERS: [StockFilter, string][] = [["all", "Semua stok bebas"], ["hari", "Jual hari ini"], ["batas", "Di atas batas umur"], ["below", "Di bawah biaya"]];
+
+/** Q-v5.2-122: one sentence saying why a SKU the viewer is assigned has no commitment row. */
+export const formOnlyNote = (keys: string[] | undefined): string => (keys?.length
+  ? ` Komitmen per key dasar butuh penugasan key dasar: penugasan Anda untuk ${keys.map((k) => k.split("|")[1] ?? k).join(", ")} hanya satu bentuk, jadi barisnya tidak ditawarkan (minta Kepala Sales menugaskan key dasarnya).`
+  : "");
 
 export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: TileModel[] } {
   const tiles: TileModel[] = [];
@@ -138,7 +150,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   const c52 = x.controls.find((k) => k.code === "C52");
   tiles.push({
     id: "t-komitmen", pos: P(0, 10, 7, 5), kind: "tall", title: `Untuk PPIC: komitmen minggu depan, ${Number(c.weekStart.slice(8, 10))}–${tglShort(c.weekEnd)}`,
-    note: `${locked ? "Terkunci" : `Belum dikunci; tenggat ${c.deadline}`}${c52 && c52.status === "BELUM DIISI" ? " (C52: rencana Senin memakai PO saja)" : ""}. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan${c.priceListLocked ? " (terkunci)" : ""}. Harga frozen kosong saat kunci = acuan frozen minggu ini (label "acuan").`,
+    note: `${locked ? "Terkunci" : `Belum dikunci; tenggat ${c.deadline}`}${c52 && c52.status === "BELUM DIISI" ? " (C52: rencana Senin memakai PO saja)" : ""}. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan${c.priceListLocked ? " (terkunci)" : ""}. Harga frozen kosong saat kunci = acuan frozen minggu ini (label "acuan").${formOnlyNote(c.formOnly)}`,
     content: { type: "table", cols: kCols, rows: kRows },
   });
   const p = x.ppic;
