@@ -3016,8 +3016,8 @@ begin
   insert into public.week (week_start, update_date, tb_opening_date) values ('2034-01-30', '2034-02-02', '2034-01-27') returning id into w;
   insert into public.week (week_start, update_date, tb_opening_date, status) values ('2034-02-06', '2034-02-09', '2034-02-03', 'closed') returning id into wc;
   -- 1 unpriced (key K-A), 2 priced (and a zero-kg line without a price), 3 unpriced but not balanced, 4 already posted,
-  -- 5 unpriced (no key: the item code is named), 6 unpriced with price 0, 7 unpriced on a closed week
-  for i in 1..7 loop
+  -- 5 unpriced (no key: the item code is named), 6 unpriced with price 0, 7 unpriced on a closed week, 8 unpriced but its batch is deleted
+  for i in 1..8 loop
     insert into public.batch (week_id, date, status, lb_kg, batch_ref) values (case when i = 7 then wc else w end, case when i = 7 then date '2034-02-07' else date '2034-01-31' end, 'Aktual', 100, 'B5R-' || i) returning id into b;
     bs := bs || b;
     insert into public.batch_output_sku (batch_id, key, item_code, kg) values (b, null, 'ITEM' || i, 100);
@@ -3027,6 +3027,7 @@ begin
     values (b, case when i = 1 then 'K-A' end, 'ITEM' || i, 100, case when i = 2 then 5000 when i = 6 then 0 end, 0, 1, 1000, 10);
   end loop;
   insert into public.allocation_line (allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg) values (rs[2], 'K-ZERO', 'ZERO', 0, null, 0, 0, 0, 0);
+  update public.batch set deleted_at = now() where id = bs[8];
 
   -- no write right opened: Finance updates neither allocation_run nor batch directly (0 rows, nothing changes)
   perform set_config('request.jwt.claims', '{"email":"b5r-fin@x.test","role":"authenticated"}', true);
@@ -3081,6 +3082,9 @@ begin
   begin perform public.post_allocation_override(array[rs[7]], 'alasan yang cukup panjang'); out := out || 'a run of a closed week by finance: ALLOWED(!); ';
   exception when insufficient_privilege then out := out || 'a run of a closed week by finance: denied; ';
             when others then out := out || 'closed week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[rs[8]], 'alasan yang cukup panjang'); out := out || 'a run of a deleted batch: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'a run of a deleted batch: refused (22023); ';
+            when others then out := out || 'deleted batch: ERROR(!) ' || sqlerrm || '; '; end;
   -- all or none: one fully priced run in the list undoes the whole call
   begin perform public.post_allocation_override(array[rs[1], rs[2]], 'alasan yang cukup panjang'); out := out || 'a list with a priced run: ALLOWED(!); ';
   exception when invalid_parameter_value then out := out || 'a list with a priced run: refused (22023); ';

@@ -80,8 +80,8 @@ comment on column public.plan_week_class.detail is
 -- cost_accounting) refuses in the app (R61, K50). Checks, in the database:
 --   * the caller is Finance or Admin; the reason has at least 10 characters (as the app asks);
 --   * every run exists, is a draft, is balanced (|diff| <= 1, C21), has at least one unpriced SKU line (a priced run is
---     posted the normal way, so the override is never a general right to post), and its batch's week is not closed
---     (admin excepted, as week_writable);
+--     posted the normal way, so the override is never a general right to post), its batch is live (not deleted, not
+--     superseded) and its batch's week is not closed (admin excepted, as week_writable);
 --   * per run: status posted, posted_at / posted_by, the override sentence appended to issues (same wording as the app),
 --     and batch.costing_status = 'posted'. C48 (a run without output) is still refused by its own trigger.
 -- All runs or none. Returns the number of runs posted.
@@ -107,10 +107,13 @@ begin
     raise exception 'Ada alokasi yang tidak ditemukan' using errcode = '22023';
   end if;
   for r in
-    select a.id, a.status, a.diff, a.issues, a.batch_id, coalesce(b.batch_ref, b.id::text) as batch_ref, b.week_id
+    select a.id, a.status, a.diff, a.issues, a.batch_id, coalesce(b.batch_ref, b.id::text) as batch_ref, b.week_id, b.deleted_at, b.superseded_at
       from public.allocation_run a join public.batch b on b.id = a.batch_id
      where a.id = any (ids) order by a.id for update of a
   loop
+    if r.deleted_at is not null or r.superseded_at is not null then
+      raise exception 'Batch % sudah dihapus atau digantikan', r.batch_ref using errcode = '22023';
+    end if;
     if r.status <> 'draft' then
       raise exception 'Alokasi batch % berstatus %: hanya draft yang bisa diposting', r.batch_ref, r.status using errcode = '22023';
     end if;
@@ -232,12 +235,24 @@ alter policy price_floor_rule_read on public.price_floor_rule
 -- ... nor through the audit trail: audit_log keeps the old and new markup of every change, and every app user reads
 -- audit_log. The Sales redaction of 20261017000200 (S4) lists the tables whose trail is not for Sales; the same list plus
 -- price_floor_rule.
-alter policy audit_log_sales_redact on public.audit_log
-  using (not (select public.has_role('sales')) or table_name <> all (array[
-    'cost_pool','cost_pool_line','overhead_rate','allocation_run','allocation_line','batch_output_sku',
-    'lot','lot_movement','lot_balance_daily','sku_balance_daily','commercial_daily',
-    'fixed_cost_schedule','cost_event','budget','bank_account','cash_daily','cash_daily_plan','cash_position_daily',
-    'ccc_daily','solvency_monthly','closing_adjustment','price_floor_rule']));
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_sales_redact') then
+    alter policy audit_log_sales_redact on public.audit_log
+      using (not (select public.has_role('sales')) or table_name <> all (array[
+        'cost_pool','cost_pool_line','overhead_rate','allocation_run','allocation_line','batch_output_sku',
+        'lot','lot_movement','lot_balance_daily','sku_balance_daily','commercial_daily',
+        'fixed_cost_schedule','cost_event','budget','bank_account','cash_daily','cash_daily_plan','cash_position_daily',
+        'ccc_daily','solvency_monthly','closing_adjustment','price_floor_rule']));
+  else
+    create policy audit_log_sales_redact on public.audit_log as restrictive for select to authenticated
+      using (not (select public.has_role('sales')) or table_name <> all (array[
+        'cost_pool','cost_pool_line','overhead_rate','allocation_run','allocation_line','batch_output_sku',
+        'lot','lot_movement','lot_balance_daily','sku_balance_daily','commercial_daily',
+        'fixed_cost_schedule','cost_event','budget','bank_account','cash_daily','cash_daily_plan','cash_position_daily',
+        'ccc_daily','solvency_monthly','closing_adjustment','price_floor_rule']));
+  end if;
+end $$;
 
 -------------------------------------------------------------------------------- version
 insert into public.schema_registry (version) values ('5.2.3') on conflict (version) do nothing;
