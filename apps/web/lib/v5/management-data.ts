@@ -21,6 +21,8 @@ import { commercialMart } from "../v3/commercial";
 import { loadPlanning } from "../v3/planning";
 import { stockMartControl } from "../v3/stale";
 import { loadPpicV5 } from "./ppic-data";
+import { loadCommitmentCover } from "./free-stock-data";
+import { netFreeKg, reserveForCommitments } from "./free-stock";
 import { LOOP_MODULE, decisionLines, loopLines, simPrices, sourceLabel, type LoopRow, type ManagementV5Input, type SimBasis, type SourceLabel } from "./management";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -104,11 +106,17 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     // K53: the v5 cost of the stock only where v5_costing is on for this role (else the MA cost, as v4)
     const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
+    // PRD v5.2 O16: the same free stock as the Commercial screen — less the locked commitments of the week after the data date's week
+    // that no PO line covers yet (one number on both screens)
+    const freeKgOf = (m: Row) => D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))); // commercial_daily.free_*_kg NOT NULL
+    const coverWeek = addDays(mondayOf(today), 7);
+    const cover = await loadCommitmentCover(sb, coverWeek);
+    const reservation = reserveForCommitments({ free: mart.rows.map((m) => ({ key: String(m.key), kg: freeKgOf(m) })), commitments: cover.commitments, orders: cover.orders, weekStart: coverWeek });
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-      key: String(m.key), form: s(m.form), free_kg: D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
+      key: String(m.key), form: s(m.form), free_kg: netFreeKg(reservation, String(m.key), freeKgOf(m)).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
       over_age_kg: null, urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
     })), null));
-    return { kg: sum.kg, value: sum.value };
+    return { kg: sum.kg, value: sum.value, reservedKg: reservation.deductedKg };
   });
   // R28: a row whose module is not enabled says so instead of "late" (the flags, not the viewer's role: the process runs or not)
   const flagsT = await tileData("manajemen: flag modul", async () =>
