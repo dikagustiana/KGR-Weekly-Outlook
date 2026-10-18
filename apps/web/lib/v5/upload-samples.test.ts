@@ -51,7 +51,11 @@ describe("Lampiran B.5 — upload contoh", () => {
     expect(po.rows.filter((r) => /< lantai/.test(r.action)).length).toBe(5);
     expect(po.rows.find((r) => r.ref === "KGR26.00341")?.action).toMatch(/ukuran karkas kosong/);
     expect([wp.total, wp.ok_count]).toEqual([8, 6]);
-    expect(wp.checks.find((c) => c.title === "Σ SKU vs hasil potong")?.detail).toBe("6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%)");
+    // PRD v5.2 R58: C22 is judged on what is saved — X-HATI (401,2 kg) and KPL-01 (338 kg), the two rows held for an unknown
+    // code, are no longer counted: 6.782,8 → 6.043,6 kg, selisih 6,9% → 17,1% (needsReason B260826 as before)
+    expect(wp.checks.find((c) => c.title === "Σ SKU vs hasil potong")?.detail).toBe("6.043,6 vs 7.286,6 kg (LB − susut 3%), selisih 17,1% (batas 2%)");
+    expect(wp.needsReason).toEqual(["B260826"]);
+    expect(wp.rows.filter((r) => r.level === "fail").map((r) => r.ref)).toEqual(["X-HATI", "KPL-01"]);
     expect(wp.checks.find((c) => c.title.endsWith("rata-rata LB"))?.detail).toBe("7.512,0 kg / 3.902 ekor = 1,93 kg/ekor");
     expect(wp.checks.find((c) => c.title === "Yield karkas")?.detail).toBe("73,4% (batas 68–76%)");
     expect([y.total, y.ok_count]).toEqual([18, 0]);

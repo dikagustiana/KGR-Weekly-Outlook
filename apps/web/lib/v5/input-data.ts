@@ -73,23 +73,36 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
       } else ctx.floors = {};
     }
     if (sales) {
-      const list = mustRows<Row>(await sb.from("sales_assignment").select("customer").eq("active", true).eq("email", viewer.email.toLowerCase()), "sales_assignment").map((a) => s(a.customer));
+      // R58 (O21(b)): the assignment rows (customer × key) of the rep; a PO line must lie inside one of them
+      const rows = mustRows<Row>(await sb.from("sales_assignment").select("customer, key").eq("active", true).eq("email", viewer.email.toLowerCase()), "sales_assignment");
+      const list = rows.map((a) => s(a.customer));
       ctx.customers = list.some((c) => c === null) ? "all" : (list as string[]);
+      ctx.assignments = rows.map((a) => ({ customer: s(a.customer), key: s(a.key) }));
     } else ctx.customers = "all";
   }
   if (kind === "costing_wp" || kind === "supplier_invoice") {
-    const rows = await fetchAll<Row>((a, b) => sb.from("batch").select("batch_ref, date, lb_kg, status").is("deleted_at", null).is("superseded_at", null)
+    const rows = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, date, lb_kg, status").is("deleted_at", null).is("superseded_at", null)
       .not("batch_ref", "is", null).gte("date", addDays(today, -60)).lte("date", addDays(today, 7)).order("date").order("id").range(a, b));
     const seen = new Set<string>();
     ctx.batches = [];
+    const idOf = new Map<string, string>();
     // an actual batch wins over the planned one of the same reference
     for (const r of [...rows.filter((x) => x.status === "Aktual"), ...rows.filter((x) => x.status !== "Aktual")]) {
       const ref = String(r.batch_ref);
       if (seen.has(ref.toUpperCase())) continue;
       seen.add(ref.toUpperCase());
+      if (r.status === "Aktual") idOf.set(String(r.id), ref);
       ctx.batches.push({ ref, date: String(r.date), lb_kg: s(r.lb_kg), heads: null });
     }
     ctx.batches.sort((a, b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref));
+    // R58: the WP rows an actual batch already has — a line held in a new file keeps its old row, which C22 then counts
+    if (kind === "costing_wp" && idOf.size) {
+      const out = await inChunks([...idOf.keys()], (part) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, item_code, kg").in("batch_id", part).eq("source", "WP").is("deleted_at", null).order("id").range(a, b)));
+      for (const b of ctx.batches) {
+        const id = [...idOf].find(([, ref]) => ref === b.ref)?.[0];
+        if (id) b.output = out.filter((o) => String(o.batch_id) === id).map((o) => ({ key: s(o.key), item_code: s(o.item_code), kg: String(o.kg) }));
+      }
+    }
   }
   if (kind === "supplier_invoice") {
     const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).order("id").range(a, b));

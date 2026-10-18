@@ -38,6 +38,13 @@ export function dueOf(rule: Extract<DueRule, { event: false }>, anchor: ISODate)
   return { date, at: `${date}T${rule.time}:00+07:00` };
 }
 
+/** R54: the due dates a task rule produces for an anchor — the dates to queue so the grid refreshes after an input. */
+export function dueDatesFor(rule: Pick<TaskRule, "due_rule">, anchor: ISODate): ISODate[] {
+  const p = parseDueRule(rule.due_rule);
+  if (!p || p.event) return [];
+  return [dueOf(p, anchor).date];
+}
+
 const dow = (d: ISODate) => new Date(`${d}T00:00:00Z`).getUTCDay();
 
 export interface DueInstance { kind: string; ref: string; anchor: ISODate; due_date: ISODate; due_at: string | null }

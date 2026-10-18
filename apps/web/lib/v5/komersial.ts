@@ -45,7 +45,10 @@ export interface KomersialV5Input {
   cutOffTime: string;
   commitment: { weekStart: string; weekEnd: string; deadline: string; rows: CommitmentRow[]; canEdit: boolean; canLock: boolean; priceListLocked: boolean };
   ppic: {
-    shipRange: string; surplusKg: Decimal | null; downgrade: Decimal | null; planCostKarkas: Decimal | null; lbPrice: Decimal | null;
+    shipRange: string; surplusKg: Decimal | null;
+    /** R56: the surplus rows of PPIC's saved plan — the SKU key an answer is about, and its kg (empty = no saved plan or no surplus in it). */
+    surplus?: { key: string; kg: string }[];
+    downgrade: Decimal | null; planCostKarkas: Decimal | null; lbPrice: Decimal | null;
     answered: string | null; byProducts: { unit: string; order: Decimal; output: Decimal; short: Decimal }[];
   } | null;
   spot: SpotRow[];
