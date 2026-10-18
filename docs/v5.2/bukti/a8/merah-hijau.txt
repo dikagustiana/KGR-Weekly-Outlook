@@ -1,0 +1,67 @@
+# A8 — bukti merah/hijau (e2e Chromium, PG16 lokal + PostgREST 12 + mock auth; bukan Supabase)
+# MERAH = build sebelum perbaikan butir itu; HIJAU = build dengan perbaikan. Hanya baris cek yang relevan, dari log journey.
+
+## 1. Q-v5.2-114 formulir komitmen (journey L, langkah L4) — MERAH (build tanpa perbaikan 1)
+CEK GAGAL: sesudah penolakan: angka yang diketik (16000) tetap di formulir, tidak perlu diketik ulang — 15.000
+RINGKASAN L: 28 cek lulus, 9 gagal, 0 xfail (diharapkan), 0 xpass; respons app 22 (18× 200, 4× 303); respons tak terduga 1; SETUP 0
+GAGAL: L4: sesudah penolakan: angka yang diketik (16000) tetap di formulir, tidak perlu diketik ulang — 15.000
+
+## 1. HIJAU (build dengan perbaikan)
+CEK lulus: sesudah penolakan: angka yang diketik (16000) tetap di formulir, tidak perlu diketik ulang — 16000
+CEK lulus: sesudah tersimpan: kolom alasan kosong lagi dan angka baris = yang tersimpan (16.000) — alasan "", fresh 16.000
+RINGKASAN L: 38 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 22 (18× 200, 4× 303); respons tak terduga 0; SETUP 0
+
+## 2. Q-v5.2-111 tile akurasi (journey R69, langkah R7) — MERAH (build tanpa perbaikan 2)
+finance  /m/2026-08 tile akurasi tanpa V1/V2: Akurasi bulan terakhir yang FINAL Belum ada bulan yang FINAL.
+CEK GAGAL: Outlook bulan: FINAL Agustus ada tetapi belum ada V1/V2: tile akurasi menyebutnya, bukan 'Belum ada bulan yang FINAL' — Akurasi bulan terakhir yang FINAL Belum ada bulan yang FINAL.
+RINGKASAN R69: 65 cek lulus, 1 gagal, 0 xfail (diharapkan), 0 xpass; respons app 66 (50× 200, 10× 303, 6× 404); respons tak terduga 0; SETUP 5
+GAGAL: R7: Outlook bulan: FINAL Agustus ada tetapi belum ada V1/V2: tile akurasi menyebutnya, bukan 'Belum ada bulan yang FINAL' — Akurasi bulan terakhir yang FINAL Belum ada bulan yang FINAL.
+
+## 2. HIJAU
+finance  /m/2026-08 tile akurasi tanpa V1/V2: Akurasi bulan terakhir yang FINAL FINAL Agustus 2026 sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan.
+CEK lulus: Outlook bulan: FINAL Agustus ada tetapi belum ada V1/V2: tile akurasi menyebutnya, bukan 'Belum ada bulan yang FINAL' — Akurasi bulan terakhir yang FINAL FINAL Agustus 2026 sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan.
+RINGKASAN R69: 66 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 66 (50× 200, 10× 303, 6× 404); respons tak terduga 0; SETUP 5
+
+## 3. Q-v5.2-122 K43 tile komitmen (journey A7, langkah 2-4) — MERAH (build tanpa perbaikan 3)
+sales  tile komitmen: baris Karkas
+CEK lulus: tile komitmen: Sales dengan penugasan key dasar RPA|Karkas mendapat baris Karkas, tanpa catatan 'butuh penugasan key dasar' — Karkas | Terkunci. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci…
+sales  tile komitmen: baris Karkas, Ceker; catatan: Belum dikunci; tenggat Jum 28/08 17.00. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci). Harga frozen kosong saat kunci = acuan frozen minggu ini (label "acuan"). Sumber: PO · Sales · 27 Agu 09.38
+CEK GAGAL: tile komitmen: tidak ada baris Ceker untuk Sales dengan penugasan satu bentuk (RPA|Ceker|Fresh); baris Karkas (key dasar) tetap — Karkas, Ceker
+CEK GAGAL: tile komitmen: satu kalimat menjelaskan 'komitmen per key dasar butuh penugasan key dasar' dan menyebut Ceker — Belum dikunci; tenggat Jum 28/08 17.00. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci). Harga f…
+sales (langsung ke PostgREST)  POST sales_commitment RPA|Ceker → HTTP 403 {"code":"42501","details":null,"hint":null,"message":"SKU RPA|Ceker tidak ditugaskan kepada Anda"}
+CEK lulus: PostgREST: komitmen key dasar RPA|Ceker oleh Sales dengan penugasan RPA|Ceker|Fresh ditolak database (assignment_covers: tg_commitment_guard) — HTTP 403 {"code":"42501","details":null,"hint":null,"message":"SKU RPA|Ceker tidak ditugaskan kepada Anda"}
+diharapkan: rest (sales@e2e.test) POST sales_commitment → HTTP 403 (penolakan yang diharapkan: komitmen key dasar tanpa penugasan key dasar (tg_commitment_guard, probe API Sales))
+sales  tile komitmen: baris Karkas, Ceker
+CEK lulus: tile komitmen: dengan penugasan key dasar RPA|Ceker baris Ceker ditawarkan, tanpa catatan 'butuh penugasan key dasar' — Karkas, Ceker | Belum dikunci; tenggat Jum 28/08 17.00. Kg yang sanggup dijual per SKU dan harga list minggu depan;…
+CEK lulus: Sales menyimpan draft komitmen Ceker dari tile: diterima database (1 versi baru) — 1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+CEK lulus: DB: draft komitmen RPA|Ceker 100 kg oleh Sales — [["RPA|Ceker","draft","100.00","sales@e2e.test"]]
+RINGKASAN A7: 76 cek lulus, 2 gagal, 0 xfail (diharapkan), 0 xpass; respons app 65 (57× 200, 5× 303, 3× 404); respons tak terduga 0; SETUP 3
+GAGAL: 3: tile komitmen: tidak ada baris Ceker untuk Sales dengan penugasan satu bentuk (RPA|Ceker|Fresh); baris Karkas (key dasar) tetap — Karkas, Ceker
+GAGAL: 3: tile komitmen: satu kalimat menjelaskan 'komitmen per key dasar butuh penugasan key dasar' dan menyebut Ceker — Belum dikunci; tenggat Jum 28/08 17.00. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci). Harga f…
+
+## 3. HIJAU
+sales  tile komitmen: baris Karkas
+CEK lulus: tile komitmen: Sales dengan penugasan key dasar RPA|Karkas mendapat baris Karkas, tanpa catatan 'butuh penugasan key dasar' — Karkas | Terkunci. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci…
+sales  tile komitmen: baris Karkas; catatan: Terkunci. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci). Harga frozen kosong saat kunci = acuan frozen minggu ini (label "acuan"). Komitmen per key dasar butuh penugasan key dasar: penugasan Anda untuk Ceker hanya satu bentuk, jadi barisnya tidak ditawarkan (minta Kepala Sales menugaskan key d…
+CEK lulus: tile komitmen: tidak ada baris Ceker untuk Sales dengan penugasan satu bentuk (RPA|Ceker|Fresh); baris Karkas (key dasar) tetap — Karkas
+CEK lulus: tile komitmen: satu kalimat menjelaskan 'komitmen per key dasar butuh penugasan key dasar' dan menyebut Ceker — Terkunci. Kg yang sanggup dijual per SKU dan harga list minggu depan; harga list dipakai costing minggu depan (terkunci). Harga frozen kosong saat kunci = acua…
+sales (langsung ke PostgREST)  POST sales_commitment RPA|Ceker → HTTP 403 {"code":"42501","details":null,"hint":null,"message":"SKU RPA|Ceker tidak ditugaskan kepada Anda"}
+CEK lulus: PostgREST: komitmen key dasar RPA|Ceker oleh Sales dengan penugasan RPA|Ceker|Fresh ditolak database (assignment_covers: tg_commitment_guard) — HTTP 403 {"code":"42501","details":null,"hint":null,"message":"SKU RPA|Ceker tidak ditugaskan kepada Anda"}
+diharapkan: rest (sales@e2e.test) POST sales_commitment → HTTP 403 (penolakan yang diharapkan: komitmen key dasar tanpa penugasan key dasar (tg_commitment_guard, probe API Sales))
+sales  tile komitmen: baris Karkas, Ceker
+CEK lulus: tile komitmen: dengan penugasan key dasar RPA|Ceker baris Ceker ditawarkan, tanpa catatan 'butuh penugasan key dasar' — Karkas, Ceker | Belum dikunci; tenggat Jum 28/08 17.00. Kg yang sanggup dijual per SKU dan harga list minggu depan;…
+CEK lulus: Sales menyimpan draft komitmen Ceker dari tile: diterima database (1 versi baru) — 1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+CEK lulus: DB: draft komitmen RPA|Ceker 100 kg oleh Sales — [["RPA|Ceker","draft","100.00","sales@e2e.test"]]
+RINGKASAN A7: 78 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 65 (57× 200, 5× 303, 3× 404); respons tak terduga 0; SETUP 3
+
+## 4. Q-v5.2-112 dua angka surplus (journey L, langkah L6) — MERAH (build tanpa perbaikan 4)
+CEK GAGAL: tile Dari PPIC: angka surplus karkas bertanda 'rencana saat ini' dan catatannya menyebut daftar jawaban = surplus rencana tersimpan — Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana ± 14.054 kg turun −70,9 jt HJA 2.019 1.…
+CEK GAGAL: baris itu bertanda '(surplus rencana tersimpan)' (Q-v5.2-112) — Lemak · 350 kg
+RINGKASAN L: 36 cek lulus, 2 gagal, 0 xfail (diharapkan), 0 xpass; respons app 22 (18× 200, 4× 303); respons tak terduga 0; SETUP 0
+GAGAL: L6: tile Dari PPIC: angka surplus karkas bertanda 'rencana saat ini' dan catatannya menyebut daftar jawaban = surplus rencana tersimpan — Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana ± 14.054 kg turun −70,9 jt HJA 2.019 1.…
+GAGAL: L6: baris itu bertanda '(surplus rencana tersimpan)' (Q-v5.2-112) — Lemak · 350 kg
+
+## 4. HIJAU
+CEK lulus: tile Dari PPIC: angka surplus karkas bertanda 'rencana saat ini' dan catatannya menyebut daftar jawaban = surplus rencana tersimpan — Dari PPIC: output rencana yang belum punya pembeli · 27–29/08 SKU Order Output Kurang Karkas surplus dari batch rencana saat ini ± 14.054 kg turun −70,9 jt HJA…
+CEK lulus: baris itu bertanda '(surplus rencana tersimpan)' (Q-v5.2-112) — Lemak · 350 kg (surplus rencana tersimpan)
+RINGKASAN L: 38 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 22 (18× 200, 4× 303); respons tak terduga 0; SETUP 0

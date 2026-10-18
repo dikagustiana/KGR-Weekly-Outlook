@@ -68,7 +68,7 @@ keputusan Dika; T19/T21/T23 tetap butuh staging.
   menghitung dengan sesi pengguna untuk setiap role. Usulan v5.3: outlook Sales dihitung di server dengan klien servis, lalu baca
   mentah ditutup.
 - **Q-v5.2-90**: `apps/web` `xlsx` 0.18.5 (parse di browser, berkas milik pengguna) sampai `cdn.sheetjs.com` terjangkau (D3).
-- **Q-v5.2-100**: galat hidrasi #418 sekali di `/komersial`, tidak terulang; diamati.
+- **Q-v5.2-100**: galat hidrasi #418 sekali di `/komersial`, tidak terulang; diamati. A8 (`a8.md` §2.5): sebab tidak ditemukan; penjaga `hydration-safe.test.ts` ditambahkan.
 - `cost_snapshot`, `sales_stock_age_v52`, `save_class_plan` tidak dibangun (O33 b; B-R85 sebagian).
 
 ## 5. Yang dibutuhkan untuk menuntaskan (urut dampak; rinci di BUTUH-DIKA)

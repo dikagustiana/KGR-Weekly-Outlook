@@ -534,7 +534,8 @@ Q-v5.2-99. O16, O17, O19 **dikerjakan di A6**: keputusan v5.2 (tabel di atas) ad
 Larangan PRD A untuk O17. Agen A6 diminta melanjutkan di cabang yang sama.
 
 Q-v5.2-100. Galat hidrasi #418 sekali di `/komersial` (Kepala Sales), tidak terulang. Diamati; bila muncul di CI, dicari
-sebabnya (tanpa percobaan ulang otomatis).
+sebabnya (tanpa percobaan ulang otomatis). **A8 (`docs/v5.2/a8.md` §2.5): sebab tidak ditemukan.** Komponen klien dan impornya, HTML server lawan
+DOM terhidrasi, dan 288 muatan di build produksi tanpa galat; ditambahkan penjaga vitest `hydration-safe.test.ts`, tanpa perubahan kode.
 
 **Q-v5.2-103 … 104 (penutupan, 18 Okt 2026).**
 
@@ -552,14 +553,16 @@ Q-v5.2-110. PO dan Rencana minggu depan butuh baris minggu itu (Admin: rollover/
 di `SIAP-PAKAI.md` §4.
 
 Q-v5.2-111. Tile akurasi menulis "Belum ada bulan yang FINAL" bila FINAL ada tanpa V1/V2. Teks diperbaiki di v5.3 (tidak
-memengaruhi angka).
+memengaruhi angka). **Selesai di A8** (hanya teks: "FINAL Agustus 2026 sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan.";
+baris C59 tidak ditambahkan, Q-v5.2-130).
 
 Q-v5.2-112. Dua angka surplus karkas di Komersial (tile hidup vs daftar jawaban tersimpan). Dicatat untuk v5.3; jawaban
-tersimpan adalah yang dipakai PPIC.
+tersimpan adalah yang dipakai PPIC. **Label dibedakan di A8** ("rencana saat ini" lawan "(surplus rencana tersimpan)"; angka tidak berubah;
+peringatan "rencana usang" tidak dibuat, Q-v5.2-131).
 
 Q-v5.2-113. `release_week` untuk minggu yang sudah dirilis menulis baris rilis baru (riwayat). Diterima (rilis ulang tercatat).
 
-Q-v5.2-114. Formulir komitmen kosong lagi sesudah ditolak. Perbaikan UX v5.3 (pola `AssignmentForm` A7).
+Q-v5.2-114. Formulir komitmen kosong lagi sesudah ditolak. Perbaikan UX v5.3 (pola `AssignmentForm` A7). **Selesai di A8** (`ActionForm keep`).
 
 Q-v5.2-115. FINAL Agustus pada data T7 juga ditahan C22–C24, C35, C36, C49: catatan untuk T20 di KGR-OS, bukan cacat kode.
 
@@ -573,9 +576,20 @@ Q-v5.2-121. Layar penugasan berbasis role (Admin, Kepala Sales), tanpa flag modu
 
 Q-v5.2-122. Perbaikan `commercialView` (key dasar menutupi semua bentuk, O21 b) dan empat sel matriks e2e "Status biaya"
 Sales di tata letak v4 (0 → 1, hanya kata status, tanpa angka). Diterima. Tile komitmen K43 untuk assignment satu bentuk:
-v5.3.
+v5.3. **Selesai di A8**: tile tidak menawarkan baris key dasar bagi penugasan satu bentuk (aturan `assignment_covers`) dan memberi satu kalimat alasannya.
 
 Q-v5.2-123. Dua Sales bernama sama ditolak (tidak saling menimpa `sales_rep`). Diterima.
+
+**Q-v5.2-130 … 132 (A8, `docs/v5.2/a8.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-130. Q-v5.2-111 opsi (b) menyebut juga baris C59 tetap tampil di tile akurasi bila FINAL ada tanpa V1/V2; A8 hanya mengganti kalimat. Tidak
+ditambah (C59 tetap di halaman Rekonsiliasi dan Tutup buku). Pemilik: Finance.
+
+Q-v5.2-131. Q-v5.2-112 opsi (b), peringatan "rencana tersimpan sudah usang" bila surplus saat ini berbeda dari yang tersimpan: tidak dibuat; A8 hanya memberi
+label. Pemilik: PPIC, Kepala Sales.
+
+Q-v5.2-132. Tidak ada komitmen per bentuk: Sales berpenugasan satu bentuk tidak bisa membuat komitmen (database dan tile sepakat, tile menyuruh minta
+penugasan key dasar). Diterima; Kepala Sales menugaskan key dasar bagi Sales yang perlu berkomitmen. Pemilik: pemilik produk.
 
 Q-v5.2-104. Uji RLS di KGR-OS (pengganti T21) **dihentikan** di blok 04: connector meminta konfirmasi untuk pernyataan
 destruktif di dalam blok (yang tetap di-rollback) dan konfirmasi tidak diberikan. Tidak diulang dan tidak dicari jalan lain;

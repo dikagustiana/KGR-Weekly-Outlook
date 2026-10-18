@@ -2,6 +2,22 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a8] Small fixes before use: commitment form, accuracy tile, commitment cover, surplus labels, hydration guard (docs/v5.2/a8.md; Q-v5.2-100, 111, 112, 114, 122)
+
+No database change: nothing under `supabase/**`, nothing in `computeWeek`, golden v1, parity or snapshot.
+
+### Fixed
+- The commitment form of Komersial ("Simpan draft") keeps what was typed when the server refuses the save (React 19 empties a `<form action>` after every action, a refusal included): `ActionForm` has a `keep` prop that runs the action from `onSubmit` (the pattern of `AssignmentForm`, A7) and resets the form only after an `ok` answer; without scripts the form still posts to the server action (Q-v5.2-114).
+- The accuracy tile of Outlook bulan no longer says "Belum ada bulan yang FINAL." when the last FINAL month has no locked V1/V2 to compare with (or no revenue): "FINAL Agustus 2026 sudah ada, tetapi belum ada versi V1 atau V2 yang terkunci untuk dibandingkan." Text only (Q-v5.2-111).
+- The commitment tile (Komersial v5, K43) offers a row only where the database accepts the save: a commitment is per base key and `assignment_covers` (tg_commitment_guard, `sales_commitment_read`, O21 b) lets Sales write it only with an assignment of the base key; an assignment of one form (`RPA|Ceker|Fresh`) no longer gets a "Ceker" row the save refused, and the tile says why in one sentence (`lib/v5/commitment-scope.ts`; Q-v5.2-122).
+
+### Changed
+- The two surplus numbers of Komersial are labelled: the tile row is "Karkas surplus dari batch rencana saat ini" (recomputed now), the answer list and the Sales table say "(surplus rencana tersimpan)" (the plan as saved, what PPIC uses). Labels and a note only; no number changes (Q-v5.2-112).
+
+### Added
+- `lib/hydration-safe.test.ts`: a guard that fails when a `"use client"` component (or a module it pulls into the browser bundle) reads the clock, a random number, or formats with the viewer's locale or zone. The one-off React #418 on `/komersial` (Q-v5.2-100) was not reproduced and no cause was found; what was checked is in docs/v5.2/a8.md §2.5.
+- Tests: web `commitment-scope` (11), `accuracy-gap` (4), `CommitmentForm` (1), `hydration-safe` (3), `komersial-screens` (+4); e2e checks in journeys L (+4), R69 (+1), A7 (+8).
+
 ## [v5.2-a7] Layar Penugasan Sales: Admin dan Kepala Sales mengatur `sales_assignment` (K49, O21(b); docs/v5.2/a7.md; Q-v5.2-120 … 123)
 
 ### Added
