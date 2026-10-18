@@ -15,6 +15,11 @@ name: DB ops
 #   restore-test      T23: the newest dump in the bucket restored into a throwaway PostgreSQL 17 on the runner; the
 #                     rows per public table must equal <dump>.counts.tsv. Production data never lands in staging (O39).
 #
+# Two ways to start a run, both needing write access to the repository:
+#   * Actions → DB ops → Run workflow (inputs op / bundle / confirm);
+#   * a push to the branch ops/db-run that changes ops/db-ops.json ({"op": …, "bundle": …, "confirm": …}): the request
+#     is kept in git history next to the commit that made it (the agent's way in; its integration cannot dispatch).
+#
 # Secrets (Settings → Secrets and variables → Actions):
 #   STAGING_DB_URL             postgresql:// session pooler (port 5432) of KGR-OS-staging
 #   SUPABASE_DB_URL            the same for KGR-OS (also used by backup.yml)
@@ -22,6 +27,9 @@ name: DB ops
 # A staging URL that names the KGR-OS project, the project that is never used, or equals SUPABASE_DB_URL is refused.
 
 on:
+  push:
+    branches: [ops/db-run]
+    paths: [ops/db-ops.json]
   workflow_dispatch:
     inputs:
       op:
@@ -51,18 +59,31 @@ jobs:
   guard:
     runs-on: ubuntu-latest
     outputs:
+      op: ${{ steps.g.outputs.op }}
       bundle: ${{ steps.g.outputs.bundle }}
     steps:
       - uses: actions/checkout@v4
       - id: g
         env:
-          OP: ${{ inputs.op }}
-          BUNDLE: ${{ inputs.bundle }}
-          CONFIRM: ${{ inputs.confirm }}
+          IN_OP: ${{ inputs.op }}
+          IN_BUNDLE: ${{ inputs.bundle }}
+          IN_CONFIRM: ${{ inputs.confirm }}
+          EVENT: ${{ github.event_name }}
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            [ -f ops/db-ops.json ] || { echo "::error::ops/db-ops.json tidak ada"; exit 1; }
+            OP=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("op",""))')
+            BUNDLE=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("bundle",""))')
+            CONFIRM=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("confirm",""))')
+          else
+            OP="$IN_OP"; BUNDLE="$IN_BUNDLE"; CONFIRM="$IN_CONFIRM"
+          fi
+          case "$OP" in staging-migrate|staging-test-rls|staging-bundle|kgr-os-apply|restore-test) ;; *) echo "::error::op tidak dikenal: $OP"; exit 1 ;; esac
+          echo "op=$OP" >> "$GITHUB_OUTPUT"
+          echo "### db-ops: $OP (${EVENT}, commit ${GITHUB_SHA})" >> "$GITHUB_STEP_SUMMARY"
           case "$OP" in
             staging-*)
               [ -n "$STAGING_DB_URL" ] || { echo "::error::secret STAGING_DB_URL belum diisi"; exit 1; }
@@ -85,11 +106,11 @@ jobs:
 
   staging:
     needs: guard
-    if: startsWith(inputs.op, 'staging-')
+    if: startsWith(needs.guard.outputs.op, 'staging-')
     runs-on: ubuntu-latest
     env:
       STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-      OP: ${{ inputs.op }}
+      OP: ${{ needs.guard.outputs.op }}
       BUNDLE: ${{ needs.guard.outputs.bundle }}
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +122,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
           sudo ln -sf /usr/lib/postgresql/17/bin/psql /usr/local/bin/psql
       - name: staging-migrate
-        if: inputs.op == 'staging-migrate'
+        if: env.OP == 'staging-migrate'
         run: |
           set -euo pipefail
           for f in supabase/migrations/*.sql; do
@@ -121,13 +142,13 @@ jobs:
           if [ "$($PSQL "$STAGING_DB_URL" -X -At -c "select to_regprocedure('public.schema_version()') is not null")" = "t" ]; then v=$($PSQL "$STAGING_DB_URL" -X -At -c "select public.schema_version()"); fi
           echo "### staging-migrate: $(ls supabase/migrations/*.sql | wc -l) migrasi, schema_version = $v" >> "$GITHUB_STEP_SUMMARY"
       - name: staging-test-rls
-        if: inputs.op == 'staging-test-rls'
+        if: env.OP == 'staging-test-rls'
         run: |
           set -o pipefail
           SUPABASE_DB_URL="$STAGING_DB_URL" bash scripts/test-rls.sh | tee rls.txt
           echo "### staging-test-rls: $(tail -1 rls.txt); $(grep -c 'RLS-RESULTS' rls.txt) blok" >> "$GITHUB_STEP_SUMMARY"
       - name: staging-bundle
-        if: inputs.op == 'staging-bundle'
+        if: env.OP == 'staging-bundle'
         run: |
           set -euo pipefail
           $PSQL "$STAGING_DB_URL" -X -v ON_ERROR_STOP=1 -P pager=off -1 -f "$BUNDLE" | tee out.txt
@@ -136,7 +157,7 @@ jobs:
 
   backup:
     needs: guard
-    if: inputs.op == 'kgr-os-apply'
+    if: needs.guard.outputs.op == 'kgr-os-apply'
     uses: ./.github/workflows/backup.yml
     with:
       reason: "db-ops kgr-os-apply"
@@ -144,7 +165,7 @@ jobs:
 
   kgr-os:
     needs: [guard, backup]
-    if: inputs.op == 'kgr-os-apply'
+    if: needs.guard.outputs.op == 'kgr-os-apply'
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -182,7 +203,7 @@ jobs:
 
   restore-test:
     needs: guard
-    if: inputs.op == 'restore-test'
+    if: needs.guard.outputs.op == 'restore-test'
     runs-on: ubuntu-latest
     services:
       pg:
