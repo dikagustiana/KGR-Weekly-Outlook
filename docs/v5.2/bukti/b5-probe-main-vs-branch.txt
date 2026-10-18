@@ -1,0 +1,498 @@
+# v5.2 B5 — probe: migrasi origin/main saja vs cabang v5.2/b5-costing-fs
+# tanggal: 2026-10-18 05:59 UTC · origin/main 4b440d8 (migrasi sampai 20261025000300, tanpa v52_costing dan v52_fs) · cabang (migrasi B5 @ 64c6859, tes @ 64c6859)
+# cara: DB baru b5_ev_main = shim + 36 migrasi origin/main + seed; DB baru b5_ev_br = sama + 20261025000400_v52_costing.sql + 20261025000500_v52_fs.sql.
+#       Pada keduanya dijalankan HANYA 9 blok v5.2 B5 dari supabase/tests/rls_roles.sql (bagian sesudah baris '-- v5.2 B5 (docs/PRD-v5.2-B-db.md …').
+#       Tiap blok berdiri sendiri (user, minggu, key sendiri) dan di-rollback. (!) = hasil di luar yang diharapkan (hak/objek hilang atau lubang ada).
+# ringkasan: origin/main 175 temuan (!) di 9 blok · cabang 0 temuan (!)
+
+Per blok: temuan (!) di origin/main / jumlah temuan; di cabang harus 0.
+  v5.2 B5 B-R85 lb_price_source                                  main  27 /  27   cabang  0 /  27
+  v5.2 B5 A2 plan_check_reason.plan_week_id plan_week_class.detail main  23 /  24   cabang  0 /  25
+  v5.2 B5 A3 R61 post_allocation_override                        main  25 /  32   cabang  0 /  33
+  v5.2 B5 Q-v5.2-13 opening_stock_flag                           main   3 /  25   cabang  0 /  25
+  v5.2 B5 Q-v5.2-18 views holding_loss downgrade_risk            main   5 /  20   cabang  0 /  20
+  v5.2 B5 Q-v5.2-18 price_floor_rule                             main   2 /  22   cabang  0 /  22
+  v5.2 B5 B-R86 fs_statement_line fs_line_map                    main  76 /  83   cabang  0 /  89
+  v5.2 B5 B-R86 C59                                              main   5 /  11   cabang  0 /  11
+  v5.2 B5 hygiene                                                main   9 /  12   cabang  0 /  10
+
+====================================================================================================
+A. ORIGIN/MAIN (tanpa v52_costing dan v52_fs): hanya temuan (!) per blok
+====================================================================================================
+
+[v5.2 B5 B-R85 lb_price_source]  27 dari 27 temuan bertanda (!)
+   column batch.lb_price_source text null=0(!)
+   column: ERROR(!) column "lb_price_source" does not exist
+   ppic sets keputusan_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ppic sets keputusan_semua_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ppic sets manual: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ppic clears the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ppic sets a free text: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca sets keputusan_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca sets keputusan_semua_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca sets manual: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca clears the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca sets a free text: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm sets keputusan_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm sets keputusan_semua_kelas: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm sets manual: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm clears the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm sets a free text: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   insert with an upper-case source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   sales sets the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   fin sets the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   purch sets the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   mgmt sets the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ia sets the source: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ppic on a closed week: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   ca on a closed week: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   adm on a closed week: ERROR(!) column "lb_price_source" of relation "batch" does not exist
+   value: ERROR(!) column "lb_price_source" does not exist
+
+[v5.2 B5 A2 plan_check_reason.plan_week_id plan_week_class.detail]  23 dari 24 temuan bertanda (!)
+   column plan_check_reason.plan_week_id uuid null=0(!)
+   column plan_week_class.detail jsonb null=0(!)
+   unique index per plan version and code=false(!)
+   columns: ERROR(!) column "detail" does not exist
+   ppic writes a bound reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   second live reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   ppic retires the reason of version 1 rows=0(!)
+   reason of version 2: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   count: ERROR(!) column "plan_week_id" does not exist
+   other week: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   missing version: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   ppic detail: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   ppic detail array: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   detail number: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   detail null: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   fin writes a reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   fin writes detail: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   sales writes a reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   sales writes detail: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   mgmt writes a reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   mgmt writes detail: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+   admin reason: ERROR(!) column "plan_week_id" of relation "plan_check_reason" does not exist
+   admin detail: ERROR(!) column "detail" of relation "plan_week_class" does not exist
+
+[v5.2 B5 A3 R61 post_allocation_override]  25 dari 32 temuan bertanda (!)
+   sales calls the override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   ppic calls the override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   mgmt calls the override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   ca calls the override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   ia calls the override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   short reason: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   no run ids: ERROR(!) function public.post_allocation_override(unknown, unknown) does not exist
+   empty run ids: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   unknown run: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   priced run: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   unbalanced run: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   posted run: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   closed week: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   deleted batch: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   list with a priced run: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   finance override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   same run again: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   run 1: status=draft posted_by=null posted_at set=false updated_by=null(!)
+   run 1 issues=0 [null](!)
+   batch 1 costing_status=none(!)
+   run 6 (price 0): status=draft [null](!)
+   audit rows of the two postings by finance=0(!)
+   admin override: ERROR(!) function public.post_allocation_override(uuid[], unknown) does not exist
+   run 5 names the item code=false(!)
+   privileges: ERROR(!) function "public.post_allocation_override(uuid[],text)" does not exist
+
+[v5.2 B5 Q-v5.2-13 opening_stock_flag]  3 dari 25 temuan bertanda (!)
+   ia changes opening_stock_flag of an open week: DENIED(!) Peran inventory_accounting tidak boleh mengubah minggu (opening_stock_flag).
+   fin changes opening_stock_flag of an open week: DENIED(!) Peran finance tidak boleh mengubah minggu (opening_stock_flag).
+   finance flag with status: DENIED(!) Peran finance tidak boleh mengubah minggu (opening_stock_flag).
+
+[v5.2 B5 Q-v5.2-18 views holding_loss downgrade_risk]  5 dari 20 temuan bertanda (!)
+   v4 view sales_sees_cost=false rows=1 holding_loss / downgrade_risk shown=2(!)
+   v5 view sales_sees_cost=false rows=1 holding_loss / downgrade_risk shown=2(!)
+   v5 view week without parameter row rows=1 shown=2(!)
+   v4 view week without parameter row rows=1 shown=2(!)
+   v5 view date without a week rows=1 shown=2(!)
+
+[v5.2 B5 Q-v5.2-18 price_floor_rule]  2 dari 22 temuan bertanda (!)
+   sales reads price_floor_rule rows=1(!)
+   sales reads the audit rows of price_floor_rule=3(!)
+
+[v5.2 B5 B-R86 fs_statement_line fs_line_map]  76 dari 83 temuan bertanda (!)
+   setup fs_statement_line: ERROR(!) relation "public.fs_statement_line" does not exist
+   fin reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   adm reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   mgmt reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   od reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   sales reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   sales insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   sales insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   ppic reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   ppic insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   ppic insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   purch reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   purch insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   purch insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   lead reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   lead insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   lead insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   ca reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   ca insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   ca insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   ia reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   ia insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   ia insert map: ERROR(!) relation "public.fs_line_map" does not exist
+   stranger reads: ERROR(!) relation "public.fs_statement_line" does not exist
+   mgmt insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   mgmt update: ERROR(!) relation "public.fs_statement_line" does not exist
+   mgmt delete: ERROR(!) relation "public.fs_statement_line" does not exist
+   mgmt agree: ERROR(!) relation "public.fs_line_map" does not exist
+   mgmt delete map: ERROR(!) relation "public.fs_line_map" does not exist
+   od insert: ERROR(!) relation "public.fs_statement_line" does not exist
+   od update: ERROR(!) relation "public.fs_statement_line" does not exist
+   od delete: ERROR(!) relation "public.fs_statement_line" does not exist
+   od agree: ERROR(!) relation "public.fs_line_map" does not exist
+   od delete map: ERROR(!) relation "public.fs_line_map" does not exist
+   finance inserts a FS row: DENIED(!) relation "public.fs_statement_line" does not exist
+   created_by: ERROR(!) relation "public.fs_statement_line" does not exist
+   version 2: DENIED(!) relation "public.fs_statement_line" does not exist
+   duplicate: ERROR(!) relation "public.fs_statement_line" does not exist
+   month: ERROR(!) relation "public.fs_statement_line" does not exist
+   statement: ERROR(!) relation "public.fs_statement_line" does not exist
+   sha256: ERROR(!) relation "public.fs_statement_line" does not exist
+   amount null: DENIED(!) relation "public.fs_statement_line" does not exist
+   version: ERROR(!) relation "public.fs_statement_line" does not exist
+   finance updates an unlocked row: DENIED(!) relation "public.fs_statement_line" does not exist
+   finance deletes an unlocked row: DENIED(!) relation "public.fs_statement_line" does not exist
+   finance locks: DENIED(!) relation "public.fs_statement_line" does not exist
+   finance update locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   finance unlock: ERROR(!) relation "public.fs_statement_line" does not exist
+   finance delete locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   new version: DENIED(!) relation "public.fs_statement_line" does not exist
+   admin inserts a FS row: DENIED(!) relation "public.fs_statement_line" does not exist
+   admin update locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   admin delete locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   admin updates an unlocked row: DENIED(!) relation "public.fs_statement_line" does not exist
+   owner update locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   owner delete locked: ERROR(!) relation "public.fs_statement_line" does not exist
+   locked row: ERROR(!) relation "public.fs_statement_line" does not exist
+   audit rows of the lock by finance=0(!)
+   audit rows of fs_statement_line (owner reads)=false(!)
+   fin reads the audit rows of the FS tables=0(!)
+   adm reads the audit rows of the FS tables=0(!)
+   mgmt reads the audit rows of the FS tables=0(!)
+   od reads the audit rows of the FS tables=0(!)
+   privileges: ERROR(!) relation "public.fs_statement_line" does not exist
+   anon: ERROR(!) relation "public.fs_statement_line" does not exist
+   seed: ERROR(!) relation "public.fs_line_map" does not exist
+   finance agrees: DENIED(!) relation "public.fs_line_map" does not exist
+   finance adds a mapping: DENIED(!) relation "public.fs_line_map" does not exist
+   second pair: ERROR(!) relation "public.fs_line_map" does not exist
+   sign: ERROR(!) relation "public.fs_line_map" does not exist
+   sign 0: ERROR(!) relation "public.fs_line_map" does not exist
+   status: ERROR(!) relation "public.fs_line_map" does not exist
+   map statement: ERROR(!) relation "public.fs_line_map" does not exist
+   app_line: ERROR(!) relation "public.fs_line_map" does not exist
+   finance deletes a mapping: DENIED(!) relation "public.fs_line_map" does not exist
+   admin edits a mapping: DENIED(!) relation "public.fs_line_map" does not exist
+
+[v5.2 B5 B-R86 C59]  5 dari 11 temuan bertanda (!)
+   policy C59 allowed_roles=none(!)
+   policy C59 cites O25–O27=0(!)
+   finance override C59: DENIED(!) new row violates row-level security policy for table "release_override"
+   short reason: ERROR(!) new row violates row-level security policy for table "release_override"
+   policy C59 after the attempt=none(!)
+
+[v5.2 B5 hygiene]  9 dari 12 temuan bertanda (!)
+   registry has none(!)
+   schema_version()=5.2.2(!)
+   public.tg_fs_statement_line_lock(): MISSING(!)
+   public.tg_plan_check_reason_scope(): MISSING(!)
+   one function per name (no overload)=1(!)
+   anon table privileges: ERROR(!) relation "public.fs_statement_line" does not exist
+   audit_log policies of B5=0(!)
+   columns of B5=0(!)
+   checks of B5=0(!)
+
+====================================================================================================
+B. CABANG v5.2/b5-costing-fs: seluruh keluaran 9 blok
+====================================================================================================
+
+[v5.2 B5 B-R85 lb_price_source]  0 temuan (!) dari 27
+   column batch.lb_price_source text null=1
+   batches with a source before anyone sets one=0
+   ppic sets keputusan_kelas rows=1
+   ppic sets keputusan_semua_kelas rows=1
+   ppic sets manual rows=1
+   ppic clears the source rows=1
+   ppic sets a free text: refused (23514)
+   ca sets keputusan_kelas rows=1
+   ca sets keputusan_semua_kelas rows=1
+   ca sets manual rows=1
+   ca clears the source rows=1
+   ca sets a free text: refused (23514)
+   adm sets keputusan_kelas rows=1
+   adm sets keputusan_semua_kelas rows=1
+   adm sets manual rows=1
+   adm clears the source rows=1
+   adm sets a free text: refused (23514)
+   insert with an upper-case source: refused
+   sales sets the source: rows=0
+   fin sets the source: rows=0
+   purch sets the source: rows=0
+   mgmt sets the source: rows=0
+   ia sets the source: rows=0
+   ppic on a closed week rows=0
+   ca on a closed week rows=0
+   adm on a closed week rows=1
+   value left by the non-writers=null
+
+[v5.2 B5 A2 plan_check_reason.plan_week_id plan_week_class.detail]  0 temuan (!) dari 25
+   column plan_check_reason.plan_week_id uuid null=1
+   column plan_week_class.detail jsonb null=1
+   unique index per plan version and code=true
+   a class row saved without detail has detail null=1
+   ppic writes a reason bound to version 1: OK
+   second live reason of the same version and code: refused (23505)
+   ppic retires the reason of version 1 rows=1
+   a reason bound to version 2: OK
+   live reasons of version 2=1
+   reason rows kept for version 1=1
+   reason bound to a version of another week: refused (23514)
+   reason bound to a missing version: refused (23514)
+   reason without a version: OK
+   ppic writes detail (object) rows=1
+   ppic writes detail (array) rows=1
+   detail = a bare number: refused (23514)
+   detail back to null rows=1
+   fin writes a reason: denied
+   fin writes detail rows=0
+   sales writes a reason: denied
+   sales writes detail rows=0
+   mgmt writes a reason: denied
+   mgmt writes detail rows=0
+   admin writes a bound reason: OK
+   admin writes detail rows=1
+
+[v5.2 B5 A3 R61 post_allocation_override]  0 temuan (!) dari 33
+   finance posts a run directly rows=0
+   finance edits issues directly rows=0
+   finance sets batch.costing_status directly rows=0
+   run 1 after the direct attempts=draft/none
+   sales calls the override: denied
+   ppic calls the override: denied
+   mgmt calls the override: denied
+   ca calls the override: denied
+   ia calls the override: denied
+   reason under 10 characters: refused (23514)
+   no run ids: refused (22023)
+   empty run ids: refused (22023)
+   unknown run: refused (22023)
+   a fully priced run (zero-kg line without price ignored): refused (22023)
+   an unbalanced run (C21): refused (23514)
+   a posted run: refused (22023)
+   a run of a closed week by finance: denied
+   a run of a deleted batch: refused (22023)
+   a list with a priced run: refused (22023)
+   run 1 after the refused calls=draft/none
+   finance override of runs 1 and 6 (run 1 listed twice) posted=2
+   the same run again: refused (22023)
+   run 1: status=posted posted_by=b5r-fin@x.test posted_at set=true updated_by=b5r-fin@x.test
+   run 1 issues=1 [override Finance: diposting tanpa harga acuan K-A — harga acuan menyusul dari Sales, WP-0131 (b5r-fin@x.test, 2026-10-18)]
+   batch 1 costing_status=posted
+   run 6 (price 0): status=posted [override Finance: diposting tanpa harga acuan ITEM6 — harga acuan menyusul dari Sales, WP-0131 (b5r-fin@x.test, 2026-10-18)]
+   run 2 (priced, not in the call)=draft/none
+   audit rows of the two postings by finance=2
+   admin override of runs 5 and 7 posted=2
+   run 5 names the item code=true
+   cost accounting posts the priced run directly rows=1
+   execute anon=false authenticated=true
+   definer with search_path=""=1
+
+[v5.2 B5 Q-v5.2-13 opening_stock_flag]  0 temuan (!) dari 25
+   ia changes opening_stock_flag of an open week rows=1
+   ia clears it again rows=1
+   ia changes the flag of a released week: denied
+   ia changes the flag of a closed week: denied
+   ia changes note: denied
+   ia changes the flag and the note together: denied
+   ia changes update_date directly: denied
+   fin changes opening_stock_flag of an open week rows=1
+   fin clears it again rows=1
+   fin changes the flag of a released week: denied
+   fin changes the flag of a closed week: denied
+   fin changes note: denied
+   fin changes the flag and the note together: denied
+   sales changes the flag: denied
+   ppic changes the flag: denied
+   purch changes the flag: denied
+   lead changes the flag: denied
+   ca changes the flag: denied
+   mgmt changes the flag rows=0
+   finance opens→released rows=1
+   finance released→open rows=1
+   finance flag with status on an open week rows=1
+   admin changes the flag of a closed week rows=1
+   open week flag after the refused attempts=null
+   released/closed weeks changed=0
+
+[v5.2 B5 Q-v5.2-18 views holding_loss downgrade_risk]  0 temuan (!) dari 20
+   v4 view sales_sees_cost=false rows=1 holding_loss / downgrade_risk shown=0
+   list price stays=26000.0000
+   v5 view sales_sees_cost=false rows=1 holding_loss / downgrade_risk shown=0
+   realized price stays=25500.0000
+   v4 view sales_sees_cost=true shown=2 (111.00 / 222.00)
+   v5 view sales_sees_cost=true shown=2
+   v5 view week without parameter row rows=1 shown=0
+   v4 view week without parameter row rows=1 shown=0
+   v5 view date without a week rows=1 shown=0
+   b5v-mgmt v5 view shown=4
+   b5v-mgmt v4 view shown=4
+   b5v-adm v5 view shown=4
+   b5v-adm v4 view shown=4
+   b5v-fin v5 view shown=4
+   b5v-fin v4 view shown=4
+   b5v-lead v5 view shown=4
+   b5v-lead v4 view shown=4
+   v4 view columns unchanged=true
+   v5 view columns unchanged=true
+   anon on views: v4=false v5=false
+
+[v5.2 B5 Q-v5.2-18 price_floor_rule]  0 temuan (!) dari 22
+   sales reads price_floor_rule rows=0
+   sales writes a floor rule: denied
+   lead reads price_floor_rule rows=1
+   fin reads price_floor_rule rows=1
+   adm reads price_floor_rule rows=1
+   mgmt reads price_floor_rule rows=1
+   ppic reads price_floor_rule rows=1
+   ca reads price_floor_rule rows=1
+   od reads price_floor_rule rows=1
+   commercial lead writes a floor rule: OK
+   and reads it back=1
+   commercial lead changes a markup rows=1
+   audit rows of the markup change (owner reads)=1
+   sales reads the audit rows of price_floor_rule=0
+   lead reads the audit rows of price_floor_rule=3
+   fin reads the audit rows of price_floor_rule=3
+   mgmt reads the audit rows of price_floor_rule=3
+   ppic reads the audit rows of price_floor_rule=3
+   sales still read the audit rows of other tables (not redacted)=true
+   management writes a floor rule: denied
+   stranger reads price_floor_rule rows=0
+   the owner still reads all rows=2
+
+[v5.2 B5 B-R86 fs_statement_line fs_line_map]  0 temuan (!) dari 89
+   setup: two rows inserted by the owner
+   fin reads fs_statement_line=2 fs_line_map=15
+   adm reads fs_statement_line=2 fs_line_map=15
+   mgmt reads fs_statement_line=2 fs_line_map=15
+   od reads fs_statement_line=2 fs_line_map=15
+   sales reads fs_statement_line=0 fs_line_map=0
+   sales inserts a FS row: denied
+   sales inserts a mapping row: denied
+   ppic reads fs_statement_line=0 fs_line_map=0
+   ppic inserts a FS row: denied
+   ppic inserts a mapping row: denied
+   purch reads fs_statement_line=0 fs_line_map=0
+   purch inserts a FS row: denied
+   purch inserts a mapping row: denied
+   lead reads fs_statement_line=0 fs_line_map=0
+   lead inserts a FS row: denied
+   lead inserts a mapping row: denied
+   ca reads fs_statement_line=0 fs_line_map=0
+   ca inserts a FS row: denied
+   ca inserts a mapping row: denied
+   ia reads fs_statement_line=0 fs_line_map=0
+   ia inserts a FS row: denied
+   ia inserts a mapping row: denied
+   stranger reads fs_statement_line=0 fs_line_map=0
+   mgmt inserts a FS row: denied
+   mgmt updates a FS row rows=0
+   mgmt deletes a FS row rows=0
+   mgmt agrees a mapping rows=0
+   mgmt deletes a mapping rows=0
+   od inserts a FS row: denied
+   od updates a FS row rows=0
+   od deletes a FS row rows=0
+   od agrees a mapping rows=0
+   od deletes a mapping rows=0
+   finance inserts a FS row: OK
+   created_by=b5f-fin@x.test
+   finance inserts version 2 of the same row: OK
+   same month, statement, row and version twice: refused (23505)
+   month not the first day: refused (23514)
+   statement CF: refused (23514)
+   sha256 that is not 64 hex characters: refused (23514)
+   a row without a number (amount null): OK
+   version 0: refused (23514)
+   finance updates an unlocked row rows=1
+   finance deletes an unlocked row rows=1
+   finance locks the row rows=1
+   finance updates the locked row: refused (42501)
+   finance unlocks the row: refused (42501)
+   finance deletes the locked row: refused (42501)
+   a new version next to the locked one: OK
+   admin inserts a FS row: OK
+   admin updates the locked row: refused (42501)
+   admin deletes the locked row: refused (42501)
+   admin updates an unlocked row rows=1
+   the owner updates the locked row: refused (42501)
+   the owner deletes the locked row: refused (42501)
+   locked row amount after all attempts=-8055051145.98
+   audit rows of the lock by finance=1
+   audit rows of fs_statement_line (owner reads)=true
+   fin reads the audit rows of the FS tables=some
+   adm reads the audit rows of the FS tables=some
+   mgmt reads the audit rows of the FS tables=some
+   od reads the audit rows of the FS tables=some
+   sales reads the audit rows of the FS tables=0
+   ppic reads the audit rows of the FS tables=0
+   purch reads the audit rows of the FS tables=0
+   lead reads the audit rows of the FS tables=0
+   ca reads the audit rows of the FS tables=0
+   ia reads the audit rows of the FS tables=0
+   stranger reads the audit rows of the FS tables=0
+   anon privileges on fs_statement_line / fs_line_map=false
+   authenticated truncate / references / trigger on the two tables=false
+   row level security on=fs_line_map:true,fs_statement_line:true
+   anon reads fs_statement_line: denied
+   anon reads fs_line_map: denied
+   seed rows=15 draft=15 sign 1=15
+   seed pairs of the minimum mapping=15
+   finance agrees PL b.12 rows=1
+   status=agreed updated_by=b5f-fin@x.test
+   finance adds a mapping row (status defaults to draft): OK
+   new row status=draft
+   a second pair for PL b.12: refused (23505)
+   sign 2: refused (23514)
+   sign 0: refused (23514)
+   status approved: refused (23514)
+   statement CF in the map: refused (23514)
+   blank app_line: refused (23514)
+   finance deletes the row it added rows=1
+   admin edits a mapping rows=1
+
+[v5.2 B5 B-R86 C59]  0 temuan (!) dari 11
+   policy C59 allowed_roles={finance}
+   policy C59 cites O25–O27=1
+   finance records override C59: OK
+   finance override C59 with a short reason: refused (23514)
+   adm records override C59: denied
+   ca records override C59: denied
+   sales records override C59: denied
+   ppic records override C59: denied
+   mgmt records override C59: denied
+   admin widens policy C59: denied
+   policy C59 after the attempt={finance}
+
+[v5.2 B5 hygiene]  0 temuan (!) dari 10
+   registry has 5.2.3,5.2.4
+   schema_version()=5.2.4
+   trigger functions checked for clients
+   SECURITY DEFINER functions without a fixed search_path=none
+   SECURITY DEFINER functions executable by anon=none
+   one function per name (no overload)=4
+   tables and views of B5 with anon privileges=none
+   audit_log policies of B5=2
+   columns of B5=3
+   checks of B5=2

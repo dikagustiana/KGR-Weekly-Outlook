@@ -91,4 +91,16 @@ describe("Commercial v5 content", () => {
     expect(text(s.tiles.find((t) => t.id === "konteks"))).toContain("Anda melihat SKU dan pelanggan yang ditugaskan");
     expect(plain(renderToStaticMarkup(<TilePage tiles={m.tiles} label="x" />))).not.toMatch(/TUNDA|NEGOSIASI/);
   });
+  it("R64: Sales cannot read the age of the stock — the '> batas' column says 'tidak ditampilkan' (never 0) and the note says for whom", () => {
+    const rows = stockSellRows(items.map((i) => ({ ...i, over_age_kg: null })), rate);
+    const sales = komersialV5Model(input("all", { sales: true, roleLabel: "Sales", rows }));
+    const rank = sales.tiles.find((t) => t.id === "t-ranking");
+    expect(text(rank)).toContain("tidak ditampilkan");
+    expect(rank!.note).toContain('Kolom "> batas" (kg di atas batas umur) tidak ditampilkan untuk Sales.');
+    // a role that may read it shows the kg, and says nothing
+    const lead = text(tile("t-ranking"));
+    expect(lead).not.toContain("tidak ditampilkan");
+    expect(lead).toContain("829");
+    expect(tile("t-ranking")!.note ?? "").not.toContain("tidak ditampilkan");
+  });
 });

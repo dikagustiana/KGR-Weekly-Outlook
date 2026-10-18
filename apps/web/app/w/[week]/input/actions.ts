@@ -66,7 +66,7 @@ export async function saveRow(form: FormData) {
     if (!canWriteRow(v.role, def, { ...row, source: "Manual" })) back(week, path, "Peran Anda tidak boleh menambah baris ini", "err");
     const weekId = await weekIdOf(sb, week);
     const last = must(await sb.from(def.table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle(), "input.last");
-    const seq = Number((last as Row | null)?.seq ?? 0) + 1;
+    const seq = Number((last as Row | null)?.seq ?? 0) + 1; // missing-ok: nomor urut berikutnya (indeks): tanpa baris mulai dari 1
     try {
       await applyChanges(sb, def.table, [{ ...row, week_id: weekId, seq, source: "Manual" }]);
       if (covered.length) {
@@ -137,7 +137,7 @@ export async function pasteRows(form: FormData) {
   const sb = await supabaseServer();
   const weekId = await weekIdOf(sb, week);
   const last = must(await sb.from(table).select("seq").eq("week_id", weekId).order("seq", { ascending: false }).limit(1).maybeSingle(), "input.last2");
-  let seq = Number((last as Row | null)?.seq ?? 0);
+  let seq = Number((last as Row | null)?.seq ?? 0); // missing-ok: nomor urut terakhir (indeks): tanpa baris mulai dari 0
   const rows = set.rows.map((r) => {
     const { _item_name, line_key, ...rest } = r as Row;
     void _item_name; void line_key;

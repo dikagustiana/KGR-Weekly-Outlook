@@ -63,11 +63,11 @@ export default async function BatchPage({ params }: PageProps) {
       </Card>
       {last12.length > 0 ? (
         <div className="grid3">
-          <Card title="Shrink per batch"><BarChart unit="%" target={p.params.shrink.times(100).toNumber()} data={last12.map((b) => ({ label: label(b), value: b.shrink ? b.shrink.times(100).toNumber() : 0 }))} /></Card>
-          <Card title="Karkas fresh % per batch"><BarChart unit="%" data={last12.map((b) => ({ label: label(b), value: b.freshShare ? b.freshShare.times(100).toNumber() : 0 }))} /></Card>
+          <Card title="Shrink per batch"><BarChart unit="%" target={p.params.shrink.times(100).toNumber()} data={last12.flatMap((b) => (b.shrink ? [{ label: label(b), value: b.shrink.times(100).toNumber() }] : []))} /></Card>
+          <Card title="Karkas fresh % per batch"><BarChart unit="%" data={last12.flatMap((b) => (b.freshShare ? [{ label: label(b), value: b.freshShare.times(100).toNumber() }] : []))} /></Card>
           <Card title="Biaya vs nilai per kg output"><BarChart unit="Rp" data={last12.flatMap((b) => [
-            { label: `${label(b)} biaya`, value: b.costPerKgOutput?.toNumber() ?? 0, tone: "neg" as const },
-            { label: `${label(b)} nilai`, value: b.valuePerKgOutput?.toNumber() ?? 0 },
+            ...(b.costPerKgOutput ? [{ label: `${label(b)} biaya`, value: b.costPerKgOutput.toNumber(), tone: "neg" as const }] : []),
+            ...(b.valuePerKgOutput ? [{ label: `${label(b)} nilai`, value: b.valuePerKgOutput.toNumber() }] : []),
           ])} /></Card>
         </div>
       ) : null}

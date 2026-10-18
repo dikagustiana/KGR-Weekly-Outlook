@@ -9,3 +9,9 @@ coverage/
 .vercel
 .DS_Store
 out/
+backups/
+__pycache__/
+
+# backtest working files
+backtest-data/
+tests/e2e/.work/

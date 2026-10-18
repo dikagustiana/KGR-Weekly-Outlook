@@ -5,6 +5,9 @@ import "server-only";
  * day twice writes nothing the second time. No external cron — the queue is processed after uploads and by the
  * "Bangun ulang" button on /admin/modul. The run uses the server's service-role client (PRD v4 S1): the caller has
  * already checked the user's role; the builders read the inputs from the database, never rows sent by the browser.
+ * Q-v5.2-51 (A1d): every builder reads and writes with the client the caller gives — the service client in the cron and
+ * in the app's rebuild — and never opens a session client of its own (`supabaseServer`), so the same date gives the
+ * same mart whoever starts the run (lib/rebuild-client.test.ts).
  */
 import type { Supa } from "./supabase";
 import { WriteError } from "./write";
@@ -15,6 +18,7 @@ import { throughDates } from "./rebuild-dates";
 import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
 import { supabaseService } from "./supabase-service";
 import { orderedBuilders } from "./rebuild-registry";
+import { schemaStatusOf } from "./schema";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
 import "./v3/planning";
@@ -29,6 +33,9 @@ import "./v4/uploads-ppic";
 import "./v4/close";
 import "./v5/ppic-data";
 import "./v5/input-data";
+
+// K60 (R45): every builder is registered once the imports above ran; a dependency cycle stops the server here, at start
+orderedBuilders();
 
 export { registerBuilder, BUILDERS, martReplace, type Builder } from "./rebuild-registry";
 export { throughDates, QUEUE_THROUGH_MAX_DAYS } from "./rebuild-dates";
@@ -91,14 +98,20 @@ export const REBUILD_INLINE_MAX = 7;
  * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
  * Without the server key the queue is left alone too, with a note saying why. K61 (R45): stuck `running` rows are
  * reset, out-of-window dates are marked done, and inline processing is capped; the rest is left for the cron.
+ * `opts.client` is the client the run uses (the cron passes the service client it already holds); without it the
+ * service client is built here. It is never a session client: `mart_replace` is granted to the service role only.
  */
-export async function processRebuildQueue(settings: ModuleSettings, opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: number; failed: number; notes: string[] }> {
+export async function processRebuildQueue(settings: ModuleSettings, opts: { limit?: number; budgetMs?: number; client?: Supa | null } = {}): Promise<{ done: number; failed: number; notes: string[] }> {
   const { limit = REBUILD_INLINE_MAX, budgetMs = 0 } = opts;
-  const svc = supabaseService();
+  const svc = opts.client === undefined ? supabaseService() : opts.client;
   const mode = rebuildMode(settings, svc !== null);
   if (mode === "skip") return { done: 0, failed: 0, notes: [] };
   if (mode === "no_key" || !svc) return { done: 0, failed: 0, notes: [REBUILD_NO_KEY] };
   const sb = svc;
+  // K57 (R44): nothing is built against a schema that is behind the code; the rows stay queued and the caller shows
+  // the banner's message (an upload that saved its rows is not reported as failed)
+  const behind = await schemaStatusOf(sb);
+  if (behind) return { done: 0, failed: 0, notes: [behind] };
 
   // K61 (R45): a crashed run leaves `running` rows that would block STALE forever — reset them after 15 minutes.
   const stuck = await sb.from("rebuild_queue").update({ status: "queued", error: "direset: running > 15 menit" }).eq("status", "running").lt("started_at", new Date(Date.now() - 15 * 60_000).toISOString());
@@ -117,24 +130,30 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
   let done = 0, failed = 0;
   const notes: string[] = [];
   if (byDate.size) for (const b of orderedBuilders()) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
+  // K42: the ids of one date in chunks of 200 (URL length); the first error message, or null
+  const mark = async (ids: string[], patch: Record<string, string>): Promise<string | null> => {
+    for (let i = 0; i < ids.length; i += 200) {
+      const r = await sb.from("rebuild_queue").update(patch).in("id", ids.slice(i, i + 200));
+      if (r.error) return r.error.message;
+    }
+    return null;
+  };
   const startedAt = Date.now();
   let processed = 0;
   for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
     if (budgetMs && Date.now() - startedAt > budgetMs) break;
-    for (let i = 0; i < ids.length; i += 200) {
-      const up = await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
-      if (up.error) throw new WriteError(`rebuild_queue running: ${up.error.message}`);
-    }
+    const fail = await mark(ids, { status: "running", started_at: new Date().toISOString() });
+    if (fail) throw new WriteError(`rebuild_queue running: ${fail}`);
     try {
       const msg = await rebuildDay(sb, date, settings);
-      const fin = await sb.from("rebuild_queue").update({ status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" }).in("id", ids);
-      if (fin.error) throw new WriteError(`rebuild_queue done: ${fin.error.message}`);
+      const finFail = await mark(ids, { status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" });
+      if (finFail) throw new WriteError(`rebuild_queue done: ${finFail}`);
       done += ids.length;
       processed += 1;
       notes.push(`${date}: ${msg.length ? msg.join("; ") : "tidak ada modul aktif"}`);
     } catch (e) {
-      const f = await sb.from("rebuild_queue").update({ status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) }).in("id", ids);
-      if (f.error) notes.push(`${date}: GAGAL menandai failed: ${f.error.message}`);
+      const f = await mark(ids, { status: "failed", finished_at: new Date().toISOString(), error: (e as Error).message.slice(0, 2000) });
+      if (f) notes.push(`${date}: GAGAL menandai failed: ${f}`);
       failed += ids.length;
       processed += 1;
       notes.push(`${date}: GAGAL ${(e as Error).message}`);

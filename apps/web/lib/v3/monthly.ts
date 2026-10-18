@@ -62,8 +62,8 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   // journal from 6 weeks before the cut-off (the run-rate looks back 20 working days, across the month start)
   const from = addDays(cutOff, -42) < first ? addDays(cutOff, -42) : first;
   const [gl, coa] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line").is("deleted_at", null).order("account").range(a, b)),
   ]);
   const glRows = gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) }));
   const coaRows = coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line) }));
@@ -73,7 +73,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const unbilled: ReturnType<typeof unbilledFromWeek> = [];
   let tolerance = "0.10", v1LockWeek = 3, windowDays = 7, wT = "0.7", wF = "0.5";
   for (const w of weeks) {
-    const c = await computeForWeek(w.week_start);
+    const c = await computeForWeek(sb, w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "monthly.parameter") as Row | null;
@@ -100,7 +100,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const rrRows = lastWeek ? mustRows(await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id), "monthly.runrate") as Row[] : [];
   const variable = drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && !isCogsLine(String(c.pl_line))).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [];
   const opex = days.length ? opexRemaining({
-    fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
+    fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount) })),
     variable, forecastKg: sum(orders.map((o) => D(o.kg))), remainingDays: days.length, daysInMonth: daysInMonth(first),
   }) : [];
   const forecastRows = forecastPlRows({ days, orders, opex });
@@ -122,8 +122,9 @@ export async function writeMonthMart(sb: Supa, st: MonthState): Promise<{ writte
   }
   try {
     await writeEngineAssumptions(sb, st);
-  } catch {
-    // admin / finance only (RLS); other roles keep the mart already written by the rebuild
+  } catch (e) {
+    // admin / finance only (RLS); other roles keep the mart already written by the rebuild. Any other error stops (K56).
+    if (!/row-level security|permission denied/i.test((e as Error).message)) throw e;
   }
   return { written, deleted };
 }
@@ -176,7 +177,7 @@ registerBuilder({
 
 /** Reads for /m/[month]: the mart rows of the month (engine sums them). */
 export async function plDaily(sb: Supa, first: string): Promise<PlDailyRow[]> {
-  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").range(a, b));
+  const rows = await fetchAll<Row>((a, b) => sb.from("pl_daily").select("*").gte("date", first).lte("date", monthEnd(first)).order("date").order("basis").order("pl_line").range(a, b));
   return rows.map((r) => ({ date: String(r.date), pl_line: String(r.pl_line), basis: r.basis as PlDailyRow["basis"], actual: r.actual === null ? null : D(String(r.actual)), forecast: r.forecast === null ? null : D(String(r.forecast)), anomaly: r.anomaly === true }));
 }
 
@@ -213,7 +214,7 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
   const tot = sumRows([...rows, ...adjRows]);
   const t = { revenue: tot.actual.revenue.plus(tot.forecast.revenue), cogs: tot.actual.cogs.plus(tot.forecast.cogs), gp: tot.actual.gp.plus(tot.forecast.gp), opex: tot.actual.opex.plus(tot.forecast.opex), nibt: tot.actual.nibt.plus(tot.forecast.nibt) };
   const kgByDay: Record<string, string> = {};
-  for (const o of st.orders) kgByDay[o.delivery_date] = toFixedString(D(kgByDay[o.delivery_date] ?? "0").plus(D(o.kg)), 2) ?? "0";
+  for (const o of st.orders) kgByDay[o.delivery_date] = D(kgByDay[o.delivery_date] ?? "0").plus(D(o.kg)).toFixed(2); // missing-ok: akumulator kg per tanggal, mulai dari 0 untuk dijumlah
   const snapshot = {
     month: first, version, cut_off: st.cutOff, runrate: f2(st.runrate.revenue), gp_pct: toFixedString(st.gpPct, 6), anomalies: st.runrate.anomalies, holidays: st.holidays,
     days: versionDays(rows, first, kgByDay), rows: rows.map(martRow), adjustments: adj.map((a) => ({ code: a.code, pl_line: a.pl_line, amount: a.amount })),
@@ -240,7 +241,8 @@ async function afterFinal(sb: Supa, mo: Row, first: string, final: { revenue: De
   const a = accuracy({
     final: { revenue: final.revenue, gp: final.gp, nibt: final.nibt },
     adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
-    versions: versions.map((v) => ({ version: String(v.version), revenue: String(v.revenue ?? 0), gp: String(v.gp ?? 0), nibt: String(v.nibt ?? 0) })),
+    // a version locked without every figure (revenue, GP, NIBT) cannot be scored against FINAL: it is left out, not scored as 0
+    versions: versions.filter((v) => v.revenue !== null && v.gp !== null && v.nibt !== null).map((v) => ({ version: String(v.version), revenue: String(v.revenue), gp: String(v.gp), nibt: String(v.nibt) })),
   });
   const rows = a.rows.flatMap((r) => [
     { metric: "bias", value: r.bias }, { metric: "abs_err", value: r.abs_err }, { metric: "MAPE", value: r.ape }, { metric: "bias_pre", value: r.bias_pre }, { metric: "MAPE_pre", value: r.ape_pre },
@@ -267,10 +269,10 @@ export async function monthView(sb: Supa, first: string): Promise<MonthView> {
   if (!mo) return { versions: [], adjustments: [], accuracy: [], assumptions: [], bridge: null, controls: monthlyControls({ bridge: null }) };
   const id = String((mo as Row).id);
   const [versions, adjustments, acc, assumptions] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("*").eq("month_outlook_id", id).order("locked_at").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("code").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_accuracy").select("*").eq("month_outlook_id", id).order("metric").order("month_outlook_id").order("scope").order("version").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("outlook_assumption").select("*").eq("month_outlook_id", id).is("deleted_at", null).order("id").range(a, b)),
   ]);
   const v1 = versions.find((v) => v.version === "V1"), v2 = versions.find((v) => v.version === "V2");
   const days = (v: Row | undefined) => ((v?.snapshot as { days?: VersionDay[] } | undefined)?.days ?? []);

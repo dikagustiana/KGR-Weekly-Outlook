@@ -1,0 +1,185 @@
+{
+ "status": "diharapkan: tidak ada jurnal September di fixture, semua baris yang dipetakan 'tidak ada di app' dengan sebab 'data belum ada'",
+ "unit": "Rp",
+ "tolerance": "1",
+ "recons": [
+  {
+   "id": "akhir-bulan",
+   "rows": [
+    {
+     "key": "PL b.12",
+     "fs_line": "Revenue",
+     "app_line": "revenue",
+     "app": null,
+     "fs": "5039854191.00",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "PL b.13",
+     "fs_line": "Cost of Sales",
+     "app_line": "cogs",
+     "app": null,
+     "fs": "-5515286606.26",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "PL b.15",
+     "fs_line": "GROSS PROFIT",
+     "app_line": "gp",
+     "app": null,
+     "fs": "-475432415.26",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "PL b.37",
+     "fs_line": "TOTAL OPERATING EXPENSES",
+     "app_line": "opex",
+     "app": null,
+     "fs": "-312165167.06",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "PL b.49",
+     "fs_line": "TOTAL OTHER INCOME (EXPENSE)",
+     "app_line": "other",
+     "app": null,
+     "fs": "-122460957.41",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "PL b.51",
+     "fs_line": "INCOME (LOSS) BEFORE TAX",
+     "app_line": "nibt",
+     "app": null,
+     "fs": "-910058539.73",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.14",
+     "fs_line": "Cash and cash equivalents",
+     "app_line": "kas",
+     "app": null,
+     "fs": "102996959.86",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.17",
+     "fs_line": "Trade Receivables - Third Parties",
+     "app_line": "piutang_pihak_ketiga",
+     "app": null,
+     "fs": "800198009.00",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.18",
+     "fs_line": "Trade Receivables - Related Parties",
+     "app_line": "piutang_pihak_berelasi",
+     "app": null,
+     "fs": "0.00",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.23",
+     "fs_line": "Inventory - Product",
+     "app_line": "persediaan_produk",
+     "app": null,
+     "fs": "4724212503.35",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.24",
+     "fs_line": "Inventory - Trading",
+     "app_line": "persediaan_trading",
+     "app": null,
+     "fs": "1928193717.73",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.47",
+     "fs_line": "Trade Payables - Third Parties",
+     "app_line": "utang_dagang_pihak_ketiga",
+     "app": null,
+     "fs": "139076516.40",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.48",
+     "fs_line": "Trade Payables - Affiliates",
+     "app_line": "utang_dagang_afiliasi",
+     "app": null,
+     "fs": "0.00",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.51",
+     "fs_line": "Other Payable - Related Parties",
+     "app_line": "utang_lain_afiliasi",
+     "app": null,
+     "fs": "9845918888.89",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    },
+    {
+     "key": "BS b.77",
+     "fs_line": "TOTAL EQUITY",
+     "app_line": "ekuitas",
+     "app": null,
+     "fs": "702553474.90",
+     "selisih": null,
+     "status": "tidak ada di app",
+     "cause": "data belum ada",
+     "explain": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September"
+    }
+   ],
+   "summary": {
+    "mapped": 15,
+    "sama": 0,
+    "beda": 0,
+    "missing": 15,
+    "unmapped": 58
+   },
+   "c59": "BELUM DIISI"
+  }
+ ]
+}

@@ -1,0 +1,375 @@
+# v5.2 B5 — dua view Sales (Q-v5.2-18): \d+ sebelum (origin/main, migrasi sampai 20261025000300) dan sesudah (cabang v5.2/b5-costing-fs)
+# tanggal: 2026-10-18 05:59 UTC · migrasi B5 @ 64c6859
+
+## commercial_daily_sales: 20 kolom, nama + urutan + tipe origin/main vs cabang: IDENTIK
+
+## commercial_daily_sales_v5: 23 kolom, nama + urutan + tipe origin/main vs cabang: IDENTIK
+
+## sidik definisi (hanya dua kolom yang berubah isinya: holding_loss_per_day, downgrade_risk_rp)
+  b5_ev_main: md5 definisi view v4 67f440555a58cfcf926635ffda5cc175 v5 bfa34541620deea9d5f92bf8df1d13d0
+  b5_ev_br: md5 definisi view v4 c6d1d9c446054a69fc201c2dac22446d v5 0d62201782bd01a40d1be8b4464cc656
+
+################################################################################
+# \d+ public.commercial_daily_sales — SEBELUM (origin/main, b5_ev_main)
+                               View "public.commercial_daily_sales"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+    c.holding_loss_per_day,
+    c.downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+# \d+ public.commercial_daily_sales — SESUDAH (cabang, b5_ev_br)
+                               View "public.commercial_daily_sales"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+        CASE
+            WHEN s.sees THEN c.holding_loss_per_day
+            ELSE NULL::numeric
+        END::numeric(18,2) AS holding_loss_per_day,
+        CASE
+            WHEN s.sees THEN c.downgrade_risk_rp
+            ELSE NULL::numeric
+        END::numeric(18,2) AS downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+
+################################################################################
+# \d+ public.commercial_daily_sales_v5 — SEBELUM (origin/main, b5_ev_main)
+                             View "public.commercial_daily_sales_v5"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+ cost_per_kg            | numeric(18,4) |           |          |         | main     | 
+ cost_status            | text          |           |          |         | extended | 
+ cost_check             | boolean       |           |          |         | plain    | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+    c.holding_loss_per_day,
+    c.downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg,
+        CASE
+            WHEN s.sees THEN c.cost_status
+            ELSE NULL::text
+        END AS cost_status,
+        CASE
+            WHEN s.sees THEN c.cost_check
+            ELSE NULL::boolean
+        END AS cost_check
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+# \d+ public.commercial_daily_sales_v5 — SESUDAH (cabang, b5_ev_br)
+                             View "public.commercial_daily_sales_v5"
+         Column         |     Type      | Collation | Nullable | Default | Storage  | Description 
+------------------------+---------------+-----------+----------+---------+----------+-------------
+ date                   | date          |           |          |         | plain    | 
+ key                    | text          |           |          |         | extended | 
+ group_code             | text          |           |          |         | extended | 
+ form                   | text          |           |          |         | extended | 
+ free_fresh_kg          | numeric(12,2) |           |          |         | main     | 
+ free_frozen_kg         | numeric(12,2) |           |          |         | main     | 
+ oldest_age_days        | integer       |           |          |         | plain    | 
+ hours_to_cutoff        | integer       |           |          |         | plain    | 
+ cost_per_kg_ma         | numeric(18,4) |           |          |         | main     | 
+ price_floor            | numeric(18,4) |           |          |         | main     | 
+ price_list             | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_list     | numeric(18,4) |           |          |         | main     | 
+ realized_price_7d      | numeric(18,4) |           |          |         | main     | 
+ margin_per_kg_realized | numeric(18,4) |           |          |         | main     | 
+ holding_loss_per_day   | numeric(18,2) |           |          |         | main     | 
+ downgrade_risk_rp      | numeric(18,2) |           |          |         | main     | 
+ urgency                | text          |           |          |         | extended | 
+ priority_score         | numeric(18,2) |           |          |         | main     | 
+ rank                   | integer       |           |          |         | plain    | 
+ ordered_today_kg       | numeric(12,2) |           |          |         | main     | 
+ cost_per_kg            | numeric(18,4) |           |          |         | main     | 
+ cost_status            | text          |           |          |         | extended | 
+ cost_check             | boolean       |           |          |         | plain    | 
+View definition:
+ SELECT c.date,
+    c.key,
+    c.group_code,
+    c.form,
+    c.free_fresh_kg,
+    c.free_frozen_kg,
+    c.oldest_age_days,
+    c.hours_to_cutoff,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg_ma
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg_ma,
+        CASE
+            WHEN s.sees THEN c.price_floor
+            ELSE NULL::numeric
+        END::numeric(18,4) AS price_floor,
+    c.price_list,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_list
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_list,
+    c.realized_price_7d,
+        CASE
+            WHEN s.sees THEN c.margin_per_kg_realized
+            ELSE NULL::numeric
+        END::numeric(18,4) AS margin_per_kg_realized,
+        CASE
+            WHEN s.sees THEN c.holding_loss_per_day
+            ELSE NULL::numeric
+        END::numeric(18,2) AS holding_loss_per_day,
+        CASE
+            WHEN s.sees THEN c.downgrade_risk_rp
+            ELSE NULL::numeric
+        END::numeric(18,2) AS downgrade_risk_rp,
+    c.urgency,
+    c.priority_score,
+    c.rank,
+    c.ordered_today_kg,
+        CASE
+            WHEN s.sees THEN c.cost_per_kg
+            ELSE NULL::numeric
+        END::numeric(18,4) AS cost_per_kg,
+        CASE
+            WHEN s.sees THEN c.cost_status
+            ELSE NULL::text
+        END AS cost_status,
+        CASE
+            WHEN s.sees THEN c.cost_check
+            ELSE NULL::boolean
+        END AS cost_check
+   FROM commercial_daily c
+     CROSS JOIN LATERAL ( SELECT NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR COALESCE(( SELECT p.sales_sees_cost
+                   FROM parameter p
+                     JOIN week w ON w.id = p.week_id
+                  WHERE c.date >= w.week_start AND c.date <= (w.week_start + 6)
+                 LIMIT 1), false) AS sees) s
+  WHERE ( SELECT is_app_user() AS is_app_user) AND (NOT ( SELECT has_role(VARIADIC ARRAY['sales'::text]) AS has_role) OR (EXISTS ( SELECT 1
+           FROM sales_assignment a
+          WHERE a.active AND lower(a.email) = current_email() AND assignment_covers(a.key, c.key))));
+Options: security_barrier=true
+
+
+################################################################################
+# selisih definisi v4 (diff -u, sebelum → sesudah)
+--- /dev/fd/63	2026-10-18 05:59:53.532644319 +0000
++++ /dev/fd/62	2026-10-18 05:59:53.536644319 +0000
+@@ -28,8 +28,16 @@
+             WHEN s.sees THEN c.margin_per_kg_realized
+             ELSE NULL::numeric
+         END)::numeric(18,4) AS margin_per_kg_realized,
+-    c.holding_loss_per_day,
+-    c.downgrade_risk_rp,
++    (
++        CASE
++            WHEN s.sees THEN c.holding_loss_per_day
++            ELSE NULL::numeric
++        END)::numeric(18,2) AS holding_loss_per_day,
++    (
++        CASE
++            WHEN s.sees THEN c.downgrade_risk_rp
++            ELSE NULL::numeric
++        END)::numeric(18,2) AS downgrade_risk_rp,
+     c.urgency,
+     c.priority_score,
+     c.rank,
+
+# selisih definisi v5 (diff -u, sebelum → sesudah)
+--- /dev/fd/63	2026-10-18 05:59:53.572644321 +0000
++++ /dev/fd/62	2026-10-18 05:59:53.572644321 +0000
+@@ -28,8 +28,16 @@
+             WHEN s.sees THEN c.margin_per_kg_realized
+             ELSE NULL::numeric
+         END)::numeric(18,4) AS margin_per_kg_realized,
+-    c.holding_loss_per_day,
+-    c.downgrade_risk_rp,
++    (
++        CASE
++            WHEN s.sees THEN c.holding_loss_per_day
++            ELSE NULL::numeric
++        END)::numeric(18,2) AS holding_loss_per_day,
++    (
++        CASE
++            WHEN s.sees THEN c.downgrade_risk_rp
++            ELSE NULL::numeric
++        END)::numeric(18,2) AS downgrade_risk_rp,
+     c.urgency,
+     c.priority_score,
+     c.rank,

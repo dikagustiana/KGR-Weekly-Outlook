@@ -1,0 +1,268 @@
+name: DB ops
+
+# PRD v5.2-B B0, B3, B4 (K66, K67, T21, T23, B-R92, B-R93): manual operations on the staging and production (KGR-OS)
+# databases from a runner that can reach Supabase (the agent's container cannot, docs/v5.2/BUTUH-DIKA.md D3). Every run
+# is started by hand (workflow_dispatch: write access only) and logs results and check tables only, never rows or
+# connection strings. One run at a time (concurrency group).
+#
+#   staging-migrate   every supabase/migrations file in name order, then supabase/seed when the database has no week
+#                     yet, on STAGING_DB_URL (K67: staging first). Prints schema_version().
+#   staging-test-rls  scripts/test-rls.sh against STAGING_DB_URL (T21: the same blocks as PG16 in CI).
+#   staging-bundle    ONE bundle file on staging in a single transaction (rehearsal of kgr-os-apply on Supabase).
+#   kgr-os-apply      backup.yml first (pg_dump to the private bucket; no dump = no apply), then ONE bundle file:
+#                     a dry run on KGR-OS inside begin … rollback whose check table must have no false, then the real
+#                     run in a single transaction (psql -1). Refused unless input confirm = KGR-OS.
+#   restore-test      T23: the newest dump in the bucket restored into a throwaway PostgreSQL 17 on the runner; the
+#                     rows per public table must equal <dump>.counts.tsv. Production data never lands in staging (O39).
+#
+# Two ways to start a run, both needing write access to the repository:
+#   * Actions → DB ops → Run workflow (inputs op / bundle / confirm);
+#   * a push to the branch ops/db-run that changes ops/db-ops.json ({"op": …, "bundle": …, "confirm": …}): the request
+#     is kept in git history next to the commit that made it (the agent's way in; its integration cannot dispatch).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   STAGING_DB_URL             postgresql:// session pooler (port 5432) of KGR-OS-staging
+#   SUPABASE_DB_URL            the same for KGR-OS (also used by backup.yml)
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY   KGR-OS, for the private bucket "backups"
+# A staging URL that names the KGR-OS project, the project that is never used, or equals SUPABASE_DB_URL is refused.
+
+on:
+  push:
+    branches: [ops/db-run]
+    paths: [ops/db-ops.json]
+  workflow_dispatch:
+    inputs:
+      op:
+        description: "Operasi"
+        type: choice
+        options: [staging-migrate, staging-test-rls, staging-bundle, kgr-os-apply, restore-test]
+      bundle:
+        description: "staging-bundle / kgr-os-apply: berkas bundel, mis. docs/v5.1/kgr-os-migrasi-v51.sql"
+        required: false
+        default: ""
+      confirm:
+        description: "kgr-os-apply: ketik KGR-OS"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-ops
+  cancel-in-progress: false
+
+env:
+  PSQL: /usr/lib/postgresql/17/bin/psql
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      op: ${{ steps.g.outputs.op }}
+      bundle: ${{ steps.g.outputs.bundle }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: g
+        env:
+          IN_OP: ${{ inputs.op }}
+          IN_BUNDLE: ${{ inputs.bundle }}
+          IN_CONFIRM: ${{ inputs.confirm }}
+          EVENT: ${{ github.event_name }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            [ -f ops/db-ops.json ] || { echo "::error::ops/db-ops.json tidak ada"; exit 1; }
+            OP=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("op",""))')
+            BUNDLE=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("bundle",""))')
+            CONFIRM=$(python3 -c 'import json; print(json.load(open("ops/db-ops.json")).get("confirm",""))')
+          else
+            OP="$IN_OP"; BUNDLE="$IN_BUNDLE"; CONFIRM="$IN_CONFIRM"
+          fi
+          case "$OP" in staging-migrate|staging-test-rls|staging-bundle|kgr-os-apply|restore-test) ;; *) echo "::error::op tidak dikenal: $OP"; exit 1 ;; esac
+          echo "op=$OP" >> "$GITHUB_OUTPUT"
+          echo "### db-ops: $OP (${EVENT}, commit ${GITHUB_SHA})" >> "$GITHUB_STEP_SUMMARY"
+          case "$OP" in
+            staging-*)
+              [ -n "$STAGING_DB_URL" ] || { echo "::error::secret STAGING_DB_URL belum diisi"; exit 1; }
+              for ref in pczjhmzpkknzkziipvit uxqbtverhnpiryhzbenr; do
+                if [[ "$STAGING_DB_URL" == *"$ref"* ]]; then echo "::error::STAGING_DB_URL menunjuk project $ref, bukan staging"; exit 1; fi
+              done
+              if [ -n "$SUPABASE_DB_URL" ] && [ "$STAGING_DB_URL" = "$SUPABASE_DB_URL" ]; then echo "::error::STAGING_DB_URL sama dengan SUPABASE_DB_URL (KGR-OS)"; exit 1; fi ;;
+            kgr-os-apply)
+              [ "$CONFIRM" = "KGR-OS" ] || { echo "::error::kgr-os-apply butuh confirm = KGR-OS"; exit 1; }
+              [ -n "$SUPABASE_DB_URL" ] || { echo "::error::secret SUPABASE_DB_URL belum diisi"; exit 1; }
+              [[ "$SUPABASE_DB_URL" != *uxqbtverhnpiryhzbenr* ]] || { echo "::error::project terlarang"; exit 1; } ;;
+          esac
+          if [ "$OP" = "staging-bundle" ] || [ "$OP" = "kgr-os-apply" ]; then
+            [[ "$BUNDLE" =~ ^docs/v5\.[12]/kgr-os-[a-z0-9-]+\.sql$ ]] || { echo "::error::bundel harus docs/v5.1|v5.2/kgr-os-*.sql"; exit 1; }
+            [ -f "$BUNDLE" ] || { echo "::error::$BUNDLE tidak ada"; exit 1; }
+            if grep -qiE '^\s*(commit|rollback|begin|start transaction|end)\s*;' "$BUNDLE"; then echo "::error::bundel berisi kontrol transaksi"; exit 1; fi
+            echo "bundle=$BUNDLE" >> "$GITHUB_OUTPUT"
+            echo "### Bundel \`$BUNDLE\` sha256 $(sha256sum "$BUNDLE" | cut -d' ' -f1), commit ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  staging:
+    needs: guard
+    if: startsWith(needs.guard.outputs.op, 'staging-')
+    runs-on: ubuntu-latest
+    env:
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+      OP: ${{ needs.guard.outputs.op }}
+      BUNDLE: ${{ needs.guard.outputs.bundle }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+          sudo ln -sf /usr/lib/postgresql/17/bin/psql /usr/local/bin/psql
+      - name: staging-migrate
+        if: env.OP == 'staging-migrate'
+        run: |
+          set -euo pipefail
+          for f in supabase/migrations/*.sql; do
+            $PSQL "$STAGING_DB_URL" -X -q -v ON_ERROR_STOP=1 -f "$f" > /dev/null || { echo "::error::migrasi gagal: $f"; exit 1; }
+            echo "ok $f"
+          done
+          if [ "$($PSQL "$STAGING_DB_URL" -X -At -c 'select count(*) from public.week')" = "0" ]; then
+            for f in supabase/seed/*.sql; do
+              $PSQL "$STAGING_DB_URL" -X -q -v ON_ERROR_STOP=1 -f "$f" > /dev/null || { echo "::error::seed gagal: $f"; exit 1; }
+              echo "seed $f"
+            done
+          else
+            echo "public.week sudah berisi: seed dilewati"
+          fi
+          $PSQL "$STAGING_DB_URL" -X -c "notify pgrst, 'reload schema'" > /dev/null
+          v="tanpa schema_version()"
+          if [ "$($PSQL "$STAGING_DB_URL" -X -At -c "select to_regprocedure('public.schema_version()') is not null")" = "t" ]; then v=$($PSQL "$STAGING_DB_URL" -X -At -c "select public.schema_version()"); fi
+          echo "### staging-migrate: $(ls supabase/migrations/*.sql | wc -l) migrasi, schema_version = $v" >> "$GITHUB_STEP_SUMMARY"
+      - name: staging-test-rls
+        if: env.OP == 'staging-test-rls'
+        run: |
+          set -o pipefail
+          SUPABASE_DB_URL="$STAGING_DB_URL" bash scripts/test-rls.sh | tee rls.txt
+          echo "### staging-test-rls: $(tail -1 rls.txt); $(grep -c 'RLS-RESULTS' rls.txt) blok" >> "$GITHUB_STEP_SUMMARY"
+      - name: staging-bundle
+        if: env.OP == 'staging-bundle'
+        run: |
+          set -euo pipefail
+          $PSQL "$STAGING_DB_URL" -X -v ON_ERROR_STOP=1 -P pager=off -1 -f "$BUNDLE" | tee out.txt
+          if grep -qE '\|\s*f\s*$' out.txt; then echo "::error::tabel cek berisi false"; exit 1; fi
+          echo "### staging-bundle \`$BUNDLE\`: tabel cek tanpa false" >> "$GITHUB_STEP_SUMMARY"
+
+  backup:
+    needs: guard
+    if: needs.guard.outputs.op == 'kgr-os-apply'
+    uses: ./.github/workflows/backup.yml
+    with:
+      reason: "db-ops kgr-os-apply"
+    secrets: inherit
+
+  kgr-os:
+    needs: [guard, backup]
+    if: needs.guard.outputs.op == 'kgr-os-apply'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BUNDLE: ${{ needs.guard.outputs.bundle }}
+      DUMP: ${{ needs.backup.outputs.name }}
+      DUMP_BYTES: ${{ needs.backup.outputs.bytes }}
+      DUMP_SHA: ${{ needs.backup.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backup present
+        run: |
+          [ -n "$DUMP" ] || { echo "::error::tidak ada backup (backup.yml dilewati): bundel tidak dijalankan"; exit 1; }
+          echo "### Backup sebelum bundel: $DUMP, $DUMP_BYTES byte, sha256 $DUMP_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install psql 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dry run on KGR-OS (begin … rollback)
+        run: |
+          set -euo pipefail
+          { echo 'begin;'; echo "\\i $BUNDLE"; echo 'rollback;'; } > dry.sql
+          $PSQL "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -P pager=off -f dry.sql | tee dry.txt
+          if grep -qE '\|\s*f\s*$' dry.txt; then echo "::error::uji kering: tabel cek berisi false — bundel tidak dijalankan"; exit 1; fi
+      - name: Apply in one transaction
+        run: |
+          set -euo pipefail
+          start=$(date -u +%FT%TZ)
+          $PSQL "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -P pager=off -1 -f "$BUNDLE" | tee out.txt
+          if grep -qE '\|\s*f\s*$' out.txt; then echo "::error::tabel cek berisi false SESUDAH commit — periksa dan pulihkan dari $DUMP bila perlu"; exit 1; fi
+          v="tanpa schema_version()"
+          if [ "$($PSQL "$SUPABASE_DB_URL" -X -At -c "select to_regprocedure('public.schema_version()') is not null")" = "t" ]; then v=$($PSQL "$SUPABASE_DB_URL" -X -At -c "select public.schema_version()"); fi
+          echo "### KGR-OS: \`$BUNDLE\` dijalankan $start, tabel cek tanpa false, schema_version = $v" >> "$GITHUB_STEP_SUMMARY"
+
+  restore-test:
+    needs: guard
+    if: needs.guard.outputs.op == 'restore-test'
+    runs-on: ubuntu-latest
+    services:
+      pg:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restore
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LOCAL: postgresql://postgres:restore@localhost:5432/postgres
+    steps:
+      - name: Install psql / pg_restore 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Newest dump from the private bucket
+        id: get
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] || { echo "::error::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi"; exit 1; }
+          name=$(curl -fsS -X POST "$SUPABASE_URL/storage/v1/object/list/backups" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":1000,"sortBy":{"column":"name","order":"desc"}}' \
+            | python3 -c 'import json,sys; xs=[o["name"] for o in json.load(sys.stdin) if o["name"].endswith(".dump")]; print(max(xs) if xs else "")')
+          [ -n "$name" ] || { echo "::error::bucket backups belum berisi dump"; exit 1; }
+          for x in "$name" "$name.counts.tsv"; do
+            curl -fsS -o "$x" "$SUPABASE_URL/storage/v1/object/backups/$x" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY"
+          done
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "dump $name: $(stat -c %s "$name") byte, sha256 $(sha256sum "$name" | cut -d' ' -f1)"
+      - name: Restore into the throwaway database and compare row counts
+        env:
+          NAME: ${{ steps.get.outputs.name }}
+        run: |
+          set -uo pipefail
+          P=/usr/lib/postgresql/17/bin
+          # the roles and the extensions schema a Supabase dump refers to (owner and privileges are not restored)
+          $P/psql "$LOCAL" -X -q -v ON_ERROR_STOP=1 -c "
+            do \$\$ begin
+              if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+              if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+              if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+            end \$\$;
+            create schema if not exists extensions;
+            create extension if not exists pgcrypto with schema extensions;
+            create extension if not exists \"uuid-ossp\" with schema extensions;"
+          $P/pg_restore -d "$LOCAL" --no-owner --no-privileges "$NAME" 2> restore.err
+          echo "pg_restore: $(grep -c 'error:' restore.err || true) pesan error (objek khusus Supabase di auth/storage; tabel public dinilai di bawah)"
+          grep 'error:' restore.err | sed 's/DETAIL.*//' | sort | uniq -c | sort -rn | head -20 || true
+          bad=0; n=0
+          while IFS=$'\t' read -r t want; do
+            n=$((n+1))
+            got=$($P/psql "$LOCAL" -X -At -c "select count(*) from public.\"$t\"" 2>/dev/null || echo "TIDAK ADA")
+            if [ "$got" != "$want" ]; then echo "BEDA $t: dump $want, pulih $got"; bad=$((bad+1)); fi
+          done < "$NAME.counts.tsv"
+          echo "### restore-test $NAME: $n tabel public, $bad beda jumlah baris" >> "$GITHUB_STEP_SUMMARY"
+          rm -f "$NAME" "$NAME.counts.tsv"
+          [ "$bad" = "0" ] && [ "$n" -gt 0 ]

@@ -6,7 +6,7 @@ import "server-only";
  * normalised them (decimal text); nothing is computed here.
  */
 import { createHash } from "node:crypto";
-import { D, addDays, normalizeGrid, type Grid, type UploadKindV5, type UploadRecord, type UploadResult } from "@kgr/engine";
+import { D, addDays, normalizeGrid, type Grid, type SalesAssignment, type UploadKindV5, type UploadRecord, type UploadResult } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
@@ -23,6 +23,7 @@ import { UploadRejected, recheck } from "./input-check";
 import { uploadContext } from "./input-data";
 import { ROLE_KINDS, kindLabel } from "./input";
 import { poLinesInScope } from "./po-lines";
+import { dueDatesOf } from "./task-queue";
 
 interface Committed { inserted: number; updated: number; held: string[]; dates: string[]; note: string }
 const ok = (r: UploadResult) => r.records.filter((x) => x.level !== "fail");
@@ -58,40 +59,61 @@ export async function saveUploadV5(sb: Supa, viewer: Viewer, x: { kind: UploadKi
 
   let c: Committed;
   try {
-    c = await COMMIT[x.kind]({ sb, viewer, r, uploadId, weeks, week, reason, today, customers: ctx.customers ?? "all" });
+    const itemKey = new Map(ctx.items.map((i) => [i.code, i.key]));
+    c = await COMMIT[x.kind]({ sb, viewer, r, uploadId, weeks, week, reason, today, customers: ctx.customers ?? "all", assignments: ctx.assignments ?? null, itemKey: (code) => (code ? itemKey.get(code) ?? null : null) });
   } catch (e) {
-    await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
+    const f = await sb.from("upload").update({ status: "failed", message: e instanceof Error ? e.message : String(e) }).eq("id", uploadId);
+    if (f.error) console.error(`[upload] status gagal tidak tersimpan (${uploadId}): ${f.error.message}`);
     throw e;
   }
-  // K39: WP of a batch moves the update date of its open week to the day after the batch
-  const moved = x.kind === "costing_wp" ? await advanceUpdateDate(sb, weeks, c.dates) : "";
-  // K40: the dates touched through the date the data stands on; the rows are saved already, so a range over 62 days
-  // is reported in the message (rebuild by Admin) instead of failing the saved upload
-  const queue = await queueThroughNote(sb, [...r.dates, ...c.dates], `upload v5 ${x.kind}`);
+  // The rows are saved. What follows (the update date, the queue) must not turn a saved upload into a failed one: an error is
+  // said in the message and logged, the upload is committed.
+  let moved = "", queue = "";
+  try {
+    // K39: WP of a batch moves the update date of its open week to the day after the batch
+    moved = x.kind === "costing_wp" ? await advanceUpdateDate(sb, weeks, c.dates) : "";
+    // R54: the WP task of a batch is due the day after it (H+1): that date is queued too, so its grid cell is refreshed
+    const due = x.kind === "costing_wp" ? await dueDatesOf(sb, [{ kind: "costing_wp", anchors: c.dates }]) : [];
+    // K40: the dates touched through the date the data stands on; a range over 62 days is reported in the message
+    // (rebuild by Admin) instead of failing the saved upload
+    queue = await queueThroughNote(sb, [...r.dates, ...c.dates, ...due], `upload v5 ${x.kind}`);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[upload] ${uploadId}: setelah simpan — ${msg}`);
+    queue = ` Data tersimpan, tetapi langkah sesudahnya gagal (${msg}); tekan "Perbarui status tugas" di Input.`;
+  }
   const message = `${r.ok_count} dari ${r.total} baris lolos cek; ${c.inserted} baru, ${c.updated} diubah${c.held.length ? `; ${c.held.length} ditahan (${c.held.slice(0, 3).join("; ")}${c.held.length > 3 ? "; …" : ""})` : ""}. ${c.note}${moved ? ` ${moved}.` : ""}${queue}`.trim();
   must(await sb.from("upload").update({ status: "committed", committed_at: new Date().toISOString(), inserted: c.inserted, updated: c.updated, message }).eq("id", uploadId), "upload committed");
   return message;
 }
 
-type Ctx = { sb: Supa; viewer: Viewer; r: UploadResult; uploadId: string; weeks: WeekRow[]; week: WeekRow | null; reason: string; today: string; customers: "all" | string[] };
+type Ctx = {
+  sb: Supa; viewer: Viewer; r: UploadResult; uploadId: string; weeks: WeekRow[]; week: WeekRow | null; reason: string; today: string; customers: "all" | string[];
+  /** R58: the assignment rows of a Sales uploader (customer × key); null for the lead and admin. */
+  assignments: SalesAssignment[] | null;
+  /** The SKU key of an item code (item_map), for the key of a stored PO line. */
+  itemKey: (code: string | null) => string | null;
+};
 
 const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
   // PO lines → Order lines (Confirmed). Below the floor: a pending discount request (C38) instead of the line until approved.
-  async po_lines({ sb, viewer, r, uploadId, weeks, customers }) {
+  async po_lines({ sb, viewer, r, uploadId, weeks, customers, assignments, itemKey }) {
     const settings = await moduleSettings();
     const n = new Map<string, number>();
     const keyOf = (q: UploadRecord) => {
       const base = `${v(q, "po_ref")}|${v(q, "item_code")}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris per PO dan item untuk kunci baris (indeks)
       n.set(base, i);
       return `${base}|${i}`;
     };
     // line keys over every file row (failing ones too), so a row fixed later keeps its key
     const keyed = r.records.map((q) => ({ q, line_key: keyOf(q) }));
     const pos = [...new Set(r.records.map((q) => v(q, "po_ref")).filter((p): p is string => !!p))];
-    // R7: only this channel's lines of the PO × customer pairs in the file (and, for Sales, of their customers)
-    const found = pos.length ? await inChunks(pos, (chunk) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, customer").eq("status", "Order").in("po_ref", chunk).is("deleted_at", null).range(a, b))) : [];
-    const existing = poLinesInScope(found, r.records.map((q) => ({ po_ref: v(q, "po_ref"), customer: v(q, "customer") })), customers);
+    // R7: only this channel's lines of the PO × customer pairs in the file; R58: for Sales only the lines inside one of their
+    // assignment rows (customer and key together, O21(b)) — another rep's lines are neither updated nor retired
+    const found = pos.length ? await inChunks(pos, (chunk) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, customer, item_code, key_manual").eq("status", "Order").in("po_ref", chunk).is("deleted_at", null).order("id").range(a, b))) : [];
+    const storedKey = (e: Row) => (e.key_manual ? String(e.key_manual) : itemKey(e.item_code ? String(e.item_code) : null));
+    const existing = poLinesInScope(found, r.records.map((q) => ({ po_ref: v(q, "po_ref"), customer: v(q, "customer") })), assignments ? { assignments, keyOf: storedKey } : customers);
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
     const held: string[] = [], dates: string[] = [];
@@ -155,13 +177,15 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
         agg.set(k, a);
       }
       const note = r.needsReason.includes(ref) ? `alasan selisih hasil potong: ${reason}` : null;
+      // R58: a line of the file that was held keeps its old row — it is not "gone", and C22 counted that old output
+      const heldCodes = new Set(r.records.filter((q) => q.level === "fail" && v(q, "batch_ref") === ref && v(q, "item_code")).map((q) => v(q, "item_code")!.toUpperCase()));
       const rows = [...agg.values()].map((a) => ({ batch_id: bid, key: a.key, item_code: a.item_code, item_name: a.item_name, kg: a.kg.toFixed(2), source: "WP", upload_id: uploadId, deleted_at: null, note }));
       const e = await sb.from("batch_output_sku").upsert(rows, { onConflict: "batch_id,key,item_code" });
       if (e.error) throw new WriteError(`batch_output_sku ${ref}: ${e.error.message}`);
       inserted += rows.length;
       const old = mustRows<Row>(await sb.from("batch_output_sku").select("id, key, item_code, source").eq("batch_id", bid).is("deleted_at", null), `WP batch ${ref} output lama`);
       const keep = new Set([...agg.keys()]);
-      const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key}|${o.item_code}`)) || o.source === "manual").map((o) => String(o.id));
+      const gone = old.filter((o) => (o.source === "WP" && !keep.has(`${o.key}|${o.item_code}`) && !heldCodes.has(String(o.item_code ?? "").toUpperCase())) || o.source === "manual").map((o) => String(o.id));
       if (gone.length) { for (let i = 0; i < gone.length; i += 200) { const d = await sb.from("batch_output_sku").update({ deleted_at: new Date().toISOString() }).in("id", gone.slice(i, i + 200)); if (d.error) throw new WriteError(d.error.message); } }
       const u = await sb.from("batch").update({ costing_status: "uploaded" }).eq("id", bid);
       if (u.error) throw new WriteError(`batch ${ref}: ${u.error.message}`);
@@ -212,14 +236,23 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     if (!w) throw new WriteError("Belum ada minggu");
     const rows = ok(r).map((q) => ({ target: "pi", data: { document_ref: v(q, "document_ref"), date: v(q, "date"), supplier: v(q, "supplier"), component: "LB", amount: v(q, "amount"), batch_ref: v(q, "batch_ref"), description: `Faktur LB batch ${v(q, "batch_ref")}${v(q, "kg") ? ` · ${v(q, "kg")} kg` : ""}` } as Row }));
     const res = await pi.commit({ sb, viewer, week: w, uploadId, rows });
-    let tied = 0;
+    const tiedRefs: string[] = [];
     for (const q of ok(r)) {
       const st = v(q, "tied") ? "tied" : "received";
-      if (st === "tied") tied++;
+      if (st === "tied") tiedRefs.push(v(q, "batch_ref")!);
       const q2 = sb.from("batch").update({ invoice_status: st }).eq("batch_ref", v(q, "batch_ref")!).eq("status", "Aktual").is("deleted_at", null);
       const e = st === "tied" ? await q2 : await q2.eq("invoice_status", "pending");
       if (e.error) throw new WriteError(`batch ${v(q, "batch_ref")}: ${e.error.message}`);
     }
-    return { inserted: res.inserted, updated: res.updated, held: [], dates: [...new Set(ok(r).map((q) => v(q, "batch_date")).filter((d): d is string => !!d))], note: `${tied} faktur tie ke GL (biaya batch final); ${ok(r).length - tied} masih sementara.` };
+    return { inserted: res.inserted, updated: res.updated, held: [], dates: [...new Set(ok(r).map((q) => v(q, "batch_date")).filter((d): d is string => !!d))], // K59 (R60): a tied invoice is the condition to post, not the final status — the cost turns final only once the allocation is posted
+      note: tieNote(tiedRefs, ok(r).length) };
   },
 };
+
+/**
+ * Message after a supplier invoice upload (R60, K59): a tied invoice is the condition to post the allocation, not the final
+ * status of the batch cost; the next step is named, and until it is done the cost stays sementara.
+ */
+export function tieNote(tiedRefs: string[], rows: number): string {
+  return `${tiedRefs.length} faktur tie ke GL; ${rows - tiedRefs.length} masih sementara.${tiedRefs.length ? ` Biaya batch ${[...new Set(tiedRefs)].join(", ")} belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara.` : ""}`;
+}

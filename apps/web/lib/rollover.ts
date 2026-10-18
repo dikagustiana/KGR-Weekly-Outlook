@@ -90,7 +90,8 @@ export async function rolloverWeek(sb: Supa, prev: WeekRow): Promise<{ weekStart
     const xs = rows.filter((r) => inNext(r.date) && keep(r)).map(strip);
     if (xs.length) moved += (await applyChanges(sb, table, xs)).inserted;
   }
-  await sb.from("week").update({ status: "closed" }).eq("id", prev.id);
+  const closed = await sb.from("week").update({ status: "closed" }).eq("id", prev.id);
+  if (closed.error) throw new WriteError(`minggu ${prev.week_start} tidak bisa ditutup: ${closed.error.message}`);
   return { weekStart: nextStart, carried: carried.length, moved };
 }
 

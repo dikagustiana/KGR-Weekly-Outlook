@@ -12,6 +12,9 @@ export async function monthlyPdf(x: { first: string; rows: PlDailyRow[]; view: M
   const days = versionDays(x.rows, x.first);
   const cum = cumulative(days);
   const jt = (v: ReturnType<typeof D>) => cellN(v.div(1e6), (q) => (q === null || q === undefined ? "" : q.toFixed(1)));
+  // R64: a figure the version or the accuracy table does not carry reads "belum ada", never 0
+  const NONE = "belum ada";
+  const jtOrNone = (v: unknown) => (v === null || v === undefined || v === "" ? NONE : jt(D(String(v))));
   const title = `KGR — Outlook bulanan ${x.first.slice(0, 7)}${x.version ? ` · versi ${x.version}` : " · belum dikunci"}`;
   const def = {
     pageSize: "A4", pageOrientation: "landscape", pageMargins: [24, 34, 24, 26],
@@ -33,7 +36,7 @@ export async function monthlyPdf(x: { first: string; rows: PlDailyRow[]; view: M
       { text: "", pageBreak: "before" },
       h("Versi"),
       table([50, 70, 80, 80, 80, "*"], ["Versi", "Cut-off", "Penjualan", "Laba kotor", "Laba sebelum pajak", "SHA-256"],
-        x.view.versions.map((v) => [String(v.version), tgl(String(v.cut_off_date ?? "")), jt(D(String(v.revenue ?? 0))), jt(D(String(v.gp ?? 0))), jt(D(String(v.nibt ?? 0))), { text: String(v.snapshot_sha256).slice(0, 24), fontSize: 6 }])),
+        x.view.versions.map((v) => [String(v.version), tgl(String(v.cut_off_date ?? "")), jtOrNone(v.revenue), jtOrNone(v.gp), jtOrNone(v.nibt), { text: String(v.snapshot_sha256).slice(0, 24), fontSize: 6 }])),
       ...(x.view.bridge ? [h("Bridge penjualan V1 → V2 (jt Rp)"), table(["*", 80], ["Komponen", "Rp"], [
         ["V1", jt(x.view.bridge.from)], ["Δ aktual", jt(x.view.bridge.dActual)], ["Δ volume", jt(x.view.bridge.dVolume)], ["Δ harga", jt(x.view.bridge.dPrice)],
         ["Δ event", jt(x.view.bridge.dEvent)], ["V2", jt(x.view.bridge.to)], ["Selisih (harus 0)", jt(x.view.bridge.check)],
@@ -42,7 +45,7 @@ export async function monthlyPdf(x: { first: string; rows: PlDailyRow[]; view: M
         [...new Set(x.view.accuracy.map((a) => `${a.version}|${a.scope}`))].map((k) => {
           const [v, sc] = k.split("|");
           const g = (m: string) => x.view.accuracy.find((a) => a.version === v && a.scope === sc && a.metric === m)?.value as string | undefined;
-          return [v, sc, jt(D(g("bias") ?? "0")), cellN(D(g("MAPE") ?? "0"), p1), jt(D(g("bias_pre") ?? "0")), cellN(D(g("MAPE_pre") ?? "0"), p1)];
+          return [v, sc, jtOrNone(g("bias")), g("MAPE") === undefined ? NONE : cellN(D(g("MAPE")!), p1), jtOrNone(g("bias_pre")), g("MAPE_pre") === undefined ? NONE : cellN(D(g("MAPE_pre")!), p1)];
         }))] : []),
       ...(x.view.adjustments.length ? [h("Penyesuaian tutup buku"), table([50, "*", 120, 80, 50], ["Kode", "Keterangan", "Pos", "Jumlah (jt)", "Posting"],
         x.view.adjustments.map((a) => [String(a.code), String(a.description), String(a.pl_line), jt(D(String(a.amount))), a.posted ? "ya" : "belum"]))] : []),

@@ -1,10 +1,10 @@
 import "server-only";
 /**
  * M3 demand → rencana (PRD v3 §4.4 steps 1–5). Loads rows, runs @kgr/engine (weekDemand, proposeWeekPlan,
- * demandByDay, splitHeadsByDay, dailyPlan, planBatchRow, planningControls) and writes the results; no arithmetic here.
+ * demandByDay, splitHeadsByDay, dailyPlan, planningControls) and writes the results; no arithmetic here.
  */
 import { commitmentDemand,
-  D, addDays, dailyPlan, daysAheadOf, demandByDay, firstDelivery, keyResolver, mondayOf, outstandingKg, planBatchRow, planVarianceDaily, planningControls, ppicBlockers, ppicControls,
+  D, addDays, dailyPlan, daysAheadOf, demandByDay, firstDelivery, keyResolver, mondayOf, outstandingKg, planVarianceDaily, planningControls, ppicBlockers, ppicControls,
   proposeWeekPlan, shortfallRows, splitHeadsByDay, statForecastWeek, toFixedString, weekDemand,
   type ControlV3, type DailyPlanRow, type Decimal, type ForecastLine, type OrderLine, type PatternYield, type Substitution, type WeekDemandResult, type WeekPlanProposal,
 } from "@kgr/engine";
@@ -18,7 +18,7 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
 import { consumeApprovals, floorGuard } from "./discount";
 import { parseSetting, MODULE_KEYS, type ModuleSettings } from "../modules-core";
-import { inChunks, must, mustRows } from "../loader";
+import { inChunks, must, mustRows, needParameter } from "../loader";
 
 /** Module flags read with the caller's client (uploads run outside the page cache). */
 async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
@@ -38,6 +38,9 @@ export interface PoLine extends OrderLine {
   sales_rep: string | null;
   item_code: string | null;
   customer: string | null;
+  /** R48: a line synthesized from a locked commitment (id is not a sales_line id); it carries its own size. */
+  synthetic: boolean;
+  size_kg: string | null;
 }
 
 export interface PlanningSources {
@@ -54,8 +57,11 @@ export interface PlanningSources {
   yieldRows: { weight_class: string; cut_pattern: string; key: string; yield_pct: string; note: string | null }[];
   /** K2: Aktual sales of the 8 weeks before the week (key, date, kg) and the days a key had no free stock. */
   history: { from: string; to: string; sales: { date: string; key: string; kg: string }[]; stockout: Set<string> };
-  /** Written reasons that let a PERIKSA control open the next step (§6.4). */
-  reasons: { code: string; reason: string }[];
+  /**
+   * Written reasons that let a PERIKSA control open the next step (§6.4). A C58 reason is bound to the plan version it was written
+   * for by `plan_week_id` (B5, 5.2.3; R51); one without it (written before v5.2, or with no plan saved yet) is judged by `created_at`.
+   */
+  reasons: { code: string; reason: string; created_at?: string | null; plan_week_id?: string | null }[];
   substitutions: Substitution[];
   stock: { date: string | null; lots: { key: string; form: "fresh" | "frozen"; free_kg: string; age_days: number }[] };
   windows: { fresh: number; frozen: number };
@@ -70,52 +76,54 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   const ws = week.week_start, we = addDays(ws, 6);
   const hFrom = addDays(ws, -56), hTo = addDays(ws, -1);
   const [items, orders, forecasts, param, keys, prices, classes, yields, subs, cap, lb, plans, hist, outs, reasons] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, date, delivery_date, demand_status, item_code, key_manual, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, po_date, sales_rep")
-      .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).range(a, b)),
+      .eq("status", "Order").is("deleted_at", null).is("superseded_at", null).or(`and(delivery_date.gte.${ws},delivery_date.lte.${we}),and(delivery_date.is.null,date.gte.${ws},date.lte.${we})`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("forecast_line").select("id, week_start, key, kg, price_expected, sales_rep, customer, forecast_source").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
     sb.from("parameter").select("*").eq("week_id", week.id).maybeSingle(),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price, replacement_buy_price").eq("week_id", week.id).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, segment, sku, form, cut_component, fresh_window_hours, frozen_age_limit_days, product_class").order("key").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price, replacement_buy_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("weight_class").select("code, avg_kg, min_kg, max_kg, sort_order").order("sort_order").order("code").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("yield_matrix").select("weight_class, cut_pattern, key, yield_pct, effective_from, effective_to, note").is("deleted_at", null)
-      .lte("effective_from", ws).order("effective_from").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("substitution").select("key_demand, key_substitute, priority, max_pct").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("capacity").select("date, cut_capacity_head, chiller_kg, abf_kg").gte("date", ws).lte("date", we).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("lb_supply").select("*").gte("date", ws).lte("date", we).is("deleted_at", null).order("date").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason").eq("week_start", ws).is("deleted_at", null).range(a, b)),
+      .lte("effective_from", ws).order("effective_from").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("substitution").select("key_demand, key_substitute, priority, max_pct").is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("capacity").select("date, cut_capacity_head, chiller_kg, abf_kg").gte("date", ws).lte("date", we).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("lb_supply").select("*").gte("date", ws).lte("date", we).is("deleted_at", null).order("date").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_week").select("*").eq("week_start", ws).is("deleted_at", null).order("version", { ascending: false }).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("date, item_code, key_manual, kg").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", hFrom).lte("date", hTo).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("date, key").gte("date", hFrom).lte("date", hTo).lte("free_kg", 0).order("date").order("key").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("plan_check_reason").select("code, reason, created_at, plan_week_id").eq("week_start", ws).is("deleted_at", null).order("id").range(a, b)),
   ]);
   // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
   const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
-  const p = (param.data ?? {}) as Row;
+  const p = needParameter(must(param, "planning.parameter"), "planning.parameter") as Row;
   const stockDate = addDays(ws, -1);
   const sd = must(await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle(), "planning.lot_balance_daily");
   const sdate = sd ? String((sd as Row).date) : null;
-  const lots = sdate ? await fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, free_kg, age_days").eq("date", sdate).gt("free_kg", 0).range(a, b)) : [];
+  const lots = sdate ? await fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, form, free_kg, age_days").eq("date", sdate).gt("free_kg", 0).order("date").order("lot_ref").range(a, b)) : [];
   const latest = plans[0];
-  const planDays = latest ? await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", String(latest.id)).order("date").range(a, b)) : [];
+  const planDays = latest ? await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", String(latest.id)).order("date").order("id").range(a, b)) : [];
   // the latest yield row per (class, pattern, key) effective on the week start
   const ym = new Map<string, Row>();
   for (const y of yields) if (!y.effective_to || String(y.effective_to) >= ws) ym.set(`${y.weight_class}|${y.cut_pattern}|${y.key}`, y);
-  const poLines: PoLine[] = orders.map((o) => ({
+  // a PO line without kg adds no demand: left out, not counted at 0
+  const poLines: PoLine[] = orders.filter((o) => s(o.kg) !== null).map((o) => ({
     id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
-    demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
+    demand_status: s(o.demand_status) ?? "Confirmed", kg: String(o.kg), fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
     po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
+    synthetic: false, size_kg: null,
   }));
   // PRD v5 K26 (flag v5_commercial): the locked commitments of the week are Confirmed demand for the kg the POs do not cover
   const v5c = must(await sb.from("app_setting").select("value").eq("key", "v5_commercial").maybeSingle(), "planning.v5_commercial");
   if (((v5c as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true) {
     // PRD v5.1 K41: a refused read is an error, not "no commitment"; K46: the engine keeps the highest locked version
-    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).range(a, b));
+    const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).order("id").range(a, b));
     const extra = commitmentDemand({
       weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
-      commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
+      commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg), frozen_kg: String(c.frozen_kg), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
     });
-    poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null })));
+    poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null, synthetic: true, size_kg: s(e.size_kg) })));
   }
   return {
     week,
@@ -125,8 +133,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     threshold: s(p.downgrade_approval_threshold) ?? "25000000",
     leadTimeDays: Number(p.lead_time_days ?? 1),
     v1: {
-      shrink: s(p.target_shrink) ?? "0.03", freight: s(p.freight_plan_per_kg_lb) ?? "0", maklon: s(p.maklon_per_kg_processed) ?? "0", lbPriceToday: s(p.lb_price_today) ?? "0",
-      yields: { karkas: s(p.yield_karkas) ?? "0", kepala: s(p.yield_kepala) ?? "0", ceker: s(p.yield_ceker) ?? "0", usus: s(p.yield_usus) ?? "0", hja: s(p.yield_hja) ?? "0", lemak: s(p.yield_lemak) ?? "0" },
+      shrink: String(p.target_shrink), freight: String(p.freight_plan_per_kg_lb), maklon: String(p.maklon_per_kg_processed), lbPriceToday: String(p.lb_price_today),
+      yields: { karkas: String(p.yield_karkas), kepala: String(p.yield_kepala), ceker: String(p.yield_ceker), usus: String(p.yield_usus), hja: String(p.yield_hja), lemak: String(p.yield_lemak) },
     },
     keys: new Map(keys.map((k) => [String(k.key), {
       segment: String(k.segment), sku: String(k.sku), form: String(k.form), cut_component: s(k.cut_component),
@@ -135,16 +143,17 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     }])),
     prices: new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)])),
     // PRD v5 §5.1: K / S / B exist before PPIC gives them an average; a class without one is not a v4 plan class yet
-    weightClasses: classes.filter((c) => c.avg_kg !== null && c.avg_kg !== undefined).map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })),
+    weightClasses: classes.filter((c) => c.avg_kg !== null && c.avg_kg !== undefined).map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })), // missing-ok: urutan tampil kelas (indeks), bukan uang atau kg
     yieldRows: [...ym.values()].map((y) => ({ weight_class: String(y.weight_class), cut_pattern: String(y.cut_pattern), key: String(y.key), yield_pct: String(y.yield_pct), note: s(y.note) })),
     history: {
       from: hFrom, to: hTo,
-      sales: hist.map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg ?? 0) })),
+      sales: hist.filter((h) => s(h.kg) !== null).map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg) })),
       stockout: new Set(outs.map((o) => `${String(o.key)}|${String(o.date)}`)),
     },
-    reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason) })),
+    reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason), created_at: s(r.created_at), plan_week_id: s(r.plan_week_id) })),
     substitutions: subs.map((x) => ({ key_demand: String(x.key_demand), key_substitute: String(x.key_substitute), priority: Number(x.priority ?? 1), max_pct: String(x.max_pct ?? 1) })),
-    stock: { date: sdate, lots: lots.map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days ?? 0) })) },
+    // a lot without age cannot be judged against the window: it is not counted as eligible stock (never as a lot of age 0, i.e. fresh)
+    stock: { date: sdate, lots: lots.filter((l) => l.age_days !== null && l.age_days !== undefined).map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days) })) },
     windows: { fresh: Number(p.fresh_window_hours_default ?? 48), frozen: Number(p.frozen_age_limit_days_default ?? 30) },
     capacity: new Map(cap.map((c) => [String(c.date), { cut_capacity_head: c.cut_capacity_head === null ? null : Number(c.cut_capacity_head), chiller_kg: s(c.chiller_kg), abf_kg: s(c.abf_kg) }])),
     lbSupply: lb,
@@ -244,7 +253,8 @@ export interface PlanProposal {
   proposal: WeekPlanProposal;
   days: { rows: DailyPlanRow[]; unplaced: number };
   cls: PlanningSources["weightClasses"][number] | null;
-  supplyHeads: number;
+  /** Confirmed supply (ekor) from the rows that fill head_count; null = no row does (unknown, never 0). */
+  supplyHeads: number | null;
   capacityHeads: number | null;
 }
 
@@ -252,18 +262,21 @@ export interface PlanProposal {
 export function proposePlan(src: PlanningSources, opts: { classCode?: string | null; supplyCommittedHeads?: number | null } = {}): PlanProposal {
   const { demand, cls, yields } = computeDemand(src, opts.classCode);
   const confirmed = src.lbSupply.filter((r) => r.status === "confirmed" || r.status === "received");
-  const supplyHeads = opts.supplyCommittedHeads ?? confirmed.reduce((a, r) => a + Number(r.head_count ?? 0), 0);
+  // ekor pasokan yang dikonfirmasi: hanya baris yang mengisi head_count berkomitmen; tanpa satu pun = tidak diketahui (bukan 0 ekor)
+  const withHeads = confirmed.filter((r) => r.head_count !== null && r.head_count !== undefined);
+  const supplyHeads = opts.supplyCommittedHeads ?? (withHeads.length ? withHeads.reduce((a, r) => a + Number(r.head_count), 0) : null);
   const days = Array.from({ length: 7 }, (_, i) => addDays(src.week.week_start, i));
   const caps = days.map((d) => src.capacity.get(d)?.cut_capacity_head ?? null);
-  const capacityHeads = caps.every((c) => c === null) ? null : caps.reduce<number>((a, c) => a + (c ?? 0), 0);
+  const capacityHeads = caps.every((c) => c === null) ? null : caps.reduce<number>((a, c) => a + (c ?? 0), 0); // missing-ok: jumlah kapasitas hari yang terisi; hari tanpa kapasitas ditandai C47 (BELUM DIISI)
   const proposal = proposeWeekPlan({
     heads: demand.heads, unitNet: demand.unitNet, yields, avgLbKg: cls?.avg_kg ?? "2", prices: unitPrices(src),
-    supplyCommittedHeads: supplyHeads, capacityHeads, threshold: src.threshold, patternOrder: patternOrder(src),
+    supplyCommittedHeads: supplyHeads ?? undefined, capacityHeads, threshold: src.threshold, patternOrder: patternOrder(src),
   });
   const byDay = demandByDay({ orders: src.orders, forecasts: src.forecasts, weights: src.weights, weekStart: src.week.week_start, isCut: (k) => unitOf(src, k) !== null });
   const needs = splitHeadsByDay({ weekHeads: proposal.plan.head_count, weekStart: src.week.week_start, ...byDay });
   const lbByDay = new Map<string, number>();
-  for (const r of confirmed) lbByDay.set(String(r.date), (lbByDay.get(String(r.date)) ?? 0) + Number(r.head_count ?? 0));
+  // a day's supply is known only from rows that fill head_count: without one the day has no figure (null below), never 0 ekor
+  for (const r of withHeads) lbByDay.set(String(r.date), (lbByDay.get(String(r.date)) ?? 0) + Number(r.head_count)); // missing-ok: penghitung ekor per tanggal (akumulator), hanya dari baris yang berisi
   const planDays = dailyPlan({
     weekHeads: proposal.plan.head_count, needs, leadTimeDays: src.leadTimeDays, weekStart: src.week.week_start,
     limits: days.map((d) => ({ date: d, cut_capacity_head: src.capacity.get(d)?.cut_capacity_head ?? null, lb_supply_heads: lbByDay.has(d) ? lbByDay.get(d)! : null })),
@@ -310,11 +323,11 @@ export async function buildDemandDay(sb: Supa, date: string): Promise<string> {
 /** plan_variance_daily rows of the week: Aktual batches (head count, SKU output mapped to production units) vs plan_day. */
 export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[]> {
   const ws = src.week.week_start, we = addDays(ws, 6);
-  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).range(a, b));
-  const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).range(a, b))) : [];
+  const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("id, date, head_count").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", we).order("id").range(a, b));
+  const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
   const dateOf = new Map(batches.map((b) => [String(b.id), String(b.date)]));
   const rows = planVarianceDaily({
-    planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
+    planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
     actualOutput: outs.map((o) => ({ date: dateOf.get(String(o.batch_id)) ?? ws, unit: (o.key ? unitOf(src, String(o.key)) : null) ?? String(o.key ?? "tanpa key"), kg: String(o.kg) })),
     actualHeads: batches.filter((b) => b.head_count !== null).map((b) => ({ date: String(b.date), heads: Number(b.head_count) })),
     from: ws, to: we,
@@ -347,12 +360,12 @@ registerBuilder({ module: "m3_planning", name: "demand", begin: async () => { bu
 
 /** Reads for /w/[week]/demand: the data mart rows of the week. */
 export async function demandWeekly(sb: Supa, weekStart: string): Promise<Row[]> {
-  return fetchAll<Row>((a, b) => sb.from("demand_weekly").select("*").eq("week_start", weekStart).order("key").range(a, b));
+  return fetchAll<Row>((a, b) => sb.from("demand_weekly").select("*").eq("week_start", weekStart).order("key").order("week_start").range(a, b));
 }
 
 // ------------------------------------------------------------------------------------------------ plan writes (PPIC)
 
-export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { classCode?: string | null; supplyCommittedHeads?: number | null; note?: string | null }): Promise<string> {
+export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { classCode?: string | null; supplyCommittedHeads?: number | null; note?: string | null }): Promise<{ id: string; msg: string }> {
   // C45 (PRD v4 §3.1 P3.3): a plan is not saved on a stock mart older than its inputs (stock date = the Sunday before)
   const c45 = await stockMartControl(sb, addDays(week.week_start, -1));
   if (c45.status === "STALE") throw new WriteError(`C45 STALE: ${c45.action}`);
@@ -384,7 +397,7 @@ export async function savePlan(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
   const e2 = await sb.from("plan_day").insert(rows);
   if (e2.error) throw new WriteError(`plan_day: ${e2.error.message}`);
   void viewer;
-  return `Rencana v${version}${provisional ? " (yield sementara)" : ""}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}`;
+  return { id, msg: `Rencana v${version}${provisional ? " (yield sementara)" : ""}: ${wp.head_count} ekor${wp.cappedByCapacity ? ` (dibatasi kapasitas, kurang ${wp.shortHeads})` : ""}${p.days.unplaced ? `, ${p.days.unplaced} ekor tidak muat di hari mana pun` : ""}${wp.needsApproval ? " — downgrade di atas batas, perlu persetujuan" : ""}` };
 }
 
 export async function approvePlan(sb: Supa, viewer: Viewer, planId: string): Promise<string> {
@@ -403,52 +416,8 @@ export async function approvePlan(sb: Supa, viewer: Viewer, planId: string): Pro
   return count ? "Rencana disetujui" : "Rencana sudah disetujui sebelumnya";
 }
 
-/**
- * "Salin ke batch rencana" (PLAN Fase 3): the plan days become v1 planned batches of the week (status Rencana) with
- * the v1 planning rules, replacing the batches an earlier copy of this week wrote. Never automatic.
- */
-export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string): Promise<string> {
-  const src = await loadPlanning(sb, week);
-  const plan = src.plans.find((x) => String(x.id) === planId);
-  if (!plan) throw new WriteError("Rencana tidak ditemukan");
-  if (plan.needs_approval && !plan.approved_by) throw new WriteError("Rencana dengan downgrade di atas batas belum disetujui");
-  // §6.4: copy only when C42, C45, C46 and C47 are LULUS (computed on the saved plan's days)
-  const c45 = await stockMartControl(sb, addDays(week.week_start, -1));
-  const p = proposePlan(src, { classCode: s(plan.weight_class) });
-  const block = ppicBlockers([...ppicWeekControls(src, p, week.update_date), c45], "copy");
-  if (block.length) throw new WriteError(`Belum bisa disalin ke batch: ${block.map((b) => `${b.code} ${b.status}`).join(", ")}`);
-  const days = await fetchAll<Row>((a, b) => sb.from("plan_day").select("*").eq("plan_week_id", planId).gt("head_count", 0).order("date").range(a, b));
-  const cls = defaultClass(src, s(plan.weight_class));
-  const ref = (d: string) => `PLAN-${week.week_start}-v${plan.version}-${d}`;
-  const old = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref").eq("week_id", week.id).eq("status", "Rencana").like("batch_ref", `PLAN-${week.week_start}-%`).is("deleted_at", null).range(a, b));
-  if (old.length) {
-    const ids = old.map((o) => String(o.id));
-    for (let i = 0; i < ids.length; i += 200) {
-      const e = await sb.from("batch").update({ deleted_at: new Date().toISOString() }).in("id", ids.slice(i, i + 200));
-      if (e.error) throw new WriteError(`batch: ${e.error.message}`);
-    }
-  }
-  const rows = days.map((d, i) => {
-    const lb = src.lbSupply.find((x) => String(x.date) === String(d.date) && (x.status === "confirmed" || x.status === "received"));
-    const b = planBatchRow({
-      date: String(d.date), heads: Number(d.head_count), avgLbKg: cls?.avg_kg ?? "2", lbPrice: s(lb?.price_per_kg) ?? src.v1.lbPriceToday,
-      shrink: src.v1.shrink, freightPerKgLb: src.v1.freight, maklonPerKgProcessed: src.v1.maklon, yields: src.v1.yields,
-    });
-    return {
-      week_id: week.id, seq: 900 + i, date: b.date, status: "Rencana", batch_ref: ref(String(d.date)), supplier: s(d.supplier), lb_kg: b.lb_kg, lb_price: b.lb_price,
-      freight: b.freight, maklon: b.maklon, processed_kg: b.processed_kg, out_karkas_fresh: b.out_karkas_fresh, out_kepala: b.out_kepala, out_ceker: b.out_ceker,
-      out_usus: b.out_usus, out_hja: b.out_hja, out_lemak: b.out_lemak, source: "Manual", document_ref: `plan_week:${planId}`,
-      head_count: b.head_count, avg_lb_kg: cls?.avg_kg ?? null, weight_class: s(d.weight_class), cut_pattern: s(d.cut_pattern),
-    };
-  });
-  if (rows.length) {
-    const e = await sb.from("batch").insert(rows);
-    if (e.error) throw new WriteError(`batch: ${e.error.message}`);
-  }
-  const e3 = await sb.from("plan_week").update({ copied_to_batch_at: new Date().toISOString() }).eq("id", planId);
-  if (e3.error) throw new WriteError(e3.error.message);
-  return `${rows.length} batch rencana ditulis${old.length ? ` (${old.length} salinan lama dihapus)` : ""}`;
-}
+// "Salin ke batch rencana" (copyGate + copyPlanToBatches) lives in lib/v5/copy-plan.ts (PRD v5.2 R51, R52): it reads the
+// class demand and the costing flags, which import this file.
 
 /** C28 (late Confirmed PO lines) and C30 (plan day over capacity) for the week; C29/C31 come with the allocation (F3b). */
 export function weekPlanningControls(src: PlanningSources, today: string): ControlV3[] {
@@ -463,7 +432,7 @@ export function weekPlanningControls(src: PlanningSources, today: string): Contr
 // ------------------------------------------------------------------------------------------------ uploads (PRD v3 §5)
 
 async function itemKeys(sb: Supa): Promise<(km: string | null, ic: string | null) => string> {
-  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b));
+  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b));
   return keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
 }
 
@@ -486,12 +455,12 @@ registerV3Kind({
       if (!w) { issues.push(`Baris ${r.rowNo}: minggu tanggal kirim ${v.delivery_date} belum ada`); continue; }
       if (w.status === "closed") { issues.push(`Baris ${r.rowNo}: minggu ${w.week_start} sudah ditutup`); continue; }
       const base = `${v.po_ref}|${v.item_code ?? v.key_manual ?? ""}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris untuk kunci baris (indeks)
       n.set(base, i);
       ok.push({ target: "po", data: { ...v, demand_status: st, week_id: w.id, week_start: w.week_start, key: keyOf(v.key_manual, v.item_code), line_key: `${base}|${i}` } });
     }
     const pos = [...new Set(ok.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref").eq("status", "Order").in("po_ref", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const have = new Set(existing.map((e) => String(e.line_key)));
     const p = plan0("sales_line", "PO lines (Order)", [`${pos.length} PO`]);
     p.inserts = ok.filter((r) => !have.has(String(r.data.line_key))).length;
@@ -506,7 +475,7 @@ registerV3Kind({
     const settings = await moduleSettingsOf(sb);
     const { covered } = await floorGuard(sb, viewer, settings, rows.map((r) => ({ key: s(r.data.key), customer: s(r.data.customer), price: s(r.data.price), kg: s(r.data.kg), date: s(r.data.delivery_date) })));
     const pos = [...new Set(rows.map((r) => String(r.data.po_ref)))];
-    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", c).is("deleted_at", null).range(a, b))) : [];
+    const existing = pos.length ? await inChunks(pos, (c) => fetchAll<Row>((a, b) => sb.from("sales_line").select("id, line_key, po_ref, week_id").eq("status", "Order").in("po_ref", c).is("deleted_at", null).order("id").range(a, b))) : [];
     const byKey = new Map(existing.map((e) => [String(e.line_key), e]));
     let inserted = 0, updated = 0;
     const dates = new Set<string>();
@@ -552,7 +521,7 @@ registerV3Kind({
       ok.push({ target: "forecast", data: { ...v, week_start: mondayOf(String(v.week_start)), key } });
     }
     const n = new Map<string, number>();
-    for (const r of ok) { const b = `${r.data.week_start}|${r.data.item_code ?? r.data.key}|${r.data.sales_rep ?? ""}|${r.data.customer ?? ""}`; const i = (n.get(b) ?? 0) + 1; n.set(b, i); r.data.line_key = `${b}|${i}`; }
+    for (const r of ok) { const b = `${r.data.week_start}|${r.data.item_code ?? r.data.key}|${r.data.sales_rep ?? ""}|${r.data.customer ?? ""}`; const i = (n.get(b) ?? 0) + 1; n.set(b, i); r.data.line_key = `${b}|${i}`; } // missing-ok: penghitung baris untuk kunci baris (indeks)
     const p = plan0("forecast_line", "Forecast sales", [...new Set(ok.map((r) => `minggu ${r.data.week_start}`))]);
     p.inserts = ok.length;
     const ws = ok.map((r) => String(r.data.week_start)).sort();
@@ -567,7 +536,7 @@ registerV3Kind({
       q = rep ? q.eq("sales_rep", rep) : q.is("sales_rep", null);
       const e = await q;
       if (e.error) throw new WriteError(`forecast_line: ${e.error.message}`);
-      deleted += e.count ?? 0;
+      deleted += e.count ?? 0; // missing-ok: jumlah baris yang dihapus (hitungan)
     }
     const data = rows.map((r) => ({
       week_start: r.data.week_start, key: r.data.key, item_code: s(r.data.item_code), sales_rep: s(r.data.sales_rep), customer: s(r.data.customer), kg: D(s(r.data.kg)).toFixed(2),

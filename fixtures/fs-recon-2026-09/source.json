@@ -1,0 +1,30 @@
+{
+ "fixture": "fs-recon-2026-09",
+ "generated_by": "scripts/build_fs_recon.py",
+ "sources": [
+  {
+   "file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx",
+   "sha256": "7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5",
+   "used": "PL - Management Report dan BS - Management Report, kolom Jul/Agu/Sep (label dan nilai dibaca ulang oleh skrip)",
+   "sheets": [
+    "PL - Management Report",
+    "BS - Management Report"
+   ]
+  },
+  {
+   "file": "fixtures/fs-2026-09/inputs.json",
+   "sha256": "5be2855dc944c77022694ba393fd58084e09ffb04f34372add402e239ee1aba4",
+   "used": "baris FS per bulan (pl[].row, bs[].row)"
+  },
+  {
+   "file": "fixtures/fs-2026-09/golden.json",
+   "sha256": "d60e594e770b1a1d6ffaab8ff6e862b0fe1c7e4817486a0861b15674e95b5dc8",
+   "used": "sel-sel FS (sheet!sel) sebagai pembanding nilai"
+  },
+  {
+   "file": "fixtures/week-2026-08-24/gl_lines.json",
+   "sha256": "662be9b8f7d01e54d102624d46aba96f93988e45e7ebdaa5e821b4b5fb1dd097",
+   "used": "tanggal jurnal terakhir fixture (26 Agu 2026): tidak ada jurnal September"
+  }
+ ]
+}

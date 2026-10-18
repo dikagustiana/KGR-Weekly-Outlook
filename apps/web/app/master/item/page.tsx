@@ -14,13 +14,13 @@ export default async function ItemMaster({ searchParams }: { searchParams: Promi
   const { viewer, weeks, week } = await plainContext(sp.week);
   const sb = await supabaseServer();
   const items = await fetchAll<Record<string, string | null>>((f, t) => sb.from("item_map").select("*").is("deleted_at", null).order("item_code").range(f, t));
-  const keys = await fetchAll<{ key: string; decision_group: string }>((f, t) => sb.from("sku_key").select("key, decision_group").eq("active", true).order("sort_order").range(f, t));
+  const keys = await fetchAll<{ key: string; decision_group: string }>((f, t) => sb.from("sku_key").select("key, decision_group").eq("active", true).order("sort_order").order("key").range(f, t));
   const group = new Map(keys.map((k) => [k.key, k.decision_group]));
   const admin = viewer.role === "admin";
   const q = (sp.q ?? "").toLowerCase();
   const shown = items.filter((i) => !q || `${i.item_code} ${i.item_name} ${i.key}`.toLowerCase().includes(q));
   // new codes seen in the selected week
-  const c = week ? await computeForWeek(week.week_start) : null;
+  const c = week ? await computeForWeek(sb, week.week_start) : null;
   const known = new Set(items.map((i) => String(i.item_code).toUpperCase()));
   const fresh = new Map<string, string | null>();
   if (c) {

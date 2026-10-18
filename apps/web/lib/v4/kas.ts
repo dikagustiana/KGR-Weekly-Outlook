@@ -12,6 +12,17 @@ import type { Col, TRow } from "@/components/v4/Table";
 import { monthsToNegative, type TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
 
+/**
+ * R65 (F13): how the monthly cash change of the 12-month projection is made while v5_pl is on — the NIBT after fixed costs
+ * plus the costs that are not cash (depreciation, amortised prepaid). `nibt` null = unknown (no fixed nominal): no projection.
+ */
+export interface CashRecon {
+  nibt: string | null;
+  depreciation: string;
+  prepaid: { pl_line: string; amount: string }[];
+  change: string | null;
+}
+
 export interface KasHorizon {
   as_of: string;
   accounts: { account_no: string; bank: string | null; closing: string | null; date: string; carried: boolean }[];
@@ -19,6 +30,8 @@ export interface KasHorizon {
   /** affiliate_received: the affiliate funding already in the balance of the week of as_of (the scenario takes it out too). */
   weeks: { week_start: string; closing: string | null; closing_without: string | null; operating_in: string | null; operating_out: string | null; affiliate_net: string | null; affiliate_received?: string | null }[];
   months: { month: string; change: string | null; closing: string | null }[] | null;
+  /** R65: the reconciliation of `months` (v5_pl on); absent in rows built before v5.2 or with v5_pl off. */
+  monthsRecon?: CashRecon | null;
   drivers: { description: string; amount: string | null }[];
   affiliate_received: string | null;
   lowest: { date: string; balance: string | null };
@@ -39,6 +52,7 @@ export function kasHorizon(x: {
   controls: ControlV3[];
   split: CashSplit;
   months: ReturnType<typeof cashProjection12m> | null;
+  monthsRecon?: CashRecon | null;
   affiliateReceived: Decimal;
 }): KasHorizon {
   return {
@@ -50,6 +64,7 @@ export function kasHorizon(x: {
       affiliate_received: i === 0 ? f2(x.affiliateReceived) : null,
     })),
     months: x.months ? x.months.map((m) => ({ month: m.month, change: f2(m.change), closing: f2(m.closing) })) : null,
+    ...(x.monthsRecon ? { monthsRecon: x.monthsRecon } : {}),
     drivers: x.split.drivers.map((d) => ({ description: d.description, amount: f2(d.amount) })),
     affiliate_received: f2(x.affiliateReceived),
     lowest: { date: x.split.lowest.date, balance: f2(x.split.lowest.balance) },
@@ -62,7 +77,7 @@ export interface KasInput {
   today: string;
   /** The latest cash_position_daily row; null = nothing built yet. */
   row: { date: string; totalClosing: string | null; lowest: string | null; lowestDate: string | null; lowestWithout: string | null; lowestWithoutDate: string | null; assumption: string | null; horizon: KasHorizon | null } | null;
-  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
+  solvency: { label: string; month: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; prevAffiliate: string | null; interestRows: { actual: string | null; forecast: string | null }[] | null } | null;
   ccc: { date: string; dio: string | null; dso: string | null; dpo: string | null; ccc: string | null; workingCapital: string | null; cogsPerDay: string | null; revenuePerDay: string | null; windowDays: number | null } | null;
   /** What-if from the query string: termin LB, termin trading, porsi LB, target hari stok. */
   sim: { lb: string; tr: string; share: string; stock: string };
@@ -116,14 +131,16 @@ export function kasModel(x: KasInput): KasModel {
   if (sv) {
     const aff = D(sv.affiliate), prev = dn(sv.prevAffiliate);
     // Interest Expense of the month (actual + forecast rows of pl_daily_v4), a cost: shown positive
-    const interest = sv.interestRows ? sv.interestRows.reduce((a, r) => a.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).neg() : null;
+    // (a row carries its actual or its forecast; a row with neither has no amount and adds nothing, no interest rows at all = unknown)
+    const interestParts = sv.interestRows ? sv.interestRows.flatMap((r) => [r.actual, r.forecast]).filter((v): v is string => v !== null && v !== undefined) : [];
+    const interest = interestParts.length ? interestParts.reduce((a, v) => a.plus(D(v)), D(0)).neg() : null;
     tiles.push({
       id: "c-afiliasi", pos: P(5, 1, 3, 2), kind: "card", title: "Utang pihak berelasi",
       cara: { title: "Utang pihak berelasi", fn: "solvency", rule: "Other Payable – Related Parties + Trade Payables – Affiliates dari neraca mingguan terakhir; bunga = Interest Expense outlook bulan ini.", period: sv.label, basis: "neraca mingguan", status: "draft", sources: [{ label: "Tabel", value: "solvency_monthly, pl_daily_v4" }] },
       content: {
-        type: "card", value: jtV4(aff), unit: "Rp jt",
+        type: "card", value: sv.affiliate === null ? null : jtV4(aff), unit: "Rp jt", missing: sv.affiliate === null ? "belum ada" : undefined,
         compare: [
-          ...(prev ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
+          ...(prev && sv.affiliate !== null ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
           { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: interest === null ? "belum diisi" : `${jtV4(interest)} jt` },
         ],
       },
@@ -180,13 +197,17 @@ export function kasModel(x: KasInput): KasModel {
         title: `${m.month.slice(0, 7)} · perubahan kas Rp ${ch ? jtV4(ch) : "belum diisi"} jt · saldo akhir Rp ${c ? jtV4(c) : "belum diisi"} jt`,
       };
     });
+    const rc = h.monthsRecon ?? null;
+    const reconText = rc && rc.nibt !== null && rc.change !== null
+      ? `Perubahan kas per bulan = NIBT setelah beban tetap ${jtV4(rc.nibt)} jt + penyusutan nonkas ${jtV4(rc.depreciation)} jt${rc.prepaid.length ? ` + amortisasi prepaid ${jtV4(rc.prepaid.reduce((a, p) => a.plus(D(p.amount)), D(0)))} jt` : ""} = ${jtV4(rc.change)} jt, dipertahankan tetap.`
+      : null;
     tiles.push({
       id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan",
-      note: "Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini ditambah penyusutan, dipertahankan tetap.",
-      cara: { title: "Kas 12 bulan", fn: "cashProjection12m", rule: "Saldo hari ini; tiap bulan berubah sebesar NIBT outlook bulan berjalan ditambah penyusutan (non-kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas.", period: "12 bulan dari bulan ini", basis: "outlook bulan", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon), pl_daily_v4" }] },
+      note: reconText ?? "Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini ditambah penyusutan, dipertahankan tetap.",
+      cara: { title: "Kas 12 bulan", fn: "cashProjection12m", rule: rc ? "Saldo hari ini; tiap bulan berubah sebesar NIBT setelah beban tetap bulan berjalan (v5_pl) ditambah beban nonkas yang ada di dalamnya (penyusutan, amortisasi prepaid: tidak mengurangi kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas." : "Saldo hari ini; tiap bulan berubah sebesar NIBT outlook bulan berjalan ditambah penyusutan (non-kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas.", period: "12 bulan dari bulan ini", basis: rc ? "NIBT setelah beban tetap" : "outlook bulan", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon), pl_daily_v4" }] },
       content: { type: "combo", points: pts, labelMax: 12, legend: [{ tone: "s2", label: "perubahan kas" }, { tone: "ln", label: "saldo akhir" }] },
     });
-  } else tiles.push({ id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan", content: { type: "list", items: ["tidak tersedia: outlook bulanan belum menjadi basis"] } });
+  } else tiles.push({ id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan", content: { type: "list", items: [h?.monthsRecon && h.monthsRecon.nibt === null ? "tidak tersedia: NIBT setelah beban tetap belum ada (beban tetap bulan ini kosong, C55); NIBT jurnal tidak dipakai sebagai pengganti" : "tidak tersedia: outlook bulanan belum menjadi basis"] } });
 
   // ---------------------------------------------------------------- CCC
   {
@@ -204,7 +225,7 @@ export function kasModel(x: KasInput): KasModel {
       ];
       tiles.push({
         id: "ccc", pos: P(6, 7, 6, 4), kind: "tall", title: "Siklus kas",
-        note: `HPP dan penjualan dari jurnal ${c.windowDays ?? 0} hari terakhir (maks. 90).`,
+        note: c.windowDays ? `HPP dan penjualan dari jurnal ${c.windowDays} hari terakhir (maks. 90).` : "HPP dan penjualan dari jurnal (jumlah hari belum diketahui, maks. 90).",
         cara: { title: "Siklus kas", fn: "ccc, simulateCcc", rule: "DIO = persediaan ÷ HPP per hari; DSO = piutang ÷ penjualan per hari; DPO = utang dagang ÷ HPP per hari; CCC = DIO + DSO − DPO. Simulasi: termin LB dan trading dibobot porsi pembelian menjadi DPO; target hari stok menggantikan DIO.", period: tgl(c.date), basis: "neraca mingguan, jurnal 90 hari", status: "draft", sources: [{ label: "Tabel", value: "ccc_daily" }] },
         content: {
           type: "table", cols, rows,
@@ -221,8 +242,8 @@ export function kasModel(x: KasInput): KasModel {
       { key: "a", label: "Pendanaan afiliasi rencana", num: true, kind: "sup" }, { key: "r", label: "Afiliasi sudah masuk", num: true, kind: "sup" }, { key: "c", label: "Saldo akhir", num: true, kind: "key" }, { key: "x", label: "Tanpa fasilitas", num: true },
     ];
     const rows: TRow[] = h.weeks.map((w) => {
-      const i = dn(w.operating_in) ?? D(0), o = dn(w.operating_out) ?? D(0);
-      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: jtV4(i), o: jtV4(o), n: jtV4(i.plus(o)), a: jtV4(w.affiliate_net ?? 0), r: w.affiliate_received ? jtV4(w.affiliate_received) : "", c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
+      const i = dn(w.operating_in), o = dn(w.operating_out), na = "belum diisi";
+      return { id: w.week_start, cells: { w: `${tglShort(w.week_start)}`, i: i ? jtV4(i) : na, o: o ? jtV4(o) : na, n: i && o ? jtV4(i.plus(o)) : na, a: w.affiliate_net === null || w.affiliate_net === undefined ? na : jtV4(w.affiliate_net), r: w.affiliate_received ? jtV4(w.affiliate_received) : "", c: w.closing ? jtV4(w.closing) : "belum diisi", x: w.closing_without ? jtV4(w.closing_without) : "belum diisi" } };
     });
     const drivers = h.drivers.filter((d) => d.amount !== null).slice(0, 3);
     tiles.push({

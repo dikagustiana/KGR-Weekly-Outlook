@@ -39,7 +39,8 @@ export interface StockSellItem {
 
 export interface StockSellRow extends Omit<StockSellItem, "free_kg" | "cost_per_kg" | "price_ref" | "over_age_kg"> {
   free_kg: Decimal;
-  over_age_kg: Decimal;
+  /** kg above the age limit; null = not shown to this reader (Sales cannot read it) or not in the ledger — never 0. */
+  over_age_kg: Decimal | null;
   cost_per_kg: Decimal | null;
   price_ref: Decimal | null;
   /** kg × cost (stock value at cost); null without a cost. */
@@ -60,7 +61,7 @@ export function stockSellRows(items: StockSellItem[], rate: Num | null): StockSe
     const value = cost === null ? null : kg.times(cost);
     const below = cost !== null && ref !== null && ref.lt(cost);
     return {
-      ...i, free_kg: kg, over_age_kg: D(i.over_age_kg ?? 0), cost_per_kg: cost, price_ref: ref, value,
+      ...i, free_kg: kg, over_age_kg: dn(i.over_age_kg), cost_per_kg: cost, price_ref: ref, value,
       margin_per_kg: cost !== null && ref !== null ? ref.minus(cost) : null,
       holding_per_day: value !== null && r !== null ? value.times(r) : null,
       below_cost: below, loss_at_ref: below ? cost!.minus(ref!).times(kg) : ZERO,
@@ -103,12 +104,36 @@ export interface Commitment { key: string; size_kg?: Num | null; fresh_kg: Num; 
 /** Base key of a SKU ("RPA|Karkas|Fresh" → "RPA|Karkas"): the key of a commitment and of a price list row. */
 export const baseKey = (key: string) => key.replace(/\|(Fresh|Frozen|n\/a)$/, "");
 
+const FORM_SUFFIX = /\|(Fresh|Frozen|n\/a)$/;
+const nrm = (v: string | null | undefined) => (v === null || v === undefined ? "" : v.trim().toLowerCase());
+
+/**
+ * PRD v5.2 O21(b): does an assignment key cover a SKU key? An assignment without a form suffix ("RPA|Karkas") covers every
+ * form of that SKU; one with a suffix ("RPA|Karkas|Fresh") covers only that exact key; no key (null) covers all.
+ * A SKU without a key is covered only by an assignment without a key.
+ */
+export function assignmentCovers(assignmentKey: string | null | undefined, key: string | null | undefined): boolean {
+  if (assignmentKey === null || assignmentKey === undefined || assignmentKey === "") return true;
+  if (key === null || key === undefined || key === "") return false;
+  return FORM_SUFFIX.test(assignmentKey) ? assignmentKey === key : assignmentKey === baseKey(key);
+}
+
+export interface SalesAssignment { customer: string | null; key: string | null }
+
+/**
+ * Is a (customer, key) line inside the scope of a Sales user? One assignment row must cover both: its customer (null = every
+ * customer; a line without a customer, a spot sale, is judged on the key) and its key (O21(b), `assignmentCovers`).
+ */
+export function inAssignmentScope(assignments: SalesAssignment[], line: { customer: string | null | undefined; key: string | null | undefined }): boolean {
+  return assignments.some((a) => (a.customer === null || a.customer === "" || !line.customer || nrm(a.customer) === nrm(line.customer)) && assignmentCovers(a.key, line.key));
+}
+
 /**
  * K26: the locked commitments of the week as Confirmed demand: the kg a key's POs of the week do not cover yet, on Monday.
  * PRD v5.1 K46: one locked version per key (and size) counts, the highest — data from before lock_commitments can hold
  * two locked versions of a key, which would count the commitment twice.
  */
-export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: string; kg: Num }[]; weekStart: ISODate }): OrderLine[] {
+export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: string; kg: Num }[]; weekStart: ISODate }): (OrderLine & { size_kg: Num | null })[] {
   const po = new Map<string, Decimal>();
   for (const o of x.orders) po.set(o.key, (po.get(o.key) ?? ZERO).plus(D(o.kg)));
   const latest = new Map<string, Commitment>();
@@ -117,12 +142,12 @@ export function commitmentDemand(x: { commitments: Commitment[]; orders: { key: 
     const cur = latest.get(id);
     if (!cur || c.version > cur.version) latest.set(id, c);
   }
-  const out: OrderLine[] = [];
+  const out: (OrderLine & { size_kg: Num | null })[] = [];
   for (const c of latest.values()) {
     for (const [form, kg] of [["Fresh", c.fresh_kg], ["Frozen", c.frozen_kg]] as const) {
       const key = `${c.key}|${form}`;
       const extra = max(ZERO, D(kg).minus(po.get(key) ?? ZERO));
-      if (extra.gt(0)) out.push({ ref: `commitment:${key}:v${c.version}`, key, delivery_date: x.weekStart, demand_status: "Confirmed", kg: extra.toFixed(2), price: c.price === null ? null : String(c.price), customer: "komitmen Commercial" });
+      if (extra.gt(0)) out.push({ ref: `commitment:${key}:v${c.version}`, key, delivery_date: x.weekStart, demand_status: "Confirmed", kg: extra.toFixed(2), price: c.price === null ? null : String(c.price), customer: "komitmen Commercial", size_kg: c.size_kg ?? null });
     }
   }
   return out;

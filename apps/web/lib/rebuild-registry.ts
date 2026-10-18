@@ -8,8 +8,8 @@ export interface Builder {
   module: ModuleKey;
   /** Skipped while this other module is on (it writes the same mart scope with more information, e.g. the month builder over the week builder). */
   unless?: ModuleKey;
-  /** K60 (R45): builders of these modules must run before this one, whatever the import order. */
-  after?: ModuleKey[];
+  /** K60 (R45): these builders (by name, or every builder of a module key) run before this one, whatever the import order. */
+  after?: string[];
   name: string;
   /** Load and compute once per rebuild run (e.g. the whole ledger), before the dates are written. */
   begin?: (sb: Supa) => Promise<void>;
@@ -35,7 +35,11 @@ export function orderedBuilders(): Builder[] {
     if (done.has(k)) return;
     if (visiting.has(k)) throw new Error(`siklus dependensi builder: ${b.name}`);
     visiting.add(k);
-    for (const m of b.after ?? []) for (const dep of BUILDERS) if (dep.module === m) visit(dep);
+    for (const a of b.after ?? []) {
+      const deps = BUILDERS.filter((d) => d.name === a || d.module === a);
+      if (!deps.length) throw new Error(`builder ${b.name}: dependensi "${a}" tidak terdaftar`);
+      deps.forEach(visit);
+    }
     visiting.delete(k);
     done.add(k);
     out.push(b);

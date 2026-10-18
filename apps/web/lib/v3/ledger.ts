@@ -11,7 +11,7 @@ import {
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
 import { fetchAll, fetchAllOrMissing, listWeeks, type WeekRow } from "../data";
-import { must, mustRows } from "../loader";
+import { must, mustRows, needParameter } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -36,31 +36,33 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   const weeks = (await listWeeks(sb)).slice().sort((a, b) => a.week_start.localeCompare(b.week_start));
   if (!weeks.length) return null;
   const latest = weeks[weeks.length - 1];
-  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b));
+  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b));
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const opening = await fetchAll<Row>((a, b) => sb.from("opening_stock").select("id, week_id, item_code, key_manual, kg, value, avg_age_days")
-    .is("deleted_at", null).is("superseded_at", null).range(a, b));
+    .is("deleted_at", null).is("superseded_at", null).order("id").range(a, b));
   const first = weeks.find((w) => opening.some((o) => o.week_id === w.id));
   if (!first) return null;
   // v5 K20–K23: an RPA batch without a posted allocation takes the planCost of its status (estimasi / sementara)
   const v5 = (await v5CostingOn(sb)) ? await v5LedgerCosts(sb, first.week_start, latest.update_date, latest.id) : null;
   const v5Cost = new Map(v5 ? v5.batches.map((b) => [b.batch_ref, b.costByKey]) : []);
+  // K59 / R61: a batch whose posted allocation has an unpriced SKU is not final; its lots keep the v5 cost (sementara)
+  const notFinal = new Set(v5 ? v5.batches.filter((b) => b.posted && !b.m1Final).map((b) => b.batch_ref) : []);
   const [receipts, sales, blasts, manual, keys, param, cardsUp, allocs, m3alloc] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("receipt_line").select("id, week_id, date, status, receipt_source, item_code, key_manual, kg, unit_cost, document_ref")
-      .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
+      .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").order("id").range(a, b)),
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, week_id, date, status, item_code, key_manual, kg, cancelled_kg, hpp_actual, document_ref")
-      .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("blast_event").select("id, date, lot_ref_from, key_to, kg").is("deleted_at", null).order("date").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("lot_movement").select("id, date, lot_ref, key, item_code, kg, cost, note").eq("ref_table", "manual").order("date").range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, group_code, fresh_window_hours, frozen_age_limit_days").range(a, b)),
+      .is("deleted_at", null).is("superseded_at", null).gte("date", first.week_start).order("date").order("seq").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("blast_event").select("id, date, lot_ref_from, key_to, kg").is("deleted_at", null).order("date").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("lot_movement").select("id, date, lot_ref, key, item_code, kg, cost, note").eq("ref_table", "manual").order("date").order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sku_key").select("key, group_code, fresh_window_hours, frozen_age_limit_days").order("key").range(a, b)),
     sb.from("parameter").select("blast_cost_per_kg, fresh_window_hours_default, frozen_age_limit_days_default").eq("week_id", latest.id).maybeSingle(),
-    fetchAll<Row>((a, b) => sb.from("stock_card_snapshot").select("date, item_code, kg, value").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("allocation_run").select("id, batch:batch_id(batch_ref), allocation_line(key, kg, allocated_cost)").eq("status", "posted").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("stock_card_snapshot").select("date, item_code, kg, value").is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("allocation_run").select("id, batch:batch_id(batch_ref), allocation_line(key, kg, allocated_cost)").eq("status", "posted").order("id").range(a, b)),
     // M3 allocations (F3b): which lot a PO line / DO takes. Missing table (M3 not migrated) = none.
-    fetchAllOrMissing<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).range(a, b), "ledger.allocation"),
+    fetchAllOrMissing<Row>((a, b) => sb.from("allocation").select("sales_line_id, lot_ref, kg").is("deleted_at", null).order("id").range(a, b), "ledger.allocation"),
   ]);
   // K7 (PRD v4 irisan 3): deliveries recorded on open PO lines; missing table (v4 not migrated) = none
-  const deliveries = await fetchAllOrMissing<Row>((a, b) => sb.from("delivery").select("id, sales_line_id, date, kg, document_ref").is("deleted_at", null).gte("date", first.week_start).order("date").range(a, b), "ledger.delivery");
+  const deliveries = await fetchAllOrMissing<Row>((a, b) => sb.from("delivery").select("id, sales_line_id, date, kg, document_ref").is("deleted_at", null).gte("date", first.week_start).order("date").order("id").range(a, b), "ledger.delivery");
   // M1 specific cost per batch × key (posted allocations), used as the lot's SI cost; MA stays on the GRN cost
   const si = new Map<string, { kg: ReturnType<typeof D>; cost: ReturnType<typeof D> }>();
   for (const r of allocs) {
@@ -72,7 +74,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
       si.set(k, { kg: a.kg.plus(D(s(l.kg))), cost: a.cost.plus(D(s(l.allocated_cost))) });
     }
   }
-  const p = (param.data ?? {}) as Row;
+  const p = needParameter(must(param, "ledger.parameter"), "ledger.parameter") as Row;
   const isLatest = (wid: unknown) => wid === latest.id;
   const keyInfo: LedgerKeyInfo[] = keys.map((k) => ({
     key: String(k.key), form: String(k.key).endsWith("|Fresh") ? "fresh" : "frozen", group_code: s(k.group_code),
@@ -88,7 +90,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     // plans and orders only from the latest week (older weeks' undelivered plans are history, not stock)
     receipts: receipts.filter((r) => r.status === "Aktual" || isLatest(r.week_id)).map((r) => {
       const key = keyOf(s(r.key_manual), s(r.item_code));
-      const c = r.receipt_source === "Produksi RPA" ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
+      const c = r.receipt_source === "Produksi RPA" && !notFinal.has(s(r.document_ref) ?? "") ? si.get(`${s(r.document_ref)}|${key}`) : undefined;
       const v = !c && v5 && r.receipt_source === "Produksi RPA" ? costOfKey(v5Cost.get(s(r.document_ref) ?? "") ?? new Map(), key) : undefined;
       return {
         ref: String(r.id), date: s(r.date), status: s(r.status), source: s(r.receipt_source), item_code: s(r.item_code), key, kg: s(r.kg),
@@ -103,7 +105,7 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
     })),
     keys: keyInfo,
     params: {
-      blastCostPerKg: s(p.blast_cost_per_kg) ?? "0",
+      blastCostPerKg: String(p.blast_cost_per_kg),
       defaultFreshWindowHours: Number(p.fresh_window_hours_default ?? 48), defaultFrozenAgeLimitDays: Number(p.frozen_age_limit_days_default ?? 30),
     },
   };
@@ -116,7 +118,8 @@ export async function loadLedgerSources(sb: Supa): Promise<LedgerSources | null>
   for (const w of weeks.filter((x) => x.week_start > first.week_start)) {
     const rows = opening.filter((o) => o.week_id === w.id);
     const d = addDays(w.week_start, -1);
-    if (rows.length && !cards.has(d)) cards.set(d, rows.map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: s(o.kg) ?? "0", value: s(o.value) })));
+    // an opening row without kg has no balance to compare: left out of the card, not a balance of 0
+    if (rows.length && !cards.has(d)) cards.set(d, rows.filter((o) => s(o.kg) !== null).map((o) => ({ item_code: s(o.item_code) ?? "", key: keyOf(s(o.key_manual), s(o.item_code)), kg: String(o.kg), value: s(o.value) })));
   }
   return { inputs, weeks, latest, cards, v5 };
 }
@@ -157,7 +160,7 @@ async function ensureRun(sb: Supa): Promise<Run | null> {
   if (!src) return null;
   // PRD v4 §3.5 DI-01: an Ops DO line replaced by its Accurate invoice line keeps its date as the revenue date (K11)
   const ops = await fetchAll<Row>((a, b) => sb.from("sales_line").select("date, document_ref").eq("source", "Ops").eq("status", "Aktual")
-    .not("superseded_at", "is", null).is("deleted_at", null).gte("date", src.inputs.startDate).range(a, b));
+    .not("superseded_at", "is", null).is("deleted_at", null).gte("date", src.inputs.startDate).order("id").range(a, b));
   const revenueDates = new Map<string, string>();
   for (const o of ops) {
     const d = s(o.document_ref), dt = s(o.date);
@@ -318,10 +321,11 @@ export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: st
   const balance = balanceAt(led, date, src.inputs.keys, src.inputs.params);
   const cardDate = [...src.cards.keys()].filter((d) => d <= date).sort().pop() ?? null;
   const hppByRef = new Map(src.inputs.sales.filter((x) => x.hpp_actual !== null && x.hpp_actual !== undefined && x.hpp_actual !== "").map((x) => [x.ref, x.hpp_actual!]));
-  const fixes = await fetchAll<Row>((a, b) => sb.from("data_fix").select("week_id, amount, status").eq("fix_id", "D3").eq("scope", "opening_vs_bs").range(a, b));
+  const fixes = await fetchAll<Row>((a, b) => sb.from("data_fix").select("week_id, amount, status").eq("fix_id", "D3").eq("scope", "opening_vs_bs").order("id").range(a, b));
   const firstWeek = src.weeks.find((w) => w.week_start === src.inputs.startDate);
   const d3First = fixes.find((x) => x.week_id === firstWeek?.id && x.amount !== null);
-  const openingValue = src.inputs.opening.reduce((acc, o) => acc.plus(D(o.value ?? 0)), D(0));
+  // the opening stock value is known only when every opening row carries one (a row without value makes the total unknown, never a smaller number)
+  const openingValue = src.inputs.opening.some((o) => o.value === null || o.value === undefined) ? null : src.inputs.opening.reduce((acc, o) => acc.plus(D(o.value!)), D(0));
   const openGap = d3First ? D(String(d3First.amount)) : null;
   const reasoned = [
     ...fixes.filter((x) => x.week_id === week.id && x.amount !== null && x.status !== "applied").map((x) => ({ label: "D3 belum dibukukan", amount: String(x.amount), part: "c" as const })),
@@ -329,7 +333,7 @@ export async function rekonSplitForWeek(sb: Supa, week: WeekRow, bsYesterday: st
   ];
   const parts = reconcileSplit({
     ledger: led, balance, hppByRef, stockCard: null, bsInventory: bsYesterday,
-    openingBs: openGap === null ? null : openingValue.minus(openGap).toFixed(2), openingValue: openGap === null ? null : openingValue.toFixed(2), reasoned,
+    openingBs: openGap === null || openingValue === null ? null : openingValue.minus(openGap).toFixed(2), openingValue: openGap === null || openingValue === null ? null : openingValue.toFixed(2), reasoned,
   });
   if (cardDate) {
     const a = reconcileSplit({ ledger: led, balance: balanceAt(led, cardDate, src.inputs.keys, src.inputs.params), hppByRef, stockCard: src.cards.get(cardDate)!, bsInventory: null, openingBs: null, openingValue: null, reasoned: [] }).find((x) => x.part === "a")!;
@@ -343,7 +347,7 @@ export async function skuBalances(sb: Supa, date: string): Promise<{ date: strin
   const data = must(await sb.from("sku_balance_daily").select("date").lte("date", date).order("date", { ascending: false }).limit(1).maybeSingle(), "ledger.sku_balance_daily");
   const d = data ? String((data as Row).date) : null;
   if (!d) return { date: null, rows: [] };
-  const rows = await fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", d).order("key").range(a, b));
+  const rows = await fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("*").eq("date", d).order("key").order("date").range(a, b));
   return { date: d, rows };
 }
 

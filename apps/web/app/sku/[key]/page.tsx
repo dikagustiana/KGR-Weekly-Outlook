@@ -32,10 +32,10 @@ export default async function SkuKeyPage({ params, searchParams }: { params: Pro
   const date = dd ? String((dd as R).date) : null;
   const k = must(await sb.from("sku_key").select("key").eq("key", key).maybeSingle(), "sku.sku_key") as any;
   if (!k && !date) notFound();
-  const bal = date ? await fetchAll<R>((a, b) => sb.from("lot_balance_daily").select("*").eq("date", date).eq("key", key).order("age_days", { ascending: false }).range(a, b)) : [];
+  const bal = date ? await fetchAll<R>((a, b) => sb.from("lot_balance_daily").select("*").eq("date", date).eq("key", key).order("age_days", { ascending: false }).order("date").order("lot_ref").range(a, b)) : [];
   const refs = bal.map((b) => String(b.lot_ref));
-  const lots = refs.length ? await inChunks(refs, (c) => fetchAll<R>((a, b) => sb.from("lot").select("lot_ref, origin, origin_date, batch_ref, item_code, kg_in, cost_per_kg_si, assumed, parent_lot_ref, note").in("lot_ref", c).range(a, b))) : [];
-  const moves = refs.length ? await inChunks(refs, (c) => fetchAll<R>((a, b) => sb.from("lot_movement").select("movement_ref, lot_ref, date, type, kg, cost, cost_ma, document_ref, assumed, ref_table").in("lot_ref", c).lte("date", date!).order("date").range(a, b))) : [];
+  const lots = refs.length ? await inChunks(refs, (c) => fetchAll<R>((a, b) => sb.from("lot").select("lot_ref, origin, origin_date, batch_ref, item_code, kg_in, cost_per_kg_si, assumed, parent_lot_ref, note").in("lot_ref", c).order("id").range(a, b))) : [];
+  const moves = refs.length ? await inChunks(refs, (c) => fetchAll<R>((a, b) => sb.from("lot_movement").select("movement_ref, lot_ref, date, type, kg, cost, cost_ma, document_ref, assumed, ref_table").in("lot_ref", c).lte("date", date!).order("date").order("id").range(a, b))) : [];
   const lotBy = new Map(lots.map((l) => [String(l.lot_ref), l]));
   const sel = sp.lot ?? null;
   return (

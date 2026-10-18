@@ -5,7 +5,14 @@ name: Backup
 #   SUPABASE_DB_URL            required — postgresql://… connection string (session pooler, port 5432)
 #   SUPABASE_URL               optional — https://<ref>.supabase.co, to copy the dump to the private bucket "backups"
 #   SUPABASE_SERVICE_ROLE_KEY  optional — service role key for that upload
-# Without SUPABASE_DB_URL the job only prints a warning. The dump is also kept as a private workflow artifact (14 days).
+# Without SUPABASE_DB_URL the job only prints a warning. The repository is public, and workflow artifacts of a public
+# repository can be downloaded by any GitHub user: the dump (auth users included) is therefore never an artifact. It goes
+# to the private bucket only; without SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY the job fails instead of keeping it.
+# Only the sha256 line is kept as an artifact (no data).
+
+# Also called by db-ops.yml (workflow_call) before a bundle goes into KGR-OS: the caller gets the dump's name, size and
+# sha256, and stops when there is no dump (skipped = 1). Next to the dump the bucket keeps <name>.counts.tsv (rows per
+# public table at dump time, no data) for the restore test (db-ops restore-test, T23).
 
 on:
   schedule:
@@ -16,6 +23,21 @@ on:
         description: "Alasan (mis. sebelum db push F1)"
         required: false
         default: "manual"
+  workflow_call:
+    inputs:
+      reason:
+        type: string
+        required: false
+        default: "db-ops"
+    outputs:
+      name:
+        value: ${{ jobs.dump.outputs.name }}
+      bytes:
+        value: ${{ jobs.dump.outputs.bytes }}
+      sha256:
+        value: ${{ jobs.dump.outputs.sha256 }}
+      skipped:
+        value: ${{ jobs.dump.outputs.skipped }}
 
 permissions:
   contents: read
@@ -23,6 +45,11 @@ permissions:
 jobs:
   dump:
     runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.dump.outputs.name }}
+      bytes: ${{ steps.dump.outputs.bytes }}
+      sha256: ${{ steps.dump.outputs.sha256 }}
+      skipped: ${{ steps.chk.outputs.skip }}
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -42,28 +69,47 @@ jobs:
       - name: Dump
         if: steps.chk.outputs.skip != '1'
         id: dump
+        env:
+          REASON: ${{ inputs.reason }}
         run: |
           set -euo pipefail
           name="kgr-$(date -u +%Y%m%dT%H%M%SZ).dump"
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges \
             --schema=public --schema=auth --schema=storage --file="$name"
           sha256sum "$name" | tee "$name.sha256"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
+          # rows per public table at dump time (no data): the restore test compares the restored database with it
+          /usr/lib/postgresql/17/bin/psql "$SUPABASE_DB_URL" -X -At -F $'\t' -v ON_ERROR_STOP=1 -c "
+            select format('select %L, count(*) from public.%I;', c.relname, c.relname) from pg_class c
+             where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' order by c.relname" \
+            | /usr/lib/postgresql/17/bin/psql "$SUPABASE_DB_URL" -X -At -F $'\t' -v ON_ERROR_STOP=1 > "$name.counts.tsv"
+          echo "tables counted: $(wc -l < "$name.counts.tsv")"
+          {
+            echo "name=$name"
+            echo "bytes=$(stat -c %s "$name")"
+            echo "sha256=$(cut -d' ' -f1 "$name.sha256")"
+          } >> "$GITHUB_OUTPUT"
+          echo "### Backup ${name}: $(stat -c %s "$name") byte, sha256 $(cut -d' ' -f1 "$name.sha256") (${REASON:-jadwal})" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to private bucket "backups"
-        if: steps.chk.outputs.skip != '1' && env.SUPABASE_URL != '' && env.SUPABASE_SERVICE_ROLE_KEY != ''
+        if: steps.chk.outputs.skip != '1'
         run: |
           set -euo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi — dump tidak disimpan (repo publik: tidak boleh jadi artifact)"; exit 1
+          fi
           f="${{ steps.dump.outputs.name }}"
-          curl -fsS -X POST "$SUPABASE_URL/storage/v1/object/backups/$f" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/octet-stream" --data-binary "@$f" >/dev/null
-          echo "uploaded backups/$f"
-      - name: Keep as artifact
+          for x in "$f" "$f.counts.tsv"; do
+            curl -fsS -X POST "$SUPABASE_URL/storage/v1/object/backups/$x" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: application/octet-stream" --data-binary "@$x" >/dev/null
+            echo "uploaded backups/$x"
+          done
+      - name: Remove the dump from the runner
+        if: always() && steps.dump.outputs.name != ''
+        run: rm -f "${{ steps.dump.outputs.name }}" "${{ steps.dump.outputs.name }}.counts.tsv"
+      - name: Keep the checksum (no data)
         if: steps.chk.outputs.skip != '1'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.dump.outputs.name }}
-          path: |
-            ${{ steps.dump.outputs.name }}
-            ${{ steps.dump.outputs.name }}.sha256
+          name: ${{ steps.dump.outputs.name }}.sha256
+          path: ${{ steps.dump.outputs.name }}.sha256
           retention-days: 14

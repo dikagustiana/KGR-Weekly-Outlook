@@ -8,9 +8,13 @@ import { D, accuracyV4, addDays, firstOfMonth, isCogsLine, isRevenueLine, monthE
 import type { FixedSource } from "../v5/pl-tiles";
 import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
-import { must, mustRows } from "../loader";
+import { must, mustRows, tileData } from "../loader";
 import type { AccuracyInput, OutlookBulanInput, VersionRow } from "./outlook-bulan";
-import { isModuleOn, type ModuleSettings } from "../modules-core";
+import { costingModeOf, isModuleOn, type CostingRowsMode, type ModuleSettings } from "../modules-core";
+import { v5CostingMode } from "../v5/pl";
+import { forecastCostText, type ForecastCostLabel } from "../v5/forecast-cost-core";
+import { loadFsReconTile } from "../v5/fs-recon-data";
+import { inFsReconScope } from "../v5/fs-recon";
 import type { Role } from "../roles";
 
 type Row = Record<string, unknown>;
@@ -44,10 +48,10 @@ export async function loadOutlookBulan(sb: Supa, x: {
   const moId = s(outlook?.id);
 
   const [mart, verRows, regRows, budRows, lockRow, monthsRows, param] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select(MART_COLS).gte("date", first).lte("date", last).order("date").range(a, b)),
-    moId ? fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, cut_off_date, locked_at, snapshot_sha256, revenue, gp, nibt, snapshot").eq("month_outlook_id", moId).order("version").range(a, b)) : Promise.resolve([] as Row[]),
-    moId ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", moId).is("deleted_at", null).order("code").range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select(MART_COLS).gte("date", first).lte("date", last).order("date").order("basis").order("pl_line").order("segment").range(a, b)),
+    moId ? fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, cut_off_date, locked_at, snapshot_sha256, revenue, gp, nibt, snapshot").eq("month_outlook_id", moId).order("version").order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    moId ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", moId).is("deleted_at", null).order("code").order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
     sb.from("data_status").select("note, built_at").eq("table_name", "month_lock").eq("scope", first).maybeSingle(),
     sb.from("month_outlook").select("month").order("month", { ascending: false }).limit(12),
     sb.from("week").select("id").lte("week_start", last).order("week_start", { ascending: false }).limit(1).maybeSingle(),
@@ -75,15 +79,18 @@ export async function loadOutlookBulan(sb: Supa, x: {
   let rowsRaw: Row[] = mart;
   let fixedRaw: Row[] = mart.filter((r) => r.basis === "fixed_estimate");
   let effectiveSelected: string | null = null;
+  // R66 (K63): a locked version keeps the definition of its journal columns (absent = 'cogs'); the live page follows the setting
+  let selectedMode: CostingRowsMode = "cogs";
   if (selected) {
-    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[]; fixed_estimate?: Row[] } | null;
-    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; fixedRaw = snap.fixed_estimate ?? []; effectiveSelected = selected; }
+    const snap = (verRows.find((v) => String(v.version) === selected)?.snapshot ?? null) as { rows?: Row[]; fixed_estimate?: Row[]; costing_rows_mode?: string } | null;
+    if (snap?.rows?.length && s((snap.rows[0] as Row).segment)) { rowsRaw = snap.rows; fixedRaw = snap.fixed_estimate ?? []; effectiveSelected = selected; selectedMode = costingModeOf({ costing_rows_mode: snap.costing_rows_mode }); }
   }
   const rows = rowsRaw.length ? plRowsFromMart(rowsRaw as never) : null;
 
   const lock = must(lockRow, "data_status month_lock") as Row | null;
   let lockNote: { blockers?: LockBlocker[]; controls?: { code: string; status: string }[]; cutOff?: string; lockDate?: string } = {};
-  try { lockNote = lock?.note ? JSON.parse(String(lock.note)) : {}; } catch { lockNote = {}; }
+  // K56: a note that is not the JSON the lock wrote is shown as a blocker, never read as "nothing blocks"
+  try { lockNote = lock?.note ? JSON.parse(String(lock.note)) : {}; } catch (e) { lockNote = { blockers: [{ code: "NOTE", text: `catatan kunci tidak terbaca: ${(e as Error).message}` }] }; }
   const lastActual = rows ? rows.filter((r) => r.actual !== null).reduce<string>((m, r) => (r.date > m ? r.date : m), "") : "";
   const cutOff = s(outlook?.cut_off_date) ?? lockNote.cutOff ?? (lastActual || addDays(first, -1));
 
@@ -105,27 +112,35 @@ export async function loadOutlookBulan(sb: Supa, x: {
     if (f && f.revenue !== null) {
       const id = String(f.month_outlook_id);
       const [vs, adj, daily] = await Promise.all([
-        fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", id).neq("version", "FINAL").order("version").range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", id).eq("posted", true).is("deleted_at", null).range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("date, day_kind, diff, version").eq("month_outlook_id", id).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("month_outlook_version").select("version, revenue, gp, nibt").eq("month_outlook_id", id).neq("version", "FINAL").order("version").order("id").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("closing_adjustment").select("pl_line, amount").eq("month_outlook_id", id).eq("posted", true).is("deleted_at", null).order("id").range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("date, day_kind, diff, version").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b)),
       ]);
       if (vs.length) {
         const sumAdj = (pred: (l: string) => boolean) => adj.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0));
         const lines = accuracyV4({
-          final: { revenue: String(f.revenue), gp: String(f.gp ?? 0), nibt: String(f.nibt ?? 0) },
+          final: { revenue: String(f.revenue), gp: s(f.gp), nibt: s(f.nibt) },
           adjustments: { revenue: sumAdj(isRevenueLine).toFixed(2), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)).toFixed(2), nibt: sumAdj(() => true).toFixed(2) },
-          versions: vs.map((v) => ({ version: String(v.version), revenue: String(v.revenue ?? 0), gp: String(v.gp ?? 0), nibt: String(v.nibt ?? 0) })),
+          versions: vs.map((v) => ({ version: String(v.version), revenue: s(v.revenue), gp: s(v.gp), nibt: s(v.nibt) })),
         });
         const version = String(vs[0].version);
         const kind = (k: string) => {
           const r = daily.filter((d) => String(d.version) === version && String(d.day_kind) === k);
-          return r.length ? { n: new Set(r.map((d) => String(d.date))).size, diff: r.reduce((a, d) => a.plus(D(String(d.diff ?? 0))), D(0)).toFixed(2) } : null;
+          // a total over days is known only when every day has its difference; one blank day makes it unknown (null), never a smaller number
+          return r.length ? { n: new Set(r.map((d) => String(d.date))).size, diff: r.every((d) => d.diff !== null && d.diff !== undefined) ? r.reduce((a, d) => a.plus(D(String(d.diff))), D(0)).toFixed(2) : null } : null;
         };
         // R38: the fixed-cost estimate the version carried in its snapshot (v5_pl at the lock); none = null, never 0
         const snap = must(await sb.from("month_outlook_version").select("snapshot").eq("month_outlook_id", id).eq("version", version).maybeSingle(), "month_outlook_version snapshot") as Row | null;
         const fe = ((snap?.snapshot ?? null) as { fixed_estimate?: { actual: string | null; forecast: string | null }[] } | null)?.fixed_estimate;
-        const fixedOfVersion = fe ? fe.reduce((acc, r) => acc.plus(D(r.actual ?? 0)).plus(D(r.forecast ?? 0)), D(0)).toFixed(2) : null;
-        accuracy = { month: String(f.month_outlook.month), version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion };
+        const feParts = (fe ?? []).flatMap((r) => [r.actual, r.forecast]).filter((v): v is string => v !== null && v !== undefined);
+        const fixedOfVersion = feParts.length ? feParts.reduce((acc, v) => acc.plus(D(v)), D(0)).toFixed(2) : null;
+        // R69: C59 of that FINAL month, from its locked snapshot against the imported FS; a failing read is that tile's error only
+        const month = String(f.month_outlook.month);
+        const recon = inFsReconScope(month) ? await tileData("outlook bulan.akurasi C59", () => loadFsReconTile(sb, month, x.today)) : null;
+        accuracy = {
+          month, version, lines: lines.filter((l) => l.version === version), poDays: kind("po"), runrateDays: kind("runrate"), fixedOfVersion,
+          fsRecon: recon === null ? null : "ok" in recon ? recon.ok : { error: recon.error },
+        };
       }
     }
   }
@@ -140,12 +155,13 @@ export async function loadOutlookBulan(sb: Supa, x: {
     ]);
     const v = must(svR, "solvency_monthly") as Row | null, cash = must(cashR, "cash_position_daily");
     if (v && v.equity !== null && v.paid_in_capital !== null) {
-      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), cash: s((cash as Row | null)?.total_closing) };
+      solvency = { label: new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${String(v.month)}T00:00:00Z`)), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable), months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), cash: s((cash as Row | null)?.total_closing) };
     }
   }
 
   // PRD v5 §4.7 (flag v5_pl): the same rows with the fixed-cost estimate, its sources as the month builder recorded them
   const v5On = isModuleOn(x.settings.v5_pl, x.role);
+  const mode: CostingRowsMode = !v5On ? "cogs" : effectiveSelected ? selectedMode : await v5CostingMode(sb);
   const base = `/m/${first.slice(0, 7)}`;
   const pl: "rr" | "wk" = x.pl === "wk" ? "wk" : "rr";
   const cm = (["revenue", "cogs", "gp", "nibt", "nibt_after"] as const).find((m) => m === x.cm) ?? "revenue";
@@ -160,7 +176,9 @@ export async function loadOutlookBulan(sb: Supa, x: {
   };
   const v5 = v5On && rows ? {
     rows: [...rows, ...plRowsFromMart(fixedRaw.filter((r) => r.basis === "fixed_estimate") as never, { fixedEstimate: true })],
-    fixed: ((lockNote as { fixed?: FixedSource[] }).fixed ?? []), pl, cm: cm as CumulativeMetric, href,
+    fixed: ((lockNote as { fixed?: FixedSource[] }).fixed ?? []), pl, cm: cm as CumulativeMetric, href, mode,
+    // R67: the label of the forecast COGS of the live month (the month builder's note); a locked version has no such note
+    forecastText: effectiveSelected ? null : forecastCostText((lockNote as { forecastCost?: ForecastCostLabel }).forecastCost),
   } : null;
 
   const input: OutlookBulanInput = {

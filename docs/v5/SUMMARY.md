@@ -119,11 +119,11 @@ Klaim di `docs/v5/irisan-<n>.md` tidak diubah (riwayat), tetapi statusnya dituru
 
 | T | Status (lingkungan, role) |
 |---|---|
-| T7 putaran dengan role sebenarnya | sebagian: langkah putaran lulus per journey di PostgREST lokal dengan 6 user + mgmt@t (L, M, N, O, P); satu putaran utuh berurutan belum |
-| T8 rilis K35/K45 | lulus di PostgREST lokal, finance@t (journey P, irisan 1) |
+| T7 putaran dengan role sebenarnya | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase |
+| T8 rilis K35/K45 | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase |
 | T9 tidak ada 0 untuk missing | lulus: tes unit per kasus (allocateBatch, plTable, kartu Kas, Outlook bulan); PostgREST lokal finance@t (Outlook bulan "Kas belum diisi") |
 | T10 error tidak ditelan | lulus: lint K41 = 0; PostgREST lokal finance@t (tile kas state error saat select dicabut, irisan 2) |
-| T11 kombinasi flag | lulus: `flags-matrix.test.tsx` + PostgREST lokal 8 kombinasi × admin@t/sales@t/mgmt@t × 8 halaman, 0 error |
+| T11 kombinasi flag | diturunkan (PRD v5.2-A §1.3): lulus per langkah di PostgreSQL lokal + shim; belum satu putaran; belum Supabase (matriks hanya 3 role, A-UI-18) |
 | T12 engine dan snapshot | lulus: parity 17161/17161, snapshot:diff EMPTY, golden v1 dan B.1–B.5 tetap; golden yang berubah hanya `upload-samples` PO (O15, CHANGELOG [v5.1-4]) |
 
 Uji PR #31 (`docs/v5/perbaikan-produksi.md`) memakai PostgREST lokal, tetapi hanya dengan role Admin dan hanya membuka halaman; journey di atas tidak dijalankan.
@@ -155,6 +155,34 @@ Menunggu keputusan pemilik (PRD v5.1 Bab 6). Statusnya **belum terpenuhi**, buka
 - cron harian (Q-v5-46);
 - COGS forecast dari `planCost` (Q-v5-25).
 
+## Belum terpenuhi v5.2 (PRD v5.2-A §3.7)
+
+Dicatat sebagai "belum terpenuhi" untuk v5.2-A; tidak dikerjakan di irisan A0–A6:
+
+- K27 pola potong dan fresh/frozen per SKU (tahap 2; O33, ⛓ B-R85);
+- tren revenue/GP per minggu dan tile demand per kelas §6.1;
+- form parameter O8;
+- bacaan parsial §8 (Q-v5-49);
+- editor `size_class_map`;
+- grafik utang afiliasi vs ekuitas dan neraca ringkas §4.8;
+- tugas jawab surplus dan konsumsinya;
+- O17 (tata letak K) dan O18 (grid).
+
 ## Bukti per irisan
 
 `docs/v5/irisan-<n>.md` (requirement → bukti, gate, RLS, latihan migrasi, perintah manusia) dan `docs/v5/bukti/`.
+
+### PRD v5.2-A T13–T18 (irisan A5: bukti dari repo dan CI, K64)
+
+Lingkungan semua bukti di bawah: **PG16 lokal + PostgREST 12 + mock auth** (bukan Supabase), `next start` dan PostgreSQL di bawah faketime; job CI `e2e` (run 39105349767) dan `pnpm e2e` lokal. Rincian: `docs/v5.2/a5.md`.
+
+| T | Status (lingkungan, role) |
+|---|---|
+| T13 gagal-tertutup | lulus di dasar main: lint K41/K42/missing = 0 dijalankan CI (job `lint`); tes injeksi error per modul ada di tes unit A1 |
+| T14 T7 utuh di CI | lulus: `journey-T7` 49 cek, 0 respons 4xx/5xx tak terduga, rilis Finance tanpa override dengan `v4_release` hidup, angka batch hasil salin = rencana kelas tersimpan; PG16 lokal + shim + PostgREST 12 + mock auth + faketime; role sales, commercial_lead, ppic, operations_director, cost_accounting, inventory_accounting, purchasing, finance, management (Admin hanya untuk bangun ulang awal); belum Supabase (T19) |
+| T15 dashboard = FS | belum di irisan A5 (A4: fixture dan halaman Rekonsiliasi); halaman Rekonsiliasi belum dibuka di matriks atau T7 |
+| T16 putaran tanpa jalan buntu | sebagian: T7 mencakup kunci → tugas K35 hijau tanpa rebuild manual (R54), salin ditahan C57 lalu lulus, PO/WP/faktur/posting; belum: komitmen > PO, approval downgrade, C58 alasan sebagai langkah e2e; temuan Q-v5.2-50/52/53 di `docs/v5.2/a5.md` |
+| T17 biaya jujur | lulus di A3 (tes unit); e2e: faktur tie tetap sementara sampai posting, lalu final (R60) |
+| T18 engine dan snapshot tetap | lulus: parity 17161/17161, `snapshot:diff` EMPTY (di dasar main b408a9a + A5) |
+| T11 (v5.1) kombinasi flag | 10 kombinasi × 10 role × 8 halaman, tabel tertulis, kolom biaya, API Sales: lulus di PG16 lokal + mock auth (120 cek); belum Supabase |
+| F19 | rebuild cron dua kali identik (lulus); cron berbeda dari rebuild sesi (temuan Q-v5.2-51, XFAIL di F19 saat A5); ditutup di A1d: builder dan cron memakai klien dari pemanggil, F19 16 cek lulus tanpa XFAIL (`docs/v5.2/a1d.md`) |

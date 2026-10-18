@@ -11,7 +11,7 @@ import {
   D, actualRowsV4, addDays, bridgeV4, c32, c49, firstOfMonth, holidaysFromJournal, jakartaToday, lockBlockers, monthEnd, monthPlanV4, monthSummaryV4,
   ordersV4FromWeek, plRowsByKey, plRowsToMart, runrateActualLines, runrateTest, toFixedString, totalsV4, unbilledFromWeek, v1LockDate, versionDaysV4,
   engineAssumptions,
-  type BridgeV4, type BudgetRow, type ControlV3, type CostEventRow, type LockBlocker, type MonthPlanV4, type MonthSummaryV4, type OpexInputV4, type PlRowV4,
+  type BridgeV4, type BudgetRow, type ControlV3, type CostEventRow, type CostingRowsMode, type LockBlocker, type MonthPlanV4, type MonthSummaryV4, type OpexInputV4, type PlRowV4,
   type RegisterRow, type RunrateTest, type VersionDayV4,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -25,7 +25,8 @@ import { loadMonthDrivers, type MonthDrivers } from "../v3/drivers";
 import { isWorkingDay } from "../v3/monthly";
 import type { Row } from "../v3/uploads";
 import { v5CostingPlRows } from "../v5/costing-pl";
-import { fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
+import { applyForecastCosts, forecastCostsOf, type ForecastCostLabel } from "../v5/forecast-cost";
+import { costingModeFor, fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
 import { resetLedgerRun } from "../v3/ledger";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
@@ -52,6 +53,10 @@ export interface MonthStateV4 {
   events: CostEventRow[];
   /** PRD v5 K29 (flag v5_pl): fixed costs not journaled yet (rows basis fixed_estimate, nominals, C55); null = off. */
   v5Fixed: V5Fixed | null;
+  /** R66 (K63): how the two v5 costing rows count in the journal totals ('cogs' unless v5_pl is on and the setting says 'memo'). */
+  costingMode: CostingRowsMode;
+  /** R67: which cost the forecast order lines took (plan cost of their cut date or the MA cost, with the reasons); null = v5_costing / v5_pl off. */
+  forecastCost: ForecastCostLabel | null;
 }
 
 /** Cut-off: the month_outlook override, else yesterday for the running month, else the month end (as the v3 rule). */
@@ -96,9 +101,9 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const cutOff = opts.cutOff ?? cutOffOf(first, today, s(outlook?.cut_off_date));
   const from = addDays(cutOff, -42) < first ? addDays(cutOff, -42) : first;
   const [gl, coa, evRows] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("cost_event").select("date, pl_line, amount").is("deleted_at", null).gte("date", first).lte("date", last).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("gl_line").select("date, account, debit, credit").is("deleted_at", null).gte("date", from).lte("date", cutOff).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("coa_map").select("account, pl_line, segment").is("deleted_at", null).order("account").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("cost_event").select("date, pl_line, amount").is("deleted_at", null).gte("date", first).lte("date", last).order("id").range(a, b)),
   ]);
   const glRows = gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) }));
   const coaRows = coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line), segment: s(c.segment) }));
@@ -112,8 +117,13 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const unbilled: ReturnType<typeof unbilledFromWeek> = [];
   let tolerance = "0.10", lockWeek = 3, windowDays = 7, wT = "0.7", wF = "0.5";
   let pnlMtd: { revenue: string; cogs: string; gp: string } | null = null;
+  // R67 (F14): with v5_costing + v5_pl the forecast cost is the plan cost of the order's cut date, else the MA cost (labelled)
+  const forecastFrom = addDays(cutOff, 1) > first ? addDays(cutOff, 1) : first;
+  const forecastCosts = settings.v5_costing?.enabled && settings.v5_pl?.enabled && forecastFrom <= last ? await forecastCostsOf(sb, forecastFrom, last) : null;
+  let forecastCost: ForecastCostLabel | null = forecastCosts ? { plan: 0, ma: 0, maKeys: [], noPlan: [], notes: [] } : null;
+  const costingMode = await costingModeFor(sb, settings);
   for (const w of weeks) {
-    const c = await computeForWeek(w.week_start);
+    const c = await computeForWeek(sb, w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "month.parameter") as Row | null;
@@ -122,7 +132,16 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
     wT = s(pr.tentative_weight) ?? wT; wF = s(pr.forecast_weight) ?? wF;
     const lo = addDays(cutOff, 1) > w.week_start ? addDays(cutOff, 1) : w.week_start;
     const hi = last < w.week_end ? last : w.week_end;
-    if (lo <= hi) orders.push(...ordersV4FromWeek(c.result.sales, lo, hi, (id) => { const st = id ? status.get(id) : null; return st === "Tentative" ? wT : st === "Forecast" ? wF : "1"; }));
+    let sales = c.result.sales;
+    if (forecastCosts && forecastCost && lo <= hi) {
+      const r = applyForecastCosts(sales, forecastCosts, { from: lo, to: hi });
+      sales = r.sales;
+      forecastCost = {
+        plan: forecastCost.plan + r.label.plan, ma: forecastCost.ma + r.label.ma, maKeys: [...new Set([...forecastCost.maKeys, ...r.label.maKeys])],
+        noPlan: [...forecastCost.noPlan, ...r.label.noPlan.filter((x) => !forecastCost!.noPlan.some((y) => y.date === x.date))], notes: [...new Set([...forecastCost.notes, ...r.label.notes])],
+      };
+    }
+    if (lo <= hi) orders.push(...ordersV4FromWeek(sales, lo, hi, (id) => { const st = id ? status.get(id) : null; return st === "Tentative" ? wT : st === "Forecast" ? wF : "1"; }));
     const ulo = first > w.week_start ? first : w.week_start, uhi = cutOff < w.week_end ? cutOff : w.week_end;
     if (ulo <= uhi) unbilled.push(...unbilledFromWeek(c.result.sales, ulo, uhi));
     // C49: the weekly P&L whose update date is the day after the cut-off carries the month to date up to the cut-off
@@ -140,18 +159,18 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const opex: OpexInputV4 = {
     fixed: (drivers?.fixed ?? []).map((f) => ({ pl_line: f.pl_line, scheduled: f.scheduled, actual_mtd: f.actual_mtd, day_basis: f.day_basis, missing: f.missing.length > 0 })),
     runrateActual: runrateActualLines({ gl: glRows, coa: coaRows, from: first, to: cutOff, events }),
-    runrateTable: rrTable.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
+    runrateTable: rrTable.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount) })), // runrate.monthly_amount NOT NULL
     variable: drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && c.rp_per_kg !== undefined).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [],
     events: events.filter((e) => e.date > cutOff),
   };
   const plan = monthPlanV4({ month: first, cutOff, actualRows, orders, opex, isWorkingDay, holidays, windowDays });
   // v5 (flag v5_costing): Selisih costing (K22) and idle capacity (Q63) are COGS rows of the month
   plan.rows.push(...(await v5CostingPlRows(sb, first, last, cutOff)));
-  const summary = monthSummaryV4(plan.rows, first, tolerance, isWorkingDay);
+  const summary = monthSummaryV4(plan.rows, first, tolerance, isWorkingDay, costingMode);
 
   const [saved, budgetRows] = await Promise.all([
-    outlook ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(outlook.id)).is("deleted_at", null).range(a, b)) : Promise.resolve([] as Row[]),
-    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+    outlook ? fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(outlook.id)).is("deleted_at", null).order("id").range(a, b)) : Promise.resolve([] as Row[]),
+    fetchAll<Row>((a, b) => sb.from("budget").select("version, segment, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
   ]);
   const latestV = budgetRows.reduce((m, r) => Math.max(m, Number(r.version)), 0);
   const budget: BudgetRow[] = budgetRows.filter((r) => Number(r.version) === latestV).map((r) => ({ segment: String(r.segment), metric: String(r.metric) as BudgetRow["metric"], value: String(r.value) }));
@@ -162,7 +181,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   const v5Fixed = settings.v5_pl?.enabled ? await v5FixedForMonth(sb, first, cutOff, plan.rows, isWorkingDay) : null;
   const controls: ControlV3[] = [c49({ rows: plan.rows, pnlMtd }), ...(drivers?.controls ?? []), ...(v5Fixed ? [v5Fixed.control] : [])];
   const blockers = lockBlockers({ month: first, today, lockWeek, plan, register, test, controls });
-  return { first, last, cutOff, today, tolerance, lockWeek, lockDate: v1LockDate(first, lockWeek), windowDays, plan, summary, register, test, controls, blockers, holidays, drivers, budget, events, v5Fixed };
+  return { first, last, cutOff, today, tolerance, lockWeek, lockDate: v1LockDate(first, lockWeek), windowDays, plan, summary, register, test, controls, blockers, holidays, drivers, budget, events, v5Fixed, costingMode, forecastCost };
 }
 
 // ------------------------------------------------------------------------------------------------ mart writes (service role)
@@ -180,7 +199,7 @@ const numEq = (a: unknown, b: unknown) => (a === null || a === undefined || a ==
 /** Register of the month: new engine rows inserted, a changed value supersedes the agreed row; agreed rows with the same value stay. */
 export async function syncRegister(sb: Supa, first: string, register: RegisterRow[]): Promise<void> {
   const mo = await ensureOutlook(sb, first);
-  const saved = await fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).range(a, b));
+  const saved = await fetchAll<Row>((a, b) => sb.from("assumption_register").select("*").eq("month_outlook_id", String(mo.id)).is("deleted_at", null).order("id").range(a, b));
   // manual and kalibrasi rows are not the engine's to write or supersede
   const foreign = new Set(saved.filter((x) => String(x.source) !== "engine" && String(x.status) !== "superseded").map((x) => String(x.code)));
   for (const r of register) {
@@ -211,7 +230,7 @@ export async function writeMonthV4(sb: Supa, st: MonthStateV4): Promise<{ writte
   // lock pre-flight for the Finance page (the lock action recomputes it)
   const { error } = await sb.from("data_status").upsert({
     table_name: "month_lock", scope: st.first, status: st.blockers.length ? "draft" : "validated", built_at: new Date().toISOString(),
-    note: JSON.stringify({ blockers: st.blockers, controls: st.controls.map((c) => ({ code: c.code, status: c.status })), cutOff: st.cutOff, lockDate: st.lockDate, today: st.today, ...(st.v5Fixed ? { fixed: fixedSourcesOf(st.v5Fixed.nominals) } : {}) }),
+    note: JSON.stringify({ blockers: st.blockers, controls: st.controls.map((c) => ({ code: c.code, status: c.status })), cutOff: st.cutOff, lockDate: st.lockDate, today: st.today, ...(st.v5Fixed ? { fixed: fixedSourcesOf(st.v5Fixed.nominals) } : {}), ...(st.forecastCost ? { forecastCost: st.forecastCost } : {}), ...(st.costingMode === "memo" ? { costingMode: st.costingMode } : {}) }),
   }, { onConflict: "table_name,scope" });
   if (error) throw new WriteError(`data_status: ${error.message}`);
   return { written, deleted };
@@ -227,9 +246,10 @@ registerBuilder({
   begin: async (sb) => {
     builtMonths = new Set();
     builderToday = await dataToday(sb);
-    const flags = mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl"]), "app_setting");
+    // R67: v5_costing too — the forecast cost of the rebuilt month needs both flags
+    const flags = mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl", "v5_costing"]), "app_setting");
     builderSettings = {};
-    for (const r of flags) builderSettings[r.key as "m5_drivers" | "v5_pl"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
+    for (const r of flags) builderSettings[r.key as "m5_drivers" | "v5_pl" | "v5_costing"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
   },
   build: async (sb, date) => {
     const m = firstOfMonth(date);
@@ -269,7 +289,7 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
   const lifted = new Set(((ov ?? []) as { code: string }[]).map((r) => r.code));
   const blockers = st.blockers.filter((b) => !lifted.has(b.code));
   if (version === "V1" && blockers.length) throw new WriteError(`V1 belum bisa dikunci:\n${blockers.map((b) => `- ${b.code}: ${b.text}`).join("\n")}`);
-  const days = versionDaysV4(st.plan.rows, first, st.cutOff);
+  const days = versionDaysV4(st.plan.rows, first, st.cutOff, st.costingMode);
   let bridge: BridgeV4 | null = null;
   const controls = st.controls.map((c) => ({ code: c.code, status: c.status }));
   if (version === "V2") {
@@ -279,7 +299,7 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
     if (ctl.status !== "LULUS") throw new WriteError(`Bridge V1 → V2 tidak menutup (selisih Rp ${ctl.difference?.toFixed(2)}): ${ctl.action}`);
     controls.push({ code: ctl.code, status: ctl.status }); // release_month checks C32 for V2 from the snapshot
   }
-  const t = { actual: totalsV4(st.plan.rows, "actual"), forecast: totalsV4(st.plan.rows, "forecast") };
+  const t = { actual: totalsV4(st.plan.rows, "actual", undefined, st.costingMode), forecast: totalsV4(st.plan.rows, "forecast", undefined, st.costingMode) };
   const tot = { revenue: t.actual.revenue.plus(t.forecast.revenue), cogs: t.actual.cogs.plus(t.forecast.cogs), gp: t.actual.gp.plus(t.forecast.gp), opex: t.actual.opex.plus(t.forecast.opex), nibt: t.actual.nibt.plus(t.forecast.nibt) };
   const snapshot = {
     month: first, version, rule_version: RULE_VERSION, cut_off: st.cutOff, time_zone: "Asia/Jakarta",
@@ -288,6 +308,8 @@ export async function lockVersionV4(sb: Supa, viewer: Viewer, first: string, ver
     days, rows: plRowsToMart(st.plan.rows), register: st.register, controls,
     // PRD v5 K29: the fixed-cost estimate travels with the version (outside rows: the v4 totals stay on the journal)
     ...(st.v5Fixed ? { fixed_estimate: plRowsToMart(st.v5Fixed.rows), fixed: fixedSourcesOf(st.v5Fixed.nominals) } : {}),
+    // R66 (K63): the definition of the journal columns of this version, only when it is not the v5 default
+    ...(st.costingMode === "memo" ? { costing_rows_mode: st.costingMode } : {}),
     bridge: bridge && {
       revenue: Object.fromEntries(Object.entries(bridge.revenue).map(([k, v]) => [k, f2(v)])), gp: Object.fromEntries(Object.entries(bridge.gp).map(([k, v]) => [k, f2(v)])), nibt: Object.fromEntries(Object.entries(bridge.nibt).map(([k, v]) => [k, f2(v)])),
     },

@@ -40,7 +40,7 @@ export interface PpicV5Input {
   /** Supply LB per cut date per class (kg LB), confirmed or received. */
   supply: { date: string; weight_class: string | null; kg_lb: Decimal }[];
   controls: ControlV3[];
-  today: { poKg: Decimal; poValue: Decimal; cutOffTime: string; allocHref: string };
+  today: { poKg: Decimal; poValue: Decimal | null; cutOffTime: string; allocHref: string };
   block6: BatchKpi | null;
   canPlan: boolean;
   /** Why save / copy are not possible now (control codes with their status); empty = possible. */
@@ -48,6 +48,8 @@ export interface PpicV5Input {
   copyBlockers: string[];
   /** PRD v5.1 R29: the written reason that lets C58 (supply short of the class need) open the copy; null = none. */
   c58Reason?: string | null;
+  /** R53: the downgrade approval of the saved plan version (null = no plan saved yet). */
+  approval?: { planId: string; version: number; needs: boolean; approvedBy: string | null } | null;
   /** R39 (K20): cost status of this week's actual batches (estimasi / sementara / final / campur); null = v5_costing off or none. */
   batchStatus?: string | null;
 }
@@ -200,7 +202,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
       id: r.cut_date, on: r.cut_date === x.week.update,
       cells: {
         cut: short(r.cut_date), send: short(r.ship_date), lb: kg(r.kg_lb), h: kg(r.heads), mix: `${kg(by("K"))} / ${kg(by("S"))} / ${kg(by("B"))}${r.unsizedHeads.gt(0) ? ` · ${kg(r.unsizedHeads)} tanpa ukuran` : ""}`,
-        k: kg(r.karkas_kg), cap: cap === null ? "belum diisi" : num(cap, 0), sup: sup.every((v) => v === null) ? "belum diisi" : kg(sup.reduce<Decimal>((a, v) => a.plus(v ?? 0), D(0))),
+        k: kg(r.karkas_kg), cap: cap === null ? "belum diisi" : num(cap, 0), sup: sup.every((v) => v === null) ? "belum diisi" : kg(sup.reduce<Decimal>((a, v) => (v === null ? a : a.plus(v)), D(0))), // class without supply row adds nothing; all blank = "belum diisi"
         st: r.cut_date < x.week.update ? "lewat: dibandingkan WP" : r.cut_date === x.week.update ? "hari ini" : "rencana",
       },
     };
@@ -216,7 +218,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
     id: "t-hari-ini", pos: P(0, 16, 7, 3), title: `4 · Hari ini, ${short(x.week.update)} ${tglShort(x.week.update).split(" ")[1]}: alokasi ke PO dan cut-off`,
     note: "Lot dari potong hari ini berstatus estimasi (kg dari yield standar); diganti actual saat WP potong masuk besok.",
     content: { type: "table", cols: [{ key: "a", label: "", kind: "key" }, { key: "v", label: "", num: true }, { key: "s", label: "", kind: "sup" }], rows: [
-      { id: "po", cells: { a: "PO kirim hari ini", v: `${kg(x.today.poKg)} kg`, s: `Rp ${jtV4(x.today.poValue)} jt` } },
+      { id: "po", cells: { a: "PO kirim hari ini", v: `${kg(x.today.poKg)} kg`, s: x.today.poValue === null ? "harga PO belum ada" : `Rp ${jtV4(x.today.poValue)} jt` } },
       { id: "alloc", cells: { a: "Alokasi FEFO", v: "", s: "buka Alokasi hari ini" }, href: x.today.allocHref },
       { id: "cut", cells: { a: `Cut-off ${x.today.cutOffTime}`, v: "blast sisa", s: "downgrade dicatat per SKU" } },
     ] },
@@ -232,5 +234,14 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
       { id: "t", cells: { k: "Target", lb: "", sh: b6 ? pctV4(b6.target.shrink) : "", y: b6 ? pctV4(b6.target.karkasYield) : "", c: "" } },
     ] },
   });
+  // ---------------------------------------------------------------- rows 19–20: the approval of a plan with a downgrade above the limit (R53)
+  if (x.approval?.needs) {
+    const a = x.approval;
+    tiles.push({
+      id: "t-approval", pos: P(0, 19, 12, 2), title: "Persetujuan downgrade rencana",
+      note: "Downgrade di atas batas approval disetujui Finance; rencana yang belum disetujui tidak bisa disalin ke batch.",
+      content: { type: "list", items: [a.approvedBy ? `Rencana v${a.version} disetujui oleh ${a.approvedBy}.` : `Rencana v${a.version} menunggu persetujuan Finance: downgrade di atas batas approval.`] },
+    });
+  }
   return { title: "PPIC · Rencana", tiles: withFailures(tiles, x.failed) };
 }

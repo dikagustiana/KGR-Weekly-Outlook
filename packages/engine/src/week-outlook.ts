@@ -14,7 +14,7 @@
 import { D, Decimal, ZERO, div, sum, type Num } from "./decimal";
 import { addDays, diffDays, daysInMonth, type ISODate } from "./dates";
 import { PNL_COGS, PNL_DA, PNL_OPEX, PNL_OTHER, PNL_REVENUE } from "./statements";
-import { isCogsLine, isRevenueLine, salesLines, type PlBasis } from "./monthly";
+import { isCogsLine, isOpexLine, isRevenueLine, salesLines, type CostingRowsMode, type PlBasis } from "./monthly";
 import { fixed } from "./format";
 import type { WeekResult } from "./week";
 
@@ -96,9 +96,9 @@ export interface PlTotals {
   nibt: Decimal;
 }
 
-const totals = (rows: PlRowV4[], v: (r: PlRowV4) => Decimal | null): PlTotals => {
+const totals = (rows: PlRowV4[], v: (r: PlRowV4) => Decimal | null, mode: CostingRowsMode = "cogs"): PlTotals => {
   const f = (p: (l: string) => boolean) => sum(rows.filter((r) => p(r.pl_line)).map((r) => v(r) ?? ZERO));
-  const revenue = f(isRevenueLine), cogs = f(isCogsLine), opex = f((l) => !isRevenueLine(l) && !isCogsLine(l));
+  const revenue = f(isRevenueLine), cogs = f((l) => isCogsLine(l, mode)), opex = f((l) => isOpexLine(l, mode));
   return { revenue, cogs, gp: revenue.plus(cogs), opex, nibt: revenue.plus(cogs).plus(opex) };
 };
 
@@ -130,13 +130,13 @@ export interface WeekOutlook {
 }
 
 /** Totals of the week from its P&L rows (actual before the update date, forecast from it). */
-export function weekOutlook(rows: PlRowV4[], week: { weekStart: ISODate; today: ISODate }, lastWeek: WeekOutlook["lastWeek"] = null): WeekOutlook {
+export function weekOutlook(rows: PlRowV4[], week: { weekStart: ISODate; today: ISODate }, lastWeek: WeekOutlook["lastWeek"] = null, mode: CostingRowsMode = "cogs"): WeekOutlook {
   const end = addDays(week.weekStart, 6);
   const inWeek = rows.filter((r) => r.date >= week.weekStart && r.date <= end);
   const act = inWeek.filter((r) => r.date < week.today);
   const fc = inWeek.filter((r) => r.date >= week.today);
-  const actual = totals(act, (r) => r.actual);
-  const forecast = totals(fc, (r) => r.forecast);
+  const actual = totals(act, (r) => r.actual, mode);
+  const forecast = totals(fc, (r) => r.forecast, mode);
   const projection = addT(actual, forecast);
   const poRevenue = sum(fc.filter((r) => r.basis === "po" && isRevenueLine(r.pl_line)).map((r) => r.forecast ?? ZERO));
   const days: WeekDay[] = [];
@@ -144,13 +144,13 @@ export function weekOutlook(rows: PlRowV4[], week: { weekStart: ISODate; today: 
     const d = addDays(week.weekStart, i);
     const dr = inWeek.filter((r) => r.date === d);
     const isAct = d < week.today;
-    const t = totals(dr, (r) => (isAct ? r.actual : r.forecast));
+    const t = totals(dr, (r) => (isAct ? r.actual : r.forecast), mode);
     const rev = dr.filter((r) => isRevenueLine(r.pl_line) && (isAct ? r.actual : r.forecast) !== null);
     const kind: WeekDay["kind"] = isAct ? "actual" : rev.some((r) => r.basis === "po") ? "po" : rev.some((r) => r.basis === "runrate") ? "runrate" : "none";
     days.push({ date: d, kind, revenue: t.revenue, gp: t.gp });
   }
   const bySegment = PL_SEGMENTS.map((segment) => {
-    const t = addT(totals(act.filter((r) => r.segment === segment), (r) => r.actual), totals(fc.filter((r) => r.segment === segment), (r) => r.forecast));
+    const t = addT(totals(act.filter((r) => r.segment === segment), (r) => r.actual, mode), totals(fc.filter((r) => r.segment === segment), (r) => r.forecast, mode));
     return { segment, revenue: t.revenue, gp: t.gp };
   });
   return {
@@ -221,8 +221,11 @@ export function gpBridge(x: {
   gpProduk: Num;
   rows: PlRowV4[];
   week: { weekStart: ISODate; today: ISODate };
+  /** R66: with 'memo' the v5 costing rows are in neither the GP P&L nor the bridge's "lain-lain". */
+  mode?: CostingRowsMode;
 }): GpBridge {
-  const wo = weekOutlook(x.rows, x.week);
+  const mode = x.mode ?? "cogs";
+  const wo = weekOutlook(x.rows, x.week, null, mode);
   const end = addDays(x.week.weekStart, 6);
   const v = (r: PlRowV4) => (r.date < x.week.today ? r.actual : r.forecast) ?? ZERO;
   const inWeek = x.rows.filter((r) => r.date >= x.week.weekStart && r.date <= end);
@@ -234,7 +237,7 @@ export function gpBridge(x: {
   const mapping = cogsKey.plus(hppProduk);
   const expedition = line((l) => l === "Other COGS - Expedition");
   const blasting = line((l) => l === "COGS - Blasting");
-  const other = line((l) => isCogsLine(l) && !["COGS - Live Bird", "COGS - Trading", "Other COGS - Expedition", "COGS - Blasting"].includes(l));
+  const other = line((l) => isCogsLine(l, mode) && !["COGS - Live Bird", "COGS - Trading", "Other COGS - Expedition", "COGS - Blasting"].includes(l));
   const explained = gpProduk.plus(timing).plus(mapping).plus(expedition).plus(blasting).plus(other);
   const residual = wo.projection.gp.minus(explained);
   return {

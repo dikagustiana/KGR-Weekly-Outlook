@@ -1,0 +1,47 @@
+# Baseline PRD v5.2-A — origin/main cb76753 (Merge PR #36), 17 Okt 2026
+#
+# Lingkungan: Node v24.21.0, pnpm 10.28.0 (runtime bundle DSH), Windows 11. PostgreSQL 16 + Docker TIDAK tersedia
+# (tidak ada psql/docker di mesin ini). DATABASE_URL tidak di-set (tidak ada DB lokal).
+#
+# pnpm install: berhasil, 152 paket (cdn.sheetjs.com TIDAK diblokir di lingkungan ini; beda dari baseline v5.1).
+#
+# Catatan Windows (bukan regresi):
+# 1) git core.autocrlf awalnya `true` → file baseline snapshot ter-checkout CRLF, sehingga test snapshot-baseline
+#    gagal (byte-compare LF vs CRLF). Diset `git config core.autocrlf input` + re-checkout file baseline → byte-identik.
+# 2) Satu tes engine (rules.test.ts "bundled example week") timeout di 5000 ms pada mesin ini; lulus penuh dengan
+#    `vitest run --testTimeout 60000` (362 passed | 1 todo). Bukan selisih angka.
+#
+# pnpm test:rls TIDAK dijalankan (tanpa Docker/PostgreSQL 16/psql); ditunda ke CI GitHub (keputusan pemilik, 17 Okt).
+# pnpm e2e juga ditunda (butuh Docker + PostgREST v12 + faketime); dikerjakan di irisan A5 pada CI.
+#
+# Urutan: pnpm test, pnpm typecheck, pnpm parity, pnpm snapshot:diff, git diff --exit-code docs/parity*.
+
+=== $ pnpm test
+# engine  : vitest run --testTimeout 60000 → Test Files 25 passed (25), Tests 362 passed | 1 todo (363)
+# parsers : vitest run                   → Test Files 3 passed (3),  Tests 23 passed (23)
+# web     : vitest run                   → Test Files 33 passed (33), Tests 260 passed (260)
+# Catatan: `pnpm test` polos (timeout default 5000 ms) gagal 1 tes engine "bundled example week" di mesin ini;
+#          dengan --testTimeout 60000 seluruh engine hijau (362 passed | 1 todo). Lihat catatan Windows di atas.
+=== exit 0 (dengan --testTimeout 60000 untuk engine)
+
+=== $ pnpm typecheck
+> pnpm -r typecheck
+packages/engine typecheck$ tsc -p tsconfig.json   → Done
+packages/parsers typecheck$ tsc -p tsconfig.json  → Done
+apps/web typecheck$ tsc --noEmit                  → Done
+=== exit 0
+
+=== $ pnpm parity
+> tsx packages/engine/scripts/parity.ts
+parity: 17161/17161 cells match → docs/parity.md, docs/parity-cells.csv
+=== exit 0
+
+=== $ pnpm snapshot:diff
+> tsx packages/engine/scripts/snapshot-diff.ts
+baseline: tests/snapshots/outlook-2026-08-24.before.json
+new fields present: block2.action=…; block7[].audience=…
+diff vs baseline: EMPTY — byte-identical
+=== exit 0
+
+=== $ git diff --exit-code docs/parity.md docs/parity-cells.csv
+=== exit 0

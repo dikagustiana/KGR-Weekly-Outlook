@@ -6,7 +6,7 @@ import { Shell } from "@/components/Shell";
 import { Card, Td } from "@/components/ui";
 import { requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
-import { mustRows } from "@/lib/loader";
+import { mustRows, must } from "@/lib/loader";
 import { fetchAll } from "@/lib/data";
 import { URGENCY_LABEL, assignedKeysFor, commercialView } from "@/lib/v3/commercial-view";
 import { tgl } from "@/lib/fmt";
@@ -22,11 +22,12 @@ export default async function KomersialKeyPage({ params }: { params: Promise<{ k
   const today = (await clock(sb)).data;
   const table = v.role === "sales" ? "commercial_daily_sales" : "commercial_daily";
   const raw = await fetchAll<Record<string, unknown>>((a, b) => sb.from(table).select("*").eq("key", key).gte("date", addDays(today, -14)).order("date", { ascending: false }).range(a, b));
-  const { data: par } = week ? await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle() : { data: null };
+  // B-REL-4 (fail-closed): a failed read throws; a week without a parameter row does not show Sales the cost
+  const par = week ? must(await sb.from("parameter").select("sales_sees_cost").eq("week_id", week.id).maybeSingle(), "komersial.parameter") : null;
   const asg = mustRows(await sb.from("sales_assignment").select("key").eq("active", true).ilike("email", viewer.email), "komersial.assignment") as any[];
   const assignedKeys = assignedKeysFor(v.role, asg as { key: string | null }[]);
-  const rows = commercialView(raw, { role: v.role, salesSeesCost: (par as { sales_sees_cost?: boolean } | null)?.sales_sees_cost !== false, assignedKeys, keepOrder: true });
-  const orders = await fetchAll<Record<string, unknown>>((a, b) => sb.from("sales_line").select("id, delivery_date, date, customer, kg, price, demand_status, sales_rep, po_ref").eq("status", "Order").eq("key_manual", key).is("deleted_at", null).gte("date", today).range(a, b));
+  const rows = commercialView(raw, { role: v.role, salesSeesCost: par !== null && (par as { sales_sees_cost?: boolean }).sales_sees_cost !== false, assignedKeys, keepOrder: true });
+  const orders = await fetchAll<Record<string, unknown>>((a, b) => sb.from("sales_line").select("id, delivery_date, date, customer, kg, price, demand_status, sales_rep, po_ref").eq("status", "Order").eq("key_manual", key).is("deleted_at", null).gte("date", today).order("id").range(a, b));
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/komersial">
       <h1>{key}</h1>

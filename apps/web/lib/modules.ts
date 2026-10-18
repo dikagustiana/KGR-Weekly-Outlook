@@ -2,30 +2,18 @@ import "server-only";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { supabaseServer } from "./supabase";
+import { moduleSettingsOf } from "./modules-read";
+import { assertSchemaCurrent } from "./schema-session";
 import { requireViewer, type Viewer } from "./session";
 import { WriteError } from "./write";
-import { LoaderError } from "./loader";
 import type { Role } from "./roles";
-import { MODULE_KEYS, isModuleOn, k25On, parseSetting, type ModuleKey, type ModuleSettings } from "./modules-core";
+import { isModuleOn, k25On, type ModuleKey, type ModuleSettings } from "./modules-core";
 
 export * from "./modules-core";
+export { moduleSettingsOf } from "./modules-read";
 
 /** All module flags, once per request. Missing table / row = off. */
-export const moduleSettings = cache(async (): Promise<ModuleSettings> => {
-  const sb = await supabaseServer();
-  const { data, error } = await sb.from("app_setting").select("key, value").in("key", MODULE_KEYS);
-  // K56 (R41): a failing read never makes the modules look off; only a missing table (42P01) is "no modules yet".
-  if (error) {
-    if (error.code === "42P01") {
-      console.error(`[modules] app_setting belum ada (42P01): ${error.message}`);
-      return {};
-    }
-    throw new LoaderError("moduleSettings", error.message);
-  }
-  const out: ModuleSettings = {};
-  for (const r of (data as { key: string; value: unknown }[])) out[r.key as ModuleKey] = parseSetting(r.value);
-  return out;
-});
+export const moduleSettings = cache(async (): Promise<ModuleSettings> => moduleSettingsOf(await supabaseServer()));
 
 /** PRD v3 rule 5: is the module on for this viewer (or the signed-in user)? */
 export async function moduleEnabled(key: ModuleKey, viewer?: Viewer | { role: Role }): Promise<boolean> {
@@ -51,5 +39,7 @@ export async function requireModuleAction(key: ModuleKey, roles?: Role[]): Promi
   const v = await requireViewer();
   if (!(await moduleEnabled(key, v))) throw new WriteError(`Modul ${key} belum aktif untuk peran Anda`);
   if (roles && !roles.includes(v.role)) throw new WriteError("Peran Anda tidak boleh melakukan ini");
+  // K57 (R44): no write against a schema that is behind the code; the message is the banner's
+  await assertSchemaCurrent();
   return v;
 }

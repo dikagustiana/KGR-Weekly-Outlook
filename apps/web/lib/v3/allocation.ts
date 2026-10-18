@@ -5,7 +5,7 @@ import "server-only";
  * allocateFEFO, cutoffBlasts, planningControls) on the M2 ledger; this file loads rows and writes the results.
  */
 import {
-  addDays, allocateFEFO, sum, computeLedger, cutoffBlasts, frozenKeyOf, lotsForAllocation, planningControls, toFixedString,
+  D, addDays, allocateFEFO, sum, computeLedger, cutoffBlasts, frozenKeyOf, lotsForAllocation, planningControls, toFixedString,
   type AllocOrder, type ControlV3, type CutoffBlast, type Decimal, type FefoResult, type LedgerResult,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -15,6 +15,7 @@ import { WriteError } from "../write";
 import { stockMartControl } from "./stale";
 import { loadLedgerSources, type LedgerSources } from "./ledger";
 import type { Row } from "./uploads";
+import { must } from "@/lib/loader";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -34,6 +35,8 @@ export interface DayAllocation {
   led: LedgerResult;
   /** PO lines delivering on the date (open Orders and the lines already delivered that day). */
   orders: DayOrder[];
+  /** Lines of the window without kg: left out of the allocation, listed by the control C29 as "BELUM DIISI". */
+  noKg: { id: string; po_ref: string | null; key: string }[];
   allocations: Row[];
   /** Lots available on the date (before this day's allocations). */
   lots: ReturnType<typeof lotsForAllocation>;
@@ -68,19 +71,22 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const horizon = addDays(date, 7);
   const [lines, allocations, blasts, param, prices] = await Promise.all([
     fetchAll<Row>((a, b) => sb.from("sales_line").select("id, status, date, delivery_date, demand_status, kg, fulfilled_kg, cancelled_kg, price, customer, po_ref, sales_rep, document_ref, item_code, key_manual")
-      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).range(a, b)),
-    week ? sb.from("parameter").select("cut_off_time, blast_cost_per_kg").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null }),
-    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(a, b)) : Promise.resolve([] as Row[]),
+      .is("deleted_at", null).is("superseded_at", null).or(`delivery_date.eq.${date},and(delivery_date.is.null,date.eq.${date}),and(status.eq.Order,delivery_date.gt.${date},delivery_date.lte.${horizon})`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("allocation").select("*").eq("date", date).is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("blast_event").select("*").eq("date", date).eq("reason", "cutoff").is("deleted_at", null).order("id").range(a, b)),
+    week ? sb.from("parameter").select("cut_off_time, blast_cost_per_kg").eq("week_id", week.id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    week ? fetchAll<Row>((a, b) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(a, b)) : Promise.resolve([] as Row[]),
   ]);
   const keyFor = (r: Row) => keyOf.get(String(r.id)) ?? s(r.key_manual) ?? "";
   const toOrder = (r: Row): DayOrder => ({
     id: String(r.id), ref: String(r.id), key: keyFor(r), delivery_date: s(r.delivery_date) ?? s(r.date), demand_status: s(r.demand_status) ?? "Confirmed",
-    kg: s(r.kg) ?? "0", fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg), price: s(r.price),
+    kg: String(r.kg), fulfilled_kg: r.status === "Aktual" ? (s(r.fulfilled_kg) ?? s(r.kg)) : s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg), price: s(r.price),
     status: String(r.status), customer: s(r.customer), po_ref: s(r.po_ref), sales_rep: s(r.sales_rep), document_ref: s(r.document_ref),
   });
-  const today = lines.filter((r) => (s(r.delivery_date) ?? s(r.date)) === date).map(toOrder);
+  // a line without kg cannot be allocated or compared: it stays out of the engine and is reported by the control (never 0 kg)
+  const noKg = lines.filter((r) => s(r.kg) === null).map((r) => ({ id: String(r.id), po_ref: s(r.po_ref), key: keyFor(r) }));
+  const withKg = lines.filter((r) => s(r.kg) !== null);
+  const today = withKg.filter((r) => (s(r.delivery_date) ?? s(r.date)) === date).map(toOrder);
   // an Aktual line that day counts as delivered only when it was a PO line (or carries allocations)
   const allocatedIds = new Set(allocations.map((a) => String(a.sales_line_id)));
   const orders = today.filter((o) => o.status === "Order" || allocatedIds.has(o.id) || o.po_ref !== null);
@@ -95,17 +101,18 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
     date, orders: orders.filter((o) => o.status === "Order"), lots, windows: W,
     existing: keep.map((a) => ({ sales_ref: String(a.sales_line_id), lot_ref: String(a.lot_ref), kg: String(a.kg) })),
   });
-  const futureOrders = lines.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
-    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: s(r.kg) ?? "0", fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
-  const p = (param.data ?? {}) as Row;
+  const futureOrders = withKg.filter((r) => r.status === "Order" && (s(r.delivery_date) ?? "") > date)
+    .map((r) => ({ key: keyFor(r), delivery_date: String(r.delivery_date), kg: String(r.kg), fulfilled_kg: s(r.fulfilled_kg), cancelled_kg: s(r.cancelled_kg) }));
+  const p = (must(param, "allocation.parameter") ?? {}) as Row;
   const priceMap = new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)]));
   const info = new Map(src.inputs.keys.map((k) => [k.key, k]));
-  const blastCostPerKg = s(p.blast_cost_per_kg) ?? String(src.inputs.params.blastCostPerKg ?? "0");
+  // the week's parameter, else the latest week's (the ledger's, which stops when it has none): a stated cost, never a default of 0
+  const blastCostPerKg = s(p.blast_cost_per_kg) ?? String(src.inputs.params.blastCostPerKg);
   const cutoff = cutoffBlasts({
     date, lotsLeft: current.lotsLeft, futureOrders, windows: W, frozenKeyOf: (k) => frozenKeyOf(k, info.get(k)),
     price: (k) => priceMap.get(k) ?? null, blastCostPerKg,
   });
-  return { date, week, src, led, orders, allocations, lots, current, proposal, futureOrders, cutoff, cutoffKg: sum(cutoff.map((b) => b.kg)), cutoffDone: blasts, cutOffTime: s(p.cut_off_time) ?? "14:00:00", prices: priceMap, blastCostPerKg };
+  return { date, week, src, led, orders, noKg, allocations, lots, current, proposal, futureOrders, cutoff, cutoffKg: sum(cutoff.map((b) => b.kg)), cutoffDone: blasts, cutOffTime: s(p.cut_off_time) ?? "14:00:00", prices: priceMap, blastCostPerKg };
 }
 
 /** "Alokasikan hari ini": write the FEFO allocations of the open PO lines (upsert on line × lot; stale FEFO rows soft-deleted). */
@@ -178,5 +185,14 @@ export function dayControls(d: DayAllocation): ControlV3[] {
     // the frozen lot of a blast is the ledger's conversion lot blast:<id>
     blasts: d.cutoffDone.map((b) => ({ ref: String(b.id), lot_ref_to: s(b.lot_ref_to) ?? (d.led.lots.some((l) => l.ref === `blast:${b.id}`) ? `blast:${b.id}` : null) })),
   });
-  return all.filter((c) => c.code === "C29" || c.code === "C31");
+  const out = all.filter((c) => c.code === "C29" || c.code === "C31");
+  if (d.noKg.length) {
+    // C29 cannot be judged for a line without kg: the control reads BELUM DIISI naming the lines (a failure of another line stays GAGAL)
+    const miss = d.noKg.map((x) => `${x.po_ref ?? x.id} ${x.key}`.trim());
+    const action = "Isi kg di baris order berikut; alokasinya belum bisa dicek";
+    const i = out.findIndex((c) => c.code === "C29");
+    if (i >= 0) out[i] = { ...out[i], status: out[i].status === "GAGAL" ? "GAGAL" : "BELUM DIISI", action: out[i].status === "GAGAL" ? `${out[i].action}; ${action}` : action, detail: [...out[i].detail, ...miss] };
+    else out.push({ code: "C29", module: "M2", name: "Alokasi tidak melebihi kg baris PO", value: D(miss.length), comparator: D(0), difference: D(miss.length), status: "BELUM DIISI", action, detail: miss }); // jumlah baris tanpa kg (hitungan)
+  }
+  return out;
 }

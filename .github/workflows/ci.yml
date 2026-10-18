@@ -36,10 +36,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Lint scripts fail on a violating file and pass on a clean one
+        run: bash scripts/test-lint.sh
       - name: K41 fail-closed reads
         run: bash scripts/lint-k41.sh
       - name: K42 pagination and chunking
         run: bash scripts/lint-k42.sh
+      - name: R64 missing is not zero (no ?? 0 / || 0 on money, kg or tariff)
+        run: python3 -I scripts/lint.py missing
 
   rls:
     # Migrations (run twice: idempotent), seed and role tests on a disposable PostgreSQL with a Supabase shim.
@@ -58,3 +62,52 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: bash scripts/test-rls.sh
+
+  e2e:
+    # PRD v5.2-A R74 (K64): the whole weekly loop and the flag matrix on PostgreSQL 16 + shim + every migration + PostgREST 12 + a mock
+    # Supabase origin (auth, storage) + `next start`, both PostgreSQL and the app under faketime. NOT Supabase; synthetic data and fixed
+    # test secrets only (the repository is public). `test:rls` stays its own job on the real clock.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      POSTGREST_VERSION: v12.2.3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm # the pnpm store (cdn.sheetjs.com is fetched only on a cold cache)
+      - name: PostgreSQL 16 and faketime (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16 postgresql-client-16 faketime lsof
+          /usr/lib/postgresql/16/bin/postgres --version
+          dpkg -L libfaketime | grep 'libfaketime.so.1$'
+      - name: PostgREST 12 (static binary)
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -fsSL "https://github.com/PostgREST/postgrest/releases/download/${POSTGREST_VERSION}/postgrest-${POSTGREST_VERSION}-linux-static-x64.tar.xz" | tar -xJ -C "$HOME/bin"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          "$HOME/bin/postgrest" --version
+      - run: pnpm install --frozen-lockfile
+      - name: Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: next build (NEXT_PUBLIC_SUPABASE_URL = the mock origin)
+        run: pnpm e2e:build
+      - name: e2e (stack, matrix, journey T7, F19, volume)
+        env:
+          E2E_BUILD: never
+          # A1d (Q-v5.2-51): no XFAIL is left; a step marked expected-to-fail that passes now fails the job (the marker is then due for removal)
+          E2E_STRICT_XFAIL: "1"
+        run: pnpm e2e
+      - name: Artifact (logs, request log, screenshots; synthetic data only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-out
+          path: tests/e2e/out
+          retention-days: 14
+          if-no-files-found: warn

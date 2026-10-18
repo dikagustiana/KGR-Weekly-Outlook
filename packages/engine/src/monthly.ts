@@ -27,7 +27,16 @@ export interface PlDailyRow {
 export const isRevenueLine = (l: string) => l.startsWith("Revenue");
 /** v5 K22 / Q63: the costing revaluation of sold kg and the idle capacity are cost of sales, not opex. */
 export const V5_COGS_LINES = ["Selisih costing", "Biaya kapasitas idle"] as const;
-export const isCogsLine = (l: string) => l.startsWith("COGS") || l.startsWith("Other COGS") || (V5_COGS_LINES as readonly string[]).includes(l);
+/**
+ * R66 (K63) how the two v5 costing rows count (app_setting v5_pl, field costing_rows_mode): 'cogs' (default, the behaviour of
+ * v5) = cost of sales; 'memo' = neither COGS nor opex, so the "Actual · jurnal" columns hold journal lines only (= the FS)
+ * and the rows appear as a memo block below the journal NIBT.
+ */
+export type CostingRowsMode = "cogs" | "memo";
+export const isMemoLine = (l: string, mode: CostingRowsMode = "cogs") => mode === "memo" && (V5_COGS_LINES as readonly string[]).includes(l);
+export const isCogsLine = (l: string, mode: CostingRowsMode = "cogs") => l.startsWith("COGS") || l.startsWith("Other COGS") || (mode === "cogs" && (V5_COGS_LINES as readonly string[]).includes(l));
+/** Operating cost: every line that is not revenue, COGS or a memo row (a memo row is in no journal total, not in the NIBT either). */
+export const isOpexLine = (l: string, mode: CostingRowsMode = "cogs") => !isRevenueLine(l) && !isCogsLine(l, mode) && !isMemoLine(l, mode);
 
 export const monthEnd = (d: ISODate): ISODate => addDays(firstOfMonth(d), daysInMonth(d) - 1);
 

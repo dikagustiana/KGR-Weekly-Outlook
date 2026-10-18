@@ -1,0 +1,655 @@
+{
+ "month": "2026-09-01",
+ "tolerance": "1",
+ "costing_rows_mode": "memo",
+ "map": [
+  {
+   "statement": "PL",
+   "row_no": 12,
+   "fs_line": "Revenue",
+   "app_line": "revenue",
+   "sign": 1,
+   "note": "Σ Revenue - LB Main Product, LB By Product, Trading (jurnal + penyesuaian tutup buku)"
+  },
+  {
+   "statement": "PL",
+   "row_no": 13,
+   "fs_line": "Cost of Sales",
+   "app_line": "cogs",
+   "sign": 1,
+   "note": "Σ COGS dan Other COGS; mode memo (O24 b): tanpa Selisih costing dan Biaya kapasitas idle"
+  },
+  {
+   "statement": "PL",
+   "row_no": 15,
+   "fs_line": "GROSS PROFIT",
+   "app_line": "gp",
+   "sign": 1,
+   "note": "Revenue + COGS (mode memo: tanpa baris v5)"
+  },
+  {
+   "statement": "PL",
+   "row_no": 37,
+   "fs_line": "TOTAL OPERATING EXPENSES",
+   "app_line": "opex",
+   "sign": 1,
+   "note": "semua baris selain Revenue, COGS, dan pendapatan/beban lain (termasuk penyusutan dan pajak)"
+  },
+  {
+   "statement": "PL",
+   "row_no": 49,
+   "fs_line": "TOTAL OTHER INCOME (EXPENSE)",
+   "app_line": "other",
+   "sign": 1,
+   "note": "Interest Expense, Other Income, Other Expense"
+  },
+  {
+   "statement": "PL",
+   "row_no": 51,
+   "fs_line": "INCOME (LOSS) BEFORE TAX",
+   "app_line": "nibt",
+   "sign": 1,
+   "note": "NIBT jurnal; mode memo: tanpa NIBT manajemen"
+  },
+  {
+   "statement": "BS",
+   "row_no": 14,
+   "fs_line": "Cash and cash equivalents",
+   "app_line": "kas",
+   "sign": 1,
+   "note": "saldo kas dan bank akhir bulan (TB awal + jurnal)"
+  },
+  {
+   "statement": "BS",
+   "row_no": 17,
+   "fs_line": "Trade Receivables - Third Parties",
+   "app_line": "piutang_pihak_ketiga",
+   "sign": 1,
+   "note": null
+  },
+  {
+   "statement": "BS",
+   "row_no": 18,
+   "fs_line": "Trade Receivables - Related Parties",
+   "app_line": "piutang_pihak_berelasi",
+   "sign": 1,
+   "note": null
+  },
+  {
+   "statement": "BS",
+   "row_no": 23,
+   "fs_line": "Inventory - Product",
+   "app_line": "persediaan_produk",
+   "sign": 1,
+   "note": "saldo buku besar (bs_line Inventory - Product)"
+  },
+  {
+   "statement": "BS",
+   "row_no": 24,
+   "fs_line": "Inventory - Trading",
+   "app_line": "persediaan_trading",
+   "sign": 1,
+   "note": "saldo buku besar (bs_line Inventory - Trading)"
+  },
+  {
+   "statement": "BS",
+   "row_no": 47,
+   "fs_line": "Trade Payables - Third Parties",
+   "app_line": "utang_dagang_pihak_ketiga",
+   "sign": 1,
+   "note": null
+  },
+  {
+   "statement": "BS",
+   "row_no": 48,
+   "fs_line": "Trade Payables - Affiliates",
+   "app_line": "utang_dagang_afiliasi",
+   "sign": 1,
+   "note": null
+  },
+  {
+   "statement": "BS",
+   "row_no": 51,
+   "fs_line": "Other Payable - Related Parties",
+   "app_line": "utang_lain_afiliasi",
+   "sign": 1,
+   "note": "pinjaman dan utang lain afiliasi"
+  },
+  {
+   "statement": "BS",
+   "row_no": 77,
+   "fs_line": "TOTAL EQUITY",
+   "app_line": "ekuitas",
+   "sign": 1,
+   "note": "Shareholder Equity + Retained earnings + laba tahun berjalan"
+  }
+ ],
+ "recons": [
+  {
+   "id": "akhir-bulan",
+   "title": "Akhir bulan: laba rugi September dan neraca 30 September 2026",
+   "fs_column": "2026-09-30",
+   "statements": [
+    "PL",
+    "BS"
+   ],
+   "app_data": null,
+   "app_data_note": "jurnal September tidak ada di fixture (jurnal fixture berhenti 26 Agu 2026); app belum punya angka September",
+   "pl_lines": [],
+   "app": [],
+   "fs": [
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 12,
+     "line": "Revenue",
+     "amount": "5039854191.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 13,
+     "line": "Cost of Sales",
+     "amount": "-5515286606.26"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 15,
+     "line": "GROSS PROFIT",
+     "amount": "-475432415.26"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 18,
+     "line": "Delivery Expenses - SE",
+     "amount": "-23367240.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 19,
+     "line": "Commission Expenses",
+     "amount": "-5620863.60"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 20,
+     "line": "Packaging",
+     "amount": "-5833590.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 21,
+     "line": "Other selling Expense",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 23,
+     "line": "Salaries and allowance",
+     "amount": "-82677332.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 24,
+     "line": "Storage Expenses",
+     "amount": "-154899851.65"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 25,
+     "line": "Delivery Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 26,
+     "line": "Maintenance Expenses",
+     "amount": "-4007061.07"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 27,
+     "line": "Communication Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 28,
+     "line": "Office Transportation expenses",
+     "amount": "-11176500.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 29,
+     "line": "Insurance Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 30,
+     "line": "Rent Expenses",
+     "amount": "-9000.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 31,
+     "line": "Office Supplies Expenses",
+     "amount": "-9777000.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 32,
+     "line": "Professional Fee",
+     "amount": "-1538461.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 33,
+     "line": "Professional Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 34,
+     "line": "Depreciation Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 35,
+     "line": "Tax expenses",
+     "amount": "-13258267.74"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 37,
+     "line": "TOTAL OPERATING EXPENSES",
+     "amount": "-312165167.06"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 39,
+     "line": "OPERATING INCOME",
+     "amount": "-787597582.32"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 43,
+     "line": "Interest Expense",
+     "amount": "-54022222.22"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 44,
+     "line": "Finance Expenses",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 45,
+     "line": "Other Income",
+     "amount": "-66995835.19"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 46,
+     "line": "Other Expense",
+     "amount": "-1442900.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 47,
+     "line": "Gain (loss) from sell of fixed assets",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 49,
+     "line": "TOTAL OTHER INCOME (EXPENSE)",
+     "amount": "-122460957.41"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 51,
+     "line": "INCOME (LOSS) BEFORE TAX",
+     "amount": "-910058539.73"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 56,
+     "line": "Income tax expense - net",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 58,
+     "line": "NET INCOME FOR THE YEAR",
+     "amount": "-910058539.73"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 66,
+     "line": "Other comprehensive loss - Net of tax",
+     "amount": "0.00"
+    },
+    {
+     "statement": "PL",
+     "sheet": "PL - Management Report",
+     "row_no": 68,
+     "line": "TOTAL COMPREHENSIVE INCOME FOR THE YEAR",
+     "amount": "-910058539.73"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 14,
+     "line": "Cash and cash equivalents",
+     "amount": "102996959.86"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 15,
+     "line": "Restrictid Time Deposits",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 17,
+     "line": "Trade Receivables - Third Parties",
+     "amount": "800198009.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 18,
+     "line": "Trade Receivables - Related Parties",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 20,
+     "line": "Other Receivable - Third Party",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 21,
+     "line": "Other Receivable - Affiliated Party",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 23,
+     "line": "Inventory - Product",
+     "amount": "4724212503.35"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 24,
+     "line": "Inventory - Trading",
+     "amount": "1928193717.73"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 25,
+     "line": "Prepaid Tax",
+     "amount": "248042907.66"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 26,
+     "line": "Advance Payment",
+     "amount": "1413493471.55"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 27,
+     "line": "Prepaid Expenses",
+     "amount": "1317507571.08"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 29,
+     "line": "TOTAL CURRENT ASSETS",
+     "amount": "10534645140.23"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 32,
+     "line": "Buildings",
+     "amount": "1291505000.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 33,
+     "line": "Office Furniture and Equipment",
+     "amount": "254946153.61"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 35,
+     "line": "Acc. Depreciation - Buildings",
+     "amount": "-227416375.13"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 36,
+     "line": "Acc. Depreciation - Office Furniture and Equipment",
+     "amount": "-211063034.57"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 37,
+     "line": "Deferred Tax Asset",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 39,
+     "line": "TOTAL NON CURRENT ASSETS",
+     "amount": "1107971743.91"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 41,
+     "line": "TOTAL ASSETS",
+     "amount": "11642616884.14"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 45,
+     "line": "Short-tern Bank Loans",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 47,
+     "line": "Trade Payables - Third Parties",
+     "amount": "139076516.40"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 48,
+     "line": "Trade Payables - Affiliates",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 50,
+     "line": "Other Payable - Third Parties",
+     "amount": "860802573.30"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 51,
+     "line": "Other Payable - Related Parties",
+     "amount": "9845918888.89"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 53,
+     "line": "Accrued Expenses - Third Parties",
+     "amount": "-2.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 54,
+     "line": "Accrued Expenses - Related Parties",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 55,
+     "line": "Unearned Revenue",
+     "amount": "47426515.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 56,
+     "line": "Taxes Payable",
+     "amount": "46838917.33"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 58,
+     "line": "TOTAL CURRENT LIABILITIES",
+     "amount": "10940063408.92"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 61,
+     "line": "Employee Benefit Liabilities",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 63,
+     "line": "TOTAL NON CURRENT LIABILITIES",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 65,
+     "line": "TOTAL LIABILITIES",
+     "amount": "10940063408.92"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 68,
+     "line": "Shareholder Equity",
+     "amount": "5000000000.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 69,
+     "line": "Dividend",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 71,
+     "line": "- Beginning retained earnings",
+     "amount": "-2698434665.91"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 72,
+     "line": "- Current profit or loss",
+     "amount": "-1599011859.19"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 74,
+     "line": "- Beginning - OCI",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 75,
+     "line": "- Current - OCI",
+     "amount": "0.00"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 77,
+     "line": "TOTAL EQUITY",
+     "amount": "702553474.90"
+    },
+    {
+     "statement": "BS",
+     "sheet": "BS - Management Report",
+     "row_no": 79,
+     "line": "TOTAL EQUITY AND LIABILITIES",
+     "amount": "11642616883.82"
+    }
+   ]
+  }
+ ]
+}

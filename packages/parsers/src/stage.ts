@@ -57,6 +57,17 @@ function lineKeys(rows: ParsedRow[], key: (v: Record<string, string | null>) => 
   });
 }
 
+/** BT-1 (PRD v5.2 backtest): a journal is never staged without these columns — a debit/credit read as null is a wrong ledger. */
+const GL_COLUMNS = ["date", "account", "debit", "credit"] as const;
+
+export class ParseError extends Error {}
+
+/** 1234567.5 → "1.234.567,50" (id-ID, two decimals) for messages. */
+const idr = (x: Decimal) => {
+  const [i, f] = toFixedString(x, 2)!.split(".");
+  return `${i.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${f}`;
+};
+
 export function parseUpload(kind: UploadKind, sheets: Sheet[], opts: ParseOptions = {}): ParseResult {
   const def = kindDef(kind);
   let detected = detect(sheets, def);
@@ -65,6 +76,12 @@ export function parseUpload(kind: UploadKind, sheets: Sheet[], opts: ParseOption
     detected = { sheet: sheets[0].name, headerRow: 1, columns: (sheets[0].rows[0] ?? []).map((c) => String(c ?? "")), mapping: opts.mapping, score: 0 };
   }
   const issues: string[] = [];
+  if (kind === "accurate_journal") {
+    const missing = GL_COLUMNS.filter((f) => detected?.mapping[f] === null || detected?.mapping[f] === undefined);
+    if (missing.length) {
+      throw new ParseError(`Kolom wajib jurnal tidak terpetakan: ${missing.map((f) => def.fields.find((x) => x.field === f)!.label).join(", ")}. Pilih kolom secara manual; baris tidak disimpan.`);
+    }
+  }
   if (!detected) {
     issues.push(`Kolom wajib tidak ditemukan: ${def.fields.filter((f) => f.required).map((f) => f.label).join(", ")}. Pilih kolom secara manual.`);
     return { kind, def, detected: null, rows: [], sets: [], issues, dateFrom: null, dateTo: null };
@@ -121,9 +138,17 @@ export function parseUpload(kind: UploadKind, sheets: Sheet[], opts: ParseOption
       break;
     case "accurate_journal": {
       const dated = rows.filter((r) => r.values.date !== null);
-      const undated = rows.length - dated.length;
-      if (undated > 0) issues.push(`${undated} baris tanpa tanggal diabaikan (penyesuaian akhir bulan belum bertanggal)`);
-      const good = dated.filter((r) => r.issues.filter((i) => !i.startsWith("Tanggal")).length === 0);
+      const undated = rows.filter((r) => r.values.date === null);
+      if (undated.length > 0) {
+        // BT-1: what is left out is counted and summed, by kind, so it can be traced (month-end adjustments without a date)
+        const sum = (f: "debit" | "credit") => undated.reduce((a, r) => a.plus(D(r.values[f] ?? "0")), D(0)); // missing-ok: a blank side of a journal line is 0
+        const kinds = new Map<string, number>();
+        for (const r of undated) kinds.set(r.values.voucher_type ?? "tanpa tipe", (kinds.get(r.values.voucher_type ?? "tanpa tipe") ?? 0) + 1);
+        issues.push(`${undated.length} baris tanpa tanggal diabaikan: Σ debit ${idr(sum("debit"))}, Σ kredit ${idr(sum("credit"))}; tipe ${[...kinds].map(([k, n]) => `${k} ${n}`).join(", ")} (penyesuaian akhir bulan belum bertanggal)`);
+      }
+      const noAmount = dated.filter((r) => r.values.debit === null && r.values.credit === null);
+      if (noAmount.length) issues.push(`${noAmount.length} baris tanpa debit dan kredit ditahan (baris ${noAmount.slice(0, 10).map((r) => r.rowNo).join(", ")})`);
+      const good = dated.filter((r) => !noAmount.includes(r) && r.issues.filter((i) => !i.startsWith("Tanggal")).length === 0);
       const keys = lineKeys(good, (x) => `${x.voucher_no ?? ""}`);
       sets.push({
         target: "gl_line",

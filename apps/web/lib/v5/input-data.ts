@@ -23,6 +23,11 @@ import { ROLE_KINDS, rulesOfRole } from "./input";
 import { jtV4, num } from "../fmt";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
+/** Sum of the kg that are filled and the number of rows without one: a blank is "belum ada", never 0 kg (R64). */
+export function knownKg(rows: Row[], key: string): { kg: ReturnType<typeof D>; blank: number } {
+  const known = rows.filter((r) => s(r[key]) !== null);
+  return { kg: sum(known.map((r) => D(String(r[key])))), blank: rows.length - known.length };
+}
 const isOn = (v: unknown) => ((v as { enabled?: boolean } | null | undefined)?.enabled) === true;
 
 export async function v5InputOn(sb: Supa): Promise<boolean> {
@@ -68,47 +73,60 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
       const d = must(await sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("date").lte("date", today).order("date", { ascending: false }).limit(1).maybeSingle(), "harga lantai (tanggal mart)") as Row | null;
       const date = s(d?.date);
       if (date) {
-        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).range(a, b));
+        const rows = await fetchAll<Row>((a, b) => sb.from(sales ? "commercial_daily_sales" : "commercial_daily").select("key, price_floor").eq("date", date).order("date").order("key").range(a, b));
         ctx.floors = Object.fromEntries(rows.filter((r) => s(r.price_floor)).map((r) => [String(r.key), String(r.price_floor)]));
       } else ctx.floors = {};
     }
     if (sales) {
-      const list = mustRows<Row>(await sb.from("sales_assignment").select("customer").eq("active", true).eq("email", viewer.email.toLowerCase()), "sales_assignment").map((a) => s(a.customer));
+      // R58 (O21(b)): the assignment rows (customer × key) of the rep; a PO line must lie inside one of them
+      const rows = mustRows<Row>(await sb.from("sales_assignment").select("customer, key").eq("active", true).eq("email", viewer.email.toLowerCase()), "sales_assignment");
+      const list = rows.map((a) => s(a.customer));
       ctx.customers = list.some((c) => c === null) ? "all" : (list as string[]);
+      ctx.assignments = rows.map((a) => ({ customer: s(a.customer), key: s(a.key) }));
     } else ctx.customers = "all";
   }
   if (kind === "costing_wp" || kind === "supplier_invoice") {
-    const rows = await fetchAll<Row>((a, b) => sb.from("batch").select("batch_ref, date, lb_kg, status").is("deleted_at", null).is("superseded_at", null)
-      .not("batch_ref", "is", null).gte("date", addDays(today, -60)).lte("date", addDays(today, 7)).order("date").range(a, b));
+    const rows = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, date, lb_kg, status").is("deleted_at", null).is("superseded_at", null)
+      .not("batch_ref", "is", null).gte("date", addDays(today, -60)).lte("date", addDays(today, 7)).order("date").order("id").range(a, b));
     const seen = new Set<string>();
     ctx.batches = [];
+    const idOf = new Map<string, string>();
     // an actual batch wins over the planned one of the same reference
     for (const r of [...rows.filter((x) => x.status === "Aktual"), ...rows.filter((x) => x.status !== "Aktual")]) {
       const ref = String(r.batch_ref);
       if (seen.has(ref.toUpperCase())) continue;
       seen.add(ref.toUpperCase());
+      if (r.status === "Aktual") idOf.set(String(r.id), ref);
       ctx.batches.push({ ref, date: String(r.date), lb_kg: s(r.lb_kg), heads: null });
     }
     ctx.batches.sort((a, b) => a.date.localeCompare(b.date) || a.ref.localeCompare(b.ref));
+    // R58: the WP rows an actual batch already has — a line held in a new file keeps its old row, which C22 then counts
+    if (kind === "costing_wp" && idOf.size) {
+      const out = await inChunks([...idOf.keys()], (part) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, item_code, kg").in("batch_id", part).eq("source", "WP").is("deleted_at", null).order("id").range(a, b)));
+      for (const b of ctx.batches) {
+        const id = [...idOf].find(([, ref]) => ref === b.ref)?.[0];
+        if (id) b.output = out.filter((o) => String(o.batch_id) === id).map((o) => ({ key: s(o.key), item_code: s(o.item_code), kg: String(o.kg) }));
+      }
+    }
   }
   if (kind === "supplier_invoice") {
-    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).range(a, b));
+    const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).order("id").range(a, b));
     const by = new Map<string, ReturnType<typeof D>>();
-    for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0")));
+    for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0"))); // missing-ok: baris jurnal berisi debit atau kredit; debit kosong = baris sisi kredit
     ctx.glByDoc = Object.fromEntries([...by].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, v.toFixed(2)]));
   }
   if (kind === "fixed_cost") {
     const [coa, sched] = await Promise.all([
       fetchAll<Row>((a, b) => sb.from("coa_map").select("account").eq("driver_type", "fixed").is("deleted_at", null).order("account").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("code, account, start_date, end_date").eq("active", true).is("deleted_at", null).order("start_date").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("fixed_cost_schedule").select("code, account, start_date, end_date").eq("active", true).is("deleted_at", null).order("start_date").order("id").range(a, b)),
     ]);
     ctx.fixedAccounts = coa.map((c) => String(c.account));
     ctx.fixedSchedule = sched.map((r) => ({ code: s(r.code), account: s(r.account), start: String(r.start_date), end: s(r.end_date) }));
   }
   if (kind === "lb_supply") {
     const lead = Number(par.lead_time_days ?? 1);
-    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").range(a, b));
-    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: s(r.kg_lb) ?? "0" }));
+    const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").order("size_code").order("week_start").range(a, b));
+    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: String(r.kg_lb) })); // kolom kg_lb NOT NULL (mart)
   }
   return ctx;
 }
@@ -123,13 +141,13 @@ async function rules(sb: Supa): Promise<TaskRule[]> {
 async function count(q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string): Promise<number> {
   const r = await q;
   if (r.error) throw new LoaderError(where, r.error.message);
-  return r.count ?? 0;
+  return r.count ?? 0; // missing-ok: jumlah baris dari head count; tanpa baris = 0 (galat sudah dilempar di atas)
 }
 
 const exists = async (q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string) => {
   const r = await q;
   if (r.error) throw new LoaderError(where, r.error.message);
-  return (r.count ?? 0) > 0;
+  return (r.count ?? 0) > 0; // missing-ok: ada tidaknya baris dari head count; galat sudah dilempar di atas
 };
 type FactOf = (ref: string, anchor: string) => Promise<TaskFact>;
 
@@ -184,7 +202,7 @@ function factReaders(sb: Supa): Record<string, FactOf> {
     budget: async (ref) => ((await exists(sb.from("budget").select("id", { count: "exact", head: true }).eq("month", `${ref}-01`).is("deleted_at", null), "tugas budget")) ? { done: "passed" } : none),
     po_lines: async (ref) => {
       const ship = addDays(ref, 1);
-      const lines = await fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null).range(a, b));
+      const lines = await fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, size_kg").eq("status", "Order").eq("delivery_date", ship).is("deleted_at", null).is("superseded_at", null).order("id").range(a, b));
       if (!lines.length) return none;
       const items = await inChunks([...new Set(lines.map((l) => String(l.item_code)))], async (part) => mustRows<Row>(await sb.from("item_map").select("item_code, item_name, key, size_kg").in("item_code", part), "tugas po_lines item_map"));
       const it = new Map(items.map((i) => [String(i.item_code), i]));
@@ -202,7 +220,7 @@ export async function buildInputDay(sb: Supa, date: string): Promise<string> {
   if (!(await v5InputOn(sb))) return "v5_input mati";
   const rs = await rules(sb);
   const bs = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref, date, status").is("deleted_at", null).is("superseded_at", null)
-    .gte("date", addDays(date, -1)).lte("date", addDays(date, 1)).range(a, b));
+    .gte("date", addDays(date, -1)).lte("date", addDays(date, 1)).order("id").range(a, b));
   const inst = instancesDue(rs, date, {
     cutDates: [...new Set(bs.map((b) => String(b.date)))],
     batches: bs.filter((b) => b.status === "Aktual").map((b) => ({ ref: s(b.batch_ref) ?? String(b.id), date: String(b.date) })),
@@ -285,7 +303,7 @@ export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, pane
   }
 
   const blankCards: InputCard[] = [0, 1, 2, 3].map(() => ({ title: "Ringkasan", value: "", sub: "", tone: "plain" }));
-  const cards = fail(failed, ["c-0", "c-1", "c-2", "c-3"], await tileData("input: kartu peran", () => roleCards(sb, role, today, all, grid)), blankCards);
+  const cards = fail(failed, ["c-0", "c-1", "c-2", "c-3"], await tileData("input: kartu peran", () => roleCards(sb, role, today, all, grid, viewer.role)), blankCards);
   const params = fail(failed, ["parameter"], await tileData("input: parameter", () => roleParams(sb, role, today, par)), []);
   return {
     today, time: now.slice(11, 16).replace(":", "."), viewerRole: viewer.role, role, panel,
@@ -304,33 +322,39 @@ async function uploadWizardHref(sb: Supa, today: string): Promise<string | null>
 }
 
 /** The four cards of a role (§6.4 "Headline + 4 kartu"). */
-async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLine[], grid: InputV5Input["grid"]): Promise<InputCard[]> {
+async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLine[], grid: InputV5Input["grid"], viewerRole: Role): Promise<InputCard[]> {
   const dueToday = tasks.filter((t) => t.status !== "passed");
   const late = tasks.filter((t) => t.status === "late").length;
   const first: InputCard = { title: "Tugas terbuka", value: String(dueToday.length), sub: late ? `${late} terlambat` : "tidak ada yang terlambat", tone: late ? "bad" : "plain" };
   const ws = mondayOf(today);
   if (role === "cost_accounting") {
-    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
-    const fin = bs.filter((b) => b.invoice_status === "tied").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at, costing_status").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
+    // K59: final = the allocation is posted; a tied invoice waits for the posting
+    const fin = bs.filter((b) => b.costing_status === "posted").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const waitPost = bs.filter((b) => b.invoice_status === "tied" && b.costing_status !== "posted").length;
     const inv = bs.filter((b) => b.invoice_status !== "pending").length;
     return [first,
-      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: "sementara / final", tone: "plain" },
+      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: waitPost ? `sementara / final · ${waitPost} faktur tie menunggu posting alokasi` : "sementara / final", tone: waitPost ? "warn" : "plain" },
       { title: "Faktur LB masuk", value: `${inv} dari ${bs.length}`, sub: inv < bs.length ? "costing belum bisa final" : "semua masuk", tone: inv < bs.length ? "warn" : "plain" },
       { title: "WP belum masuk", value: String(bs.length - wp), sub: bs.length - wp ? "biaya/kg batch itu masih estimasi" : "semua batch punya WP", tone: bs.length - wp ? "bad" : "plain" }];
   }
   if (role === "sales" || role === "commercial_lead") {
     // K42: every PO line of the week, page by page
     const po = await fetchAll<Row>((a, b) => sb.from("sales_line").select("kg").eq("status", "Order").is("deleted_at", null).gte("delivery_date", ws).lte("delivery_date", addDays(ws, 6)).order("id").range(a, b));
-    const unsized = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").range(a, b));
+    // Q-v5.2-15: demand_class_weekly is not read by a Sales session (B2): their card says so, it never shows "0 kg". An Admin or the lead
+    // looking as Sales read it and see the number.
+    const unsized = viewerRole === "sales" ? null : await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").order("ship_date").order("size_code").order("week_start").range(a, b));
     const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
     const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;
-    const uk = sum(unsized.map((r) => D(s(r.net_kg) ?? "0")));
+    const uk = unsized === null ? null : sum(unsized.map((r) => D(String(r.net_kg)))); // net_kg NOT NULL (mart)
+    const poKg = knownKg(po, "kg");
     return [
-      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(sum(po.map((r) => D(s(r.kg) ?? "0"))), 0)} kg`, tone: "plain" },
+      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(poKg.kg, 0)} kg${poKg.blank ? ` (${poKg.blank} baris belum ada kg)` : ""}`, tone: poKg.blank ? "warn" : "plain" },
       { title: "Gagal cek (upload terakhir)", value: String(failed), sub: failed ? "baris perlu dilengkapi" : "tidak ada", tone: failed ? "bad" : "plain" },
-      { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
-      { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }];
+      uk === null ? { title: "Karkas tanpa ukuran", value: "tidak ditampilkan", sub: "tidak ditampilkan untuk Sales (data perencanaan)", tone: "plain" }
+        : { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
+      { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }]; // missing-ok: jumlah permintaan approval (hitungan), tanpa baris = 0
   }
   if (role === "ppic") {
     const all = mustRows<Row>(await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg"), "kartu kelas").map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) }));
@@ -340,7 +364,7 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     return [first,
       { title: "Kelas berat terdaftar", value: `${reg.length} dari ${all.length}`, sub: reg.length < all.length ? `baru ${reg.join(", ") || "—"}` : "lengkap", tone: reg.length < all.length ? "bad" : "plain" },
       { title: "Yield per kelas", value: yk ? "terisi" : "placeholder", sub: yk ? `${yk} baris di luar STD` : "satu yield STD untuk semua kelas (C42)", tone: yk ? "plain" : "warn" },
-      { title: "Kapasitas 7 hari", value: `${cap ?? 0} dari 7`, sub: "hari terisi", tone: (cap ?? 0) < 7 ? "warn" : "plain" }];
+      { title: "Kapasitas 7 hari", value: `${cap ?? 0} dari 7`, sub: "hari terisi", tone: (cap ?? 0) < 7 ? "warn" : "plain" }]; // missing-ok: jumlah hari berkapasitas (hitungan); hari tanpa baris memang tidak terisi
   }
   if (role === "purchasing" || role === "operations_director") {
     const tmr = addDays(today, 1);
@@ -349,11 +373,11 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
       sb.from("lb_price_decision").select("price, volume_kg_lb, decided_at").eq("date", tmr).order("decided_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const sup = mustRows<Row>(supR, "kartu supply LB");
-    const kg = sum(sup.map((r) => D(s(r.kg) ?? "0")));
+    const supKg = knownKg(sup, "kg"), kg = supKg.kg;
     const d = must(decR, "kartu keputusan LB") as Row | null;
     return [first,
       { title: `Harga LB potong ${dmy(tmr)}`, value: d ? num(s(d.price), 0) : "belum", sub: d ? "diputuskan Direktur Operasional" : "C57: simulasi memakai harga kemarin", tone: d ? "plain" : "bad" },
-      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: "plain" },
+      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: supKg.blank ? `${supKg.blank} baris belum ada kg, belum terhitung` : d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: supKg.blank ? "warn" : "plain" },
       { title: "Supply tanpa kelas", value: String(sup.filter((r) => !s(r.weight_class)).length), sub: "baris (C58 tidak bisa dicek)", tone: "plain" }];
   }
   if (role === "inventory_accounting") {

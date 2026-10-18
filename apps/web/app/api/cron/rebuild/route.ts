@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { moduleSettings } from "@/lib/modules";
+import { moduleSettingsOf } from "@/lib/modules-read";
 import { processRebuildQueue } from "@/lib/rebuild";
 import { supabaseService } from "@/lib/supabase-service";
 import { wallNow } from "@/lib/clock";
@@ -16,12 +16,16 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const settings = await moduleSettings();
-  const drained = await processRebuildQueue(settings, { limit: 30, budgetMs: 50_000 });
-  let tasks: string | null = null;
-  if (settings.v5_input?.enabled) {
-    const svc = supabaseService();
-    tasks = svc ? await buildInputDay(svc, wallNow().date) : "tidak ada SUPABASE_SERVICE_ROLE_KEY";
+  // no session here: the flags and the queue are read with the service client (RLS would read app_setting as empty)
+  const svc = supabaseService();
+  if (!svc) return NextResponse.json({ error: "server belum punya SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
+  try {
+    const settings = await moduleSettingsOf(svc);
+    const drained = await processRebuildQueue(settings, { limit: 30, budgetMs: 50_000, client: svc });
+    const tasks = settings.v5_input?.enabled ? await buildInputDay(svc, wallNow().date) : null;
+    return NextResponse.json({ drained, tasks, at: wallNow().now });
+  } catch (e) {
+    console.error(`[cron] ${(e as Error).message}`);
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
-  return NextResponse.json({ drained, tasks, at: wallNow().now });
 }

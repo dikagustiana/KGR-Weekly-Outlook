@@ -8,7 +8,7 @@ import { D, addDays, demandTotals, plRowsFromMart, weekCash, type ControlV3 } fr
 import type { WeekCtx } from "../page";
 import { supabaseServer } from "../supabase";
 import { isModuleOn, moduleSettings } from "../modules";
-import { weekPlRows } from "./week-pl";
+import { weekPlMode, weekPlRows } from "./week-pl";
 import { v4On } from "./nav";
 import type { MingguIniInput, StockMart } from "./minggu-ini";
 import { firstOfMonth, monthEnd, monthSummary, monthSummaryV4, vsBudget, type BudgetRow } from "@kgr/engine";
@@ -27,6 +27,17 @@ export function plainName(name: string): string {
   return name.replace(/\s*\((?:[^()]*\b[IOT]_[A-Za-z_]+[^()]*)\)/g, "").replace(/\b[IOT]_[A-Za-z_]+\b/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
+/**
+ * Last week's base from the released snapshot: only when it carries all three lines (revenue, GP, NIBT). A missing line is
+ * not 0: without the full set the caller takes the journal as the base (R64).
+ */
+export function releaseLastWeek(snapshot: unknown): MingguIniInput["lastWeek"] {
+  const lines = (snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined | null)?.pnl?.lines;
+  const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
+  const rev = get("TOTAL REVENUE"), gp = get("GROSS PROFIT"), ni = get("NET INCOME");
+  return lines && rev !== null && gp !== null && ni !== null ? { revenue: D(rev), gp: D(gp), nibt: D(ni), basis: "rilis" } : null;
+}
+
 export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | undefined>): Promise<MingguIniInput> {
   const settings = await moduleSettings();
   const role = ctx.viewer.role;
@@ -43,6 +54,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   const failed: Failed = {};
   const plMart = v4On(settings, role) ? fail(failed, ["headline", "c-outlook", "ch-harian", "ch-bridge", "t-segmen"], await tileData("minggu ini: laba rugi minggu (pl_daily_v4)", () => weekPlRows(sb, w.week_start)), []) : [];
   const plRows = plMart.length ? plRowsFromMart(plMart as never) : null;
+  // R66 (K63): one mode for the weekly P&L, its bridge and the month card (the same as the page Outlook bulan)
+  const costingMode = await weekPlMode(sb, settings, role);
 
   // Δ vs last week: last week's released projection when there is a release, else its journal (weekly P&L)
   let lastWeek: MingguIniInput["lastWeek"] = null;
@@ -50,11 +63,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   if (prev) {
     const data = fail(failed, ["c-outlook"], await tileData("minggu ini: rilis minggu lalu", async () =>
       must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
-    const lines = (data?.snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined)?.pnl?.lines;
-    const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
-    if (lines && get("GROSS PROFIT") !== null) {
-      lastWeek = { revenue: D(get("TOTAL REVENUE") ?? 0), gp: D(get("GROSS PROFIT")!), nibt: D(get("NET INCOME") ?? 0), basis: "rilis" };
-    }
+    lastWeek = releaseLastWeek(data?.snapshot);
   }
   if (!lastWeek) {
     const p = r.statements.pnl;
@@ -68,8 +77,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     if (!date) return null;
     // K42: every row of the day, page by page (no .limit above 1000)
     const [keys, lots] = await Promise.all([
-      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma, cost_status").eq("date", date).order("key").range(a, b)),
-      fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("sku_balance_daily").select("key, over_age_kg, cost_per_kg_ma, cost_status").eq("date", date).order("key").order("date").range(a, b)),
+      fetchAll<Row>((a, b) => sb.from("lot_balance_daily").select("key, lot_ref, kg, age_days, cost_per_kg_ma").eq("date", date).order("key").order("lot_ref").order("date").range(a, b)),
     ]);
     const info: StockMart["info"] = {};
     for (const k of r.stock.rows) info[k.key] = { ordersRest: k.ordersRestOfWeek.toFixed(2), refPrice: k.refPrice === null ? null : k.refPrice.toFixed(2) };
@@ -89,16 +98,16 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     const rows = fail(failed, ["c-kas", "kas"], await tileData("minggu ini: kas (cash_position_daily)", async () =>
       mustRows<Row>(await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date"), "cash_position_daily")), []);
     // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
-    if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
+    if (rows.some((c) => Number(c.accounts ?? 0) > 0)) { // missing-ok: jumlah rekening (hitungan); 0 rekening = tidak ada posisi kas
       // a day before the first upload stays without a balance (null, never 0) even when later days have one
-      const has = (c: Row) => Number(c.accounts ?? 0) > 0;
+      const has = (c: Row) => Number(c.accounts ?? 0) > 0; // missing-ok: jumlah rekening (hitungan); 0 rekening = tidak ada posisi kas
       cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null, without: has(c) ? s(c.closing_without_affiliate) : null }));
       noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }
     const v = fail(failed, ["c-solvabilitas"], await tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
       must(await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle(), "solvency_monthly") as Row | null), null);
     if (v && v.equity !== null && v.paid_in_capital !== null) {
-      solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable) ?? "0", months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), interest: null };
+      solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable), months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), interest: null };
     }
   }
 
@@ -112,7 +121,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       // "Satu angka": the same mart and the same engine call as the page Outlook bulan (pl_daily_v4, monthSummaryV4, budget)
       const [v4, bud] = await Promise.all([
         fetchAll<Row>((a, b) => sb.from("pl_daily_v4").select("date, segment, pl_line, basis, actual, forecast, kg, anomaly").gte("date", first).lte("date", monthEnd(first)).order("date").order("segment").order("pl_line").order("basis").range(a, b)),
-        fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).range(a, b)),
+        fetchAll<Row>((a, b) => sb.from("budget").select("version, metric, value").eq("month", first).is("deleted_at", null).order("id").range(a, b)),
       ]);
       if (v4.length && isModuleOn(settings.v5_pl, role)) {
         // PRD v5 §4.7: the same month rows with the fixed-cost estimate; cut-off and nominal sources from the month builder
@@ -126,10 +135,10 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
           const qs = new URLSearchParams(Object.entries({ mode: sp.mode, hari: sp.hari, segmen: sp.segmen, sku: sp.sku, pl: p === "wk" ? undefined : p }).filter((e): e is [string, string] => !!e[1])).toString();
           return `/minggu-ini/${w.week_start}${qs ? `?${qs}` : ""}`;
         };
-        plOut = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href };
+        plOut = { first, cutOff: note.cutOff ?? yesterday, rows: plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed: note.fixed ?? [], pl, href, mode: costingMode };
       }
       if (v4.length) {
-        const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10");
+        const sum = monthSummaryV4(plRowsFromMart(v4 as never), first, "0.10", undefined, costingMode);
         const latest = bud.reduce((m, x) => Math.max(m, Number(x.version)), 0);
         const budget = latest ? bud.filter((x) => Number(x.version) === latest).map((x) => ({ segment: "Total", metric: String(x.metric) as BudgetRow["metric"], value: String(x.value) })) : [];
         const vb = vsBudget({ outlook: sum.outlook, actual: sum.actual, budget, remainingWorkingDays: sum.remainingWorkingDays });
@@ -172,7 +181,8 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       // heads of the binding main product per cut pattern (K1: by-products never bind), as the demand rebuild wrote them
       heads: rs.some((x) => x.binding === true && x.heads !== null) ? rs.filter((x) => x.binding === true && x.heads !== null).reduce((a, x) => a + Math.ceil(Number(x.heads)), 0) : null,
       planHeads: plan ? Number(plan.head_count) : null,
-      variance: vr.length ? vr.reduce((a, x) => a.plus(D(s(x.variance_kg) ?? 0)), D(0)).toFixed(2) : null,
+      // one day without variance makes the week unknown, never a smaller number
+      variance: vr.length && vr.every((x) => s(x.variance_kg) !== null) ? vr.reduce((a, x) => a.plus(D(String(x.variance_kg))), D(0)).toFixed(2) : null,
     };
   }), null);
 
@@ -201,7 +211,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     base: `/minggu-ini/${w.week_start}`,
     release: ctx.lastRelease ? { releasedAt: ctx.lastRelease.released_at, counts: ctx.lastRelease.controls?.counts ?? null } : null,
     mode, hari: iso(sp.hari), segmen: sp.segmen === "RPA" || sp.segmen === "Trading" ? sp.segmen : null, sku: sp.sku ?? null,
-    on, plRows, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt, failed,
+    on, plRows, costingMode, lastWeek, stock, cashMart, month, solvency, demand, groups: null, roll: null, controlsV3, v5Pl, v5Mgmt, failed,
     pdfHref: `/api/w/${w.week_start}/pdf`,
   };
 }

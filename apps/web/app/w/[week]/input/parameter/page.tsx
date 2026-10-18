@@ -56,7 +56,7 @@ export default async function ParameterPage({ params, searchParams }: PageProps)
             <table className="t compact">
               <thead><tr><th>Parameter</th><th className="n">Nilai</th><th>Satuan</th><th>Keterangan</th></tr></thead>
               <tbody>
-                <tr><td>Tanggal update (hari ini)</td><td className="n">{can(role, "update_date") && !closed ? <input className="in" type="date" name="update_date" defaultValue={w.update_date} /> : <b>{w.update_date}</b>}</td><td>tanggal</td><td className="muted">Data aktual = transaksi sampai kemarin. Mengubah tanggal menggeser pembagian aktual/outlook.</td></tr>
+                <tr><td>Tanggal update (hari ini)</td><td className="n">{can(role, "update_date") && w.status === "open" ? <input className="in" type="date" name="update_date" defaultValue={w.update_date} /> : <b>{w.update_date}</b>}</td><td>tanggal</td><td className="muted">Data aktual = transaksi sampai kemarin. Mengubah tanggal menggeser pembagian aktual/outlook.</td></tr>
                 <tr><td>Awal minggu (Senin)</td><td className="n">{w.week_start}</td><td>tanggal</td><td className="muted">Minggu berjalan Senin–Minggu</td></tr>
                 <tr><td>Akhir minggu (Minggu)</td><td className="n">{w.week_end}</td><td>tanggal</td><td /></tr>
                 {MAIN.map(([c, l, u, k, kind]) => (

@@ -1,0 +1,42 @@
+# v5.2 B5 — dua migrasi (v52_costing, v52_fs) dijalankan ULANG di DB yang sudah memuatnya (shim + semua migrasi + seed)
+# tanggal: 2026-10-18 05:59 UTC · migrasi B5 @ 64c6859 · server: 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+# sha256 20261025000400_v52_costing.sql: e77526572fef255670e2b79f3e1042167638e9b7cc8fce4873a67f745a1f7ebb
+# sha256 20261025000500_v52_fs.sql:      0d3402496dfd735042984d47469448dfb24e85a16db0d7c018c71b6f2a1c354c
+
+## sebelum
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|-
+schema_version(): 5.2.4
+definisi md5 (fungsi, view, policy, constraint, index, trigger, kolom B5): 0ec6444301b39ef2e81c39fd2bbf10f7
+acl md5 (tabel, view, fungsi): 9e363f0e770980abb68a1836c6460cef
+semua fungsi public (md5 definisi, 68 fungsi): 225782c73e7ee8c7b264069a16b2c60d
+baris: fs_line_map=15 (draft 15), fs_statement_line=0, release_override_policy=38 (C59: {finance})
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000400_v52_costing.sql  (putaran kedua)
+  psql:supabase/migrations/20261025000400_v52_costing.sql:27: NOTICE:  column "lb_price_source" of relation "batch" already exists, skipping
+  psql:supabase/migrations/20261025000400_v52_costing.sql:39: NOTICE:  column "plan_week_id" of relation "plan_check_reason" already exists, skipping
+  psql:supabase/migrations/20261025000400_v52_costing.sql:45: NOTICE:  relation "plan_check_reason_plan_code" already exists, skipping
+  psql:supabase/migrations/20261025000400_v52_costing.sql:67: NOTICE:  column "detail" of relation "plan_week_class" already exists, skipping
+  exit: 0
+
+## psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025000500_v52_fs.sql  (putaran kedua)
+  psql:supabase/migrations/20261025000500_v52_fs.sql:41: NOTICE:  relation "fs_statement_line" already exists, skipping
+  psql:supabase/migrations/20261025000500_v52_fs.sql:82: NOTICE:  relation "fs_line_map" already exists, skipping
+  exit: 0
+
+## ketiga kali (kedua migrasi berurutan, satu transaksi)
+  NOTICE:  column "lb_price_source" of relation "batch" already exists, skipping
+  NOTICE:  column "plan_week_id" of relation "plan_check_reason" already exists, skipping
+  NOTICE:  relation "plan_check_reason_plan_code" already exists, skipping
+  NOTICE:  column "detail" of relation "plan_week_class" already exists, skipping
+  NOTICE:  relation "fs_statement_line" already exists, skipping
+  NOTICE:  relation "fs_line_map" already exists, skipping
+  exit: 0
+
+## sesudah
+registry:5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|- ; 5.2.4|-
+schema_version(): 5.2.4
+definisi md5 (fungsi, view, policy, constraint, index, trigger, kolom B5): 0ec6444301b39ef2e81c39fd2bbf10f7
+acl md5 (tabel, view, fungsi): 9e363f0e770980abb68a1836c6460cef
+semua fungsi public (md5 definisi, 68 fungsi): 225782c73e7ee8c7b264069a16b2c60d
+baris: fs_line_map=15 (draft 15), fs_statement_line=0, release_override_policy=38 (C59: {finance})
+# hasil: sebelum dan sesudah sama (registry, md5 definisi, md5 ACL, jumlah baris); exit 0 pada ketiga putaran

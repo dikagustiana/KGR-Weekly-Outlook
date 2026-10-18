@@ -18,7 +18,7 @@ export default async function RilisPage({ params }: PageProps) {
   const mgmt = ctx.view === "management";
   const controlLine = (x: (typeof rows)[number]) => {
     const n = x.controls?.counts ?? {};
-    const parts = [`${n.LULUS ?? 0}/${x.controls?.controls?.length ?? 0} lulus`];
+    const parts = [`${n.LULUS ?? 0}/${x.controls?.controls?.length ?? 0} lulus`]; // missing-ok: jumlah kontrol per status (hitungan)
     if (n["BELUM DIISI"]) parts.push(`${n["BELUM DIISI"]} belum diisi`);
     if (n.PERIKSA) parts.push(`${n.PERIKSA} perlu diperiksa`);
     if (n.GAGAL) parts.push(`${n.GAGAL} gagal`);

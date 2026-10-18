@@ -29,11 +29,17 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
   const extras: Record<string, ReactNode> = {};
   const c = input.commitment;
   if (!mgmt && c.canEdit && c.rows.length) extras["t-komitmen"] = <CommitmentForm c={c} save={saveCommitmentsAction} lock={lockCommitmentsAction} />;
-  if (!mgmt && input.ppic && input.ppic.surplusKg && input.ppic.surplusKg.gt(0) && c.canEdit && week) {
+  // R56: the answer is about a surplus row of PPIC's saved plan — the key comes from that row, not from the screen
+  // Q-v5.2-15: a Sales user answers a row of the view surplus_for_sales_v52 (their SKUs), of the week it was read for
+  const forSales = input.surplusForSales ?? null;
+  const surplus = input.ppic?.surplus ?? (forSales?.rows ?? []).filter((r) => r.kg !== null && Number(r.kg) > 0).map((r) => ({ key: r.key, kg: String(r.kg) }));
+  const answerWeek = forSales ? forSales.weekStart : week?.week_start;
+  if (!mgmt && (input.ppic || forSales) && surplus.length && c.canEdit && answerWeek) {
     extras["t-ppic"] = (
       <div className="actionbar">
         <ActionForm v4 action={answerSurplusAction} submit="Kirim jawaban ke PPIC" className="tile-form">
-          <input type="hidden" name="week_start" value={week.week_start} /><input type="hidden" name="surplus_kg" value={input.ppic.surplusKg.toFixed(2)} />
+          <input type="hidden" name="week_start" value={answerWeek} />
+          <select name="key" aria-label="SKU surplus">{surplus.map((r) => <option key={r.key} value={r.key}>{r.key.replace(/^RPA\|/, "")} · {num(r.kg, 0)} kg</option>)}</select>
           <select name="response" aria-label="jawaban surplus"><option value="absorb">Sanggup serap semua</option><option value="partial">Sanggup sebagian</option><option value="reduce">Tidak sanggup, kurangi potong</option></select>
           <input name="absorb_kg" size={6} placeholder="kg" aria-label="kg diserap" />
           <input name="price" size={7} placeholder="Rp/kg" aria-label="harga" />

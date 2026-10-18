@@ -125,14 +125,14 @@ async function nextSeq(sb: Supa, table: string, weekId: string | null): Promise<
   let q = sb.from(table).select("seq").order("seq", { ascending: false }).limit(1);
   if (weekId) q = q.eq("week_id", weekId);
   const data = must(await q.maybeSingle(), "upload.nextSeq");
-  return Number((data as Row | null)?.seq ?? 0);
+  return Number((data as Row | null)?.seq ?? 0); // missing-ok: nomor urut terakhir (indeks): tabel tanpa baris mulai dari 0
 }
 
 async function activeRows(sb: Supa, table: string, weekId: string, filter?: (q: any) => any): Promise<Row[]> {
   return fetchAll<Row>((f, t) => {
     let q: any = sb.from(table).select("*").eq("week_id", weekId).is("deleted_at", null);
     if (filter) q = filter(q);
-    return q.order("seq").range(f, t);
+    return q.order("seq").order("id").range(f, t);
   });
 }
 
@@ -256,10 +256,10 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       for (const h of staged) {
         const lines = existing.filter((e) => e.document_ref === h.document_ref && String(e.item_code ?? "").toUpperCase() === String(h.item_code).toUpperCase());
         if (!lines.length) { t.unchanged++; continue; }
-        const kgTot = lines.reduce((a, e) => a + Number(e.kg ?? 0), 0);
+        const kgTot = lines.reduce((a, e) => a + Number(e.kg ?? 0), 0); // missing-ok: bobot pembagian HPP per kg: baris tanpa kg tidak mendapat bagian
         let left = Number(h.hpp);
         lines.forEach((e, i) => {
-          const share = i === lines.length - 1 ? left : Math.round((Number(h.hpp) * Number(e.kg ?? 0) / (kgTot || 1)) * 100) / 100;
+          const share = i === lines.length - 1 ? left : Math.round((Number(h.hpp) * Number(e.kg ?? 0) / (kgTot || 1)) * 100) / 100; // missing-ok: bobot pembagian HPP per kg: baris tanpa kg tidak mendapat bagian
           left = Math.round((left - share) * 100) / 100;
           if (!same(e.hpp_actual, share)) t.updates.push({ id: e.id, hpp_actual: share.toFixed(2) });
           else t.unchanged++;
@@ -286,7 +286,7 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       t.notes.push(`Mengganti ${existing.length} baris stok awal minggu ini`);
     } else if (set.target === "gl_line") {
       t.label = "Jurnal (GL)";
-      const old = await fetchAll<Row>((f, tt) => sb.from("gl_line").select("*").is("deleted_at", null).gte("date", from).lte("date", to).order("seq").range(f, tt));
+      const old = await fetchAll<Row>((f, tt) => sb.from("gl_line").select("*").is("deleted_at", null).gte("date", from).lte("date", to).order("seq").order("id").range(f, tt));
       const byKey = new Map(old.filter((e) => e.line_key).map((e) => [String(e.line_key), e]));
       const legacyGl = old.filter((e) => !e.line_key);
       const seen = new Set<string>();
@@ -298,7 +298,7 @@ export async function planUpload(sb: Supa, week: WeekRow, kind: UploadKind, sets
       }
       t.deletes.push(...old.filter((e) => !seen.has(String(e.id))).map((e) => String(e.id)));
       t.notes.push(`Rentang tanggal ${from} s.d. ${to} diganti (idempotent)`);
-      const bal = staged.reduce((a, r) => a + Number(r.debit ?? 0) - Number(r.credit ?? 0), 0);
+      const bal = staged.reduce((a, r) => a + Number(r.debit ?? 0) - Number(r.credit ?? 0), 0); // missing-ok: baris jurnal berisi debit atau kredit; sisi yang kosong memang 0 (kontrol 13 menilai selisihnya)
       if (Math.abs(bal) > 1) t.notes.push(`Jurnal tidak seimbang: selisih ${bal.toFixed(2)} (kontrol 13)`);
     } else if (set.target === "tb_opening") {
       t.label = "Neraca saldo awal";
@@ -437,7 +437,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
   const v3 = v3Kind(kind);
   if (v3) {
     if (!isModuleOn(settings[v3.module], viewer.role) || !v3.roles.includes(viewer.role)) throw new WriteError(`Modul ${v3.module} belum aktif untuk peran Anda`);
-    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
+    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").order("upload_id").range(f, t));
     const r = await v3.commit({ sb, viewer, week, uploadId, rows });
     // K39: a stock card of date d moves the update date of its open week to d + 1
     const moved = kind === "stock_card" ? await advanceUpdateDate(sb, await listWeeks(sb), r.dates) : "";
@@ -457,7 +457,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
     const r = await loadWeekInputs(sb, inputs, { source: "Manual", master: true, uploadId, note: `Impor workbook ${up.file_name}` });
     counts.inserted = Object.values(r.counts).reduce((a, b) => a + b, 0);
   } else {
-    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").range(f, t));
+    const rows = await fetchAll<{ target: string; data: Row }>((f, t) => sb.from("upload_row").select("target, data").eq("upload_id", uploadId).order("row_no").order("upload_id").range(f, t));
     const sets = new Map<string, Row[]>();
     for (const r of rows) sets.set(r.target, [...(sets.get(r.target) ?? []), r.data]);
     const plan = await planUpload(sb, week, kind as UploadKind, [...sets.entries()].map(([target, rs]) => ({ target: target as StagedSet["target"], rows: rs })), viewer);

@@ -13,11 +13,13 @@ import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@k
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
-import { inChunks, must, mustRows } from "../loader";
+import { inChunks, must, mustRows, needParameter } from "../loader";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
 const s = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
+/** R61: a reference price that is missing or 0 is no price. */
+const priced = (v: string | null | undefined): string | null => (v === null || v === undefined || v === "" || D(v).isZero() ? null : v);
 
 export interface BatchRow {
   id: string; week_id: string; date: string | null; status: string | null; batch_ref: string | null; supplier: string | null;
@@ -56,30 +58,30 @@ function monthBounds(d: string): { start: string; end: string } {
 
 export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingWeek> {
   const batches = (await fetchAll<Row>((f, t) => sb.from("batch").select("id, week_id, date, status, batch_ref, supplier, lb_kg, lb_price, freight, maklon, processed_kg, cost_mode, head_count, avg_lb_kg, costing_status, document_ref")
-    .eq("week_id", week.id).is("deleted_at", null).is("superseded_at", null).order("date").order("seq").range(f, t))) as unknown as BatchRow[];
+    .eq("week_id", week.id).is("deleted_at", null).is("superseded_at", null).order("date").order("seq").order("id").range(f, t))) as unknown as BatchRow[];
   const ids = batches.map((b) => b.id);
   const [outs, runs, keys, prices, param] = await Promise.all([
-    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", c).is("deleted_at", null).order("kg", { ascending: false }).range(f, t))) : Promise.resolve([]),
-    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", c).neq("status", "superseded").order("run_at", { ascending: false }).range(f, t))) : Promise.resolve([]),
-    fetchAll<Row>((f, t) => sb.from("sku_key").select("key, group_code, decision_group, cut_component, segment").range(f, t)),
-    fetchAll<Row>((f, t) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).range(f, t)),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("batch_output_sku").select("id, batch_id, key, item_code, item_name, kg, price_ref, source, note").in("batch_id", c).is("deleted_at", null).order("kg", { ascending: false }).order("id").range(f, t))) : Promise.resolve([]),
+    ids.length ? inChunks(ids, (c) => fetchAll<Row>((f, t) => sb.from("allocation_run").select("id, batch_id, status, total_cost, total_allocated, diff, overhead_cost, run_at, run_by, by_product_method, mode, issues").in("batch_id", c).neq("status", "superseded").order("run_at", { ascending: false }).order("id").range(f, t))) : Promise.resolve([]),
+    fetchAll<Row>((f, t) => sb.from("sku_key").select("key, group_code, decision_group, cut_component, segment").order("key").range(f, t)),
+    fetchAll<Row>((f, t) => sb.from("sku_price").select("key, ref_sell_price").eq("week_id", week.id).order("key").order("week_id").range(f, t)),
     sb.from("parameter").select("by_product_method, yield_gap_tolerance, avg_lb_kg_default, selling_cost_per_kg").eq("week_id", week.id).maybeSingle(),
   ]);
   const latestRun = new Map<string, RunRow>();
   for (const r of runs as unknown as RunRow[]) if (!latestRun.has(r.batch_id)) latestRun.set(r.batch_id, r);
   const runIds = [...latestRun.values()].map((r) => r.id);
-  const lines = runIds.length ? ((await inChunks(runIds, (c) => fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", c).order("allocated_cost", { ascending: false }).range(f, t)))) as unknown as LineRow[]) : [];
+  const lines = runIds.length ? ((await inChunks(runIds, (c) => fetchAll<Row>((f, t) => sb.from("allocation_line").select("id, allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg, by_product_method, nrv_floor, nrv_writedown").in("allocation_run_id", c).order("allocated_cost", { ascending: false }).order("id").range(f, t)))) as unknown as LineRow[]) : [];
   const m = monthBounds(week.week_start);
   const mEnd = monthBounds(week.week_end).end;
-  const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").range(f, t))) as unknown as PoolRow[];
-  const poolLines = pools.length ? ((await inChunks(pools.map((p) => p.id), (c) => fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", c).is("deleted_at", null).order("date").range(f, t)))) as unknown as PoolLineRow[]) : [];
-  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).range(f, t))) as unknown as RateRow[];
+  const pools = (await fetchAll<Row>((f, t) => sb.from("cost_pool").select("id, period_start, period_end, mode, description, total_pi, total_gl, status").is("deleted_at", null).lte("period_start", mEnd).gte("period_end", m.start).order("period_start").order("id").range(f, t))) as unknown as PoolRow[];
+  const poolLines = pools.length ? ((await inChunks(pools.map((p) => p.id), (c) => fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("id, cost_pool_id, component, date, supplier, account, document_ref, amount, batch_id, note, line_key, source").in("cost_pool_id", c).is("deleted_at", null).order("date").order("id").range(f, t)))) as unknown as PoolLineRow[]) : [];
+  const rates = (await fetchAll<Row>((f, t) => sb.from("overhead_rate").select("id, period_start, period_end, rate_per_kg_lb, rate_per_head, basis_kg, budget_overhead, note").is("deleted_at", null).lte("period_start", week.week_end).gte("period_end", week.week_start).order("id").range(f, t))) as unknown as RateRow[];
   const group = <T,>(xs: T[], k: (x: T) => string) => {
     const g = new Map<string, T[]>();
     for (const x of xs) g.set(k(x), [...(g.get(k(x)) ?? []), x]);
     return g;
   };
-  const p = (param.data ?? {}) as Partial<CostingParams>;
+  const p = needParameter(must(param, "costing.parameter"), "costing.parameter") as Partial<CostingParams>;
   return {
     week, batches, outputs: group(outs as unknown as OutputRow[], (o) => o.batch_id), latestRun, lines: group(lines, (l) => l.allocation_run_id),
     pools, poolLines, rates,
@@ -87,7 +89,7 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
     prices: new Map((prices as Row[]).map((r) => [String(r.key), s(r.ref_sell_price)])),
     params: {
       by_product_method: p.by_product_method === "nrv" ? "nrv" : "joint", yield_gap_tolerance: s(p.yield_gap_tolerance) ?? "0.02",
-      avg_lb_kg_default: s(p.avg_lb_kg_default) ?? "2", selling_cost_per_kg: s(p.selling_cost_per_kg) ?? "0",
+      avg_lb_kg_default: String(p.avg_lb_kg_default), selling_cost_per_kg: String(p.selling_cost_per_kg),
     },
   };
 }
@@ -113,14 +115,14 @@ export function allocationInput(d: CostingWeek, b: BatchRow): AllocateInput {
     },
     outputs: outs.map((o) => ({
       ref: o.id, key: o.key, item_code: o.item_code, name: o.item_name, kg: o.kg,
-      // Q3: the WP price list of the cut week; without it the week's reference price of the key
-      price_ref: o.price_ref ?? (o.key ? d.prices.get(o.key) ?? null : null),
+      // Q3 / R61: the WP price list of the cut week, else the week's reference price of the key; a price of 0 is no price
+      price_ref: priced(o.price_ref) ?? (o.key ? priced(d.prices.get(o.key) ?? null) : null),
       by_product: !!o.key && d.keys.get(o.key)?.decision_group === "By-product",
       pools: /boneless/i.test(o.item_name ?? "") ? ["boneless"] : [],
     })),
     costLines: batchCostLines(d, b),
     overheadRate: rate ? { rate_per_kg_lb: rate.rate_per_kg_lb, rate_per_head: rate.rate_per_head, basis_kg: rate.basis_kg } : null,
-    options: { byProductMethod: d.params.by_product_method, sellingCostPerKg: d.params.selling_cost_per_kg },
+    options: { byProductMethod: d.params.by_product_method, sellingCostPerKg: d.params.selling_cost_per_kg, nullMissing: true },
   };
 }
 
@@ -182,7 +184,7 @@ export async function allocateWeek(sb: Supa, viewer: Viewer, week: WeekRow, batc
     const rows = r.lines.map((l) => ({
       allocation_run_id: runId, batch_output_sku_id: l.ref, key: l.key, item_code: l.item_code, kg: toFixedString(l.kg, 2),
       price_ref: l.priceRef === null ? null : toFixedString(l.priceRef, 4), sales_value: toFixedString(l.salesValue, 2), share: toFixedString(l.share, 8),
-      allocated_cost: toFixedString(l.allocatedCost, 2), cost_per_kg: toFixedString(l.costPerKg, 4), by_product_method: l.byProductMethod,
+      allocated_cost: toFixedString(l.allocatedCost, 2), cost_per_kg: l.costPerKg === null ? "0" : toFixedString(l.costPerKg, 4), by_product_method: l.byProductMethod,
       nrv_floor: l.nrvFloor === null ? null : toFixedString(l.nrvFloor, 4), nrv_writedown: toFixedString(l.nrvWritedown, 2),
     }));
     if (rows.length) {
@@ -196,21 +198,70 @@ export async function allocateWeek(sb: Supa, viewer: Viewer, week: WeekRow, batc
   return `Dialokasikan ${targets.length} batch (draft): ${notes.join(" · ")}`;
 }
 
-/** Post the latest draft runs (C24); a posted run is what the monthly release and the ledger use. */
+/** The SKUs of a posted-to-be allocation that carry output kg but no reference price (null or 0): K50/R61. */
+export function unpricedLines(d: CostingWeek, runId: string): string[] {
+  return (d.lines.get(runId) ?? []).filter((l) => D(l.kg).gt(0) && priced(l.price_ref) === null).map((l) => l.key ?? l.item_code ?? "?");
+}
+
+/**
+ * The draft runs of the week split by R61: a run whose allocation has an SKU with kg and no reference price (`held`) is
+ * posted only through the Finance/Admin override; every other run (`ready`) is posted the normal way. The split is the
+ * database's own (post_allocation_override takes a run with such a line and refuses one without), so no run ever goes
+ * down the wrong path. `naming` = "batch: SKU, SKU; batch: SKU" with the SKUs sorted and listed once.
+ */
+function draftsOf(d: CostingWeek) {
+  const refOf = (r: RunRow) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id;
+  const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft");
+  const split = drafts.map((r) => ({ run: r, keys: [...new Set(unpricedLines(d, r.id))].sort() }));
+  const held = split.filter((x) => x.keys.length);
+  return { refOf, ready: split.filter((x) => !x.keys.length).map((x) => x.run), held, naming: held.map((x) => `${refOf(x.run)}: ${x.keys.join(", ")}`).join("; ") };
+}
+
+/**
+ * Post the draft runs that have a reference price on every SKU (C24); a posted run is what the monthly release and the ledger
+ * use. R61 (K50): a run with an unpriced SKU is not posted here — the message names batch and SKUs — it goes through
+ * `postWeekOverride`. The other runs of the week are posted anyway: one batch without a price does not hold the rest.
+ * Written by Admin and Cost Accounting (allocation_run, batch).
+ */
 export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise<string> {
   const d = await loadCostingWeek(sb, week);
-  const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft");
-  const bad = drafts.filter((r) => D(r.diff).abs().gt(1));
+  const { refOf, ready, held, naming } = draftsOf(d);
+  const bad = ready.filter((r) => D(r.diff).abs().gt(1));
   if (bad.length) throw new WriteError(`${bad.length} alokasi belum seimbang (C21) — perbaiki output/harga lalu alokasikan ulang`);
   // C48: a batch whose SKU output is gone cannot be posted (the database trigger allocation_run_c48 refuses it too)
-  const empty = drafts.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
-  if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id).join(", ")}`);
-  for (const r of drafts) {
-    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id);
+  const empty = ready.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
+  if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => refOf(r)).join(", ")}`);
+  if (!ready.length && held.length) throw new WriteError(`Belum bisa diposting: harga acuan kosong — ${naming} — isi harga lalu alokasikan ulang (atau override Finance/Admin dengan alasan)`);
+  for (const r of ready) {
+    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id).select("id");
     if (e.error) throw new WriteError(e.error.message);
-    await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    if (!(e.data as Row[] | null)?.length) throw new WriteError(`Posting ${refOf(r)} tidak tersimpan: tidak ada baris yang diubah (hak akses)`);
+    const b = await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
+    if (b.error) throw new WriteError(b.error.message);
   }
-  return `Diposting: ${drafts.length} batch`;
+  return `Diposting: ${ready.length} batch${held.length ? `; ditahan karena harga acuan kosong: ${naming} (override Finance atau Admin dengan alasan)` : ""}`;
+}
+
+/**
+ * R61 override (Q-v5.2-30, -61): Finance or Admin posts the runs that have an SKU without a reference price, with a reason of
+ * at least 10 characters, through `post_allocation_override` (B5, 5.2.3). The RPC writes both tables in one transaction
+ * (allocation_run: posted, the override sentence in issues; batch.costing_status: posted) and checks again what this checks
+ * (role, reason, draft, balanced, an unpriced SKU on the run, live batch, week not closed): all runs or none. Only the
+ * held runs go in `p_run_ids` — a run with a complete price is posted by `postWeek` and the RPC refuses it. The batch stays
+ * below final (K59: final needs every allocation line priced). The database's message is shown as it is (K41).
+ */
+export async function postWeekOverride(sb: Supa, viewer: Viewer, week: WeekRow, reason: string): Promise<string> {
+  if (viewer.role !== "admin" && viewer.role !== "finance") throw new WriteError("Override posting alokasi hanya oleh Finance atau Admin; Cost Accounting memposting alokasi berharga lengkap dengan posting biasa");
+  const why = reason.trim();
+  if (why.length < 10) throw new WriteError("Override posting: alasan minimal 10 karakter");
+  const d = await loadCostingWeek(sb, week);
+  const { held, naming } = draftsOf(d);
+  if (!held.length) throw new WriteError("Tidak ada alokasi draft dengan harga acuan kosong; alokasi berharga lengkap diposting dengan posting biasa oleh Cost Accounting atau Admin");
+  const ids = held.map((x) => x.run.id);
+  const { data, error } = await sb.rpc("post_allocation_override", { p_run_ids: ids, p_reason: why });
+  if (error) throw new WriteError(error.message);
+  if (Number(data) !== ids.length) throw new WriteError(`Override posting: ${String(data)} dari ${ids.length} alokasi tercatat diposting; periksa alokasi minggu ini`);
+  return `Override: ${ids.length} batch diposting tanpa harga acuan (${naming}); batch tetap di bawah final`;
 }
 
 async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promise<string> {
@@ -224,7 +275,7 @@ async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promi
 
 async function refreshPoolTotals(sb: Supa, poolIds: string[]): Promise<void> {
   for (const id of [...new Set(poolIds)]) {
-    const lines = await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("amount").eq("cost_pool_id", id).is("deleted_at", null).range(f, t));
+    const lines = await fetchAll<Row>((f, t) => sb.from("cost_pool_line").select("amount").eq("cost_pool_id", id).is("deleted_at", null).order("id").range(f, t));
     const total = lines.reduce((a, l) => a.plus(D(String(l.amount))), D(0));
     const e = await sb.from("cost_pool").update({ total_pi: total.toFixed(2) }).eq("id", id);
     if (e.error) throw new WriteError(`cost_pool: ${e.error.message}`);
@@ -242,7 +293,7 @@ interface WpPlanned { b: WpBatch; weekId: string | null; existingId: string | nu
 
 async function planWp(sb: Supa, batches: WpBatch[]): Promise<{ planned: WpPlanned[]; weeks: WeekRow[]; itemKey: Map<string, string> }> {
   const weeks = await listWeeks(sb);
-  const items = await fetchAll<Row>((f, t) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(f, t));
+  const items = await fetchAll<Row>((f, t) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(f, t));
   const itemKey = new Map(items.map((i) => [String(i.item_code).toUpperCase(), String(i.key)]));
   const planned: WpPlanned[] = [];
   for (const b of batches) {
@@ -318,7 +369,7 @@ registerV3Kind({
         const out: Row = {};
         for (const a of agg.values()) {
           const col = (a.key && OUT_COL[a.key]) || "out_other";
-          out[col] = D(String(out[col] ?? 0)).plus(a.kg).toFixed(2);
+          out[col] = D(String(out[col] ?? 0)).plus(a.kg).toFixed(2); // missing-ok: akumulator kg per kolom out_* batch, mulai dari 0 untuk dijumlah
         }
         const ins = await sb.from("batch").insert({
           week_id: p.weekId, date: b.date, status: "Aktual", batch_ref: ref, supplier: b.supplier, lb_kg: b.lb_kg,
@@ -417,7 +468,7 @@ registerV3Kind({
       const date = s(v.date)!;
       const comp = (s(v.component) && ["LB", "freight", "maklon", "labour", "overhead", "blast", "other"].includes(s(v.component)!))
         ? (s(v.component) as CostComponent) : costComponentOf(`${s(v.description) ?? ""} ${s(v.supplier) ?? ""}`);
-      const n = (seen.get(doc) ?? 0) + 1;
+      const n = (seen.get(doc) ?? 0) + 1; // missing-ok: penghitung baris per dokumen untuk kunci baris (indeks)
       seen.set(doc, n);
       const ex = mustRows(await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null), "costing.cost_pool_line_doc") as Row[];
       const hit = ex.find((e) => e.source === "Accurate" && e.line_key === `PI|${doc}|${n}`) ?? ex.find((e) => e.source !== "Accurate") ?? null;

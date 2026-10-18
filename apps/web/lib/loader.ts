@@ -24,6 +24,15 @@ export function must<T>(res: Res<T>, where: string): T | null {
   return res.data;
 }
 
+/**
+ * R64 (K56): the parameter row of a week is an input of the numbers built from it (blast cost, selling cost, rates,
+ * yields). Without it they are unknown: the build stops with the reason, it never runs on a default of 0.
+ */
+export function needParameter(row: unknown, where: string): Record<string, unknown> {
+  if (!row) throw new LoaderError(where, "parameter minggu ini belum ada; biaya, tarif dan yield dari parameter tidak diketahui");
+  return row as Record<string, unknown>;
+}
+
 /** The rows of a list result (PostgREST returns [] for none), or LoaderError(where). */
 export function mustRows<T = Record<string, unknown>>(res: Res<T[]>, where: string): T[] {
   if (res.error) throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
@@ -40,7 +49,7 @@ export function orMissingTable<T>(res: Res<T[]>, where: string): T[] {
       console.error(`[schema] ${where}: ${res.error.message}`);
       return [];
     }
-    throw new LoaderError(where, res.error.message, true);
+    throw new LoaderError(where, res.error.message, isSchemaError(res.error.code), res.error.code);
   }
   return res.data ?? [];
 }

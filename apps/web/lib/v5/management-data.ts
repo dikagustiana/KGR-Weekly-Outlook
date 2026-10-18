@@ -34,7 +34,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   const failed: Failed = {};
   const ppic = fail(failed, ["sim-lb"], await tileData("manajemen: basis simulasi (PPIC v5)", async () =>
     loadPpicV5(sb, { src: await loadPlanning(sb, w), result: r, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(w.week_start, -1)) })), null);
-  const todayPrice = D(r.block2.lbPriceToday ?? 0).gt(0) ? D(r.block2.lbPriceToday) : null;
+  const lbToday = r.block2.lbPriceToday;
+  const todayPrice = lbToday !== null && lbToday !== undefined && D(lbToday).gt(0) ? D(lbToday) : null;
   const dec = fail(failed, ["sim-lb", "keputusan"], await tileData("manajemen: keputusan harga LB", async () =>
     must(await sb.from("lb_price_decision").select("date, price, decided_by, decided_at").eq("date", cutDate).order("decided_at", { ascending: false }).limit(1).maybeSingle(), "lb_price_decision") as Row | null), null);
   const decided = dec ? { date: cutDate, price: D(String(dec.price)), by: s(dec.decided_by) } : null;
@@ -74,7 +75,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   const decisions = decisionLines({
     lb: { cutDate, decided: !!decided, today: todayPrice, breakevenNeed: need?.breakeven ?? null },
     batch: ppic?.batch && bases.need ? { kgLb: ppic.batch.kgLb, needKgLb: bases.need.kgLb, surplusKg: ppic.batch.surplusKg, downgrade: ppic.batch.downgrade, threshold: ppic.batch.threshold } : null,
-    belowFloor: { count: ap.length, top: ap[0] ? { key: String(ap[0].key), kg: D(String(ap[0].kg)), price: D(String(ap[0].requested_price)), floor: D(String(ap[0].floor_price)), totalBelow: D(String(ap[0].total_below ?? 0)) } : null },
+    belowFloor: { count: ap.length, top: ap[0] ? { key: String(ap[0].key), kg: D(String(ap[0].kg)), price: D(String(ap[0].requested_price)), floor: D(String(ap[0].floor_price)), totalBelow: D(String(ap[0].total_below)) } : null },
     cash: low ? { min: D(low.closing!), date: low.date } : null,
   });
 
@@ -86,8 +87,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
       sb.from("sales_commitment").select("status").eq("week_start", next).is("deleted_at", null).neq("status", "superseded"),
       sb.from("parameter").select("commitment_lock_dow, commitment_lock_time").eq("week_id", w.id).maybeSingle(),
       sb.from("plan_week").select("version").eq("week_start", next).order("version", { ascending: false }).limit(1).maybeSingle(),
-      sb.from("batch").select("batch_ref, wp_received_at, invoice_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
-      fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)),
+      sb.from("batch").select("batch_ref, wp_received_at, invoice_status, costing_status").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", w.week_start).lte("date", w.week_end),
+      fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at, done_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)),
     ]);
     return {
       commits: mustRows<Row>(commits, "sales_commitment"), par: (must(par, "parameter") ?? {}) as Row, plan: must(plan, "plan_week") as Row | null,
@@ -104,8 +105,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-      key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days),
-      over_age_kg: "0", urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
+      key: String(m.key), form: s(m.form), free_kg: D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
+      over_age_kg: null, urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
     })), null));
     return { kg: sum.kg, value: sum.value };
   });
@@ -119,7 +120,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     off,
     commitment: { locked: lr.commits.some((x) => x.status === "locked"), drafts: lr.commits.filter((x) => x.status === "draft").length, deadline: `${DAYS[new Date(`${dl}T00:00:00Z`).getUTCDay()]} ${Number(dl.slice(8, 10))}/${dl.slice(5, 7)} ${deadline.slice(11, 16).replace(":", ".")}`, late: Date.parse(now) >= Date.parse(deadline) },
     planNext: { version: lr.plan ? Number(lr.plan.version) : null },
-    costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.invoice_status !== "tied").length, final: lr.batches.filter((b) => b.invoice_status === "tied").length, wpLate: lateOf("costing_wp") },
+    // K59: final = the allocation is posted (batch.costing_status 'posted'), not a tied invoice
+    costing: { sementara: lr.batches.filter((b) => b.wp_received_at && b.costing_status !== "posted").length, final: lr.batches.filter((b) => b.costing_status === "posted").length, wpLate: lateOf("costing_wp") },
     lb: { cutDate, price: decided?.price ?? null },
     freeStock: "error" in free ? { error: free.error } : free.ok,
   });
@@ -171,7 +173,7 @@ export function sourcesFailed(screen: keyof typeof SCREEN_SOURCES, message: stri
 export async function loadSources(sb: Supa, c: Clock, tasks?: TaskRef[]): Promise<Record<SourceKey, SourceLabel>> {
   // K38: the task window and "late" of Input (wall − 13 … wall + 7, against now)
   const win = taskWindow(c);
-  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).range(a, b)))
+  const ts = tasks ?? (await fetchAll<Row>((a, b) => sb.from("input_task").select("rule_kind, ref, status, due_at").gte("due_date", win.from).lte("due_date", win.to).order("due_date").order("ref").order("rule_kind").range(a, b)))
     .map((t: Row) => ({ kind: String(t.rule_kind), ref: String(t.ref), st: effectiveStatus({ status: String(t.status) as TaskStatus, due_at: s(t.due_at) }, c.now) }));
   const late = (k: string) => ts.some((t) => t.kind === k && t.st === "late");
   const first = async (q: PromiseLike<{ data: unknown; error: { message: string } | null }>, where: string) => must(await q, `label sumber ${where}`) as Row | null;

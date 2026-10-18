@@ -3,16 +3,17 @@ import { revalidatePath } from "next/cache";
 import { requireModuleAction } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { getWeek } from "@/lib/data";
-import { allocateWeek, postWeek } from "@/lib/v3/costing";
+import { allocateWeek, postWeek, postWeekOverride } from "@/lib/v3/costing";
 import { D, isISODate } from "@kgr/engine";
+import type { Role } from "@/lib/roles";
 import { parseNumber } from "@kgr/parsers";
 
 export type ActionState = { ok?: string; error?: string };
 
 const ROLES = ["admin", "cost_accounting"] as const;
 
-async function ctx(form: FormData) {
-  const v = await requireModuleAction("m1_costing", [...ROLES]);
+async function ctx(form: FormData, roles: readonly Role[] = ROLES) {
+  const v = await requireModuleAction("m1_costing", [...roles]);
   const sb = await supabaseServer();
   const week = await getWeek(sb, String(form.get("week")));
   if (!week) throw new Error("Minggu tidak ada");
@@ -35,6 +36,21 @@ export async function post(_: ActionState, form: FormData): Promise<ActionState>
   try {
     const { v, sb, week } = await ctx(form);
     const msg = await postWeek(sb, v, week);
+    done(week.week_start);
+    return { ok: msg };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/**
+ * R61 (Q-v5.2-30, -61): the override that posts the allocations with an SKU without a reference price — Finance or Admin, a reason
+ * of at least 10 characters — through the RPC post_allocation_override (B5): one transaction writes allocation_run and
+ * batch.costing_status, the reason goes into allocation_run.issues. Cost Accounting does not override: it posts the allocations
+ * with a complete price (`post`).
+ */
+export async function postOverride(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { v, sb, week } = await ctx(form, ["admin", "finance"]);
+    const msg = await postWeekOverride(sb, v, week, String(form.get("reason") ?? ""));
     done(week.week_start);
     return { ok: msg };
   } catch (e) { return { error: (e as Error).message }; }

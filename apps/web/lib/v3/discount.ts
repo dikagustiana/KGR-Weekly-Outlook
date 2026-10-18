@@ -31,7 +31,7 @@ export interface OrderToCheck {
 }
 
 async function keyFn(sb: Supa) {
-  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).range(a, b));
+  const items = await fetchAll<Row>((a, b) => sb.from("item_map").select("item_code, key").is("deleted_at", null).order("item_code").range(a, b));
   return keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
 }
 
@@ -39,7 +39,7 @@ async function keyFn(sb: Supa) {
 async function floors(sb: Supa, keys: string[], date: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!keys.length) return out;
-  const rows = await inChunks(keys, (c) => fetchAll<Row>((a, b) => sb.from("commercial_daily_sales").select("date, key, price_floor").in("key", c).lte("date", date).gte("date", addDays(date, -14)).order("date", { ascending: false }).range(a, b)));
+  const rows = await inChunks(keys, (c) => fetchAll<Row>((a, b) => sb.from("commercial_daily_sales").select("date, key, price_floor").in("key", c).lte("date", date).gte("date", addDays(date, -14)).order("date", { ascending: false }).order("key").range(a, b)));
   for (const r of rows) if (!out.has(String(r.key)) && r.price_floor !== null) out.set(String(r.key), String(r.price_floor));
   return out;
 }
@@ -63,7 +63,7 @@ export async function floorGuard(sb: Supa, viewer: Viewer, settings: ModuleSetti
   const lines = orders.map((o) => ({ key: o.key ?? keyOf(o.key_manual ?? null, o.item_code ?? null), customer: o.customer, price: o.price, kg: o.kg }));
   const fl = await floors(sb, [...new Set(lines.map((l) => l.key))], jakartaToday());
   const limit = await limitRpPerKg(sb);
-  const requests = await fetchAll<Row>((a, b) => sb.from("discount_approval").select("id, key, customer, requested_price, kg, status, sales_line_id").in("status", ["approved", "pending"]).range(a, b));
+  const requests = await fetchAll<Row>((a, b) => sb.from("discount_approval").select("id, key, customer, requested_price, kg, status, sales_line_id").in("status", ["approved", "pending"]).order("id").range(a, b));
   const g = guardOrders({
     lines, floors: fl, limitRpPerKg: limit,
     requests: requests.map((r) => ({ id: String(r.id), key: String(r.key), customer: s(r.customer), requested_price: String(r.requested_price), kg: String(r.kg), status: String(r.status), sales_line_id: s(r.sales_line_id) })),
@@ -108,10 +108,10 @@ export async function decide(sb: Supa, viewer: Viewer, id: string, approve: bool
 /** C38 for a week: Order lines priced under the floor without an approved discount. */
 export async function weekFloorControls(sb: Supa, week: WeekRow): Promise<ControlV3[]> {
   const keyOf = await keyFn(sb);
-  const orders = await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, item_code, key_manual, customer, price, kg, date, discount_approval_id").eq("week_id", week.id).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).range(a, b));
+  const orders = await fetchAll<Row>((a, b) => sb.from("sales_line").select("id, item_code, key_manual, customer, price, kg, date, discount_approval_id").eq("week_id", week.id).eq("status", "Order").is("deleted_at", null).is("superseded_at", null).order("id").range(a, b));
   const lines = orders.map((o) => ({ id: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), customer: s(o.customer), price: s(o.price), kg: s(o.kg) }));
   const fl = await floors(sb, [...new Set(lines.map((l) => l.key))], week.update_date);
-  const approved = await fetchAll<Row>((a, b) => sb.from("discount_approval").select("*").eq("status", "approved").range(a, b));
+  const approved = await fetchAll<Row>((a, b) => sb.from("discount_approval").select("*").eq("status", "approved").order("id").range(a, b));
   const limit = await limitRpPerKg(sb);
   const breaches = lines.filter((l) => l.price !== null && l.kg !== null).map((l) => ({ l, b: belowFloor({ price: l.price!, floor: fl.get(l.key) ?? null, kg: l.kg!, limitRpPerKg: limit }) }))
     .filter(({ l, b }) => b.below && !approved.some((a) => String(a.sales_line_id) === l.id || matches(a, l.key, l.customer, D(l.price!), D(l.kg!))))
@@ -125,14 +125,14 @@ export async function computeScorecard(sb: Supa, weekStart: string): Promise<Ret
   const we = addDays(weekStart, 6);
   const keyOf = await keyFn(sb);
   const [targets, sales, fc, blasts, disc, asg, spot] = await Promise.all([
-    fetchAll<Row>((a, b) => sb.from("sales_target").select("*").eq("week_start", weekStart).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, price, sales_rep").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep, kg").eq("week_start", weekStart).is("deleted_at", null).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("blast_event").select("key_from, kg, rp_downgrade").eq("reason", "cutoff").is("deleted_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("discount_approval").select("requested_by, total_below").eq("status", "approved").gte("decided_at", weekStart).lte("decided_at", `${we}T23:59:59`).range(a, b)),
-    fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_target").select("*").eq("week_start", weekStart).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, price, sales_rep").eq("status", "Aktual").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("forecast_line").select("sales_rep, kg").eq("week_start", weekStart).is("deleted_at", null).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("blast_event").select("key_from, kg, rp_downgrade").eq("reason", "cutoff").is("deleted_at", null).gte("date", weekStart).lte("date", we).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("discount_approval").select("requested_by, total_below").eq("status", "approved").gte("decided_at", weekStart).lte("decided_at", `${we}T23:59:59`).order("id").range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_assignment").select("*").eq("active", true).order("id").range(a, b)),
     // spot sales (K8): channel 'spot', any status; a missing column (v4 not migrated) is a schema error (banner)
-    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, sales_rep").eq("channel", "spot").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).range(a, b)),
+    fetchAll<Row>((a, b) => sb.from("sales_line").select("item_code, key_manual, customer, kg, sales_rep").eq("channel", "spot").is("deleted_at", null).is("superseded_at", null).gte("date", weekStart).lte("date", we).order("id").range(a, b)),
   ]);
   // rep of a sale: the line's own rep, else the rep assigned to its customer, else to its key
   const byCustomer = new Map(asg.filter((a) => a.customer).map((a) => [String(a.customer).toLowerCase(), String(a.sales_rep)]));
@@ -141,11 +141,12 @@ export async function computeScorecard(sb: Supa, weekStart: string): Promise<Ret
   const repOf = (r: Row, key: string) => s(r.sales_rep) ?? (r.customer ? byCustomer.get(String(r.customer).toLowerCase()) : undefined) ?? byKey.get(key) ?? "";
   return scorecard({
     targets: targets.map((t) => ({ sales_rep: String(t.sales_rep), target_kg: s(t.target_kg), target_rp: s(t.target_rp) })),
-    actuals: sales.map((x) => { const key = keyOf(s(x.key_manual), s(x.item_code)); return { sales_rep: repOf(x, key), kg: s(x.kg) ?? "0", value: D(s(x.kg) ?? "0").times(D(s(x.price) ?? "0")).toFixed(2) }; }),
+    // a sale without kg or price cannot be valued: it is left out of the realised figures, not counted at Rp 0
+    actuals: sales.filter((x) => s(x.kg) !== null && s(x.price) !== null).map((x) => { const key = keyOf(s(x.key_manual), s(x.item_code)); return { sales_rep: repOf(x, key), kg: String(x.kg), value: D(String(x.kg)).times(D(String(x.price))).toFixed(2) }; }),
     forecasts: fc.map((f) => ({ sales_rep: s(f.sales_rep) ?? "", kg: String(f.kg) })),
-    blasts: blasts.map((b) => ({ sales_rep: byKey.get(String(b.key_from)) ?? "", kg: String(b.kg), rp_downgrade: s(b.rp_downgrade) ?? "0" })),
+    blasts: blasts.map((b) => ({ sales_rep: byKey.get(String(b.key_from)) ?? "", kg: String(b.kg), rp_downgrade: s(b.rp_downgrade) })),
     discounts: disc.map((d) => ({ sales_rep: byEmail.get(String(d.requested_by ?? "").toLowerCase()) ?? "", total_below: String(d.total_below) })),
-    spot: spot.map((x) => ({ sales_rep: repOf(x, keyOf(s(x.key_manual), s(x.item_code))), kg: s(x.kg) ?? "0" })),
+    spot: spot.filter((x) => s(x.kg) !== null).map((x) => ({ sales_rep: repOf(x, keyOf(s(x.key_manual), s(x.item_code))), kg: String(x.kg) })),
   }).filter((r) => r.sales_rep !== "");
 }
 
