@@ -13,7 +13,7 @@ import { jakartaToday } from "@kgr/engine";
 import { V4Frame } from "./v4/Frame";
 import { v4Nav, v4On } from "@/lib/v4/nav";
 import { viewAsActive, viewAsItems } from "@/lib/v5/view-as";
-import { schemaStatus } from "@/lib/schema";
+import { schemaStatus } from "@/lib/schema-session";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],

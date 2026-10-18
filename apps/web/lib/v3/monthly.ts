@@ -73,7 +73,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const unbilled: ReturnType<typeof unbilledFromWeek> = [];
   let tolerance = "0.10", v1LockWeek = 3, windowDays = 7, wT = "0.7", wF = "0.5";
   for (const w of weeks) {
-    const c = await computeForWeek(w.week_start);
+    const c = await computeForWeek(sb, w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "monthly.parameter") as Row | null;
