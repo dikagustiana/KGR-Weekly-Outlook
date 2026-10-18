@@ -13,7 +13,7 @@ import { assignmentCovers, inAssignmentScope } from "../src/commercial-v5";
 import { c57, lbDecisionFor } from "../src/costing";
 import { effectiveForecasts, weeklyDemand, type ForecastLine } from "../src/demand";
 import { dueDatesFor } from "../src/input-tasks";
-import { c50, c58, dailyClassPlan, forecastLinesByDate, needByCutDate, toClassLB, weightedOpenKg, type SizedLine } from "../src/ppic-class";
+import { c50, c58, dailyClassPlan, forecastLinesByDate, needByCutDate, splitClassPlan, toClassLB, weightedOpenKg, type SizedLine } from "../src/ppic-class";
 import { validateUpload, type Grid, type UploadContext } from "../src/upload-validate";
 
 const W = { tentative: "0.7", forecast: "0.5" };
@@ -186,5 +186,40 @@ describe("R58 — C22 over the output that will be saved", () => {
     // a passing row of the same key|code replaces the old one: it is not counted twice
     const replaced = { ...ctxB, batches: [{ ...ctxB.batches[0], output: [{ key: "RPA|Karkas|Fresh", item_code: "JLB0763", kg: "6000" }] }] };
     expect(c22(validateUpload("costing_wp", grid(6000, 0).slice(0, 2), replaced)).detail).toMatch(/^6\.000,0 vs 9\.700,0 kg/);
+  });
+});
+
+describe("R52 — the saved plan_week_class split over the cut dates (splitClassPlan)", () => {
+  const profile = [
+    { cut_date: "2026-08-26", weight_class: "K", kg_lb: "600" }, { cut_date: "2026-08-27", weight_class: "K", kg_lb: "400" },
+    { cut_date: "2026-08-26", weight_class: "S", kg_lb: "1000" }, { cut_date: "2026-08-27", weight_class: "S", kg_lb: "500" },
+    { cut_date: "2026-08-26", weight_class: "B", kg_lb: "300" }, { cut_date: "2026-08-27", weight_class: "B", kg_lb: "300" },
+  ];
+  const saved = [{ weight_class: "K", kg_lb: "230.00", heads: 120 }, { weight_class: "S", kg_lb: "1389.00", heads: 801 }, { weight_class: "B", kg_lb: "811.00", heads: 407 }];
+  it("K / S / B on two dates: the batches add up exactly to the saved heads and kg LB of every class", () => {
+    const r = splitClassPlan({ saved, profile });
+    expect(r.unplaced).toEqual([]);
+    expect(r.cuts.map((c) => `${c.cut_date} ${c.weight_class}`)).toEqual(["2026-08-26 B", "2026-08-26 K", "2026-08-26 S", "2026-08-27 B", "2026-08-27 K", "2026-08-27 S"]);
+    for (const sv of saved) {
+      const mine = r.cuts.filter((c) => c.weight_class === sv.weight_class);
+      expect(mine.reduce((a, c) => a + c.heads, 0)).toBe(sv.heads);
+      expect(mine.reduce((a, c) => a.plus(c.kg_lb), D(0)).toFixed(2)).toBe(sv.kg_lb);
+    }
+  });
+  it("heads follow the profile (largest remainder): K 120 heads on 600 : 400 → 72 and 48; kg LB = heads × the saved kg per head", () => {
+    const k = splitClassPlan({ saved: [saved[0]], profile }).cuts;
+    expect(k.map((c) => c.heads)).toEqual([72, 48]);
+    expect(k.map((c) => c.kg_lb.toFixed(2))).toEqual(["138.00", "92.00"]);
+  });
+  it("a class with 1 head goes to the date with the larger need, the other date gets no batch (no kg without heads)", () => {
+    const r = splitClassPlan({ saved: [{ weight_class: "K", kg_lb: "2.00", heads: 1 }], profile });
+    expect(r.cuts).toHaveLength(1);
+    expect(r.cuts[0]).toMatchObject({ cut_date: "2026-08-26", heads: 1 });
+    expect(r.cuts[0].kg_lb.toFixed(2)).toBe("2.00");
+  });
+  it("a saved class with no need left in the profile is returned unplaced — nothing is invented; an empty saved row is skipped", () => {
+    const r = splitClassPlan({ saved: [{ weight_class: "STD", kg_lb: "100.00", heads: 50 }, { weight_class: "K", kg_lb: null, heads: 0 }], profile });
+    expect(r.unplaced).toEqual(["STD"]);
+    expect(r.cuts).toEqual([]);
   });
 });
