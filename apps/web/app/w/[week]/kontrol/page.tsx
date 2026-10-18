@@ -28,7 +28,7 @@ export default async function KontrolPage({ params }: PageProps) {
   const c = ctx.computed.result.controls;
   const canRelease = can(ctx.viewer.role, "release");
   const sb = await supabaseServer();
-  const v3 = await v3ForWeek(sb, ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result);
+  const v3 = await v3ForWeek(sb, ctx.week, moduleSettingsGlobal(await moduleSettings()), ctx.computed.result, ctx.viewer.role);
   // PRD v4 §7.2: the same verdict public.release_week applies in the release transaction
   const rc = await releaseContext(sb, "week", week, week, addDays(week, 6));
   // v5.1 K47: C53 of the v3 controls counts like a v1 control (and is overridden here by Finance); K35 / K45 from the grid

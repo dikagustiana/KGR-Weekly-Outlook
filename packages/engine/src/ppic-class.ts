@@ -12,7 +12,7 @@
  * The heads are what the kg LB means, not a decision variable (K28 replaces v4 K1's heads).
  */
 import { D, Decimal, ZERO, div, max, sum, type Num } from "./decimal";
-import { addDays, type ISODate } from "./dates";
+import { addDays, isISODate, type ISODate } from "./dates";
 import type { ControlV3 } from "./controls-v3";
 import { effectiveForecasts, type DemandWeights, type ForecastLine } from "./demand";
 import { outstandingKg, type OrderQty } from "./delivery";
@@ -220,22 +220,66 @@ export function dailyClassPlan(x: { demand: ClassDemand; leadTimeDays: number })
   });
 }
 
-export interface SavedClassRow { weight_class: string; kg_lb: Num | null; heads: number | null }
+export interface SavedClassRow {
+  weight_class: string;
+  kg_lb: Num | null;
+  heads: number | null;
+  /**
+   * `plan_week_class.detail` (B5, Q-v5.2-21): `[{ cut_date, heads, kg_lb }]`, the split of the class over the cut dates as the plan
+   * was saved. null or absent = a row saved before v5.2: the split comes from the demand profile.
+   */
+  detail?: unknown;
+}
 export interface ClassCut { cut_date: ISODate; weight_class: string; heads: number; kg_lb: Decimal }
+/** One entry of `plan_week_class.detail`. kg LB is a string with two decimals, as the column kg_lb holds it. */
+export interface ClassDetailEntry { cut_date: ISODate; heads: number; kg_lb: string }
+
+/** The `detail` of one class from its cuts (what the plan saves): sorted by date, kg LB with two decimals. */
+export function classDetailOf(cuts: ClassCut[], weightClass: string): ClassDetailEntry[] {
+  return cuts.filter((c) => c.weight_class === weightClass).sort((a, b) => a.cut_date.localeCompare(b.cut_date)).map((c) => ({ cut_date: c.cut_date, heads: c.heads, kg_lb: c.kg_lb.toFixed(2) }));
+}
 
 /**
- * R52 (stage 1): the batches of "Salin ke batch rencana" per cut date × class, from the SAVED plan_week_class of the plan
- * version. A saved row holds the kg LB and the heads of a class for the whole week; the profile (the daily class need of
- * the same demand, `dailyClassPlan`) only says how the week divides over the cut dates. The batches add up exactly to the
- * saved rows: heads by largest remainder on the profile, kg LB = heads × the saved kg per head (the last date takes the
- * rounding). A class saved without any profile (its need is gone) is returned in `unplaced`: nothing is invented for it.
- * Stage 2 (the date split itself saved, K27 in full) waits for B-R85.
+ * The cuts a saved `detail` says, or null when it is not a split of this saved row: not an array, an entry that is not
+ * `{ cut_date (a date), heads (whole, > 0), kg_lb (> 0) }`, a date twice, or totals that differ from the saved heads and kg LB
+ * (kg within 0,01). A detail is never half-trusted: the caller holds the copy instead.
  */
-export function splitClassPlan(x: { saved: SavedClassRow[]; profile: { cut_date: ISODate; weight_class: string; kg_lb: Num }[] }): { cuts: ClassCut[]; unplaced: string[] } {
-  const cuts: ClassCut[] = [], unplaced: string[] = [];
+function cutsOfDetail(detail: unknown, weightClass: string, heads: number, kg: Decimal): ClassCut[] | null {
+  if (!Array.isArray(detail) || !detail.length) return null;
+  const cuts: ClassCut[] = [];
+  for (const e of detail as unknown[]) {
+    if (e === null || typeof e !== "object" || Array.isArray(e)) return null;
+    const { cut_date, heads: h, kg_lb } = e as Record<string, unknown>;
+    if (typeof cut_date !== "string" || !isISODate(cut_date) || cuts.some((c) => c.cut_date === cut_date)) return null;
+    if (typeof h !== "number" || !Number.isInteger(h) || h <= 0) return null;
+    if ((typeof kg_lb !== "string" && typeof kg_lb !== "number") || !/^\d+(\.\d+)?$/.test(String(kg_lb)) || !D(String(kg_lb)).gt(0)) return null;
+    cuts.push({ cut_date, weight_class: weightClass, heads: h, kg_lb: D(String(kg_lb)) });
+  }
+  if (cuts.reduce((a, c) => a + c.heads, 0) !== heads) return null;
+  if (sum(cuts.map((c) => c.kg_lb)).minus(kg).abs().gt("0.01")) return null;
+  return cuts.sort((a, b) => a.cut_date.localeCompare(b.cut_date));
+}
+
+/**
+ * R52 (stage 1) and Q-v5.2-21: the batches of "Salin ke batch rencana" per cut date × class, from the SAVED plan_week_class of
+ * the plan version. A saved row holds the kg LB and the heads of a class for the whole week. When the row carries its `detail`
+ * (the split the plan was saved with) the batches ARE that split — what PPIC saved is what is copied, whatever the demand
+ * says today; a detail that is not a valid split of the row is returned in `invalid` (no batches for that class). A row
+ * without a detail (saved before v5.2) is divided by the profile (the daily class need of the same demand, `dailyClassPlan`):
+ * heads by largest remainder on the profile, kg LB = heads × the saved kg per head (the last date takes the rounding); a class
+ * without any profile (its need is gone) is returned in `unplaced`: nothing is invented for it. Either way the batches add up
+ * exactly to the saved rows.
+ */
+export function splitClassPlan(x: { saved: SavedClassRow[]; profile: { cut_date: ISODate; weight_class: string; kg_lb: Num }[] }): { cuts: ClassCut[]; unplaced: string[]; invalid: string[] } {
+  const cuts: ClassCut[] = [], unplaced: string[] = [], invalid: string[] = [];
   for (const sv of x.saved) {
     const heads = sv.heads ?? 0, kg = D(sv.kg_lb ?? 0);
     if (heads <= 0 && !kg.gt(0)) continue;
+    if (sv.detail !== null && sv.detail !== undefined) {
+      const fromDetail = heads > 0 ? cutsOfDetail(sv.detail, sv.weight_class, heads, kg) : null;
+      if (fromDetail) cuts.push(...fromDetail); else invalid.push(sv.weight_class);
+      continue;
+    }
     const prof = x.profile.filter((p) => p.weight_class === sv.weight_class && D(p.kg_lb).gt(0)).sort((a, b) => a.cut_date.localeCompare(b.cut_date));
     const total = sum(prof.map((p) => D(p.kg_lb)));
     if (!prof.length || !total.gt(0) || heads <= 0) { unplaced.push(sv.weight_class); continue; }
@@ -252,7 +296,7 @@ export function splitClassPlan(x: { saved: SavedClassRow[]; profile: { cut_date:
       cuts.push({ cut_date: p.cut_date, weight_class: sv.weight_class, heads: base[i], kg_lb: part });
     });
   }
-  return { cuts: cuts.sort((a, b) => a.cut_date.localeCompare(b.cut_date) || a.weight_class.localeCompare(b.weight_class)), unplaced };
+  return { cuts: cuts.sort((a, b) => a.cut_date.localeCompare(b.cut_date) || a.weight_class.localeCompare(b.weight_class)), unplaced, invalid };
 }
 
 /** §4.3 for a plan of kg LB: karkas output, surplus over the demand, frozen planned and the downgrade (Rp, positive). */

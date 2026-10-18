@@ -204,40 +204,64 @@ export function unpricedLines(d: CostingWeek, runId: string): string[] {
 }
 
 /**
- * Post the latest draft runs (C24); a posted run is what the monthly release and the ledger use. R61 (K50): a batch
- * whose allocation has an unpriced SKU cannot be posted — the message names batch and SKUs — unless the override
- * (`override`, a reason of at least 10 characters; Admin for now, Finance after B-R85) is given: the allocation is then posted with the override written
- * into allocation_run.issues, and the batch stays below final (K59: final needs every line priced).
+ * The draft runs of the week split by R61: a run whose allocation has an SKU with kg and no reference price (`held`) is
+ * posted only through the Finance/Admin override; every other run (`ready`) is posted the normal way. The split is the
+ * database's own (post_allocation_override takes a run with such a line and refuses one without), so no run ever goes
+ * down the wrong path. `naming` = "batch: SKU, SKU; batch: SKU" with the SKUs sorted and listed once.
  */
-export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow, opts: { override?: { reason: string } } = {}): Promise<string> {
-  const d = await loadCostingWeek(sb, week);
+function draftsOf(d: CostingWeek) {
+  const refOf = (r: RunRow) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id;
   const drafts = [...d.latestRun.values()].filter((r) => r.status === "draft");
-  const bad = drafts.filter((r) => D(r.diff).abs().gt(1));
+  const split = drafts.map((r) => ({ run: r, keys: [...new Set(unpricedLines(d, r.id))].sort() }));
+  const held = split.filter((x) => x.keys.length);
+  return { refOf, ready: split.filter((x) => !x.keys.length).map((x) => x.run), held, naming: held.map((x) => `${refOf(x.run)}: ${x.keys.join(", ")}`).join("; ") };
+}
+
+/**
+ * Post the draft runs that have a reference price on every SKU (C24); a posted run is what the monthly release and the ledger
+ * use. R61 (K50): a run with an unpriced SKU is not posted here — the message names batch and SKUs — it goes through
+ * `postWeekOverride`. The other runs of the week are posted anyway: one batch without a price does not hold the rest.
+ * Written by Admin and Cost Accounting (allocation_run, batch).
+ */
+export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow): Promise<string> {
+  const d = await loadCostingWeek(sb, week);
+  const { refOf, ready, held, naming } = draftsOf(d);
+  const bad = ready.filter((r) => D(r.diff).abs().gt(1));
   if (bad.length) throw new WriteError(`${bad.length} alokasi belum seimbang (C21) — perbaiki output/harga lalu alokasikan ulang`);
   // C48: a batch whose SKU output is gone cannot be posted (the database trigger allocation_run_c48 refuses it too)
-  const empty = drafts.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
-  if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id).join(", ")}`);
-  const refOf = (r: RunRow) => d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id;
-  const unpriced = drafts.map((r) => ({ run: r, keys: unpricedLines(d, r.id) })).filter((x) => x.keys.length);
-  const naming = unpriced.map((x) => `${refOf(x.run)}: ${x.keys.join(", ")}`).join("; ");
-  const reason = opts.override?.reason.trim() ?? "";
-  if (unpriced.length && !opts.override) throw new WriteError(`Belum bisa diposting: harga acuan kosong — ${naming} — isi harga lalu alokasikan ulang (atau override Finance dengan alasan)`);
-  if (unpriced.length && opts.override) {
-    // allocation_run and batch.costing_status are written by admin / cost_accounting only (RLS): Finance's right to override comes
-    // with B-R85 (RPC post_allocation_override, docs/v5.2/b5.md), not before
-    if (viewer.role !== "admin") throw new WriteError("Override posting harga acuan kosong sementara hanya oleh Admin; hak Finance menunggu B-R85 (RPC post_allocation_override)");
-    if (reason.length < 10) throw new WriteError("Override posting: alasan minimal 10 karakter");
-  }
-  for (const r of drafts) {
-    const keys = unpriced.find((x) => x.run.id === r.id)?.keys ?? [];
-    const issues = keys.length ? [...(r.issues ?? []), `override Finance: diposting tanpa harga acuan ${keys.join(", ")} — ${reason} (${viewer.email}, ${new Date().toISOString().slice(0, 10)})`] : r.issues;
-    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email, issues }).eq("id", r.id).select("id");
+  const empty = ready.filter((r) => !(d.outputs.get(r.batch_id) ?? []).some((o) => D(o.kg).gt(0)));
+  if (empty.length) throw new WriteError(`C48: batch tanpa output SKU tidak bisa diposting — ${empty.map((r) => refOf(r)).join(", ")}`);
+  if (!ready.length && held.length) throw new WriteError(`Belum bisa diposting: harga acuan kosong — ${naming} — isi harga lalu alokasikan ulang (atau override Finance/Admin dengan alasan)`);
+  for (const r of ready) {
+    const e = await sb.from("allocation_run").update({ status: "posted", posted_at: new Date().toISOString(), posted_by: viewer.email }).eq("id", r.id).select("id");
     if (e.error) throw new WriteError(e.error.message);
     if (!(e.data as Row[] | null)?.length) throw new WriteError(`Posting ${refOf(r)} tidak tersimpan: tidak ada baris yang diubah (hak akses)`);
     const b = await sb.from("batch").update({ costing_status: "posted" }).eq("id", r.batch_id);
     if (b.error) throw new WriteError(b.error.message);
   }
-  return `Diposting: ${drafts.length} batch${unpriced.length ? ` (override Finance: harga acuan kosong ${naming}; batch tetap di bawah final)` : ""}`;
+  return `Diposting: ${ready.length} batch${held.length ? `; ditahan karena harga acuan kosong: ${naming} (override Finance atau Admin dengan alasan)` : ""}`;
+}
+
+/**
+ * R61 override (Q-v5.2-30, -61): Finance or Admin posts the runs that have an SKU without a reference price, with a reason of
+ * at least 10 characters, through `post_allocation_override` (B5, 5.2.3). The RPC writes both tables in one transaction
+ * (allocation_run: posted, the override sentence in issues; batch.costing_status: posted) and checks again what this checks
+ * (role, reason, draft, balanced, an unpriced SKU on the run, live batch, week not closed): all runs or none. Only the
+ * held runs go in `p_run_ids` — a run with a complete price is posted by `postWeek` and the RPC refuses it. The batch stays
+ * below final (K59: final needs every allocation line priced). The database's message is shown as it is (K41).
+ */
+export async function postWeekOverride(sb: Supa, viewer: Viewer, week: WeekRow, reason: string): Promise<string> {
+  if (viewer.role !== "admin" && viewer.role !== "finance") throw new WriteError("Override posting alokasi hanya oleh Finance atau Admin; Cost Accounting memposting alokasi berharga lengkap dengan posting biasa");
+  const why = reason.trim();
+  if (why.length < 10) throw new WriteError("Override posting: alasan minimal 10 karakter");
+  const d = await loadCostingWeek(sb, week);
+  const { held, naming } = draftsOf(d);
+  if (!held.length) throw new WriteError("Tidak ada alokasi draft dengan harga acuan kosong; alokasi berharga lengkap diposting dengan posting biasa oleh Cost Accounting atau Admin");
+  const ids = held.map((x) => x.run.id);
+  const { data, error } = await sb.rpc("post_allocation_override", { p_run_ids: ids, p_reason: why });
+  if (error) throw new WriteError(error.message);
+  if (Number(data) !== ids.length) throw new WriteError(`Override posting: ${String(data)} dari ${ids.length} alokasi tercatat diposting; periksa alokasi minggu ini`);
+  return `Override: ${ids.length} batch diposting tanpa harga acuan (${naming}); batch tetap di bawah final`;
 }
 
 async function ensurePool(sb: Supa, date: string, mode: "maklon" | "own"): Promise<string> {

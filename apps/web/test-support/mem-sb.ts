@@ -18,6 +18,8 @@ export interface MemSb {
   tables: Record<string, MemRow[]>;
   log: MemLog[];
   rpcCalls: { name: string; args: MemRow }[];
+  /** The column list of every read (`select("a, b")`), to prove a loader asks for a column: the client itself returns whole rows. */
+  selects: { table: string; columns: string }[];
   /** The requests of one kind, e.g. `calls("sales_commitment:upsert")`. */
   calls: (call: string) => MemLog[];
 }
@@ -77,12 +79,12 @@ const subset = (big: unknown, small: unknown): boolean => {
 
 export function memSb(seed: Record<string, MemRow[]> = {}, opts: { fail?: Record<string, Fail>; rpc?: Record<string, (args: MemRow, db: MemSb) => { data?: unknown; error?: Err | null }> } = {}): MemSb {
   const tables: Record<string, MemRow[]> = Object.fromEntries(Object.entries(seed).map(([t, rows]) => [t, rows.map((r) => ({ ...r }))]));
-  const log: MemLog[] = [], rpcCalls: { name: string; args: MemRow }[] = [];
+  const log: MemLog[] = [], rpcCalls: { name: string; args: MemRow }[] = [], selects: { table: string; columns: string }[] = [];
   let seq = 0;
   const err = (f: Fail): Err => (typeof f === "string" ? { message: f } : f);
   const failOf = (table: string, op: string): Err | null => { const f = opts.fail?.[`${table}:${op}`] ?? opts.fail?.[table]; return f ? err(f) : null; };
   const db: MemSb = {
-    tables, log, rpcCalls, calls: (call) => log.filter((l) => l.call === call),
+    tables, log, rpcCalls, selects, calls: (call) => log.filter((l) => l.call === call),
     from(table: string) {
       let op: "select" | "insert" | "update" | "upsert" | "delete" = "select";
       let payload: unknown, wopts: { onConflict?: string; count?: string } | undefined, head = false, count = false, one: "single" | "maybe" | null = null;
@@ -90,7 +92,7 @@ export function memSb(seed: Record<string, MemRow[]> = {}, opts: { fail?: Record
       let orders: { col: string; asc: boolean }[] = [], lo = 0, hi = Infinity, lim = Infinity, returning = false;
       const q: Record<string, unknown> = {};
       const add = (label: string, f: Filter) => { labels.push(label); filters.push(f); return q; };
-      q.select = (_cols?: string, o?: { head?: boolean; count?: string }) => { if (op === "select") { head = !!o?.head; count = !!o?.count; } else returning = true; return q; };
+      q.select = (cols?: string, o?: { head?: boolean; count?: string }) => { if (op === "select") { head = !!o?.head; count = !!o?.count; selects.push({ table, columns: cols ?? "*" }); } else returning = true; return q; };
       q.eq = (c: string, v: unknown) => add(`eq ${c} ${String(v)}`, (r) => same(r[c], v));
       q.neq = (c: string, v: unknown) => add(`neq ${c} ${String(v)}`, (r) => !same(r[c], v));
       for (const o of ["gt", "gte", "lt", "lte"] as const) q[o] = (c: string, v: unknown) => add(`${o} ${c} ${String(v)}`, opFilter(c, o, String(v)));

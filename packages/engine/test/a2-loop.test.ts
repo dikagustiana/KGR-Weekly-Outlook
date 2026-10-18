@@ -13,7 +13,7 @@ import { assignmentCovers, inAssignmentScope } from "../src/commercial-v5";
 import { c57, lbDecisionFor } from "../src/costing";
 import { effectiveForecasts, weeklyDemand, type ForecastLine } from "../src/demand";
 import { dueDatesFor } from "../src/input-tasks";
-import { c50, c58, dailyClassPlan, forecastLinesByDate, needByCutDate, splitClassPlan, toClassLB, weightedOpenKg, type SizedLine } from "../src/ppic-class";
+import { c50, c58, classDetailOf, dailyClassPlan, forecastLinesByDate, needByCutDate, splitClassPlan, toClassLB, weightedOpenKg, type SizedLine } from "../src/ppic-class";
 import { validateUpload, type Grid, type UploadContext } from "../src/upload-validate";
 
 const W = { tentative: "0.7", forecast: "0.5" };
@@ -221,5 +221,63 @@ describe("R52 — the saved plan_week_class split over the cut dates (splitClass
     const r = splitClassPlan({ saved: [{ weight_class: "STD", kg_lb: "100.00", heads: 50 }, { weight_class: "K", kg_lb: null, heads: 0 }], profile });
     expect(r.unplaced).toEqual(["STD"]);
     expect(r.cuts).toEqual([]);
+  });
+});
+
+describe("Q-v5.2-21 — splitClassPlan uses the saved detail (plan_week_class.detail) when the row has one", () => {
+  // the profile says 600 : 400 for K, but the plan was saved with 100 heads on the 26th and 20 on the 27th
+  const profile = [{ cut_date: "2026-08-26", weight_class: "K", kg_lb: "600" }, { cut_date: "2026-08-27", weight_class: "K", kg_lb: "400" }];
+  const detail = [{ cut_date: "2026-08-26", heads: 100, kg_lb: "191.67" }, { cut_date: "2026-08-27", heads: 20, kg_lb: "38.33" }];
+  const row = (d: unknown) => ({ weight_class: "K", kg_lb: "230.00", heads: 120, detail: d });
+
+  it("the batches are the saved detail, not the profile (72 : 48 would be the profile)", () => {
+    const r = splitClassPlan({ saved: [row(detail)], profile });
+    expect(r.invalid).toEqual([]);
+    expect(r.unplaced).toEqual([]);
+    expect(r.cuts.map((c) => [c.cut_date, c.heads, c.kg_lb.toFixed(2)])).toEqual([["2026-08-26", 100, "191.67"], ["2026-08-27", 20, "38.33"]]);
+  });
+  it("null or absent detail = a row saved before v5.2: divided by the profile as before", () => {
+    for (const d of [null, undefined]) {
+      expect(splitClassPlan({ saved: [row(d)], profile }).cuts.map((c) => c.heads)).toEqual([72, 48]);
+    }
+  });
+  it("the detail is used even when the profile has nothing for the class any more (the plan was saved, the demand moved)", () => {
+    const r = splitClassPlan({ saved: [row(detail)], profile: [] });
+    expect(r.unplaced).toEqual([]);
+    expect(r.cuts).toHaveLength(2);
+  });
+  it("a detail that is not a split of the saved row is invalid — never half-trusted, never replaced by the profile", () => {
+    const bad: unknown[] = [
+      [], {}, "x", 5,                                                                           // not a split
+      [{ cut_date: "2026-08-26", heads: 100, kg_lb: "191.67" }],                                 // heads add up to 100, not 120
+      [{ cut_date: "2026-08-26", heads: 100, kg_lb: "191.67" }, { cut_date: "2026-08-27", heads: 20, kg_lb: "40.00" }], // kg 231.67 ≠ 230.00
+      [{ cut_date: "2026-08-26", heads: 100, kg_lb: "191.67" }, { cut_date: "2026-08-26", heads: 20, kg_lb: "38.33" }], // a date twice
+      [{ cut_date: "26/08/2026", heads: 100, kg_lb: "191.67" }, { cut_date: "2026-08-27", heads: 20, kg_lb: "38.33" }],
+      [{ cut_date: "2026-08-26", heads: 100.5, kg_lb: "191.67" }, { cut_date: "2026-08-27", heads: 19.5, kg_lb: "38.33" }],
+      [{ cut_date: "2026-08-26", heads: 120, kg_lb: "-5" }],
+      [{ cut_date: "2026-08-26", heads: 120 }],
+      [null, { cut_date: "2026-08-27", heads: 120, kg_lb: "230.00" }],
+    ];
+    for (const d of bad) {
+      const r = splitClassPlan({ saved: [row(d)], profile });
+      expect(r.invalid, JSON.stringify(d)).toEqual(["K"]);
+      expect(r.cuts).toEqual([]);
+    }
+  });
+  it("a detail within 0,01 kg of the saved kg LB is accepted (the totals differ only by rounding of the entries)", () => {
+    expect(splitClassPlan({ saved: [row([{ cut_date: "2026-08-26", heads: 100, kg_lb: "191.67" }, { cut_date: "2026-08-27", heads: 20, kg_lb: "38.34" }])], profile }).invalid).toEqual([]);
+  });
+  it("what the plan saves is what the copy reads: classDetailOf(split) round-trips through splitClassPlan, for every class, whatever the profile", () => {
+    const saved = [{ weight_class: "K", kg_lb: "230.00", heads: 120 }, { weight_class: "S", kg_lb: "1389.00", heads: 801 }];
+    const prof = [
+      { cut_date: "2026-08-26", weight_class: "K", kg_lb: "600" }, { cut_date: "2026-08-27", weight_class: "K", kg_lb: "400" },
+      { cut_date: "2026-08-26", weight_class: "S", kg_lb: "1000" }, { cut_date: "2026-08-27", weight_class: "S", kg_lb: "500" },
+    ];
+    const first = splitClassPlan({ saved, profile: prof });
+    const withDetail = saved.map((r) => ({ ...r, detail: classDetailOf(first.cuts, r.weight_class) }));
+    expect(withDetail[0].detail).toEqual([{ cut_date: "2026-08-26", heads: 72, kg_lb: "138.00" }, { cut_date: "2026-08-27", heads: 48, kg_lb: "92.00" }]);
+    const again = splitClassPlan({ saved: withDetail, profile: [{ cut_date: "2026-08-28", weight_class: "K", kg_lb: "1" }] });
+    expect(again.invalid).toEqual([]);
+    expect(again.cuts.map((c) => [c.cut_date, c.weight_class, c.heads, c.kg_lb.toFixed(2)])).toEqual(first.cuts.map((c) => [c.cut_date, c.weight_class, c.heads, c.kg_lb.toFixed(2)]));
   });
 });

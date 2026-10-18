@@ -123,7 +123,8 @@ export const MODULE_NAV: NavDef[] = [
   { module: "m1_costing", label: "Costing", roles: [...PREP, "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/costing` : null), management: true },
   { module: "m1_costing", label: "Input costing", roles: ["admin", "cost_accounting"], href: (c) => (c.week ? `/w/${c.week}/input/costing` : null) },
   { module: "m2_ledger", label: "Stok per SKU", roles: [...PREP, "management", "operations_director"], href: () => "/sku", management: true },
-  { module: "m3_planning", label: "Demand", roles: ["admin", "sales", "commercial_lead", "ppic", "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },
+  // Sales do not read demand_weekly / plan_week (Q-v5.2-15): the page tells them so, but there is no link to it
+  { module: "m3_planning", label: "Demand", roles: ["admin", "commercial_lead", "ppic", "management", "operations_director"], href: (c) => (c.week ? `/w/${c.week}/demand` : null), management: true },
   { module: "m3_planning", label: "Rencana", roles: ["admin", "ppic", "finance"], href: (c) => (c.week ? `/w/${c.week}/rencana` : null) },
   { module: "m3_planning", label: "Alokasi hari ini", roles: ["admin", "ppic", "sales", "commercial_lead"], href: (c) => (c.today ? `/hari/${c.today}/alokasi` : null) },
   { module: "m4_monthly", label: "Bulanan", roles: "all", href: (c) => (c.month ? `/m/${c.month}` : null), management: true },
