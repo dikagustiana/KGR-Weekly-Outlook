@@ -53,7 +53,8 @@ const urgent = (r: CommercialViewRow) => r.urgency === "jual_hari_ini" || r.urge
 
 export function komersialModel(x: KomersialInput): KomersialModel {
   const rows = x.rows;
-  // a total over SKUs is known only when every SKU has the value: one blank makes it "belum diisi", never a smaller number (R64)
+  // a total over SKUs is known only when every SKU has the value (after B5 the cost columns are null for Sales without sales_sees_cost): one blank makes it
+  // "tidak tersedia", never a smaller number or "0 jt" (R64)
   const sum = (f: (r: CommercialViewRow) => string | null) => rows.every((r) => f(r) !== null) ? rows.reduce((a, r) => a.plus(D(f(r)!)), D(0)) : null;
   const hot = rows.filter(urgent);
   const pending = x.approvals.filter((a) => a.status === "pending");
@@ -69,8 +70,8 @@ export function komersialModel(x: KomersialInput): KomersialModel {
   });
   tiles.push({
     id: "c-risiko", pos: { x: 3, y: 0, w: 3, h: 2 }, title: "Risiko turun ke frozen", kind: "card",
-    content: { type: "card", value: x.date ? sumJt(sum((r) => r.downgrade_risk_rp)) : null, unit: "Rp jt", missing: x.date ? "ada SKU belum diisi" : "belum dibangun", compare: [
-      { label: "rugi simpan per hari", value: (() => { const t = sum((r) => r.holding_loss_per_day); return t === null ? MISSING : `${jtV4(t, 2)} jt`; })() },
+    content: { type: "card", value: x.date ? sumJt(sum((r) => r.downgrade_risk_rp)) : null, unit: "Rp jt", missing: x.date ? "tidak tersedia" : "belum dibangun", compare: [
+      { label: "rugi simpan per hari", value: (() => { const t = sum((r) => r.holding_loss_per_day); return t === null ? "tidak tersedia" : `${jtV4(t, 2)} jt`; })() },
     ] },
   });
   tiles.push({

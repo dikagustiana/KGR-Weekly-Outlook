@@ -149,7 +149,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     },
     reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason), created_at: s(r.created_at) })),
     substitutions: subs.map((x) => ({ key_demand: String(x.key_demand), key_substitute: String(x.key_substitute), priority: Number(x.priority ?? 1), max_pct: String(x.max_pct ?? 1) })),
-    stock: { date: sdate, lots: lots.map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days ?? 0) })) }, // missing-ok: kolom lot_balance_daily.age_days selalu ditulis ledger (age_days: number di engine); fallback hanya penjaga tipe
+    // a lot without age cannot be judged against the window: it is not counted as eligible stock (never as a lot of age 0, i.e. fresh)
+    stock: { date: sdate, lots: lots.filter((l) => l.age_days !== null && l.age_days !== undefined).map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days) })) },
     windows: { fresh: Number(p.fresh_window_hours_default ?? 48), frozen: Number(p.frozen_age_limit_days_default ?? 30) },
     capacity: new Map(cap.map((c) => [String(c.date), { cut_capacity_head: c.cut_capacity_head === null ? null : Number(c.cut_capacity_head), chiller_kg: s(c.chiller_kg), abf_kg: s(c.abf_kg) }])),
     lbSupply: lb,

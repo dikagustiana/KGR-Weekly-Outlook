@@ -202,7 +202,7 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
       id: r.cut_date, on: r.cut_date === x.week.update,
       cells: {
         cut: short(r.cut_date), send: short(r.ship_date), lb: kg(r.kg_lb), h: kg(r.heads), mix: `${kg(by("K"))} / ${kg(by("S"))} / ${kg(by("B"))}${r.unsizedHeads.gt(0) ? ` · ${kg(r.unsizedHeads)} tanpa ukuran` : ""}`,
-        k: kg(r.karkas_kg), cap: cap === null ? "belum diisi" : num(cap, 0), sup: sup.every((v) => v === null) ? "belum diisi" : kg(sup.reduce<Decimal>((a, v) => a.plus(v ?? 0), D(0))), // missing-ok: jumlah supply kelas yang terisi; bila semua kosong kolom sudah "belum diisi" di cabang yang sama
+        k: kg(r.karkas_kg), cap: cap === null ? "belum diisi" : num(cap, 0), sup: sup.every((v) => v === null) ? "belum diisi" : kg(sup.reduce<Decimal>((a, v) => (v === null ? a : a.plus(v)), D(0))), // class without supply row adds nothing; all blank = "belum diisi"
         st: r.cut_date < x.week.update ? "lewat: dibandingkan WP" : r.cut_date === x.week.update ? "hari ini" : "rencana",
       },
     };

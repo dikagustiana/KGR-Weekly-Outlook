@@ -105,7 +105,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-      key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // missing-ok: kolom commercial_daily.free_fresh_kg dan free_frozen_kg NOT NULL di DB; 0 = SKU bukan bentuk itu
+      key: String(m.key), form: s(m.form), free_kg: D(String(m.free_fresh_kg)).plus(D(String(m.free_frozen_kg))).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // commercial_daily.free_*_kg NOT NULL
       over_age_kg: null, urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
     })), null));
     return { kg: sum.kg, value: sum.value };

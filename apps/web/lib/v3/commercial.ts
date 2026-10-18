@@ -73,7 +73,7 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
       const key = String(b.key);
       const k = info.get(key);
       return {
-        key, group_code: s(b.group_code) ?? s(k?.group_code), form: b.form === "fresh" ? "fresh" : "frozen", free_kg: s(b.free_kg) ?? "0", // missing-ok: kolom sku_balance_daily.free_kg NOT NULL di DB; fallback hanya penjaga tipe
+        key, group_code: s(b.group_code) ?? s(k?.group_code), form: b.form === "fresh" ? "fresh" : "frozen", free_kg: String(b.free_kg), // sku_balance_daily.free_kg NOT NULL
         oldest_age_days: b.oldest_age_days === null ? null : Number(b.oldest_age_days), hours_to_cutoff: hours.has(key) ? hours.get(key)! : null,
         cost_per_kg_ma: s(b.cost_per_kg_ma), cost_per_kg_si: s(b.cost_per_kg_si), price_list: price.get(key) ?? null, price_frozen: price.get(frozenKeyOf(key)) ?? null,
         realized_price_7d: real.has(key) ? real.get(key)!.toFixed(4) : null, storage_per_kg_day: s(k?.storage_cost_per_kg_day), ordered_today_kg: today.get(key) ?? "0", // missing-ok: tidak ada baris order hari ini untuk SKU = 0 kg dipesan (jumlah atas himpunan kosong)

@@ -7,7 +7,7 @@ import "server-only";
 import {
   D, actualDaily, addDays, balancesOn, diffDays, cashControls, cashProjection, cashProjection12m, cashProjection12mOrNull, cashProjectionSplit, ccc, dailyTotals, firstOfMonth, monthSummary,
   fixedAllMissing, monthEnd, monthSummaryV4, nonCashFixed, plRowsFromMart, scheduledPayments, solvency, solvencyNibtV5, sum, toFixedString,
-  type CashBalance, type CashPlan, type CashSplit, type CccResult, type ControlV3, type Decimal, type FixedCostRow, type Solvency, type WeekResult,
+  type CashBalance, type CashPlan, type CashSplit, type CccResult, type ControlV3, type Decimal, type FixedCostRow, type Num, type Solvency, type WeekResult,
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
@@ -155,17 +155,33 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
 
 // ------------------------------------------------------------------------------------------------ data marts
 
+type PlanFlow = { date: string; amount: Num; status?: string | null; cf_category?: string | null };
+
+/**
+ * The planned flows of one day by kind (PRD v4 §3.7: operations in / out, and affiliate funding). With no cash plan row at
+ * all (plan nor schedule) the flows are unknown (null), not a day with nothing planned (R64).
+ */
+export function dayPlanFlows(plans: PlanFlow[], date: string): { operating_in: string | null; operating_out: string | null; affiliate_net: string | null } {
+  const known = plans.length > 0;
+  const total = (keep: (p: PlanFlow) => boolean) => (known ? sum(plans.filter((p) => p.date === date && (p.status ?? "plan") === "plan" && keep(p)).map((p) => D(p.amount))).toFixed(2) : null);
+  const operations = (p: PlanFlow) => p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening";
+  return {
+    operating_in: total((p) => operations(p) && D(p.amount).gt(0)),
+    operating_out: total((p) => operations(p) && D(p.amount).lt(0)),
+    affiliate_net: total((p) => p.cf_category === "Pinjaman afiliasi (net)"),
+  };
+}
+
 export async function buildCashDay(sb: Supa, date: string, m4: boolean): Promise<string> {
   const st = await loadCash(sb, date, { m4 });
   const d0 = st.projection.days[0];
+  if (!d0) throw new Error("cash_position_daily: proyeksi tanpa hari pertama"); // the projection always starts on `date`; total_plan_in/out are NOT NULL
   await martReplace(sb, "cash_position_daily", date, [{
-    date, total_closing: f2(st.projection.startClosing), total_plan_in: f2(d0?.total_plan_in ?? null) ?? "0", total_plan_out: f2(d0?.total_plan_out ?? null) ?? "0",
+    date, total_closing: f2(st.projection.startClosing), total_plan_in: d0.total_plan_in.toFixed(2), total_plan_out: d0.total_plan_out.toFixed(2),
     projected_closing: f2(d0?.projected_closing ?? null), lowest_next_13w: f2(st.projection.lowest), lowest_date: st.projection.lowestDate, accounts: st.position.length,
     // PRD v4 §3.7: the planned flows of the day split into operations and affiliate funding, and the scenario without the facility
     closing_without_affiliate: f2(st.split.days[0]?.closingWithout ?? null),
-    operating_in: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).gt(0)).map((p) => D(p.amount)))) ?? "0",
-    operating_out: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).lt(0)).map((p) => D(p.amount)))) ?? "0",
-    affiliate_net: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category === "Pinjaman afiliasi (net)").map((p) => D(p.amount)))) ?? "0",
+    ...dayPlanFlows(st.plans.concat(st.scheduled), date),
     lowest_without_affiliate: f2(st.split.lowestWithout.balance), lowest_without_date: st.split.lowestWithout.date, affiliate_assumption: st.split.assumption,
     // everything the management page "Kas & solvabilitas" shows beyond today's row (K17: the page reads this, it does not compute)
     horizon: kasHorizon({

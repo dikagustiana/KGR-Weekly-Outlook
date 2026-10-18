@@ -14,6 +14,7 @@ import { WriteError } from "@/lib/write";
 import { must } from "@/lib/loader";
 import { refreshTasks } from "@/lib/v5/task-queue";
 import { surplusKeys } from "@/lib/v5/surplus";
+import { commitmentEntries } from "@/lib/v5/commitment-form";
 
 export type ActionState = { ok?: string; error?: string };
 type Row = Record<string, unknown>;
@@ -36,14 +37,9 @@ export async function saveCommitmentsAction(_: ActionState, form: FormData): Pro
     const week = String(form.get("week_start") ?? "");
     if (!isISODate(week)) throw new WriteError("Minggu tidak valid");
     const reason = String(form.get("reason") ?? "").trim() || null;
-    const n = Number(form.get("n") ?? 0);
-    const wanted = new Map<string, { fresh: string | null; frozen: string | null; price: string | null }>();
-    for (let i = 0; i < n; i++) {
-      const key = String(form.get(`key_${i}`) ?? "");
-      const fresh = num(form.get(`fresh_${i}`)), frozen = num(form.get(`frozen_${i}`)), price = num(form.get(`price_${i}`));
-      if (!key || (fresh === null && frozen === null && price === null)) continue;
-      wanted.set(key, { fresh, frozen, price });
-    }
+    const { entries, incomplete } = commitmentEntries(form);
+    if (incomplete.length) throw new WriteError(`Isi kg fresh dan kg frozen (tulis 0 bila memang tidak ada komitmen): ${incomplete.join(", ")}`);
+    const wanted = new Map(entries.map((e) => [e.key, e.rec]));
     const current = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("id, key, size_kg, fresh_kg, frozen_kg, price, status, version, reason")
       .eq("week_start", week).is("deleted_at", null).neq("status", "superseded").order("id").range(a, b));
     const rows: Row[] = [];
@@ -52,8 +48,8 @@ export async function saveCommitmentsAction(_: ActionState, form: FormData): Pro
       const mine = current.filter((c) => String(c.key) === key && (c.size_kg === null || c.size_kg === undefined));
       const draft = mine.find((c) => c.status === "draft"), locked = mine.find((c) => c.status === "locked");
       const now = draft ?? locked;
-      if (now && same(now.fresh_kg, v.fresh ?? "0") && same(now.frozen_kg, v.frozen ?? "0") && same(now.price, v.price)) { unchanged++; continue; }
-      const rec = { week_start: week, key, fresh_kg: v.fresh ?? "0", frozen_kg: v.frozen ?? "0", price: v.price ?? null };
+      if (now && same(now.fresh_kg, v.fresh_kg) && same(now.frozen_kg, v.frozen_kg) && same(now.price, v.price)) { unchanged++; continue; }
+      const rec = { week_start: week, key, fresh_kg: v.fresh_kg, frozen_kg: v.frozen_kg, price: v.price };
       // a draft updated through the upsert goes through the insert guard first: it needs the reason a new version needs
       if (draft) { rows.push({ id: String(draft.id), ...rec, reason: reason ?? (draft.reason ? String(draft.reason) : null) }); updated++; }
       else { rows.push({ ...rec, reason }); inserted++; }
@@ -86,7 +82,7 @@ export async function lockCommitmentsAction(_: ActionState, form: FormData): Pro
     if (error) throw new WriteError(error.message);
     done();
     const tail = await refreshTasks(sb, [{ kind: "commitment_lock", anchors: [week] }, { kind: "price_list_lock", anchors: [week] }], "komitmen dikunci");
-    const k = Number(data ?? 0), f = Object.keys(frozen).length;
+    const k = Number(data ?? 0), f = Object.keys(frozen).length; // missing-ok: jumlah draft yang dikunci (hitungan dari RPC), bukan uang atau kg
     return { ok: `${k} draft komitmen dikunci bersama price list minggu depan${f ? `; harga frozen dari form untuk ${f} SKU` : ""}${tail}` };
   } catch (e) { return { error: (e as Error).message }; }
 }
