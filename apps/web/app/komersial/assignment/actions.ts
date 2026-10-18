@@ -64,9 +64,14 @@ export async function saveAssignmentAction(_: ActionState, form: FormData): Prom
     if (id && same) throw new WriteError(`Penugasan yang sama sudah ada (${label(same)}); ubah atau nonaktifkan yang itu`);
     // the rep of the row: that of the same assignment, of the row being changed while its e-mail stays, else the one the e-mail has / the name
     const rep = same?.sales_rep ?? (cur && emailOf(cur) === email ? cur.sales_rep : salesRepFor(user, all));
-    // two Sales users with the same name would share a `sales_rep`: the upsert would take the row of the other one
-    const clash = same ? undefined : all.find((r) => r.id !== id && r.sales_rep === rep && sameCustomer(r.customer, customer) && r.key === k.key && emailOf(r) !== email);
-    if (clash) throw new WriteError(`Nama Sales "${rep}" sudah dipakai ${clash.email ?? "pengguna lain"} untuk key dan pelanggan yang sama; ubah nama salah satu pengguna di Admin → Pengguna`);
+    // V10 (review v5.3): `sales_rep` is the label the scorecard, the commercial controls and `sales_line.sales_rep` go by,
+    // and the unique triple (sales_rep, customer, key) — one rep name per Sales user. Two Sales users with the same name
+    // would be one rep there (and the upsert on the same key and customer would take the row of the other one), so a rep
+    // name another e-mail already has is refused whatever the key: Admin renames one of the users first.
+    // also when the row already exists and is only reactivated: a rep name two e-mails already share (rows from before this
+    // rule) is not given back to either until Admin renames one
+    const clash = all.find((r) => r.id !== id && r.sales_rep === rep && emailOf(r) !== email && emailOf(r) !== "");
+    if (clash) throw new WriteError(`Nama Sales "${rep}" sudah dipakai ${clash.email ?? "pengguna lain"} (penugasan ${clash.key ?? "semua SKU"}); dua pengguna Sales tidak boleh memakai satu nama — ubah nama salah satu pengguna di Admin → Pengguna`);
     const tail = hasFormSuffix(k.key) ? ` ${SUFFIX_NOTE}` : "";
 
     if (id) {
