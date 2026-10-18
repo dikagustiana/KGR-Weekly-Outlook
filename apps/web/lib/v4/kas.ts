@@ -12,6 +12,17 @@ import type { Col, TRow } from "@/components/v4/Table";
 import { monthsToNegative, type TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
 
+/**
+ * R65 (F13): how the monthly cash change of the 12-month projection is made while v5_pl is on — the NIBT after fixed costs
+ * plus the costs that are not cash (depreciation, amortised prepaid). `nibt` null = unknown (no fixed nominal): no projection.
+ */
+export interface CashRecon {
+  nibt: string | null;
+  depreciation: string;
+  prepaid: { pl_line: string; amount: string }[];
+  change: string | null;
+}
+
 export interface KasHorizon {
   as_of: string;
   accounts: { account_no: string; bank: string | null; closing: string | null; date: string; carried: boolean }[];
@@ -19,6 +30,8 @@ export interface KasHorizon {
   /** affiliate_received: the affiliate funding already in the balance of the week of as_of (the scenario takes it out too). */
   weeks: { week_start: string; closing: string | null; closing_without: string | null; operating_in: string | null; operating_out: string | null; affiliate_net: string | null; affiliate_received?: string | null }[];
   months: { month: string; change: string | null; closing: string | null }[] | null;
+  /** R65: the reconciliation of `months` (v5_pl on); absent in rows built before v5.2 or with v5_pl off. */
+  monthsRecon?: CashRecon | null;
   drivers: { description: string; amount: string | null }[];
   affiliate_received: string | null;
   lowest: { date: string; balance: string | null };
@@ -39,6 +52,7 @@ export function kasHorizon(x: {
   controls: ControlV3[];
   split: CashSplit;
   months: ReturnType<typeof cashProjection12m> | null;
+  monthsRecon?: CashRecon | null;
   affiliateReceived: Decimal;
 }): KasHorizon {
   return {
@@ -50,6 +64,7 @@ export function kasHorizon(x: {
       affiliate_received: i === 0 ? f2(x.affiliateReceived) : null,
     })),
     months: x.months ? x.months.map((m) => ({ month: m.month, change: f2(m.change), closing: f2(m.closing) })) : null,
+    ...(x.monthsRecon ? { monthsRecon: x.monthsRecon } : {}),
     drivers: x.split.drivers.map((d) => ({ description: d.description, amount: f2(d.amount) })),
     affiliate_received: f2(x.affiliateReceived),
     lowest: { date: x.split.lowest.date, balance: f2(x.split.lowest.balance) },
@@ -180,13 +195,17 @@ export function kasModel(x: KasInput): KasModel {
         title: `${m.month.slice(0, 7)} · perubahan kas Rp ${ch ? jtV4(ch) : "belum diisi"} jt · saldo akhir Rp ${c ? jtV4(c) : "belum diisi"} jt`,
       };
     });
+    const rc = h.monthsRecon ?? null;
+    const reconText = rc && rc.nibt !== null && rc.change !== null
+      ? `Perubahan kas per bulan = NIBT setelah beban tetap ${jtV4(rc.nibt)} jt + penyusutan nonkas ${jtV4(rc.depreciation)} jt${rc.prepaid.length ? ` + amortisasi prepaid ${jtV4(rc.prepaid.reduce((a, p) => a.plus(D(p.amount)), D(0)))} jt` : ""} = ${jtV4(rc.change)} jt, dipertahankan tetap.`
+      : null;
     tiles.push({
       id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan",
-      note: "Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini ditambah penyusutan, dipertahankan tetap.",
-      cara: { title: "Kas 12 bulan", fn: "cashProjection12m", rule: "Saldo hari ini; tiap bulan berubah sebesar NIBT outlook bulan berjalan ditambah penyusutan (non-kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas.", period: "12 bulan dari bulan ini", basis: "outlook bulan", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon), pl_daily_v4" }] },
+      note: reconText ?? "Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini ditambah penyusutan, dipertahankan tetap.",
+      cara: { title: "Kas 12 bulan", fn: "cashProjection12m", rule: rc ? "Saldo hari ini; tiap bulan berubah sebesar NIBT setelah beban tetap bulan berjalan (v5_pl) ditambah beban nonkas yang ada di dalamnya (penyusutan, amortisasi prepaid: tidak mengurangi kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas." : "Saldo hari ini; tiap bulan berubah sebesar NIBT outlook bulan berjalan ditambah penyusutan (non-kas), dipertahankan tetap. Perkiraan kasar, bukan rencana kas.", period: "12 bulan dari bulan ini", basis: rc ? "NIBT setelah beban tetap" : "outlook bulan", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon), pl_daily_v4" }] },
       content: { type: "combo", points: pts, labelMax: 12, legend: [{ tone: "s2", label: "perubahan kas" }, { tone: "ln", label: "saldo akhir" }] },
     });
-  } else tiles.push({ id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan", content: { type: "list", items: ["tidak tersedia: outlook bulanan belum menjadi basis"] } });
+  } else tiles.push({ id: "ch-12bulan", pos: P(0, 7, 6, 4), kind: "tall", title: "Kas 12 bulan", content: { type: "list", items: [h?.monthsRecon && h.monthsRecon.nibt === null ? "tidak tersedia: NIBT setelah beban tetap belum ada (beban tetap bulan ini kosong, C55); NIBT jurnal tidak dipakai sebagai pengganti" : "tidak tersedia: outlook bulanan belum menjadi basis"] } });
 
   // ---------------------------------------------------------------- CCC
   {

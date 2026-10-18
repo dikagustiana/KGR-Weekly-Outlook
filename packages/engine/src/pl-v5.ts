@@ -146,6 +146,46 @@ export function solvencyNibtV5(rows: PlRowV4[], fixedMissing: boolean): Decimal 
   return fixedMissing ? null : plTotalsV5(rows).nibtAfter;
 }
 
+// ------------------------------------------------------------------------------------------------ R65 non-cash fixed costs
+
+/** The P&L line of the depreciation (non-cash). */
+export const DEPRECIATION_LINE = "Depreciation & amortisation";
+
+export interface NonCashFixed {
+  /** Depreciation of the month as the NIBT carries it (journal + fixed estimate + forecast), positive; 0 when none. */
+  depreciation: Decimal;
+  /** Amortisation of prepaid (rent paid in advance …) inside the cost lines of the month, positive, per P&L line. */
+  prepaid: { pl_line: string; amount: Decimal }[];
+  prepaidTotal: Decimal;
+  /** Everything of the month's NIBT that is not cash: what the cash projection adds back. */
+  total: Decimal;
+}
+
+/**
+ * R65 (F13): the non-cash part of the month's costs, to take out of the cash flow that starts from the NIBT after fixed
+ * costs. Depreciation: the line "Depreciation & amortisation" as the rows carry it (journal, fixed-estimate, forecast).
+ * Amortised prepaid: the schedule rows with `amortize` (rent paid in advance, pro rata on their term), capped at what their
+ * P&L line carries in the month — the month's NIBT cannot hold more of it than that.
+ */
+export function nonCashFixed(x: { month: ISODate; rows: PlRowV4[]; schedule: FixedCostRow[]; isWorkingDay?: (d: ISODate) => boolean }): NonCashFixed {
+  const first = firstOfMonth(x.month), last = monthEnd(x.month);
+  const rows = x.rows.filter((r) => r.date >= first && r.date <= last);
+  const lineCost = (line: string) => max(ZERO, sum(rows.filter((r) => r.pl_line === line).map(valueOf)).neg());
+  const depreciation = lineCost(DEPRECIATION_LINE);
+  const amortised = x.schedule.filter((r) => r.active && r.amortize && r.pl_line !== DEPRECIATION_LINE && r.start_date <= last && (r.end_date === null || r.end_date >= first));
+  const prepaid: NonCashFixed["prepaid"] = [];
+  for (const line of [...new Set(amortised.map((r) => r.pl_line))].sort()) {
+    const mine = amortised.filter((r) => r.pl_line === line);
+    let schedule = ZERO;
+    for (let d = first; d <= last; d = addDays(d, 1)) schedule = schedule.plus(sum(dailyFixed(mine, d, x.isWorkingDay).map((a) => a.amount)));
+    const cost = lineCost(line);
+    const amount = schedule.lt(cost) ? schedule : cost;
+    if (!amount.isZero()) prepaid.push({ pl_line: line, amount });
+  }
+  const prepaidTotal = sum(prepaid.map((p) => p.amount));
+  return { depreciation, prepaid, prepaidTotal, total: depreciation.plus(prepaidTotal) };
+}
+
 // ------------------------------------------------------------------------------------------------ K30 table
 
 /** Calendar weeks Monday–Sunday of the month, cut at its first and last day. */
