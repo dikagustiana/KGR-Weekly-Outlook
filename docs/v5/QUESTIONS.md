@@ -340,3 +340,21 @@ Q-v5.2-17. **Price list terkunci yang diarsip permanen**: diterima (A-REL-9). La
 Q-v5.2-18. **Sisa kebocoran biaya ke Sales**: `holding_loss_per_day` dan `downgrade_risk_rp` di dua view Sales ikut dibungkus `sees`, dan `price_floor_rule` tidak terbaca Sales (migrasi B5, kolom view sama). `floor_of` tetap tanpa `execute` untuk klien.
 
 Q-v5.2-19. **Snapshot sebagai bukti**: DB hanya menghitung ulang C53 dan K35. Diterima.
+
+**Q-v5.2-20 … 29 (dari A2, `docs/v5.2/a2.md` §6).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-20…22. **Objek DB untuk A2 (B-R85)**: `plan_check_reason.plan_week_id`, `plan_week_class.detail jsonb`, `batch.lb_price_source` dimasukkan ke migrasi B5 (`docs/v5.2/brief-b5.md`). Sampai bundel B5 ada di KGR-OS, kode memakai pengganti yang tertulis di `a2.md` (alasan C58 terikat versi lewat waktu; pembagian tanggal dari profil demand; provenance di pesan salin). Kode yang memakai kolom itu menyusul sesudah B5 di KGR-OS.
+
+Q-v5.2-23. Forecast mingguan disebar rata 7 hari (meniru `splitHeadsByDay` v4). Diterima; pola lain menunggu data PPIC.
+
+Q-v5.2-24. C58 untuk STD: tanpa supply sama sekali = BELUM DIISI; ada supply tetapi bukan kelasnya, atau kebutuhan STD dengan supply apa pun = PERIKSA; supply tanpa kelas diabaikan (O20). Diterima. Akibatnya, selama `size_class_map` kosong (D8) salin ke batch butuh alasan C58 tertulis.
+
+Q-v5.2-25. Yield matrix berbasis kg LB dibagi (1 − susut) untuk `planBatchRow`; urutan yield kelas → STD → parameter v1, berlabel. Diterima.
+
+Q-v5.2-26. Tanggal potong sebelum tanggal data tanpa keputusan LB tidak ditahan C57; harga jatuh ke supply lalu parameter hari ini (berlabel). Diterima (K25 berlaku untuk keputusan ke depan).
+
+Q-v5.2-27. Upload WP: baris file yang tertahan mempertahankan baris lamanya dan C22 menghitungnya; baris yang tidak ada di file ditarik. Diterima (R58).
+
+Q-v5.2-28. Commit PO upload tetap per baris karena approval C38 per baris. Diterima untuk v5.2.
+
+Q-v5.2-29. Karkas `Frozen` dikeluarkan dari demand kelas (perbandingan bentuk tanpa beda huruf). Diterima (perbaikan bug).
