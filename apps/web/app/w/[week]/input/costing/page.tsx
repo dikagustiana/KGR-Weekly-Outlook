@@ -25,7 +25,7 @@ export default async function InputCostingPage({ params }: PageProps) {
   const pools = poolSummaries(d);
   const draftRuns = [...d.latestRun.values()].filter((r) => r.status === "draft");
   const drafts = draftRuns.length;
-  // R61 (K50): drafts with an SKU that has output and no reference price cannot be posted without Finance's override
+  // R61 (K50): drafts with an SKU that has output and no reference price cannot be posted without the override (Admin for now)
   const unpriced = draftRuns.map((r) => ({ ref: d.batches.find((b) => b.id === r.batch_id)?.batch_ref ?? r.batch_id, keys: unpricedLines(d, r.id) })).filter((x) => x.keys.length);
   return (
     <WeekShell ctx={ctx} active={`/w/${week}/input/costing`}>
@@ -36,11 +36,11 @@ export default async function InputCostingPage({ params }: PageProps) {
         <Card title="Posting ditahan: harga acuan kosong (K50)">
           <p className="muted">{unpriced.map((x) => `${x.ref}: ${x.keys.join(", ")}`).join("; ")}. Isi harga acuan (price list WP atau harga acuan minggu ini) lalu alokasikan ulang; batch baru berstatus final bila setiap baris alokasinya punya harga (K59).</p>
           {viewer.role === "admin" ? (
-            <ActionForm action={postOverride} submit="Posting dengan override Finance" confirm="Posting walau harga acuan kosong? Batch tetap di bawah final dan alasan tercatat di alokasi.">
+            <ActionForm action={postOverride} submit="Posting dengan override Admin" confirm="Posting walau harga acuan kosong? Batch tetap di bawah final dan alasan tercatat di alokasi.">
               <input type="hidden" name="week" value={week} />
               <div className="field"><label>Alasan override (min. 10 karakter)</label><input className="in" name="reason" /></div>
             </ActionForm>
-          ) : null}
+          ) : <p className="muted">Override posting sementara hanya oleh Admin (hak Finance menunggu B-R85); minta Admin bila harga acuan memang tidak akan datang.</p>}
         </Card>
       ) : null}
       <Card title={`Batch minggu ini (${d.batches.length})`} extra={

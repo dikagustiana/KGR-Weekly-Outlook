@@ -70,18 +70,20 @@ describe("R61: posting refuses a batch with an unpriced SKU (probe: Lemak withou
     await expect(postWeek(sb as never, viewer("cost_accounting"), week as never)).resolves.toBe("Diposting: 1 batch");
     expect(sb.calls).toContain("allocation_run:update");
   });
-  it("Finance's override posts it, with a reason of 10+ characters, recorded as an issue of the run; other roles cannot", async () => {
+  it("the override (Admin for now) posts it, with a reason of 10+ characters, recorded as an issue of the run; Finance and other roles cannot until B-R85", async () => {
     const rows = rowsOf([line("RPA|Karkas|Fresh", "5004.7", "36705.0000"), line("RPA|Lemak|Fresh", "28.8", null)]);
     const sb = fakeSb({ rows });
-    await expect(postWeek(sb as never, viewer("finance"), week as never, { override: { reason: "pendek" } })).rejects.toThrow(/alasan minimal 10/);
-    await expect(postWeek(sb as never, viewer("cost_accounting"), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } })).rejects.toThrow(/hanya oleh Finance/);
+    await expect(postWeek(sb as never, viewer("admin"), week as never, { override: { reason: "pendek" } })).rejects.toThrow(/alasan minimal 10/);
+    for (const role of ["finance", "cost_accounting"]) {
+      await expect(postWeek(sb as never, viewer(role), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } })).rejects.toThrow(/sementara hanya oleh Admin; hak Finance menunggu B-R85/);
+    }
     expect(sb.calls).not.toContain("allocation_run:update");
     const ok = fakeSb({ rows });
-    const msg = await postWeek(ok as never, viewer("finance"), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } });
+    const msg = await postWeek(ok as never, viewer("admin"), week as never, { override: { reason: "harga Lemak menyusul dari pemasok" } });
     expect(msg).toContain("override Finance");
     const upd = ok.args.find((a) => a.call === "allocation_run:update")!.args[0] as { status: string; issues: string[] };
     expect(upd.status).toBe("posted");
-    expect(upd.issues.join(" ")).toMatch(/override Finance: diposting tanpa harga acuan RPA\|Lemak\|Fresh — harga Lemak menyusul dari pemasok \(finance@x\.id/);
+    expect(upd.issues.join(" ")).toMatch(/override Finance: diposting tanpa harga acuan RPA\|Lemak\|Fresh — harga Lemak menyusul dari pemasok \(admin@x\.id/);
   });
 });
 

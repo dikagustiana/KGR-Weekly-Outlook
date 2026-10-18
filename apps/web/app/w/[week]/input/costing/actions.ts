@@ -41,10 +41,14 @@ export async function post(_: ActionState, form: FormData): Promise<ActionState>
   } catch (e) { return { error: (e as Error).message }; }
 }
 
-/** R61: Finance's override to post an allocation that has an SKU without a reference price; the reason is written into allocation_run.issues. */
+/**
+ * R61: the override to post an allocation that has an SKU without a reference price; the reason is written into
+ * allocation_run.issues. Admin only for now: the tables are written by admin / cost_accounting (RLS); Finance's right comes with
+ * B-R85 (RPC post_allocation_override, docs/v5.2/b5.md), and this action then calls it.
+ */
 export async function postOverride(_: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const { v, sb, week } = await ctx(form, ["admin", "finance"]);
+    const { v, sb, week } = await ctx(form, ["admin"]);
     const msg = await postWeek(sb, v, week, { override: { reason: String(form.get("reason") ?? "") } });
     done(week.week_start);
     return { ok: msg };

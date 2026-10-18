@@ -205,8 +205,8 @@ export function unpricedLines(d: CostingWeek, runId: string): string[] {
 
 /**
  * Post the latest draft runs (C24); a posted run is what the monthly release and the ledger use. R61 (K50): a batch
- * whose allocation has an unpriced SKU cannot be posted — the message names batch and SKUs — unless Finance's override
- * (`override`, a reason of at least 10 characters) is given: the allocation is then posted with the override written
+ * whose allocation has an unpriced SKU cannot be posted — the message names batch and SKUs — unless the override
+ * (`override`, a reason of at least 10 characters; Admin for now, Finance after B-R85) is given: the allocation is then posted with the override written
  * into allocation_run.issues, and the batch stays below final (K59: final needs every line priced).
  */
 export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow, opts: { override?: { reason: string } } = {}): Promise<string> {
@@ -223,7 +223,9 @@ export async function postWeek(sb: Supa, viewer: Viewer, week: WeekRow, opts: { 
   const reason = opts.override?.reason.trim() ?? "";
   if (unpriced.length && !opts.override) throw new WriteError(`Belum bisa diposting: harga acuan kosong — ${naming} — isi harga lalu alokasikan ulang (atau override Finance dengan alasan)`);
   if (unpriced.length && opts.override) {
-    if (viewer.role !== "admin" && viewer.role !== "finance") throw new WriteError("Override posting harga acuan kosong hanya oleh Finance");
+    // allocation_run and batch.costing_status are written by admin / cost_accounting only (RLS): Finance's right to override comes
+    // with B-R85 (RPC post_allocation_override, docs/v5.2/b5.md), not before
+    if (viewer.role !== "admin") throw new WriteError("Override posting harga acuan kosong sementara hanya oleh Admin; hak Finance menunggu B-R85 (RPC post_allocation_override)");
     if (reason.length < 10) throw new WriteError("Override posting: alasan minimal 10 karakter");
   }
   for (const r of drafts) {
