@@ -49,7 +49,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | A1b schema_version | draft PR #50, **ditahan** | cabang `v5.2/a1b-schema-version` `81d6f88` (`EXPECTED_SCHEMA` 5.2.2, RPC `schema_version()`); merge sesudah B2 di KGR-OS |
 | A4 R69 | draft PR #49, **ditahan** | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
-| Workflow `db-ops` | **merge** (#46 `e532204`); pemicu push `ops/db-run` di PR #48 (integrasi agen tidak bisa `workflow_dispatch`, 403) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
+| Workflow `db-ops` | **merge** (#46 `e532204`, #48 `c7b5714`) | pemicu push `ops/db-ops.json` ke cabang `ops/db-run` (integrasi agen tidak bisa `workflow_dispatch`, 403). Uji pemicu run 39103012742 (18 Okt 06.09 UTC): guard berhenti benar — `STAGING_DB_URL` dan `SUPABASE_DB_URL` belum diisi (D4) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
 | B1 data master | sebagian | `kgr-os-master.sql` (sha256 `6dcadd03…afb1`): jadwal beban tetap Agu–Sep diterapkan 23.04 WIB sesudah uji kering + backup `bak_20261017t1603`. K/S/B, yield kelas, size_class_map, kapasitas, C8/C9, users: D5/D7/D8 |
 
 ## Berikutnya
