@@ -28,6 +28,23 @@ jobs:
           check /api/cron/rebuild 401 '"unauthorized"'
           check /w/2026-08-24 307
           check /admin/pengguna 307
+          echo "--- login with an address that does not exist (proves app -> Supabase Auth; no real credentials)"
+          curl -sS -c jar.txt "$BASE/login" -o login.html
+          python3 - <<'PY' > fields.txt
+          import html, re
+          s = open("login.html", encoding="utf-8").read()
+          forms = re.findall(r"<form\b[^>]*>.*?</form>", s, re.S)
+          f = next((x for x in forms if 'type="password"' in x), "")
+          for name, value in re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"', f):
+              print(f"{name}\t{html.unescape(value)}")
+          for name in re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"(?![^>]*value=)', f):
+              print(f"{name}\t")
+          PY
+          echo "hidden fields: $(cut -f1 fields.txt | tr '\n' ' ')"
+          args=(); while IFS=$'\t' read -r k v; do args+=(-F "$k=$v"); done < fields.txt
+          code=$(curl -sS -b jar.txt -o resp.html -w '%{http_code}' "${args[@]}" -F "email=smoke-tidak-ada@example.invalid" -F "password=bukan-sandi-sungguhan" "$BASE/login" || echo 000)
+          if grep -q "E-mail atau kata sandi salah" resp.html; then echo "login salah -> $code, pesan Supabase Auth diterima ok=yes"
+          else echo "login salah -> $code, pesan tidak ditemukan ok=no"; grep -oE 'Isi e-mail[^<]*|Invalid[^<]*|error[^<]{0,80}' resp.html | head -3; fail=1; fi
           echo "--- /login <title> and build id"
           curl -sS "$BASE/login" | grep -oE '<title>[^<]*</title>|"buildId":"[^"]*"' | head -3 || true
           exit $fail
