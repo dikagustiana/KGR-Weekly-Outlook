@@ -72,8 +72,8 @@ Temuan baru:
 | #66 `v5.3/review-v8-rebuild-claim` `e4c492a` | V8 klaim antrean atomik | `rebuild-claim.test.ts` 3 (vitest) | typecheck 0; web 857; K41/K42/missing 0; parity dan snapshot tidak tersentuh | **hijau**: run 39140770684 (PR) dan 39140703069 (push): engine, lint, rls, e2e success |
 | #67 `v5.3/review-v7-release-orphans` `87c1464` | V7 berkas rilis yatim | `release-orphans.test.ts` 6 (vitest) | typecheck 0; web 860; lint 0 | **hijau**: run 39140802143 (PR) dan 39140767441 (push). Run 39140705259 (`fb7390a`, sebelum amend) merah di lint K41 — diperbaiki sebelum PR dibuka |
 | #68 `v5.3/review-v10-sales-rep` `22143ca` | V10 satu nama = satu Sales | `assignment-actions.test.ts` +3 (vitest) | typecheck 0; web 857; lint 0 | **hijau**: run 39140829745 (PR) dan 39140798126 (push) |
-| PR UI `v5.3/review-ui-390` `e41ee8f` | N1, N2, N7, N8: CSS 390 px dan `not-found.tsx` | tangkapan layar sebelum/sesudah (PG16 lokal); probe overflow 0; e2e matrix lokal 120 lulus | typecheck 0; web 854; lint 0 | lihat PR (CI berjalan saat laporan ditulis) |
-| PR dokumen (cabang `v5.3/review-docs`) | V12 SIAP-PAKAI, Q-v5.3-1…6, CHANGELOG, laporan ini | — | — | lihat PR |
+| #69 `v5.3/review-ui-390` `e41ee8f` | N1, N2, N7, N8: CSS 390 px dan `not-found.tsx` | tangkapan layar sebelum/sesudah (PG16 lokal); probe overflow 0; e2e matrix lokal 120 lulus | typecheck 0; web 854; lint 0 | lihat PR (CI berjalan saat laporan ditulis) |
+| PR dokumen `v5.3/review-docs` | V12 SIAP-PAKAI, Q-v5.3-1…6, CHANGELOG, laporan ini | — | — | lihat PR |
 
 Baseline `main` sebelum perubahan: typecheck 0; vitest engine 467, parsers 31, web 854; parity 17.161/17.161; `snapshot:diff`
 EMPTY; lint K41/K42/missing 0; `test-rls.sh` 48 blok, 0 `(!)`, check-query-columns 0 unknown (PG16 lokal + shim); e2e matrix 120

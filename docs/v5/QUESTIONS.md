@@ -623,7 +623,7 @@ R97 ada, SIAP-PAKAI menyebut angka kartu Stok dan Kas minggu 24 Agu sebagai angk
 
 Q-v5.3-6. **Kartu 2 kolom di 390 px memotong satuan.** Nilai besar ("1.067,8") dengan satuan "Rp jt" di kartu 2 kolom (`.tg` pada
 ≤ 899 px) terpotong menjadi "Rp j" di lebar 390 px (tangkapan layar Manajemen dan Commercial, PG16 lokal). Perbaikan CSS kecil
-(satuan turun baris: `.card-n { flex-wrap: wrap }` ≤ 899 px) dikerjakan di PR UI reviewer (cabang `v5.3/review-ui-390`) bersama
+(satuan turun baris: `.card-n { flex-wrap: wrap }` ≤ 899 px) dikerjakan di PR UI reviewer (#69, cabang `v5.3/review-ui-390`) bersama
 tiga hal kecil lain yang ditemukan sapuan UI: chip langkah PPIC yang tautannya menjejalkan tiga baris jadi satu (`.step > a`),
 header tile yang membuat Outlook bulan scroll samping di 390 px (`.tile-h, .tile-x { flex-wrap: wrap }`), dan halaman 404 bawaan
 Next berbahasa Inggris (`app/not-found.tsx`). CSS dan satu halaman statis; tidak mengubah angka atau alur.
