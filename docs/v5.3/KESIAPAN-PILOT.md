@@ -54,7 +54,7 @@ Temuan baru:
 | N5 | KGR-OS `rebuild_queue`: 7 baris 24–30 Agu `queued` sejak 17 Okt; tanpa D2 akan tetap begitu dan STALE menahan rilis minggu itu | KGR-OS SELECT | P0 (operasional) | sama dengan V1 |
 | N6 | React #418 (hidrasi) intermiten **di `main`**: 2 dari 420 muatan sapuan (Admin `/w/…/input/harga` 1366, `/master/item` 390), sama dengan kegagalan CI A8. Halaman tetap berfungsi (React render ulang di klien) | belum diketahui; komponen klien bersama: `Shell` → `WeekSelect`, `ViewToggle` (`usePathname`/`useSearchParams`) | P2 (tidak merusak data; mengganggu CI e2e sewaktu-waktu) | ditunda: cari sebab dengan `next dev` di luar sandbox; Q-v5.3-4 diperluas. CI PR hari ini bisa merah karena ini — ulang sekali, bukan dilewati |
 | N7 | Halaman 404 memakai bawaan Next berbahasa Inggris ("404: This page could not be found.") untuk setiap `notFound()` per role | tidak ada `app/not-found.tsx` | P2 | **diperbaiki PR UI**: `not-found.tsx` Bahasa Indonesia, status tetap 404 |
-| N8 | Outlook bulan (`/m/2026-08`, Finance) scroll samping di 390 px: header tile P&L tidak membungkus | `v4.css` `.tile-h`/`.tile-x` | P2 (mobile) | **diperbaiki PR UI** |
+| N8 | Outlook bulan (`/m/2026-08`, Finance) scroll samping di 390 px (431 px): header tile P&L tidak membungkus, dan isian override `Alasan` (`size=36`) lebih lebar dari kolomnya | `v4.css` `.tile-h`/`.tile-x`; `components/v4/OverridePanel.tsx:38` | P2 (mobile) | **diperbaiki PR UI** (CSS: header membungkus; `input[size] { max-width: 100% }`; label override membungkus) |
 
 ## 3. GO / NO-GO 19 Okt per pemakaian
 
@@ -72,7 +72,7 @@ Temuan baru:
 | #66 `v5.3/review-v8-rebuild-claim` `e4c492a` | V8 klaim antrean atomik | `rebuild-claim.test.ts` 3 (vitest) | typecheck 0; web 857; K41/K42/missing 0; parity dan snapshot tidak tersentuh | **hijau**: run 39140770684 (PR) dan 39140703069 (push): engine, lint, rls, e2e success |
 | #67 `v5.3/review-v7-release-orphans` `87c1464` | V7 berkas rilis yatim | `release-orphans.test.ts` 6 (vitest) | typecheck 0; web 860; lint 0 | **hijau**: run 39140802143 (PR) dan 39140767441 (push). Run 39140705259 (`fb7390a`, sebelum amend) merah di lint K41 — diperbaiki sebelum PR dibuka |
 | #68 `v5.3/review-v10-sales-rep` `22143ca` | V10 satu nama = satu Sales | `assignment-actions.test.ts` +3 (vitest) | typecheck 0; web 857; lint 0 | **hijau**: run 39140829745 (PR) dan 39140798126 (push) |
-| PR UI (cabang `v5.3/review-ui-390`) | N1, N2, N7, N8: CSS 390 px dan `not-found.tsx` | tangkapan layar sebelum/sesudah (PG16 lokal); e2e matrix lokal | typecheck 0 | lihat PR |
+| PR UI `v5.3/review-ui-390` `e41ee8f` | N1, N2, N7, N8: CSS 390 px dan `not-found.tsx` | tangkapan layar sebelum/sesudah (PG16 lokal); probe overflow 0; e2e matrix lokal 120 lulus | typecheck 0; web 854; lint 0 | lihat PR (CI berjalan saat laporan ditulis) |
 | PR dokumen (cabang `v5.3/review-docs`) | V12 SIAP-PAKAI, Q-v5.3-1…6, CHANGELOG, laporan ini | — | — | lihat PR |
 
 Baseline `main` sebelum perubahan: typecheck 0; vitest engine 467, parsers 31, web 854; parity 17.161/17.161; `snapshot:diff`
@@ -94,7 +94,7 @@ Sapuan Playwright (Chromium, `id-ID`, `Asia/Jakarta`; skrip reviewer, bukan bagi
 | Status HTTP | 328 × 200, 92 × 404. Semua 404 adalah `notFound()` per role (mis. Sales → `/kas`, PPIC → `/komersial`) atau alamat tebakan reviewer (`/w/…/ppic` tidak ada; PPIC = `/w/…/rencana`). Tidak ada 5xx |
 | Pengalihan per role | `/admin/*` dialihkan ke halaman awal role (Kepala Sales → `/komersial`, Finance → `/m/2026-08`, PPIC → `/w/…/rencana`, …); Manajemen dan Direktur Operasional dialihkan dari halaman input ke `/minggu-ini` |
 | Galat JS halaman | **2 × React #418** (hidrasi) dari 420 muatan: Admin 1366 `/w/2026-08-24/input/harga`, Admin 390 `/master/item`. Sama dengan kegagalan CI A8 (T7 1b, role sales, `/input/harga`): **ada di `main`, bukan khusus A8**, intermiten (~0,5%). React 19 memulihkan dengan render ulang di klien; pengguna tidak melihat halaman rusak. Sebab belum ditemukan (a8.md §2.5); dicatat di Q-v5.3-4 |
-| Scroll samping di 390 px | 5 muatan, semuanya Finance di `/m/2026-08` (Outlook bulan; `scrollWidth` 431): header tile P&L (segmen "Actual vs run-rate · Per minggu · cara hitung") tidak membungkus. **Diperbaiki** di PR UI (`.tile-h, .tile-x { flex-wrap: wrap }` ≤ 899 px). Halaman lain 0 |
+| Scroll samping di 390 px | 5 muatan, semuanya Finance di `/m/2026-08` (Outlook bulan; `scrollWidth` 431): header tile P&L (segmen "Actual vs run-rate · Per minggu · cara hitung") tidak membungkus, dan isian override `Alasan` (`size=36`) lebih lebar dari kolomnya. **Diperbaiki** di PR UI (CSS ≤ 899 px). Halaman lain 0 |
 | Judul, deskripsi, ikon | `<title>` "KGR Weekly Outlook" dan `meta description` di semua 348 halaman 200; `icon.svg` di semua. Halaman 404 berjudul "404: This page could not be found." (bawaan Next, Inggris) — **diperbaiki** di PR UI (`app/not-found.tsx` Bahasa Indonesia). Judul per halaman belum ada (gap kecil, ditunda) |
 | `<h1>` | ada di semua halaman 200 |
 | Kata placeholder | hanya sebagai label angka contoh ("yield per kelas (placeholder sampai diisi PPIC)", catatan `yield_matrix` "Placeholder: yield v1 × …", entri audit) — sesuai aturan: diberi label, tidak dihapus. Tidak ada teks UI kosong/lorem |
