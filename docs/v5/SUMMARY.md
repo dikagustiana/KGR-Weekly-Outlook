@@ -171,3 +171,18 @@ Dicatat sebagai "belum terpenuhi" untuk v5.2-A; tidak dikerjakan di irisan A0–
 ## Bukti per irisan
 
 `docs/v5/irisan-<n>.md` (requirement → bukti, gate, RLS, latihan migrasi, perintah manusia) dan `docs/v5/bukti/`.
+
+### PRD v5.2-A T13–T18 (irisan A5: bukti dari repo dan CI, K64)
+
+Lingkungan semua bukti di bawah: **PG16 lokal + PostgREST 12 + mock auth** (bukan Supabase), `next start` dan PostgreSQL di bawah faketime; job CI `e2e` (run 39105349767) dan `pnpm e2e` lokal. Rincian: `docs/v5.2/a5.md`.
+
+| T | Status (lingkungan, role) |
+|---|---|
+| T13 gagal-tertutup | lulus di dasar main: lint K41/K42/missing = 0 dijalankan CI (job `lint`); tes injeksi error per modul ada di tes unit A1 |
+| T14 T7 utuh di CI | lulus: `journey-T7` 49 cek, 0 respons 4xx/5xx tak terduga, rilis Finance tanpa override dengan `v4_release` hidup, angka batch hasil salin = rencana kelas tersimpan; PG16 lokal + shim + PostgREST 12 + mock auth + faketime; role sales, commercial_lead, ppic, operations_director, cost_accounting, inventory_accounting, purchasing, finance, management (Admin hanya untuk bangun ulang awal); belum Supabase (T19) |
+| T15 dashboard = FS | belum di irisan A5 (A4: fixture dan halaman Rekonsiliasi); halaman Rekonsiliasi belum dibuka di matriks atau T7 |
+| T16 putaran tanpa jalan buntu | sebagian: T7 mencakup kunci → tugas K35 hijau tanpa rebuild manual (R54), salin ditahan C57 lalu lulus, PO/WP/faktur/posting; belum: komitmen > PO, approval downgrade, C58 alasan sebagai langkah e2e; temuan Q-v5.2-50/52/53 di `docs/v5.2/a5.md` |
+| T17 biaya jujur | lulus di A3 (tes unit); e2e: faktur tie tetap sementara sampai posting, lalu final (R60) |
+| T18 engine dan snapshot tetap | lulus: parity 17161/17161, `snapshot:diff` EMPTY (di dasar main b408a9a + A5) |
+| T11 (v5.1) kombinasi flag | 10 kombinasi × 10 role × 8 halaman, tabel tertulis, kolom biaya, API Sales: lulus di PG16 lokal + mock auth (120 cek); belum Supabase |
+| F19 | rebuild cron dua kali identik (lulus); cron berbeda dari rebuild sesi (temuan Q-v5.2-51, XFAIL di F19) |
