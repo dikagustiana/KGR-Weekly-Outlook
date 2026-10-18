@@ -16,7 +16,8 @@
 -- Q-v5.2-13: tg_week_guard lets inventory_accounting and finance change week.opening_stock_flag while the week is open
 --   (the stock upload writes it as inventory_accounting); every other column and the update_date rule are unchanged.
 -- Q-v5.2-18: the two Sales views also hide holding_loss_per_day and downgrade_risk_rp unless the viewer sees cost (same
---   column lists, names, order and types as B2); price_floor_rule (markup per key) is not read by Sales.
+--   column lists, names, order and types as B2); price_floor_rule (markup per key) is not read by Sales, and its old and
+--   new values are not read by Sales through audit_log either (the Sales redaction list of 20261017000200 gains the table).
 --
 -- NOT created, on purpose: save_class_plan (O33(b) postpones K27 stage 2), cost_snapshot and sales_stock_age_v52 (PRD A
 -- did not ask for them; B-R85 says "only what PRD A asks for"). Q-v5.2-15 (Sales no longer read plan_week and
@@ -228,6 +229,15 @@ grant select on public.commercial_daily_sales_v5 to authenticated;
 -- the markup per key is the floor's recipe: Sales do not read it (every other role reads it as before)
 alter policy price_floor_rule_read on public.price_floor_rule
   using ((select public.is_app_user()) and not (select public.has_role('sales')));
+-- ... nor through the audit trail: audit_log keeps the old and new markup of every change, and every app user reads
+-- audit_log. The Sales redaction of 20261017000200 (S4) lists the tables whose trail is not for Sales; the same list plus
+-- price_floor_rule.
+alter policy audit_log_sales_redact on public.audit_log
+  using (not (select public.has_role('sales')) or table_name <> all (array[
+    'cost_pool','cost_pool_line','overhead_rate','allocation_run','allocation_line','batch_output_sku',
+    'lot','lot_movement','lot_balance_daily','sku_balance_daily','commercial_daily',
+    'fixed_cost_schedule','cost_event','budget','bank_account','cash_daily','cash_daily_plan','cash_position_daily',
+    'ccc_daily','solvency_monthly','closing_adjustment','price_floor_rule']));
 
 -------------------------------------------------------------------------------- version
 insert into public.schema_registry (version) values ('5.2.3') on conflict (version) do nothing;

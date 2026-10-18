@@ -9,6 +9,10 @@
 --   v5.2-A R68 (packages/engine/src/fs-map.ts FS_MIN_MAP), all draft.
 -- Read: admin, finance, management, operations_director. Write: finance, admin. Nobody else, anon nothing.
 -- release_override_policy gets C59 (Finance), by this migration only (O38).
+-- audit_log is read by every app user and the audit trigger of fs_statement_line copies the old and new values (the
+--   amounts) of an update or a delete: a restrictive policy keeps the trail of the two FS tables to the readers of the
+--   tables. fs_line_map has no audit trigger (tg_audit names a row by id, key, item_code, account, email or week_id; this
+--   table has none): updated_by and updated_at tell who wrote last.
 --
 -- Seed provenance. Every row number and label was read again from the workbook
 -- reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx (sha256 7e68aa89…04c5), sheets "PL - Management Report" and
@@ -85,6 +89,16 @@ do $$
 begin
   if not exists (select 1 from pg_trigger where tgname = 'stamp' and tgrelid = 'public.fs_line_map'::regclass) then
     create trigger stamp before insert or update on public.fs_line_map for each row execute function public.tg_stamp();
+  end if;
+end $$;
+
+-------------------------------------------------------------------------------- the audit trail of the FS rows is for their readers
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'audit_log' and policyname = 'audit_log_fs_redact') then
+    create policy audit_log_fs_redact on public.audit_log as restrictive for select to authenticated
+      using (table_name <> all (array['fs_statement_line', 'fs_line_map'])
+             or (select public.has_role('admin', 'finance', 'management', 'operations_director')));
   end if;
 end $$;
 

@@ -3359,7 +3359,29 @@ begin
   exception when others then out := out || 'commercial lead write: DENIED(!) ' || sqlerrm || '; '; end;
   begin select count(*) into n from public.price_floor_rule where note = 'b5-lead'; out := out || 'and reads it back=' || n || case when n = 1 then '' else '(!)' end || '; ';
   exception when others then out := out || 'read back: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.price_floor_rule set markup_rp_per_kg = 650 where note = 'b5-test'; get diagnostics n = row_count;
+    out := out || 'commercial lead changes a markup rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'commercial lead changes a markup: ERROR(!) ' || sqlerrm || '; '; end;
   execute 'reset role';
+  -- the audit trail keeps the old and new markup; Sales read audit_log, but not the rows of this table
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.audit_log where table_name = 'price_floor_rule' and op = 'UPDATE' and actor = 'b5p-lead@x.test' and changes ? 'markup_rp_per_kg';
+  out := out || 'audit rows of the markup change (owner reads)=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  foreach v in array array['sales', 'lead', 'fin', 'mgmt', 'ppic'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5p-%s@x.test","role":"authenticated"}', v), true);
+    execute 'set local role authenticated';
+    begin select count(*) into n from public.audit_log where table_name = 'price_floor_rule';
+      out := out || v || ' reads the audit rows of price_floor_rule=' || n || case when (v = 'sales' and n = 0) or (v <> 'sales' and n >= 1) then '' else '(!)' end || '; ';
+    exception when others then out := out || v || ' audit read: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  begin
+    perform set_config('request.jwt.claims', '{"email":"b5p-sales@x.test","role":"authenticated"}', true);
+    execute 'set local role authenticated';
+    select count(*) into n from public.audit_log where table_name in ('app_user', 'week', 'sales_line', 'parameter');
+    out := out || 'sales still read the audit rows of other tables (not redacted)=' || (n > 0)::text || case when n > 0 then '' else '(!)' end || '; ';
+    execute 'reset role';
+  exception when others then execute 'reset role'; out := out || 'audit other tables: ERROR(!) ' || sqlerrm || '; '; end;
   perform set_config('request.jwt.claims', '{"email":"b5p-mgmt@x.test","role":"authenticated"}', true);
   execute 'set local role authenticated';
   begin insert into public.price_floor_rule (key, markup_rp_per_kg, note) values ('B5P-M', 3, 'b5-mgmt'); out := out || 'management writes a floor rule: ALLOWED(!); ';
@@ -3526,6 +3548,21 @@ begin
     out := out || 'audit rows of the lock by finance=' || n || case when n = 1 then '' else '(!)' end || '; ';
   exception when others then out := out || 'audit: ERROR(!) ' || sqlerrm || '; '; end;
 
+  -- the audit trail copies old and new amounts of an update or a delete: only the readers of the tables read it
+  begin select count(*) into n from public.audit_log where table_name = 'fs_statement_line' and op in ('UPDATE', 'DELETE') and changes is not null;
+    out := out || 'audit rows of fs_statement_line (owner reads)=' || (n >= 2)::text || case when n >= 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'audit owner: ERROR(!) ' || sqlerrm || '; '; end;
+  foreach r in array array['fin', 'adm', 'mgmt', 'od', 'sales', 'ppic', 'purch', 'lead', 'ca', 'ia', 'stranger'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5f-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin select count(*) into n from public.audit_log where table_name in ('fs_statement_line', 'fs_line_map');
+      out := out || r || ' reads the audit rows of the FS tables=' || case when n > 0 then 'some' else '0' end
+        || case when (r in ('fin', 'adm', 'mgmt', 'od') and n > 0) or (r not in ('fin', 'adm', 'mgmt', 'od') and n = 0) then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' audit read: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '', true);
+
   -- anon: nothing; authenticated cannot truncate (a truncate would skip the lock)
   begin
     out := out || 'anon privileges on fs_statement_line / fs_line_map=' || (has_table_privilege('anon', 'public.fs_statement_line', 'select') or has_table_privilege('anon', 'public.fs_statement_line', 'insert')
@@ -3680,6 +3717,13 @@ begin
      where has_table_privilege('anon', x, 'select') or has_table_privilege('anon', x, 'insert') or has_table_privilege('anon', x, 'update') or has_table_privilege('anon', x, 'delete');
     out := out || 'tables and views of B5 with anon privileges=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
   exception when others then out := out || 'anon table privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the two audit_log policies of B5: the FS tables' trail for their readers (restrictive), price_floor_rule added to the Sales redaction
+  begin
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'audit_log'
+       and ((policyname = 'audit_log_fs_redact' and permissive = 'RESTRICTIVE' and qual like '%fs_statement_line%' and qual like '%operations_director%')
+         or (policyname = 'audit_log_sales_redact' and permissive = 'RESTRICTIVE' and qual like '%price_floor_rule%' and qual like '%allocation_run%'));
+    out := out || 'audit_log policies of B5=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'audit_log policies: ERROR(!) ' || sqlerrm || '; '; end;
   -- the columns and constraints B5 adds
   begin
     select count(*) into n from information_schema.columns where table_schema = 'public' and ((table_name = 'batch' and column_name = 'lb_price_source') or (table_name = 'plan_check_reason' and column_name = 'plan_week_id') or (table_name = 'plan_week_class' and column_name = 'detail'));
