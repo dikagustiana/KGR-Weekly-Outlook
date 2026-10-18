@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "../src/fixtures";
 import {
-  classOfAvg, normHeader, parseCsv, parseTsv, registeredClasses, templateGrid, upDate, upMonth, upNum, upSize, uploadFingerprint, validateUpload,
+  classOfAvg, normHeader, parseCsv, parseTsv, registeredClasses, templateGrid, upDate, upMonth, upNum, upNumAmbiguous, upSize, uploadFingerprint, validateUpload,
   type Grid, type UploadContext, type UploadKindV5,
 } from "../src/upload-validate";
 import { D } from "../src/decimal";
@@ -32,9 +32,19 @@ describe("aturan parsing (§4.9)", () => {
     expect(upNum("-0.25")!.toString()).toBe("-0.25");
     expect(upNum("1.234")!.toString()).toBe("1234");
     expect(upNum("12.345,6")!.toString()).toBe("12345.6");
-    // R79: English thousands ("1,234") is ambiguous — refuse it
+    // R79: English thousands ("1,234") is ambiguous — refuse it; a leading 0 is a decimal comma, never a thousands group
     expect(upNum("1,234")).toBeNull();
     expect(upNum("12,345,678")).toBeNull();
+    expect(upNum("-1,234")).toBeNull();
+    expect(upNum("0,715")!.toString()).toBe("0.715");
+    expect(upNum("1,23")!.toString()).toBe("1.23");
+    expect(upNum("1,2345")!.toString()).toBe("1.2345");
+    expect(upNumAmbiguous("1,234")).toBe(true);
+    expect(upNumAmbiguous("1.234,5")).toBe(false);
+    expect(upNumAmbiguous(1234)).toBe(false);
+    // both separators: the last one is the decimal point (en-US "1,234.5" is not ambiguous)
+    expect(upNum("1,234.5")!.toString()).toBe("1234.5");
+    expect(upNum("1.234.567,8")!.toString()).toBe("1234567.8");
     expect(upNum(null)).toBeNull();
   });
   it("tanggal: YYYY-MM-DD · DD/MM/YYYY · tanggal Excel; bulan", () => {
@@ -103,6 +113,20 @@ describe("Lampiran B.5 dengan konteks golden", () => {
     expect(r.records[1].data).toMatchObject({ key: "RPA|Karkas|Fresh", size_kg: "1.30", delivery_date: "2026-08-29", kg: "1755", price: "36705" });
     expect(r.summary).toBe("5 dari 7 baris bisa disimpan (7.594,9 kg dari 7.764,9 kg). Baris gagal ditahan sampai diperbaiki.");
     expect(r.dates).toEqual(["2026-08-27", "2026-08-29"]);
+  });
+  it("R79: kg \"1,234\" (ribuan Inggris) ditahan dengan alasan 'format ribuan ambigu', bukan dibaca 1,234 atau dianggap kosong", () => {
+    const g = samples.po_lines.grid.map((r) => [...r]);
+    g[2][3] = "1,234"; // KGR26.00349: kg
+    g[3][4] = "12,500"; // KGR26.00350: harga
+    const r = validateUpload("po_lines", g, ctx);
+    expect(r.rows[1].level).toBe("fail");
+    expect(r.rows[1].action).toContain('kg "1,234": format ribuan ambigu');
+    expect(r.rows[2].level).toBe("fail");
+    expect(r.rows[2].action).toContain('harga "12,500": format ribuan ambigu');
+    expect(r.ok_count).toBe(3);
+    // the same numbers written the id-ID way pass
+    g[2][3] = "1.234"; g[3][4] = "12.500";
+    expect(validateUpload("po_lines", g, ctx).rows.slice(1, 3).every((x) => !x.action.includes("ambigu"))).toBe(true);
   });
   it("PO dengan po_unsized_mode = fail: 7 → 4 lolos, Karkas Mix tanpa ukuran ditahan (perilaku v5)", () => {
     const r = validateUpload("po_lines", samples.po_lines.grid, { ...ctx, poUnsizedMode: "fail" });
