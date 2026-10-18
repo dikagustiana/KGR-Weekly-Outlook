@@ -2,6 +2,31 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a7] Layar Penugasan Sales: Admin dan Kepala Sales mengatur `sales_assignment` (K49, O21(b); docs/v5.2/a7.md; Q-v5.2-120 … 123)
+
+### Added
+- `/komersial/assignment` (`app/komersial/assignment`): list of every assignment (active first), a one-line cover summary per Sales user in the words of O21(b) ("RPA|Karkas = semua bentuk", "RPA|Sayap|Fresh = hanya Fresh"), an add / change form and a switch per row. Admin and Kepala Sales only (area `sales_assignment`, as RLS); every other role gets a 404; not behind a module flag. Links from Komersial (card next to the approval queue; v5, v4 and the old layout), Admin → Pengguna and Admin.
+- Actions `saveAssignmentAction` (upsert on the unique triple `sales_rep,customer,key`; the Sales user is an active `app_user` with role `sales`; the key is a SKU key of the master or its base key, anything else is refused with the key it probably means; `sales_rep` is the one the e-mail already has, else the name) and `toggleAssignmentAction` (deactivate / activate, never a delete). Both check the role first, then `assertSchemaCurrent` (K57), tell the database's own error (an RLS denial or an update RLS hides = "Tidak berwenang") and revalidate every page that reads an assignment.
+- Kepala Sales cannot read `app_user` (policy `app_user_select`): the Sales list is read server side with the service client, read only, after the role check; without `SUPABASE_SERVICE_ROLE_KEY` only Admin can pick a user (Q-v5.2-120).
+- `lib/v5/assignment.ts` (pure rules), `lib/v5/assignment-data.ts` (K41 fail-closed reads), `components/v5/AssignmentForm.tsx` (keeps what was typed after a refusal), `components/v5/AssignmentLink.tsx`.
+- Tests: web `assignment` (19), `assignment-actions` (54), `assignment-page` (22), `commercial-view` (+3); e2e: the page in the role matrix (`penugasan`, 200 for Admin and Kepala Sales, 404 for the other eight roles, in all ten flag combinations) and journey A7 (`tests/e2e/journey-A7.cjs`, wired in `run.sh` after A6).
+
+### Fixed
+- `commercialView` (Komersial in the v4 and old layouts, SKU page `/komersial/[key]`) read the assigned keys by exact match, so an assignment with a base key (`RPA|Karkas`, what Q-v5.2-53 asks for) showed Sales an empty table although the database lets them see it. It now reads them as `assignment_covers` does (O21(b)): a key without a form suffix covers every form, one with a suffix only itself (Q-v5.2-122).
+
+### Changed
+- `tests/e2e/matrix-expect.json`: the written cell "Status biaya in Komersial" of Sales in the v4 layout (combinations 2, 3, 4, 9) is 1, it was 0 — the 0 recorded the empty table of the bug above; the exception in `rules` is withdrawn (Q-v5.2-122, docs/v5.2/a7.md; to be confirmed by the product owner).
+
+## [v5.2-a5b] e2e evidence gaps of R48, R69 and R70 (docs/PRD-v5.2-A-kode.md R48, R69, R70; docs/v5.2/a5b.md)
+
+No application code changed: everything is under `tests/e2e/` (plus README, the CI step name and the document).
+
+### Added
+- e2e R48 (journey T7 step 11): PPIC opens the Rencana of the week a locked commitment belongs to (31 Aug); the class demand holds the PO and the kg of the commitment beyond it (15.000 kg = 4.000 PO + 11.000 beyond, numbers from the database), and the same page without the commitment (flag `v5_commercial` off) differs by exactly the kg beyond the PO. The week row (the Monday rollover is an Admin step) and the PO line of that week are SETUP (`sql/next-week.sql`) and are taken away again (`sql/next-week-undo.sql`); the step compares the row counts of the 92 tables before and after. Step 1c now also shows that the PO upload holds a line of next week with "minggu ... belum ada".
+- e2e journey R69 (`tests/e2e/journey-R69.cjs`, `sql/fs-app-lines.sql`): the FS fixture (`fs_statement_line` version 1, `fs_line_map` agreed) is built from the app's numbers derived by plain SQL from the tables (compared with the page to the cent), then C59 LULUS (15 sama), a Rp 1,00 correction (version 2) stays within the tolerance, a correction with Rp 2.500.000,00 and Rp 2,71 (version 3) is C59 GAGAL, the FINAL lock is held on C59 (button off, the server action refuses when forced) until Finance records the override of C59 with a reason, then FINAL is locked; accuracy tile with the C59 line; access of 10 roles to the page and to the FS tables (RLS); the override of C59 is Finance's alone.
+- e2e journeys L (v5.1 L4-L7: new commitment version with a reason, Sales inputs off, answer to the surplus, Outlook bulan and Kas), P (v5.1 P8: `POST /rpc/release_week` to PostgREST with the Finance JWT, three SETUP variants of the K35 grid, 400/400/200, and 403 for PPIC) and O (v5.1 O2 and O5: the WP upload moves the data date and the queue, the cut date comes from the wall clock).
+- `E2E_ONLY` names `O`, `L`, `P`, `R69`; `run.sh` saves the T7 database once (`afterT7`) and every journey that writes puts it back; `summarize.cjs` and the CI step name list them. About 115 s added to `pnpm e2e` in the CI order (436 s in all after the build step, two-core container).
+
 ## [v5.2-a6] UI: urutan tile, label sumber per periode, nav Finance, .xls, ribuan ambigu, PPIC membangun ulang antrean (docs/PRD-v5.2-A-kode.md irisan A6, R75–R79; Q-v5.2-36, -50, -52; docs/v5.2/a6.md)
 
 ### Added

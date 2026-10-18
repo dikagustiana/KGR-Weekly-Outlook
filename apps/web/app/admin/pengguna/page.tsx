@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { supabaseServer } from "@/lib/supabase";
 import { mustRows } from "@/lib/loader";
 import { ROLE_LABEL } from "@/lib/roles";
+import { AssignmentLink } from "@/components/v5/AssignmentLink";
 import { saveUser, setPassword, toggleActive } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const ROLE_HELP: Record<string, string> = {
   purchasing: "Harga LB hari ini, rencana beli trading, harga beli pengganti, termin, rencana kas (pembayaran)",
   finance: "Rencana kas, run-rate, rilis outlook",
   management: "Baca saja (tanpa halaman input)",
-  commercial_lead: "Semua hak Sales; approval diskon di bawah harga lantai; scorecard dan target per sales",
+  commercial_lead: "Semua hak Sales; approval diskon di bawah harga lantai; scorecard dan target per sales; penugasan SKU dan pelanggan Sales",
   cost_accounting: "Upload WP potong per batch, cost pool, tarif overhead, alokasi biaya ke SKU",
 };
 
@@ -32,6 +33,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/pengguna">
       <h1>Pengguna dan peran</h1>
       <p className="muted">Hanya e-mail di daftar ini yang bisa masuk (login dengan kata sandi, atau Google Workspace bila diaktifkan). Peran menentukan input yang boleh diisi; semua pengguna aktif bisa membaca outlook.</p>
+      <AssignmentLink className="muted" />
       <div className="grid2">
         <Card title="Tambah / ubah pengguna">
           <ActionForm action={saveUser} submit="Simpan pengguna" className="row">

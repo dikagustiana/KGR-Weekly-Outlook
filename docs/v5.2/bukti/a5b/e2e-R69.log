@@ -1,0 +1,205 @@
+# journey R69 — rekonsiliasi app ↔ FS (C59): FS fixture dari SQL, LULUS, selisih → GAGAL, override Finance, akses (R69)
+# lingkungan: PG16 lokal + PostgREST 12 + mock auth · app http://127.0.0.1:3100 · jam dinding mesin 2026-10-18T10:54:59.168Z
+
+0 - — SETUP: jam uji Sel 1 Sep 09.00 (Agustus sudah lewat); login sepuluh role; keadaan awal tabel FS   [jam uji 2026-08-28T17:06:34+07:00]
+JAM UJI → jam uji: 2026-09-01 09:00:00 WIB (offset -4092900s)
+    admin      GET /login → HTTP 200
+    admin      POST /login (server action) → HTTP 303
+    finance    GET /login → HTTP 200
+    finance    POST /login (server action) → HTTP 303
+    management GET /login → HTTP 200
+    management POST /login (server action) → HTTP 303
+    operations_director GET /login → HTTP 200
+    operations_director POST /login (server action) → HTTP 303
+    sales      GET /login → HTTP 200
+    sales      POST /login (server action) → HTTP 303
+    commercial_lead GET /login → HTTP 200
+    commercial_lead POST /login (server action) → HTTP 303
+    ppic       GET /login → HTTP 200
+    ppic       POST /login (server action) → HTTP 303
+    cost_accounting GET /login → HTTP 200
+    cost_accounting POST /login (server action) → HTTP 303
+    inventory_accounting GET /login → HTTP 200
+    inventory_accounting POST /login (server action) → HTTP 303
+    purchasing GET /login → HTTP 200
+    purchasing POST /login (server action) → HTTP 303
+    CEK lulus: sepuluh role masuk — admin, finance, management, operations_director, sales, commercial_lead, ppic, cost_accounting, inventory_accounting, purchasing
+    DB fs_statement_line: 0 baris; fs_line_map: draft 15
+    CEK lulus: awal: belum ada baris FS, 15 baris pemetaan masih draft (seed B5)
+    DB release_override_policy C59: finance
+    CEK lulus: kebijakan override C59: hanya finance (B5) — finance
+    CEK lulus: v4_release hidup dan bulan Agustus belum FINAL
+    Supabase (mock origin) selama langkah: 48× auth 200, 602× rest 200
+
+R1 finance — belum ada FS: halaman bilang FS belum diimpor, C59 tidak dinilai; angka app di halaman = turunan SQL dari tabel   [jam uji 2026-09-01T09:00:07+07:00]
+    DB turunan SQL (fs-app-lines.sql, 2026-08-01): revenue 6385876039.00; cogs -6040472784.16; gp 345403254.84; opex -183890155.67; other 1736681.53; nibt 163249780.70; kas 1289251345.68; piutang_pihak_ketiga 991265050.00; piutang_pihak_berelasi 0.00; persediaan_produk 1568104888.56; persediaan_trading 2592109530.52; utang_dagang_pihak_ketiga -420329749.60; utang_dagang_afiliasi 0.00; utang_lain_afiliasi 5600000000.00; ekuitas 1802379653.13
+    CEK lulus: SQL menurunkan 15 baris app — 15
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    CEK lulus: halaman Rekonsiliasi terbuka untuk Finance — HTTP 200
+    finance  C59 BELUM DIISI · 0 sama, 0 beda, 0 belum ada angka dari 0 baris yang dipetakan · FS bulan ini belum diimpor
+    CEK lulus: halaman: 'C59 BELUM DIISI' dan 'FS bulan ini belum diimpor' — C59 BELUM DIISI · 0 sama, 0 beda, 0 belum ada angka dari 0 baris yang dipetakan · FS bulan ini belum diimpor
+    CEK lulus: catatan: C59 belum dinilai dan belum menahan FINAL
+    CEK lulus: laba rugi app: jurnal bulan penuh (Agustus sudah lewat), FINAL belum dikunci; tanpa baris Selisih costing atau Biaya kapasitas idle (mode cogs)
+    finance  15 angka app di halaman vs SQL: semua sama sampai sen
+    CEK lulus: 15 angka app di halaman = turunan SQL dari tabel (sampai sen; tanpa DO unbilled dan tanpa baris v5 di bulan ini)
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  Tutup buku: kontrol C21 LULUS, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C48 LULUS, C49 BELUM DIISI
+    CEK lulus: Tutup buku: C59 tidak ada di daftar kontrol FINAL (tidak dinilai tanpa FS) — C21,C22,C23,C24,C35,C36,C37,C48,C49
+    finance  tangkapan layar: screens/R69-R1-tanpa-fs.png
+    Supabase (mock origin) selama langkah: 6× auth 200, 151× rest 200
+
+R2 finance — FS diimpor (SETUP) tetapi pemetaan masih draft: 'pemetaan belum disetujui', C59 belum dinilai   [jam uji 2026-09-01T09:00:10+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — FS Agustus (fs_statement_line): 15 baris versi 1, terkunci; jumlah = turunan SQL angka app; berkas sintetis e2e-fs-agustus-2026-v1.xlsx, SHA-256 efa2244af1a0…
+    DB fs_statement_line: 15 baris; fs_line_map: draft 15
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    CEK lulus: halaman terbuka — HTTP 200
+    finance  C59 BELUM DIISI · 0 sama, 0 beda, 0 belum ada angka dari 0 baris yang dipetakan · pemetaan belum disetujui Finance
+    CEK lulus: pemetaan belum disetujui Finance (15 baris masih draft): C59 BELUM DIISI — C59 BELUM DIISI · 0 sama, 0 beda, 0 belum ada angka dari 0 baris yang dipetakan · pemetaan belum disetujui Finance
+    finance  FS acuan: versi 1, berkas e2e-fs-agustus-2026-v1.xlsx, SHA-256 efa2244af1a0…, 15 baris, dikunci 1 Sep.
+    CEK lulus: FS acuan: versi 1, berkas sintetis, SHA-256, 15 baris, dikunci — FS acuan: versi 1, berkas e2e-fs-agustus-2026-v1.xlsx, SHA-256 efa2244af1a0…, 15 baris, dikunci 1 Sep.
+    CEK lulus: tabel laba rugi dan neraca kosong: tidak ada baris yang dipetakan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    CEK lulus: Tutup buku: C59 masih tidak dinilai dan tidak menahan — C22 GAGAL: Hasil SKU vs hasil potong per batch (toleransi parameter.yield_gap_tolerance) · override oleh cost_accounting, finance | C23 BELUM DIISI: Cost pool:…
+    Supabase (mock origin) selama langkah: 4× auth 200, 129× rest 200
+
+R3 finance — pemetaan disetujui (SETUP): 15 sama, 0 beda, C59 LULUS; kolom FS = kolom app = turunan SQL; Tutup buku mencantumkan C59 LULUS   [jam uji 2026-09-01T09:00:12+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — fs_line_map: 15 baris status agreed (Finance menyetujui pemetaan minimum)
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    CEK lulus: halaman terbuka — HTTP 200
+    finance  C59 LULUS · 15 sama, 0 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: C59 LULUS: 15 sama, 0 beda, 0 belum ada angka dari 15 baris yang dipetakan — C59 LULUS · 15 sama, 0 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: tabel laba rugi (6 baris) dan neraca (9 baris) — 6 + 9
+    CEK lulus: setiap baris: status 'sama', selisih Rp 0,00
+    finance  app = FS = SQL pada 15 dari 15 baris
+    CEK lulus: kolom app dan kolom FS sama dengan turunan SQL di semua 15 baris
+    CEK lulus: tanpa 'Rincian C59' (tidak ada selisih) dan tanpa catatan 'Ada selisih'
+    CEK lulus: laba rugi app: jurnal bulan penuh (bulan sudah lewat), FINAL belum dikunci — Angka app laba rugi: jurnal bulan penuh + penyesuaian yang diposting; FINAL belum dikunci.
+    finance  tangkapan layar: screens/R69-R3-c59-lulus.png
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  Tutup buku: kontrol C21 LULUS, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C48 LULUS, C49 BELUM DIISI, C59 LULUS; ditolak: ditolak: C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C49 BELUM DIISI
+    CEK lulus: Tutup buku: C59 ada di kontrol FINAL dan LULUS — C59 Rekonsiliasi angka app vs FS (Management Report) LULUS
+    CEK lulus: Tutup buku: C59 bukan penolakan FINAL (yang menahan kontrol lain) — ditolak: C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C49 BELUM DIISI
+    finance  tangkapan layar: screens/R69-R3-tutup-buku.png
+    Supabase (mock origin) selama langkah: 4× auth 200, 129× rest 200
+
+R4 finance — Finance mencatat override (UI) untuk enam kontrol FINAL di luar FS yang tidak dipenuhi data uji; tanpa itu FINAL hanya bergantung pada C59: tombol Kunci FINAL aktif   [jam uji 2026-09-01T09:00:15+07:00]
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  penolakan FINAL sebelum override: C22 GAGAL: Hasil SKU vs hasil potong per batch (toleransi parameter.yield_gap_tolerance) | C23 BELUM DIISI: Cost pool: Σ PI pemasok = Σ GL akun biaya RPA periode (± Rp 1) | C24 GAGAL: Setiap batch Aktual punya alokasi berstatus posted (syarat rilis bulanan) | C35 BELUM DIISI: Σ saldo rekening = kas neraca | C36 BELUM DIISI: Hari kerja tanpa upload kas | C49 BELUM DIISI: Σ pl_daily actual = P&L bulan berjalan (± Rp 1)
+    CEK lulus: penolakan FINAL = enam kontrol di luar FS (C22, C23, C24, C35, C36, C49), semuanya bisa di-override Finance — C22,C23,C24,C35,C36,C49
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C22 dicatat oleh Finance — Override C22 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C23 dicatat oleh Finance — Override C23 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C24 dicatat oleh Finance — Override C24 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C35 dicatat oleh Finance — Override C35 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C36 dicatat oleh Finance — Override C36 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C49 dicatat oleh Finance — (pesan ikut hilang bersama formulir)
+    DB release_override 2026-08-01:FINAL: C22 (finance), C23 (finance), C24 (finance), C35 (finance), C36 (finance), C49 (finance)
+    CEK lulus: DB: enam override, semuanya oleh finance, dengan alasan — C22,C23,C24,C35,C36,C49
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  sesudah override: ditolak ""; tombol Kunci FINAL aktif; kontrol C21 LULUS, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C48 LULUS, C49 BELUM DIISI, C59 LULUS
+    CEK lulus: tidak ada penolakan FINAL lagi (C59 LULUS, enam lainnya dilepas override)
+    CEK lulus: tombol 'Kunci FINAL' aktif
+    finance  tangkapan layar: screens/R69-R4-final-siap.png
+    Supabase (mock origin) selama langkah: 22× auth 200, 648× rest 200, 6× rest 201
+
+R5 finance — koreksi FS versi 2 (SETUP): Revenue selisih tepat Rp 1,00 = toleransi (O26): tetap sama, C59 LULUS, FINAL tetap boleh   [jam uji 2026-09-01T09:00:24+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — FS Agustus versi 2 (koreksi, K70): PL b.12 Revenue = app + Rp 1,00; berkas sintetis e2e-fs-agustus-2026-v2.xlsx
+    DB fs_statement_line: v1 15, v2 1
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  C59 LULUS · 15 sama, 0 beda, 0 belum ada angka dari 15 baris yang dipetakan; PL b.12: app Rp 6.385.876.039,00, FS Rp 6.385.876.040,00, selisih Rp −1,00, sama
+    CEK lulus: Revenue: FS = app + Rp 1,00, selisih −Rp 1,00, status 'sama' (di dalam toleransi) — PL b.12 · Revenue | Revenue (jurnal) | Rp 6.385.876.039,00 | Rp 6.385.876.040,00 | Rp −1,00 | sama |
+    CEK lulus: C59 tetap LULUS (15 sama) — C59 LULUS · 15 sama, 0 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: FS acuan menyebut versi 2 dan berkas koreksi — FS acuan: versi 2, berkas e2e-fs-agustus-2026-v2.xlsx, SHA-256 31cac96e67fe…, 15 baris, dikunci 1 Sep.
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    CEK lulus: Tutup buku: C59 LULUS dan tombol 'Kunci FINAL' aktif
+    Supabase (mock origin) selama langkah: 4× auth 200, 129× rest 200
+
+R6 finance — koreksi FS versi 3 dengan selisih (SETUP): 2 baris beda, C59 GAGAL, sebab 'selisih'; FINAL ditahan C59 (tombol nonaktif, aksi server menolak)   [jam uji 2026-09-01T09:00:26+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — FS Agustus versi 3 (koreksi, K70): Revenue = app + Rp 2.500.000,00 dan Total ekuitas = app + Rp 2,71 (selisih yang disengaja); berkas sintetis e2e-fs-agustus-2026-v3.xlsx
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  C59 GAGAL · 13 sama, 2 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: C59 GAGAL: 13 sama, 2 beda dari 15 baris — C59 GAGAL · 13 sama, 2 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    finance  PL b.12: Rp 6.385.876.039,00 | Rp 6.388.376.039,00 | Rp −2.500.000,00 | beda | selisih; BS b.77: Rp 1.802.379.653,13 | Rp 1.802.379.655,84 | Rp −2,71 | beda | selisih
+    CEK lulus: Revenue: selisih −Rp 2.500.000,00, status beda, sebab 'selisih' (data lengkap, definisi sama) — PL b.12 · Revenue | Revenue (jurnal) | Rp 6.385.876.039,00 | Rp 6.388.376.039,00 | Rp −2.500.000,00 | beda | selisih
+    CEK lulus: Total ekuitas: selisih −Rp 2,71 (di atas toleransi Rp 1), status beda — BS b.77 · TOTAL EQUITY | Total ekuitas | Rp 1.802.379.653,13 | Rp 1.802.379.655,84 | Rp −2,71 | beda | selisih
+    CEK lulus: 13 baris lain tetap sama
+    CEK lulus: 'Rincian C59' menyebut kedua baris dan catatan: kunci FINAL ditahan sampai override Finance di Tutup buku — PL b.12 Revenue (jurnal): app 6.385.876.039,00 vs FS 6.388.376.039,00 = selisih −2.500.000,00 (selisih) | BS b.77 Total ekuitas: app 1.802.379.653,13 vs FS 1.8…
+    finance  tangkapan layar: screens/R69-R6-c59-gagal.png
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  Tutup buku: C59 Rekonsiliasi angka app vs FS (Management Report) GAGAL; penolakan: C59 GAGAL: Rekonsiliasi angka app vs FS (Management Report) · override oleh finance; alasan di layar: "ditolak: C59 GAGAL"; tombol nonaktif
+    CEK lulus: Tutup buku: C59 GAGAL di kontrol FINAL
+    CEK lulus: FINAL ditahan C59 saja: satu penolakan 'C59 GAGAL', bisa di-override oleh finance — C59 GAGAL: Rekonsiliasi angka app vs FS (Management Report) · override oleh finance
+    CEK lulus: tombol 'Kunci FINAL' nonaktif dengan alasan 'ditolak: C59 GAGAL' — true "ditolak: C59 GAGAL"
+    finance  tangkapan layar: screens/R69-R6-tutup-buku-ditahan.png
+    finance  dialog "Kunci FINAL? Versi yang dikunci tidak bisa diubah; akurasi dan kalibrasi bulan …" → ok
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tombol dipaksa aktif: FINAL ditolak: C59 GAGAL
+    CEK lulus: aksi server menolak: 'FINAL ditolak: C59 GAGAL' — FINAL ditolak: C59 GAGAL
+    CEK lulus: DB: FINAL Agustus tidak terkunci — 0
+    Supabase (mock origin) selama langkah: 6× auth 200, 205× rest 200
+
+R7 finance — Finance mencatat override C59 dengan alasan (UI): FINAL dikunci; halaman tetap GAGAL, menampilkan override, dari FINAL terkunci; tile akurasi bulan sesudahnya   [jam uji 2026-09-01T09:00:30+07:00]
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    CEK lulus: override C59 dicatat (formulir dan pesannya hilang bersama penolakan terakhir: barisnya di database di bawah)
+    DB release_override C59: C59 · finance · R69 e2e: selisih FS Agustus (Revenue Rp 2.500.000, ekuitas Rp 2,71) dijelaskan Finance; FS versi 3 dikoreksi di sumber · e2e-fs-agustus-2026-v3.xlsx · finance@e2e.test
+    CEK lulus: DB: override C59 oleh finance dengan alasan dan bukti — C59 finance R69 e2e: selisih FS Agustus (Revenue Rp 2.500.000, ekuitas Rp 2,71) dijelaskan Finance; FS versi 3 dikoreksi di sumber e2e-fs-agustus-2026-v3.xlsx …
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  Tutup buku sesudah override: C59 GAGAL; ditolak ""; tombol aktif
+    CEK lulus: C59 tetap GAGAL di tabel; override hanya mengizinkan kunci: tidak ada penolakan, tombol aktif
+    finance  dialog "Kunci FINAL? Versi yang dikunci tidak bisa diubah; akurasi dan kalibrasi bulan …" → ok
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  FINAL dikunci (SHA ce55df6f72c9…); 3 asumsi kalibrasi untuk 2026-09; 2026-08-01: ledger: sebelum stok awal; scorecard: scorecard 2026-07-27: 0 sales (0 ditulis); demand: minggu 2026-07-27 belum ada; monthly: bulan 2026-08: cut-off 2026-08-26, 262 baris (0 dit…
+    CEK lulus: FINAL dikunci (SHA …) — FINAL dikunci (SHA ce55df6f72c9…); 3 asumsi kalibrasi untuk 2026-09; 2026-08-01: ledger: sebelum stok awal; scorecard: scorecard 2026-07-27: 0 sales (0 ditulis…
+    DB FINAL Agustus: FINAL · ce55df6f72c9 · finance@e2e.test · t
+    CEK lulus: DB: FINAL Agustus terkunci oleh finance; snapshot memuat C59 GAGAL (dikunci dengan override) — FINAL ce55df6f72c9 finance@e2e.test t
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  C59 GAGAL · 13 sama, 2 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: Rekonsiliasi: angka app laba rugi dari FINAL yang sudah dikunci; C59 tetap GAGAL dengan 2 baris beda — C59 GAGAL · 13 sama, 2 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    CEK lulus: baris yang beda masih PL b.12 dan BS b.77 (FINAL = angka jurnal yang sama) — BS b.77,PL b.12
+    CEK lulus: bagian 'Override C59' menampilkan alasan, bukti dan Finance; C59 tetap tampil di atas — Override C59 Finance mencatat override untuk FINAL Agustus 2026: R69 e2e: selisih FS Agustus (Revenue Rp 2.500.000, ekuitas Rp 2,71) dijelaskan Finance; FS ver…
+    finance  tangkapan layar: screens/R69-R7-final-terkunci.png
+SETUP (postgres, langsung ke tabel; bukan alur) — V1 Agustus (dikunci Kam 20 Agu di produksi, tidak ada di data uji) di samping FINAL: revenue, COGS, GP dan NIBT 2% di atas FINAL; hanya agar tile akurasi punya versi pembanding
+    finance    GET /m/2026-08 → HTTP 200
+    finance  /m/2026-08 tile akurasi: Akurasi bulan terakhir yang FINAL cara hitung V1 FINAL Selisih Revenue 6.513,6 6.385,9 127,7 (2,0%) GP P&L 352,3 345,4 6,9 (2,0%) NIBT jurnal 166,5 163,2 3,3 (2,0%) NIBT + beban tetap belum ada 163,2 MAPE revenue 2,0% Selisih revenue sebelum penyesuaian 127,7 Rekonsiliasi ke FS (C59) GAGAL: 2 dari 15 baris beda Agustus 2026, V1 terhadap FINAL; persen di kolom selisih terhadap V1.
+    CEK lulus: Outlook bulan: tile 'Akurasi bulan terakhir yang FINAL' (Agustus, V1 terhadap FINAL) memuat baris 'Rekonsiliasi ke FS (C59)': 'GAGAL: 2 dari 15 baris beda' — Akurasi bulan terakhir yang FINAL cara hitung V1 FINAL Selisih Revenue 6.513,6 6.385,9 127,7 (2,0%) GP P&L 352,3 345,4 6,9 (2,0%) NIBT jurnal 166,5 163,2 3,3 (…
+    CEK lulus: baris C59 di tile menaut ke halaman Rekonsiliasi
+    finance  tangkapan layar: screens/R69-R7-tile-akurasi.png
+    Supabase (mock origin) selama langkah: 14× auth 200, 619× rest 200, 3× rest 201, 4× rest 204
+
+R8 - — akses: admin, finance, management, operations_director membuka halaman; enam role lain tidak; tabel FS tertutup di database; override C59 hanya Finance   [jam uji 2026-09-01T09:00:38+07:00]
+    akses /m/2026-08/rekonsiliasi: admin 200, finance 200, management 200, operations_director 200, sales 404, commercial_lead 404, ppic 404, cost_accounting 404, inventory_accounting 404, purchasing 404
+    CEK lulus: admin, finance, management dan operations_director: 200 — admin 200, finance 200, management 200, operations_director 200
+    CEK lulus: sales, commercial_lead, ppic, cost_accounting, inventory_accounting dan purchasing: 404 (halaman tidak ada untuk role itu, K48) — sales 404, commercial_lead 404, ppic 404, cost_accounting 404, inventory_accounting 404, purchasing 404
+    finance (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 18 baris
+    finance (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 15 baris
+    management (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 18 baris
+    management (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 15 baris
+    operations_director (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 18 baris
+    operations_director (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 15 baris
+    sales (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 0 baris
+    sales (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 0 baris
+    ppic (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 0 baris
+    ppic (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 0 baris
+    cost_accounting (langsung ke PostgREST)  GET /rest/v1/fs_statement_line?select=row_no&limit=100 → HTTP 200 0 baris
+    cost_accounting (langsung ke PostgREST)  GET /rest/v1/fs_line_map?select=row_no&limit=100 → HTTP 200 0 baris
+    CEK lulus: finance, management dan operations_director membaca baris FS dan pemetaan — {"finance":[18,15,200,200],"management":[18,15,200,200],"operations_director":[18,15,200,200],"sales":[0,0,200,200],"ppic":[0,0,200,200],"cost_accounting":[0,0…
+    CEK lulus: sales, ppic dan cost_accounting: nol baris (RLS), bukan galat — {"finance":[18,15,200,200],"management":[18,15,200,200],"operations_director":[18,15,200,200],"sales":[0,0,200,200],"ppic":[0,0,200,200],"cost_accounting":[0,0…
+    cost_accounting (langsung ke PostgREST)  POST /rest/v1/release_override C59 → HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"release_ov…
+    CEK lulus: override C59 oleh cost_accounting ditolak (403, RLS: hanya finance) — HTTP 403
+    CEK lulus: DB: tidak ada override C59 untuk 2026-09-01
+    diharapkan: sales GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: commercial_lead GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: ppic GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: cost_accounting GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: inventory_accounting GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: purchasing GET /m/2026-08/rekonsiliasi → HTTP 404 (halaman Rekonsiliasi tidak ada untuk role itu (K48, R69: hanya admin, finance, management, operations_director))
+    diharapkan: rest (costacc@e2e.test) POST release_override → HTTP 403 (penolakan yang diharapkan: override C59 hanya Finance)
+    Supabase (mock origin) selama langkah: 33× auth 200, 96× rest 200, 1× rest 403
+
+RINGKASAN R69: 65 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 65 (49× 200, 10× 303, 6× 404); respons tak terduga 0; SETUP 5
