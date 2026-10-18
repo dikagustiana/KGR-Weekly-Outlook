@@ -79,9 +79,15 @@ describe("R44 (K57): a schema behind the code is one message, and writes stop ea
     expect(await schemaStatusOf(sb as never)).toBe(`Skema database belum diperbarui ke v${EXPECTED_SCHEMA}; hubungi Admin (DB v5.1.0)`);
     sb = fakeSb();
     expect(await schemaStatusOf(sb as never)).toContain("(schema_registry kosong)");
-    for (const v of [EXPECTED_SCHEMA, "5.2.4", "5.10.0", "6.0.0"]) {
+    for (const v of [EXPECTED_SCHEMA, "5.2.5", "5.10.0", "6.0.0"]) {
       sb = fakeSb({ rpc: { schema_version: v } });
       expect(await schemaStatusOf(sb as never)).toBeNull();
+    }
+    // A1c: the code needs the B5 objects, so a database at the B2 version (5.2.2) or after the first B5 file (5.2.3) is behind
+    expect(EXPECTED_SCHEMA).toBe("5.2.4");
+    for (const v of ["5.2.2", "5.2.3"]) {
+      sb = fakeSb({ rpc: { schema_version: v } });
+      expect(await schemaStatusOf(sb as never)).toBe(`Skema database belum diperbarui ke v5.2.4; hubungi Admin (DB v${v})`);
     }
     sb = fakeSb({ fail: { "rpc:schema_version": { code: "42501", message: "permission denied for function schema_version" } } });
     expect(await schemaStatusOf(sb as never)).toBeNull();
