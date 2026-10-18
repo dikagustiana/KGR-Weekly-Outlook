@@ -40,7 +40,7 @@ export async function saveParameters(form: FormData) {
   const weekPatch: Record<string, unknown> = {};
   if (form.has("update_date") && can(v.role, "update_date")) {
     // K69: the update date changes only while the week is open (the database refuses it otherwise); unchanged = not sent
-    const w = must(await sb.from("week").select("status, update_date").eq("id", weekId).maybeSingle(), "week update_date");
+    const w = must(await sb.from("week").select("status, update_date").eq("id", weekId).maybeSingle(), "week update_date") as { status: string; update_date: string } | null;
     let d: string | null = null;
     try { d = parseDate(String(form.get("update_date"))); } catch (e) { go("err", (e as Error).message); }
     if (!d) go("err", "Tanggal update wajib diisi");
