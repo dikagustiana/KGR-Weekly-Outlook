@@ -21,7 +21,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | 3 | Mart production 24 Agu–30 Sep | belum | menunggu 1, 2, data Sep (D6) |
 | 4 | FINAL Agu & Sep, C12/C49 LULUS | belum | B6 |
 | 5 | FS v2 diimpor, C59 | belum | B5/A4/B6 |
-| 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian | lint baru di A1 (run 39045685561 hijau); e2e: A5; T19: D1, D3/D4 |
+| 6 | CI `main`: engine, lint, rls, e2e hijau; T7 di CI (T14) dan staging (T19); matriks R72 | sebagian: **CI 4 job hijau, T7 49/0 xfail, matriks 120** (#52); T19 staging belum | lint baru di A1 (run 39045685561 hijau); e2e: A5; T19: D1, D3/D4 |
 | 7 | Parity 17.161/17.161, snapshot byte-identik | lulus (A1, lokal) | `pnpm parity` 17161/17161, `pnpm snapshot:diff` EMPTY di `f340e55`, container cloud PG16 |
 | 8 | Flag v5 dibuka untuk semua role sesudah T19 | belum | O29(b) aktif sejak 17 Okt 22.41 |
 | 9 | Status R41–R79, B-R80–B-R94 | berjalan | `docs/v5.2/audit-handover.md` (audit Fase 0); R41–R47 di PR #38; B-R82–84 di PR #41 (lokal PG16; staging/KGR-OS belum) |
@@ -46,6 +46,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | A4 R68 | **merge** (#42 `443bbf0`) | `fsRecon` + C59 engine + fixture Agu/Sep; CI run 39100986309 ✓. Temuan D9 (ekuitas b.71) |
 | A1b K69 | **merge** (#44 `bed6039`) | `update_date` hanya Admin/Finance di minggu open; CI main run 39101702229 ✓ |
 | A2 R48–R58 | **merge** (#45 `4b440d8`) | gate agen di `e70e495` (engine 426, web 341, parity 17161, test:rls 37 blok); golden B.5 diubah sesuai R58; CI main run 39101910881 ✓. Sisa R51/R52 menunggu kolom B-R85 (B5) |
+| A5 R70–R74 | **merge** (#52 `9431b44`) | job CI `e2e`: T7 49 lulus 0 xfail, matriks 120, volume 13, F19 12 + 4 xfail (Q-v5.2-51 cron tanpa sesi → cabang `v5.2/a1d-cron-client`). **Cron jangan dinyalakan sebelum perbaikan ini** |
 | A3 R59–R67 | **merge** (#51 `b408a9a`) | gate agen + CI run 39104756583 engine ✓ lint ✓ rls ✓; mode memo O24(b) di KGR-OS 18 Okt 06.42 UTC |
 | A1b schema_version | **merge** (#50 `044d735`) | banner skema dari RPC `schema_version()`, `EXPECTED_SCHEMA` 5.2.2; KGR-OS 5.2.4. CI run 39104463074 engine ✓ lint ✓ rls ✓ |
 | A4 R69 | **merge** (#49 `f3b33cb`, sesudah B5 di KGR-OS) | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
