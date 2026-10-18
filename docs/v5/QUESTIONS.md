@@ -358,3 +358,17 @@ Q-v5.2-27. Upload WP: baris file yang tertahan mempertahankan baris lamanya dan 
 Q-v5.2-28. Commit PO upload tetap per baris karena approval C38 per baris. Diterima untuk v5.2.
 
 Q-v5.2-29. Karkas `Frozen` dikeluarkan dari demand kelas (perbandingan bentuk tanpa beda huruf). Diterima (perbaikan bug).
+
+**Q-v5.2-40 … 45 (dari A4, `docs/v5.2/a4.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-40. C59 pada kunci FINAL dinilai hanya bila FS bulan itu sudah diimpor dan ada pemetaan `agreed`; tanpa itu C59 BELUM DIISI di halaman dan tidak menahan FINAL (urutan B6: FINAL dulu, impor FS sesudahnya). Diterima. DoD 5 tetap meminta C59 Agustus/September terlihat di halaman Rekonsiliasi sesudah impor.
+
+Q-v5.2-41. Ekuitas b.77 berselisih Rp 2,71 (b.71 FS ≠ TB; FS sendiri tidak seimbang Rp 4,93). Angka tidak disesuaikan (K62). Keputusan Finance: koreksi b.71 di FS, atau override C59 bulanan dengan alasan ini — dicatat di BUTUH-DIKA D9; sampai itu, baris b.77 berstatus `beda` dengan sebab tertulis (memenuhi DoD 5 "setiap beda punya sebab tertulis").
+
+Q-v5.2-42. Penanda "jurnal bulan lengkap" per bulan tidak dibuat di v5.2; sebab `data belum ada` ditentukan dari tanggal jurnal terakhir vs akhir bulan. Diterima.
+
+Q-v5.2-43. FINAL terkunci tanpa baris laba rugi v4 di snapshot ditolak dengan galat (tidak diganti angka bulan berjalan). Diterima (gagal-tertutup).
+
+Q-v5.2-44. Neraca app akhir bulan = TB minggu terakhir (week_start ≤ akhir bulan) + jurnal sesudah tanggal TB. Diterima.
+
+Q-v5.2-45. `fs_line_map.status` ('draft'|'agreed') ada di migrasi B5; teks B-R86 PRD B dianggap diselaraskan oleh migrasi itu.
