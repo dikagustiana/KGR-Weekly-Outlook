@@ -51,7 +51,19 @@ describe("ledger golden — example week 24–30 Aug 2026 (update 27 Aug)", () =
     expect(rows.filter((s) => !ok.includes(s)).map((s) => s.item_code).sort()).toEqual(["JLB0790", "JLB0856", "JLB0922", "JLB0988"]);
   });
 
-  it.todo("PRD v3 §8 M2: MA = hpp_actual ± Rp 1/kg on ≥ 95% of the actual lines — 88,2% (30/34) reproducible from the fixture; see docs/open-questions.md §E.4");
+  // O13 (PRD v5.2-A §6): the ≥ 95% target of PRD v3 §8 M2 is not reached on the August fixture. The exception is written
+  // (docs/open-questions.md, row M2 "MA per key = hpp_actual") and this test locks what is reproducible: 30 of 34 lines
+  // (88,2%) and the four lines that differ with their gap in Rp/kg (MA − Accurate). A change in the ledger that moves
+  // any of these numbers must update the exception, not slip by.
+  it("O13 exception: MA = hpp_actual ± Rp 1/kg on 88,2% (30 of 34) of the lines, not the 95% target; the four others and their gap per kg are locked", () => {
+    const rows = led.saleCosts.filter((s) => s.hppPerKg !== null);
+    const ok = rows.filter((s) => s.maPerKg.minus(s.hppPerKg!).abs().lte(1));
+    const share = ok.length / rows.length;
+    expect((share * 100).toFixed(1)).toBe("88.2");
+    expect(share).toBeLessThan(0.95);
+    const gap = rows.filter((s) => !ok.includes(s)).map((s) => [s.item_code, s.maPerKg.minus(s.hppPerKg!).toFixed(2)]).sort(([a], [b]) => String(a).localeCompare(String(b)));
+    expect(gap).toEqual([["JLB0790", "17.25"], ["JLB0856", "180.28"], ["JLB0922", "259.38"], ["JLB0988", "196.32"]]);
+  });
 
   it("C25: every outflow without a lot on the DO is assumed (FIFO)", () => {
     const r = reconcile({ ledger: led, balance: balanceAt(led, "2026-08-26", li.keys, li.params), stockCard: null, bsInventory: null });
