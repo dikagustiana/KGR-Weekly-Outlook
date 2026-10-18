@@ -1,7 +1,7 @@
 import { addDays } from "@kgr/engine";
 import { moduleEnabled } from "@/lib/modules";
 import { withSources } from "@/lib/v5/management";
-import { sourcesOf } from "@/lib/v5/management-data";
+import { periodOf, sourcesOf } from "@/lib/v5/management-data";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
@@ -29,8 +29,8 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
   const gate = await tileData("ppic: gerbang salin ke batch", () => copyGate({ sb, week: ctx.week, planId: src.plans[0] ? String(src.plans[0].id) : null, classOn: true, src, c45 }));
   const input = await loadPpicV5(sb, { src, result: ctx.computed.result, base: `/w/${week}/rencana`, versi, canPlan, c45, gate });
   const model0 = ppicV5Model(input);
-  // PRD v5 K36 (flag v5_management): the source label under the main numbers
-  const model = (await moduleEnabled("v5_management", ctx.viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("ppic", sb)) } : model0;
+  // PRD v5 K36 (flag v5_management): the source label under the main numbers, read for the week shown (R76)
+  const model = (await moduleEnabled("v5_management", ctx.viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("ppic", sb, periodOf(ctx.week.week_start, ctx.week.week_end, ctx.week.update_date))) } : model0;
   const latest = src.plans[0] ?? null;
   const extras = rencanaV5Extras({ role, week, latest, input });
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));

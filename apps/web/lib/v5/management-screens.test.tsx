@@ -46,7 +46,7 @@ const mgmt = (basis: SimBasis = "need", price = today, over: Partial<ManagementV
   loop: loopLines(loop0),
   sources: {
     "c-outlook": sourceLabel({ what: "jurnal s.d. 26/08 + PO", role: "inventory_accounting", at: "2026-08-27 08.15".replace(".", ":"), late: false }),
-    "sim-lb": sourceLabel({ what: "WP sementara", role: "cost_accounting", at: "2026-08-26 09:12", late: true }),
+    "sim-lb": sourceLabel({ what: "PO + yield + harga LB 28/08", role: null, at: "2026-08-26 09:12", late: true }),
   },
   ...over,
 });
@@ -69,6 +69,31 @@ describe("Manajemen v5 layout (mockup Main.dc.html from row 9)", () => {
     const off = mingguIniModel({ ...mb, on: { ...mb.on, m4: true }, v5Pl: { first: "2026-08-01", cutOff: "2026-08-26", rows: v5.rows, fixed: v5.fixed, pl: "wk", href: () => "/minggu-ini/2026-08-24" } });
     expect(off.tiles.some((t) => t.id === "sim-lb" || t.id === "keputusan")).toBe(false);
     expect(off.tiles.find((t) => t.id === "ch-harian")!.pos.y).toBe(8);
+  });
+});
+
+describe("R75: urutan tile (y, x) sebelum render (< 900 px: satu kolom menurut urutan DOM)", () => {
+  const { base: mb } = fixtureInput();
+  const v5 = augustV5();
+  const model = mingguIniModel({ ...mb, on: { ...mb.on, m4: true }, v5Pl: { first: "2026-08-01", cutOff: "2026-08-26", rows: v5.rows, fixed: v5.fixed, pl: "wk", href: () => "/minggu-ini/2026-08-24" }, v5Mgmt: mgmt() });
+  const order = (tiles: TileModel[]) => [...renderToStaticMarkup(<TilePage tiles={tiles} label="x" />).matchAll(/data-tile="([^"]+)" data-x="(\d+)" data-y="(\d+)"/g)].map((m) => ({ id: m[1], x: Number(m[2]), y: Number(m[3]) }));
+  it("the model lists the v5 tiles last (laba rugi, simulasi, keputusan): without the sort they would be the last tiles of the page", () => {
+    const ids = model.tiles.map((t) => t.id);
+    expect(ids.indexOf("t-laba-rugi")).toBeGreaterThan(ids.indexOf("catatan"));
+  });
+  it("rendered in (y, x) order: laba rugi (baris 5) sebelum simulasi, grafik harian dan catatan", () => {
+    const o = order(model.tiles);
+    expect(o.length).toBe(model.tiles.length);
+    expect(o.map((t) => [t.y, t.x])).toEqual([...o.map((t) => [t.y, t.x])].sort((a, b) => a[0] - b[0] || a[1] - b[1]));
+    const ids = o.map((t) => t.id);
+    expect(ids.indexOf("t-laba-rugi")).toBeLessThan(ids.indexOf("sim-lb"));
+    expect(ids.indexOf("sim-lb")).toBeLessThan(ids.indexOf("keputusan"));
+    expect(ids.indexOf("keputusan")).toBeLessThan(ids.indexOf("ch-harian"));
+    expect(ids[ids.length - 1]).toBe("catatan");
+  });
+  it("§6.1: laba rugi y 4 (baris 5–8), simulasi dan keputusan y 8 (baris 9), kartu di y 2", () => {
+    const at = (id: string) => model.tiles.find((t) => t.id === id)!.pos;
+    expect([at("t-laba-rugi").y, at("sim-lb").y, at("keputusan").y, at("c-outlook").y]).toEqual([4, 8, 8, 2]);
   });
 });
 
@@ -156,9 +181,9 @@ describe("K36 source labels", () => {
   it("'WP sementara · Cost Accounting · 26 Agu 09.12'; late → named and in the negative colour", () => {
     expect(sourceLabel({ what: "WP sementara", role: "cost_accounting", at: "2026-08-26 09:12", late: false }).text).toBe("WP sementara · Cost Accounting · 26 Agu 09.12");
     const sim = managementV5([], mgmt(), { at: 8 }).find((t) => t.id === "sim-lb")!;
-    expect(sim.source).toEqual({ text: "WP sementara · Cost Accounting · 26 Agu 09.12 · lewat tenggat", late: true });
+    expect(sim.source).toEqual({ text: "PO + yield + harga LB 28/08 · 26 Agu 09.12 · lewat tenggat", late: true });
     const html = renderToStaticMarkup(<TilePage tiles={[sim]} label="x" />);
-    expect(html).toContain('<span class="src bad" data-tile-source="">Sumber: WP sementara · Cost Accounting · 26 Agu 09.12 · lewat tenggat</span>');
+    expect(html).toContain('<span class="src bad" data-tile-source="">Sumber: PO + yield + harga LB 28/08 · 26 Agu 09.12 · lewat tenggat</span>');
     // only the label is red, not the K25 sentence before it
     expect(html).toMatch(/Simulasi, bukan rekomendasi\. <span class="src bad"/);
   });

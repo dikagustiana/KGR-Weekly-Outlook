@@ -1,7 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { moduleEnabled } from "@/lib/modules";
 import { withSources } from "@/lib/v5/management";
-import { sourcesOf } from "@/lib/v5/management-data";
+import { periodOf, sourcesOf } from "@/lib/v5/management-data";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage } from "@/components/v4/TilePage";
 import { plainContext } from "@/lib/page";
@@ -24,8 +24,8 @@ export async function KomersialV5({ viewer, filter }: { viewer: Viewer; filter: 
   const mgmt = (await currentView(viewer)) === "management";
   const input = await loadKomersialV5(sb, viewer, filter);
   const model0 = komersialV5Model(input);
-  // PRD v5 K36 (flag v5_management): the source label under the main numbers
-  const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("commercial", sb)) } : model0;
+  // PRD v5 K36 (flag v5_management): the source label under the main numbers, read for the week shown (R76)
+  const model = (await moduleEnabled("v5_management", viewer)) ? { ...model0, tiles: withSources(model0.tiles, await sourcesOf("commercial", sb, week ? periodOf(week.week_start, week.week_end, week.update_date) : undefined)) } : model0;
   const extras: Record<string, ReactNode> = {};
   const c = input.commitment;
   if (!mgmt && c.canEdit && c.rows.length) extras["t-komitmen"] = <CommitmentForm c={c} save={saveCommitmentsAction} lock={lockCommitmentsAction} />;
