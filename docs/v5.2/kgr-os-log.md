@@ -72,5 +72,7 @@ view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat 
 | 08.28 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0828`**: 96 tabel, 3.392 kB, anon/authenticated tanpa `usage`; `schema_version()` 5.2.5 |
 | ±08.30 | ✎ bundel B7 (Q-v5.2-72/74/84), sesudah CI cabang B7 hijau (`4db83d0`: engine, lint, rls, e2e) | `docs/v5.2/kgr-os-migrasi-v52-b7.sql` apa adanya (sha256 `4336a9f8…8565`), satu panggilan | tabel cek **16/16 true**; `schema_version()` **5.2.6**; sidik = lokal `ref_b7` **9/9 identik** (pol `78fa5b92`; regex `\m`/`\M` di cek 11 utuh) |
 
+| 09.47 | baca | `select schema_version()` + registry; GitHub Deployments | KGR-OS **5.2.6** (registry 5.2.0–5.2.6, `bundle_sha256` terisi untuk tiap versi bundel); Production 7152837375 `85f7684` dengan `EXPECTED_SCHEMA` 5.2.6: **DoD 1 terpenuhi** |
+
 Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
 memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.

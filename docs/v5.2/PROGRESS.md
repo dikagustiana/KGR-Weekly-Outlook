@@ -16,7 +16,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 | # | Butir | Status | Bukti / blocker |
 |---|---|---|---|
-| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **KGR-OS 5.2.6** (18 Okt, tanpa staging atas keputusan Dika); `EXPECTED_SCHEMA` 5.2.6 di `main` (#59) — **menunggu deploy** (kuota Vercel) | v5.1 + B2 + B5 + B6 + B7 diterapkan, tabel cek 12/24/26/15/16 true, sidik = repo 9/9 tiap bundel (`kgr-os-log.md` 18 Okt). Production `5879930` (deploy 7152132583, 08.37 UTC; EXPECTED 5.2.4 ≤ DB) jalan tanpa banner |
+| 1 | Skema KGR-OS v5.2, `schema_version()` = `EXPECTED_SCHEMA` | **lulus** (KGR-OS via connector + GitHub Deployments, 18 Okt 09.47 UTC) | KGR-OS `schema_version()` 5.2.6 (registry 5.2.0–5.2.6 dengan `bundle_sha256` tiap bundel); Production deploy 7152837375 (`85f7684`, 09.46.55 UTC) dengan `EXPECTED_SCHEMA` 5.2.6. Bundel v5.1 + B2 + B5 + B6 + B7: tabel cek 12/24/26/15/16 true, sidik = repo 9/9 tiap bundel, tanpa staging atas keputusan Dika (`kgr-os-log.md`) |
 | 2 | Antrean 0 queued/failed; cron sukses di Vercel | sebagian | 42 baris di luar jendela → done (log 22.41). 7 queued 24–30 Agu menunggu v5.1 + rebuild. Cron: D2 |
 | 3 | Mart production 24 Agu–30 Sep | belum | menunggu 1, 2, data Sep (D6) |
 | 4 | FINAL Agu & Sep, C12/C49 LULUS | belum | B6 |
@@ -57,6 +57,8 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | B7 Q-v5.2-72/84 | **di KGR-OS** ±08.30 UTC (5.2.6); **merge** (#58 `5879930`) | `plan_day`, `plan_variance_daily`, `demand_shortfall`, `plan_check_reason` tanpa Sales; backup `bak_20261018t0828`; cek 16/16, sidik 9/9; Q-v5.2-85/86 (release, batch) batas v5.2 |
 | A1d Q-v5.2-51 (merge) | **merge** (#54 `f258c0a`), di production sejak deploy `0a7dc7d` 08.19 UTC | cron boleh dinyalakan setelah D2 (kunci servis + `CRON_SECRET`) |
 | Vercel deploy hanya `main` | **merge** (#55 `3860588`) | kuota deploy harian: deploy `5119dc1`/`f258c0a`/`3860588`/`f5ec2be` tertahan "rate limited"; `0a7dc7d` sukses |
+| A6 R75–R79 + O16/O17/O19 + Q-v5.2-36/50/52 | **merge** (#60 `85f7684`), di production (deploy 7152837375) | CI engine ✓ lint ✓ rls ✓ e2e ✓ (A6 82 cek, 0 XFAIL); layar `docs/v5.2/bukti/a6/` |
+| EXPECTED_SCHEMA 5.2.6 | **merge** (#59 `f5ec2be`), di production bersama #60 | DoD 1 |
 | A4 R69 | **merge** (#49 `f3b33cb`, sesudah B5 di KGR-OS) | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
 | Workflow `db-ops` | **merge** (#46 `e532204`, #48 `c7b5714`) | pemicu push `ops/db-ops.json` ke cabang `ops/db-run` (integrasi agen tidak bisa `workflow_dispatch`, 403). Uji pemicu run 39103012742 (18 Okt 06.09 UTC): guard berhenti benar — `STAGING_DB_URL` dan `SUPABASE_DB_URL` belum diisi (D4) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
@@ -64,10 +66,10 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 ## Berikutnya
 
-Sesi 18 Okt (±09.00 UTC). KGR-OS = repo 5.2.6. Production = `5879930` (memuat #57, #58); `f5ec2be` (#59) tertahan kuota.
+Sesi 18 Okt (±09.50 UTC). KGR-OS = repo 5.2.6. Production = `85f7684` (#59 + A6 #60), deploy 7152837375.
 
-1. Deploy `main` berikutnya (kuota Vercel) membawa #57–#59; cek "Vercel" success, lalu DoD 1 = 5.2.6/5.2.6.
-2. A6 (agen berjalan): R75–R79, Q-v5.2-36/50/52, layar 1366/899/390; PR → CI → merge (satu push `main`).
+1. (selesai) DoD 1: Production `85f7684` EXPECTED 5.2.6 = KGR-OS 5.2.6. A6 merge (#60).
+2. A5b (agen berjalan): celah e2e R48, R69, R70 (journey L4–L7, P8, O2/O5, rekonsiliasi → C59).
 3. Data Agu–Sep, rebuild, FINAL, rekonsiliasi FS: butuh D2 (kunci servis + `CRON_SECRET`) dan akses menggerakkan app (D3/D4/D5).
 4. T19/T21/T23 staging (D1 + D4); flag v5 ke semua role sesudah T19.
 
