@@ -25,9 +25,10 @@ insert into public.app_user (email, full_name, role) values
   ('admin@'    || :'domain', 'E2E Admin (bangun ulang awal saja)', 'admin')
 on conflict (email) do update set role = excluded.role, full_name = excluded.full_name, active = true;
 
--- Sales has one active assignment: the RPA karkas SKU of one customer
+-- Sales has one active assignment: the RPA karkas SKU (without a form suffix: covers fresh and frozen, the commitment is per base
+-- key; with PRD v5.2 O21(b) an assignment ending in |Fresh covers only that form) of one customer
 insert into public.sales_assignment (sales_rep, email, customer, key, active)
-values ('SALES-E2E', 'sales@' || :'domain', 'PT A', 'RPA|Karkas|Fresh', true)
+values ('SALES-E2E', 'sales@' || :'domain', 'PT A', 'RPA|Karkas', true)
 on conflict (sales_rep, customer, key) do update set email = excluded.email, active = true;
 
 select public.set_login_password(email, :'pw') from public.app_user where email like '%@' || :'domain' order by email;

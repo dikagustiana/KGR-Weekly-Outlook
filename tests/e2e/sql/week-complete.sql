@@ -49,13 +49,14 @@ from (values (date '2026-08-27'), (date '2026-08-28')) as v(d)
 cross join (values ('5100007', 'Biaya Kirim Ayam', 1000000.00, null::numeric), ('2101003', 'Utang Usaha Lainnya', null::numeric, 1000000.00)) as l(account, name, debit, credit)
 where not exists (select 1 from public.gl_line g where g.voucher_no = 'E2E-JV-' || to_char(v.d, 'YYMMDD'));
 
--- PO lines delivered on 24, 25, 26 Aug with their FEFO allocation (the fixture holds POs from 27 Aug only; K35 asks for an
--- allocation per day and for the PO of the day after a cut date; the screens cannot create a PO for a past date)
+-- Sales delivered on 24 and 25 Aug (status Aktual) and the PO line of 26 Aug (fully delivered), each with its FEFO allocation: the
+-- fixture holds POs from 27 Aug only; K35 asks for an allocation per day and for the PO of the day after a cut date, and the
+-- screens cannot create a line for a past date. 24/25 are Aktual so they stay out of the plan's demand.
 with w as (select id from public.week where week_start = date '2026-08-24'),
   ins as (
     insert into public.sales_line (week_id, seq, date, delivery_date, status, demand_status, document_ref, po_ref, customer, item_code, kg, fulfilled_kg, price, source, channel, sales_rep)
-    select w.id, 9000 + n, d, d, 'Order', 'Confirmed', 'E2E-PO-' || to_char(d, 'YYMMDD'), 'E2E-PO-' || to_char(d, 'YYMMDD'), 'PT A', 'JLB0922', 150.00, 150.00, 45000, 'Accurate', 'po', 'SALES-E2E'
-    from w, (values (1, date '2026-08-24'), (2, date '2026-08-25'), (3, date '2026-08-26')) as x(n, d)
+    select w.id, 9000 + x.n, x.d, x.d, x.st, case when x.st = 'Order' then 'Confirmed' end, 'E2E-PO-' || to_char(x.d, 'YYMMDD'), 'E2E-PO-' || to_char(x.d, 'YYMMDD'), 'PT A', 'JLB0922', 150.00, 150.00, 45000, 'Accurate', 'po', 'SALES-E2E'
+    from w, (values (1, date '2026-08-24', 'Aktual'), (2, date '2026-08-25', 'Aktual'), (3, date '2026-08-26', 'Order')) as x(n, d, st)
     where not exists (select 1 from public.sales_line s where s.document_ref = 'E2E-PO-' || to_char(x.d, 'YYMMDD'))
     returning id, delivery_date)
 insert into public.allocation (date, sales_line_id, lot_ref, kg, method, note)
@@ -63,3 +64,19 @@ select i.delivery_date, i.id, (select lot_ref from public.lot_balance_daily wher
 from ins i
 where (select lot_ref from public.lot_balance_daily where key = 'RPA|Karkas|Fresh' and date = i.delivery_date order by kg desc limit 1) is not null
 on conflict (sales_line_id, lot_ref) do nothing;
+
+-- C42 sees every yield row of the plan's class (STD) with a "Placeholder" note, also rows that a newer effective date has replaced.
+-- The upload of PPIC replaces the karkas rows (with berlaku_mulai 2026-01-01); the boneless rows (I_Yield of the workbook) cannot be
+-- uploaded (the check asks for a Karkas key). PPIC's decision on them is the setup below. Finding: docs/v5.2/a5.md (Q-v5.2-50).
+update public.yield_matrix set note = 'e2e: yield pola boneless ditetapkan PPIC (setup)' where weight_class = 'STD' and cut_pattern = 'boneless' and note ilike 'placeholder%';
+
+------------------------------------------------------------------------------------------------------------------
+-- 4. PO prices of the fixture are below the cost floor of the v5 costing (commercial_daily.price_floor = cost per kg), so C38
+--    (the database guard, "di bawah harga lantai") rightly holds the allocation of those lines. C38 is not bypassed: the test POs are
+--    priced 25% above the floor of their delivery date, which is the state of a week whose orders cover their cost.
+update public.sales_line s set price = ceil(f.price_floor * 1.25)
+from public.item_map m, public.commercial_daily f
+where m.item_code = s.item_code and f.key = m.key and f.date = s.delivery_date
+  and s.status = 'Order' and s.deleted_at is null and s.superseded_at is null
+  and s.delivery_date between date '2026-08-27' and date '2026-08-29'
+  and s.price < f.price_floor * 1.25;
