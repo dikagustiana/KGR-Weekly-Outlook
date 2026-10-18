@@ -37,3 +37,27 @@ policy, trigger, indeks, constraint dan grant saat snapshot ada di `bak_<UTC>._d
 
 Belum dijalankan (alasan di `docs/v5.2/PROGRESS.md`): B0-3 bundel v5.1 (menunggu staging, Q-v5.2-4), B0-7 bangun
 ulang 24–30 Agu (menunggu B0-3 dan akses app), B0-2 env Vercel (BUTUH-DIKA).
+
+## 18 Okt 2026
+
+**Keputusan Dika (chat, 18 Okt): "langsung aja merge di database utama gak usah staging".** Rem "staging dulu" (Bab 4)
+dilepas untuk bundel v5.1, B2, B5; rem lain tetap: backup sebelum perubahan, tiap berkas atomik, tabel cek harus
+semua true, dan sesudah tiap bundel sidik skema KGR-OS dibandingkan dengan DB lokal (PG 16 + shim) yang memuat bundel
+yang sama (kueri `docs/v5.2/bukti/schema-fingerprint-*.sql`, digabung: kolom, fungsi dinormalkan, policy, trigger,
+view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat connector Supabase `execute_sql`.
+
+| Waktu (UTC) | Langkah | Perintah | Hasil |
+|---|---|---|---|
+| 06.12 | baca | sidik skema KGR-OS vs lokal v5.0 | 9/9 kategori identik (sebelum perubahan) |
+| 06.12 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` (sha256 `f8893561…0461`) | skema **`bak_20261018t0612`**: 93 tabel, anon/authenticated tanpa `usage` |
+| ±06.14 | ✎ bundel v5.1 | `docs/v5.1/kgr-os-migrasi-v51.sql` (tanpa 14 baris kepala komentar), satu panggilan | tabel cek **12/12 true**; sidik = lokal `ref_v51` 9/9 |
+| ±06.16 | ✎ B2 1/3 meta | prasyarat + `20261025000100_v52_meta.sql` | `schema_version()` 5.2.0 |
+| ±06.17 | ✎ B2 2/3 security | `20261025000200_v52_security.sql` | 5.2.1 |
+| ±06.18 | ✎ B2 3/3 release + penutup | `20261025000300_v52_release.sql` + `bundle_sha256` + `notify pgrst` + tabel cek | tabel cek **24/24 true**; sidik: 8/9 sama, **fungsi beda** |
+| ±06.22 | temuan + ✎ perbaikan | `norm_code`: transport connector mengubah 11 escape `\uXXXX` di regex menjadi karakter Unicode asli (makna regex setara, teks tidak). `create or replace` dengan teks persis repo (backslash dibangun `chr(92)` di blok `do`) | probe NBSP + U+3000 → "AB"; sidik fungsi = `ref_b2`; **9/9 identik** |
+| ±06.25 | ✎ B5 1/2 costing | prasyarat + `20261025000400_v52_costing.sql` | 5.2.3 |
+| ±06.27 | ✎ B5 2/2 fs + penutup | `20261025000500_v52_fs.sql` + `bundle_sha256` + `notify pgrst` + tabel cek | tabel cek **26/26 true**; sidik = `ref_b5` **9/9 identik**; `schema_version()` **5.2.4** |
+| ±06.28 | baca | data vs manifest `bak_20261018t0612` | `gl_line` 1.840, `app_setting` 16, `rebuild_queue` queued 7, `sales_assignment` 0, `week` 1 sama; `release_override_policy` 36 → 38 (C55, C59); `audit_log` +2 (dua baris kebijakan itu); `fs_line_map` 15 draft |
+
+Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
+memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.
