@@ -11,13 +11,14 @@ import "server-only";
  * plan_day rows as before. The LB price of a batch = the decision of its class, else the decision for all classes (C57
  * when none while v5_costing is on).
  *
- * Not here (DB objects that do not exist yet, PRD v5.2-B B-R85): the reason bound to the plan version by a column
- * (plan_check_reason.plan_week_id — until then a C58 reason counts only when written after the plan version was saved),
- * the LB price provenance (batch.lb_price_source — the copy message names it instead), the date split saved in
- * plan_week_class (K27 stage 2 — until then the saved week totals are split over the cut dates by the demand profile).
+ * B5 objects (schema 5.2.3, A1c): the C58 reason is bound to the plan version by `plan_check_reason.plan_week_id` (one without it —
+ * written before, or with no plan saved yet — counts by time); the date split a saved plan produced is `plan_week_class.detail`
+ * (a row without it is divided by the demand profile); the provenance of each batch's LB price is `batch.lb_price_source`
+ * (keputusan_kelas, keputusan_semua_kelas; the supply and the parameter price are `manual`, Q-v5.2-70) and the copy message
+ * names the finer source as before.
  */
 import {
-  D, addDays, c57, lbDecisionFor, planBatchRow, splitClassPlan,
+  D, addDays, c57, lbDecisionFor, needByCutDate, planBatchRow, splitClassPlan,
   type ControlV3, type Decimal,
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
@@ -64,10 +65,20 @@ export interface CopyGate {
   notes: string[];
 }
 
-/** A C58 reason counts for the plan version it was written after (no column to bind it yet, B-R85); a reason without a stamp always counts. */
-export function reasonsFor(reasons: { code: string; reason: string; created_at?: string | null }[], plan: Row | null): { code: string; reason: string }[] {
+/**
+ * Which written reasons count for `plan`. A C58 reason bound to a plan version (`plan_week_id`, B5) counts for that version
+ * only — an older or newer version needs its own, whatever the clocks say. A C58 reason without a version (written before
+ * v5.2, or while no plan was saved) counts when it was written after the plan version was saved; one without a stamp always
+ * counts. Every other code counts as before.
+ */
+export function reasonsFor(reasons: { code: string; reason: string; created_at?: string | null; plan_week_id?: string | null }[], plan: Row | null): { code: string; reason: string }[] {
   const saved = plan ? s(plan.created_at) : null;
-  return reasons.filter((r) => r.code !== "C58" || !saved || !r.created_at || Date.parse(r.created_at) >= Date.parse(saved));
+  const planId = plan ? s(plan.id) : null;
+  return reasons.filter((r) => {
+    if (r.code !== "C58") return true;
+    if (r.plan_week_id) return planId !== null && r.plan_week_id === planId;
+    return !saved || !r.created_at || Date.parse(r.created_at) >= Date.parse(saved);
+  });
 }
 
 export async function copyGate(ctx: CopyCtx): Promise<CopyGate> {
@@ -81,7 +92,7 @@ export async function copyGate(ctx: CopyCtx): Promise<CopyGate> {
   const v4 = [...ppicWeekControls(src, p, week.update_date), c45];
 
   // the batches the copy would write: the saved class rows of this version, else its plan days, else (no plan yet) the proposal
-  const saved = plan ? await fetchAll<Row>((a, b) => sb.from("plan_week_class").select("weight_class, cut_pattern, kg_lb, heads").eq("plan_week_id", String(plan.id)).order("plan_week_id").order("weight_class").range(a, b)) : [];
+  const saved = plan ? await fetchAll<Row>((a, b) => sb.from("plan_week_class").select("weight_class, cut_pattern, kg_lb, heads, detail").eq("plan_week_id", String(plan.id)).order("plan_week_id").order("weight_class").range(a, b)) : [];
   const classPlan = saved.length > 0;
   const cs = classPlan || ctx.classOn ? await loadClassDemand(sb, src) : null;
   const notes: string[] = [];
@@ -93,10 +104,11 @@ export async function copyGate(ctx: CopyCtx): Promise<CopyGate> {
   };
   if (classPlan && cs) {
     const split = splitClassPlan({
-      saved: saved.map((r) => ({ weight_class: String(r.weight_class), kg_lb: s(r.kg_lb), heads: r.heads === null || r.heads === undefined ? null : Number(r.heads) })),
-      profile: cs.daily.flatMap((d) => d.byClass.map((c) => ({ cut_date: d.cut_date, weight_class: c.weight_class, kg_lb: c.kg_lb }))),
+      saved: saved.map((r) => ({ weight_class: String(r.weight_class), kg_lb: s(r.kg_lb), heads: r.heads === null || r.heads === undefined ? null : Number(r.heads), detail: r.detail })),
+      profile: needByCutDate(cs.daily),
     });
     for (const c of split.unplaced) blockers.push(`Kelas ${c} tersimpan tanpa kebutuhan per tanggal: simpan rencana ulang`);
+    for (const c of split.invalid) blockers.push(`Kelas ${c}: rincian per tanggal tersimpan tidak cocok dengan ekor dan kg LB kelas: simpan rencana ulang`);
     batches = split.cuts.map((c) => ({ date: c.cut_date, weight_class: c.weight_class, cut_pattern: "karkas", heads: c.heads, kg_lb: c.kg_lb.toFixed(2), supplier: supplier(c.cut_date, c.weight_class) }));
     const savedCls = new Set(saved.map((r) => String(r.weight_class)));
     const extra = [...new Set(cs.daily.flatMap((d) => d.byClass.filter((c) => c.kg_lb.gt(0)).map((c) => c.weight_class)))].filter((c) => !savedCls.has(c));
@@ -151,6 +163,11 @@ function classYields(src: PlanningSources, cls: string): { yields: Record<(typeo
   return { yields: out, std, v1 };
 }
 
+/** `batch.lb_price_source` of a batch priced by `decided` (null = no decision: the supply or parameter price, typed by hand). */
+export function lbPriceSourceOf(decided: { weight_class: string | null } | null | undefined): "keputusan_kelas" | "keputusan_semua_kelas" | "manual" {
+  return decided ? (decided.weight_class ? "keputusan_kelas" : "keputusan_semua_kelas") : "manual";
+}
+
 /**
  * "Salin ke batch rencana": the batches of the gate become planned batches of the week (status Rencana) with the v1
  * planning rules, replacing the ones an earlier copy wrote. Never automatic. Every read and the whole gate come before the
@@ -172,6 +189,9 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string,
     const price = decided?.price ?? s(lbSupply?.price_per_kg) ?? src.v1.lbPriceToday;
     const source = decided ? (decided.weight_class ? `keputusan kelas ${decided.weight_class}` : "keputusan semua kelas") : lbSupply ? "harga supply" : "harga hari ini (parameter)";
     priceSource.set(source, (priceSource.get(source) ?? 0) + 1); // missing-ok: penghitung jumlah batch per sumber harga (hitungan), bukan uang atau kg
+    // batch.lb_price_source (B5, R51): a decision of the batch's class, a decision for all classes, else a price somebody typed
+    // (the supply row or the parameter: not a decision) — the check of the column allows these three values and null (Q-v5.2-70)
+    const lb_price_source = lbPriceSourceOf(decided);
     let yields = src.v1.yields;
     if (gate.classPlan && cls) {
       const y = classYields(src, cls);
@@ -186,6 +206,7 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string,
       freight: r.freight, maklon: r.maklon, processed_kg: r.processed_kg, out_karkas_fresh: r.out_karkas_fresh, out_kepala: r.out_kepala, out_ceker: r.out_ceker,
       out_usus: r.out_usus, out_hja: r.out_hja, out_lemak: r.out_lemak, source: "Manual", document_ref: `plan_week:${planId}`,
       head_count: r.head_count, avg_lb_kg: gate.classPlan && b.kg_lb && b.heads > 0 ? D(b.kg_lb).div(b.heads).toFixed(4) : clsInfo(cls)?.avg_kg ?? null, weight_class: cls, cut_pattern: b.cut_pattern,
+      lb_price_source,
     };
   });
   const old = await fetchAll<Row>((a, b) => sb.from("batch").select("id, batch_ref").eq("week_id", week.id).eq("status", "Rencana").like("batch_ref", `PLAN-${week.week_start}-%`).is("deleted_at", null).order("id").range(a, b));

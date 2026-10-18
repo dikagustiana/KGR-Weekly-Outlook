@@ -11,6 +11,7 @@ import {
 import type { Supa } from "../supabase";
 import type { WeekRow } from "../data";
 import type { ModuleSettings } from "../modules-core";
+import type { Role } from "../roles";
 import { groupsOfWeek, loadCostingWeek } from "./costing";
 import { loadLedgerSources } from "./ledger";
 import { plDaily } from "./monthly";
@@ -26,10 +27,16 @@ export interface ManagementV3 {
   input: InputSummary | null;
   cogs: { segments: CogsSegment[]; groups: ReturnType<typeof groupsOfWeek> | null; roll: RollForward | null } | null;
   demand: { totals: ReturnType<typeof demandTotals>; heads: number | null; planVersion: number | null; rows: number } | null;
+  /** The demand section is not shown to this role (Sales): not "no demand". */
+  demandHidden?: boolean;
   accuracy: { month: string; rows: Row[] } | null;
 }
 
-export async function managementV3(sb: Supa, week: WeekRow, settings: ModuleSettings, r: WeekResult): Promise<ManagementV3> {
+/**
+ * `role` = the role of the session `sb` runs as. Q-v5.2-15 (A1c): Sales preview this view but do not read demand_weekly or plan_week
+ * (B6), so for them `demand` stays null and `demandHidden` says why — the card says "tidak ditampilkan untuk Sales", it never shows zeros.
+ */
+export async function managementV3(sb: Supa, week: WeekRow, settings: ModuleSettings, r: WeekResult, role?: Role): Promise<ManagementV3> {
   const on = (k: keyof ModuleSettings) => settings[k]?.enabled === true;
   const out: ManagementV3 = { any: true, month: null, cash: null, urgent: null, input: null, cogs: null, demand: null, accuracy: null };
   // Input and COGS are always part of the management view (PRD v3 §6: "tidak boleh hilang"), from the week's engine
@@ -72,7 +79,8 @@ export async function managementV3(sb: Supa, week: WeekRow, settings: ModuleSett
       out.urgent = { date, ...urgentStock(rows.map((x) => ({ urgency: x.urgency as string | null, free_fresh_kg: x.free_fresh_kg as string | null, free_frozen_kg: x.free_frozen_kg as string | null, cost_per_kg_ma: x.cost_per_kg_ma as string | null, downgrade_risk_rp: x.downgrade_risk_rp as string | null }))) };
     }
   }
-  if (on("m3_planning")) {
+  if (on("m3_planning") && role === "sales") out.demandHidden = true;
+  else if (on("m3_planning")) {
     const rows = mustRows(await sb.from("demand_weekly").select("*").eq("week_start", week.week_start), "management.demand_weekly") as Row[];
     const plan = must(await sb.from("plan_week").select("version, head_count").eq("week_start", week.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(), "management.plan_week") as Row | null;
     const rs = rows;

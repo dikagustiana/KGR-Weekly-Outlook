@@ -16,6 +16,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ week: stri
   const sb = await supabaseServer();
   const c = await computeForWeek(sb, week);
   if (!c) return new NextResponse("Minggu tidak ada", { status: 404 });
-  const v3 = await v3ForWeek(sb, c.loaded.week, moduleSettingsGlobal(await moduleSettings()), c.result);
+  const v3 = await v3ForWeek(sb, c.loaded.week, moduleSettingsGlobal(await moduleSettings()), c.result, viewer.role);
   return new NextResponse(snapshotJsonV3(c.result, v3.snapshot), { headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
 }

@@ -30,10 +30,12 @@ else
   exit 0
 fi
 OUT=$(psql "$URL" -q -f supabase/tests/rls_roles.sql 2>&1)
-echo "$OUT" | grep -o 'RLS-RESULTS[^$]*' | sed 's/; /;\n  /g'
-if ! echo "$OUT" | grep -q 'RLS-RESULTS'; then echo "$OUT"; echo "test:rls FAILED (no results)"; exit 1; fi
+# here-strings, not `echo "$OUT" | grep -q`: grep -q exits at the first match, echo then dies of SIGPIPE and, under
+# pipefail, the whole check reads as "no match" (seen in CI once the output outgrew the pipe buffer)
+grep -o 'RLS-RESULTS[^$]*' <<< "$OUT" | sed 's/; /;\n  /g'
+if ! grep -q 'RLS-RESULTS' <<< "$OUT"; then echo "$OUT"; echo "test:rls FAILED (no results)"; exit 1; fi
 WANT=$(grep -c "raise exception 'RLS-RESULTS" supabase/tests/rls_roles.sql)
-GOT=$(echo "$OUT" | grep -c 'RLS-RESULTS')
-if [[ "$GOT" -ne "$WANT" ]]; then echo "$OUT" | grep -v 'RLS-RESULTS' | tail -8; echo "test:rls FAILED ($GOT of $WANT blocks reported)"; exit 1; fi
-if echo "$OUT" | grep -q '(!)'; then echo "test:rls FAILED (unexpected outcome marked (!))"; exit 1; fi
+GOT=$(grep -c 'RLS-RESULTS' <<< "$OUT")
+if [[ "$GOT" -ne "$WANT" ]]; then grep -v 'RLS-RESULTS' <<< "$OUT" | tail -8; echo "test:rls FAILED ($GOT of $WANT blocks reported)"; exit 1; fi
+if grep -q '(!)' <<< "$OUT"; then echo "test:rls FAILED (unexpected outcome marked (!))"; exit 1; fi
 echo "test:rls OK"

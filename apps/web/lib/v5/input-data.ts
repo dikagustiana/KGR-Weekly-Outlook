@@ -303,7 +303,7 @@ export async function loadInputScreen(sb: Supa, viewer: Viewer, role: Role, pane
   }
 
   const blankCards: InputCard[] = [0, 1, 2, 3].map(() => ({ title: "Ringkasan", value: "", sub: "", tone: "plain" }));
-  const cards = fail(failed, ["c-0", "c-1", "c-2", "c-3"], await tileData("input: kartu peran", () => roleCards(sb, role, today, all, grid)), blankCards);
+  const cards = fail(failed, ["c-0", "c-1", "c-2", "c-3"], await tileData("input: kartu peran", () => roleCards(sb, role, today, all, grid, viewer.role)), blankCards);
   const params = fail(failed, ["parameter"], await tileData("input: parameter", () => roleParams(sb, role, today, par)), []);
   return {
     today, time: now.slice(11, 16).replace(":", "."), viewerRole: viewer.role, role, panel,
@@ -322,7 +322,7 @@ async function uploadWizardHref(sb: Supa, today: string): Promise<string | null>
 }
 
 /** The four cards of a role (§6.4 "Headline + 4 kartu"). */
-async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLine[], grid: InputV5Input["grid"]): Promise<InputCard[]> {
+async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLine[], grid: InputV5Input["grid"], viewerRole: Role): Promise<InputCard[]> {
   const dueToday = tasks.filter((t) => t.status !== "passed");
   const late = tasks.filter((t) => t.status === "late").length;
   const first: InputCard = { title: "Tugas terbuka", value: String(dueToday.length), sub: late ? `${late} terlambat` : "tidak ada yang terlambat", tone: late ? "bad" : "plain" };
@@ -341,16 +341,19 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   if (role === "sales" || role === "commercial_lead") {
     // K42: every PO line of the week, page by page
     const po = await fetchAll<Row>((a, b) => sb.from("sales_line").select("kg").eq("status", "Order").is("deleted_at", null).gte("delivery_date", ws).lte("delivery_date", addDays(ws, 6)).order("id").range(a, b));
-    const unsized = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").order("ship_date").order("size_code").order("week_start").range(a, b));
+    // Q-v5.2-15: demand_class_weekly is not read by a Sales session (B2): their card says so, it never shows "0 kg". An Admin or the lead
+    // looking as Sales read it and see the number.
+    const unsized = viewerRole === "sales" ? null : await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("net_kg").eq("week_start", ws).eq("size_code", "tanpa").order("ship_date").order("size_code").order("week_start").range(a, b));
     const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
     const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;
-    const uk = sum(unsized.map((r) => D(String(r.net_kg)))); // net_kg NOT NULL (mart)
+    const uk = unsized === null ? null : sum(unsized.map((r) => D(String(r.net_kg)))); // net_kg NOT NULL (mart)
     const poKg = knownKg(po, "kg");
     return [
       { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(poKg.kg, 0)} kg${poKg.blank ? ` (${poKg.blank} baris belum ada kg)` : ""}`, tone: poKg.blank ? "warn" : "plain" },
       { title: "Gagal cek (upload terakhir)", value: String(failed), sub: failed ? "baris perlu dilengkapi" : "tidak ada", tone: failed ? "bad" : "plain" },
-      { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
+      uk === null ? { title: "Karkas tanpa ukuran", value: "tidak ditampilkan", sub: "tidak ditampilkan untuk Sales (data perencanaan)", tone: "plain" }
+        : { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
       { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }]; // missing-ok: jumlah permintaan approval (hitungan), tanpa baris = 0
   }
   if (role === "ppic") {
