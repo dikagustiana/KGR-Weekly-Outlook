@@ -160,6 +160,8 @@
 .step[aria-current="step"] { border-color: var(--accent); background: var(--accent-soft); }
 .step .n { font-size: var(--fs-xs); color: var(--muted); }
 .step .s { font-size: var(--fs-xs); color: var(--muted); }
+/* a step with a link keeps its three lines (number, name, status): the link is the flex column, not an inline run of text (review v5.3 N2) */
+.step > a { display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; }
 
 /* mobile: read and drill down; grid 2 columns, cards 1 column; tables scroll inside the tile (§5.4) */
 @media (max-width: 899px) {
@@ -171,6 +173,14 @@
   .tg { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
   .tg > .tile { grid-column: span 2 !important; grid-row: auto !important; min-height: 76px; }
   .tg > .tile.card { grid-column: span 1 !important; }
+  /* a 2-column card at 390 px: the unit ("Rp jt") drops under the value instead of being clipped (review v5.3 N1, Q-v5.3-6) */
+  .card-n { flex-wrap: wrap; }
+  /* the tile header (title, segmented controls, "cara hitung") wraps instead of widening the page: Outlook bulan scrolled sideways at 390 px (review v5.3 N8) */
+  .tile-h, .tile-x { flex-wrap: wrap; }
+  /* a sized input (the override form: Alasan size=36, Bukti size=18) is never wider than its tile, and its label wraps around it: Outlook bulan
+     grew to 431 px at 390 px because of it (review v5.3 N8) */
+  input[size] { max-width: 100%; box-sizing: border-box; }
+  .override label { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); max-width: 100%; }
   .tg > .tile.tall { min-height: 300px; }
   .v4t td:first-child, .v4t th:first-child { position: sticky; left: 0; background: var(--surface); }
   .v4b, .seg a { min-height: 44px; }
