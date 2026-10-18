@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { clock } from "@/lib/clock";
-import { isISODate } from "@kgr/engine";
+import { D, isISODate } from "@kgr/engine";
 import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, N, Td } from "@/components/ui";
@@ -9,7 +9,7 @@ import { moduleEnabled, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { currentView } from "@/lib/view-server";
 import { loadCash } from "@/lib/v3/cash";
-import { tgl } from "@/lib/fmt";
+import { jtV4, tgl } from "@/lib/fmt";
 import { moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
 import { TilePage } from "@/components/v4/TilePage";
@@ -57,10 +57,14 @@ export default async function KasPage({ searchParams }: { searchParams: Promise<
           {!mgmt ? <p className="muted">Upload "Finance — template kas harian" (reference/templates/Template_Kas_Harian.xlsx) di Upload minggu berjalan.</p> : null}
         </Card>
         <Card title="12 bulan">
-          <table className="t compact"><thead><tr><th>Bulan</th><th className="n">Perubahan kas</th><th className="n">Saldo akhir</th></tr></thead>
-            <tbody>{st.months.map((m) => <tr key={m.month}><td>{m.month.slice(0, 7)}</td><Td v={m.change} /><Td v={m.closing} /></tr>)}</tbody>
-          </table>
-          <p className="muted">Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini + depresiasi (non-kas), dipertahankan tetap.</p>
+          {st.months ? (
+            <table className="t compact"><thead><tr><th>Bulan</th><th className="n">Perubahan kas</th><th className="n">Saldo akhir</th></tr></thead>
+              <tbody>{st.months.map((m) => <tr key={m.month}><td>{m.month.slice(0, 7)}</td><Td v={m.change} /><Td v={m.closing} /></tr>)}</tbody>
+            </table>
+          ) : <p className="muted">Tidak tersedia: NIBT outlook bulan ini belum menjadi basis (tidak diganti dengan 0).</p>}
+          <p className="muted">{st.monthsRecon && st.monthsRecon.nibt !== null && st.monthsRecon.change !== null
+            ? `Perubahan kas per bulan = NIBT setelah beban tetap ${jtV4(st.monthsRecon.nibt)} jt + penyusutan nonkas ${jtV4(st.monthsRecon.depreciation)} jt${st.monthsRecon.prepaid.length ? ` + amortisasi prepaid ${jtV4(st.monthsRecon.prepaid.reduce((a, p) => a.plus(D(p.amount)), D(0)))} jt` : ""} = ${jtV4(st.monthsRecon.change)} jt, dipertahankan tetap.`
+            : "Bulan berjalan dan seterusnya: laba sebelum pajak outlook bulan ini + depresiasi (non-kas), dipertahankan tetap."}</p>
         </Card>
       </div>
       <Card title="13 minggu">

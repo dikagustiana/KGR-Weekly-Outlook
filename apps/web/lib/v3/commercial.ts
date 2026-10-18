@@ -21,7 +21,7 @@ export interface CommercialState {
   stockDate: string | null;
   week: WeekRow | null;
   rows: CommercialRow[];
-  params: { salesSeesCost: boolean; discountLimit: string; blastCostPerKg: string };
+  params: { salesSeesCost: boolean; discountLimit: string; blastCostPerKg: string | null };
   reps: string[];
   assigned: Row[];
   controls: ControlV3[];
@@ -53,29 +53,30 @@ export async function computeCommercial(sb: Supa, date: string): Promise<Commerc
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
   const info = new Map(keys.map((k) => [String(k.key), k]));
   const price = new Map(prices.map((p) => [String(p.key), s(p.ref_sell_price)]));
-  const real = realizedPrice(sales.map((x) => ({ key: keyOf(s(x.key_manual), s(x.item_code)), kg: s(x.kg) ?? "0", price: s(x.price) ?? "0" })));
+  const real = realizedPrice(sales.filter((x) => s(x.kg) !== null && s(x.price) !== null).map((x) => ({ key: keyOf(s(x.key_manual), s(x.item_code)), kg: String(x.kg), price: String(x.price) }))); // a line without kg or price has no realised price: left out, not valued at 0
   // kg ordered for delivery today per key (C39: urgent SKUs without an order today)
   const today = new Map<string, Decimal>();
-  for (const o of orders) if ((s(o.delivery_date) ?? s(o.date)) === date) {
+  for (const o of orders) if ((s(o.delivery_date) ?? s(o.date)) === date && s(o.kg) !== null) {
     const k = keyOf(s(o.key_manual), s(o.item_code));
-    today.set(k, (today.get(k) ?? D(0)).plus(D(s(o.kg) ?? "0")));
+    today.set(k, (today.get(k) ?? D(0)).plus(D(String(o.kg)))); // missing-ok: akumulator kg per SKU, mulai dari 0 untuk dijumlah
   }
   const hours = new Map<string, number>();
   for (const l of lots) if (l.hours_to_cutoff !== null) hours.set(String(l.key), Math.min(hours.get(String(l.key)) ?? Infinity, Number(l.hours_to_cutoff)));
   const p = (must(param, "commercial.parameter") ?? {}) as Row;
-  const blast = s(p.blast_cost_per_kg) ?? "0";
+  // R64: no parameter row = the blast cost is unknown: the default price floor is "belum ada", never storage only
+  const blast = s(p.blast_cost_per_kg);
   const rows = commercialRows({
     date, blastCostPerKg: blast, costAnomalyRatio: s(p.cost_anomaly_ratio) ?? "3",
     urgencyRules: urg.map((u) => ({ form: u.form === "fresh" ? "fresh" : "frozen", age_from: Number(u.age_from), age_to: u.age_to === null ? null : Number(u.age_to), status: String(u.status) as UrgencyRule["status"] })),
-    floorRules: floors.map((f): PriceFloorRule => ({ key: s(f.key), group_code: s(f.group_code), markup_rp_per_kg: String(f.markup_rp_per_kg ?? 0), markup_pct: String(f.markup_pct ?? 0), effective_from: String(f.effective_from) })),
+    floorRules: floors.map((f): PriceFloorRule => ({ key: s(f.key), group_code: s(f.group_code), markup_rp_per_kg: String(f.markup_rp_per_kg), markup_pct: String(f.markup_pct), effective_from: String(f.effective_from) })),
     items: bal.map((b) => {
       const key = String(b.key);
       const k = info.get(key);
       return {
-        key, group_code: s(b.group_code) ?? s(k?.group_code), form: b.form === "fresh" ? "fresh" : "frozen", free_kg: s(b.free_kg) ?? "0",
+        key, group_code: s(b.group_code) ?? s(k?.group_code), form: b.form === "fresh" ? "fresh" : "frozen", free_kg: String(b.free_kg), // sku_balance_daily.free_kg NOT NULL
         oldest_age_days: b.oldest_age_days === null ? null : Number(b.oldest_age_days), hours_to_cutoff: hours.has(key) ? hours.get(key)! : null,
         cost_per_kg_ma: s(b.cost_per_kg_ma), cost_per_kg_si: s(b.cost_per_kg_si), price_list: price.get(key) ?? null, price_frozen: price.get(frozenKeyOf(key)) ?? null,
-        realized_price_7d: real.has(key) ? real.get(key)!.toFixed(4) : null, storage_per_kg_day: s(k?.storage_cost_per_kg_day), ordered_today_kg: today.get(key) ?? "0",
+        realized_price_7d: real.has(key) ? real.get(key)!.toFixed(4) : null, storage_per_kg_day: s(k?.storage_cost_per_kg_day), ordered_today_kg: today.get(key) ?? "0", // missing-ok: tidak ada baris order hari ini untuk SKU = 0 kg dipesan (jumlah atas himpunan kosong)
         ...(v5 ? { cost_per_kg: s(b.cost_per_kg_si), cost_status: s(b.cost_status) } : {}),
       };
     }),

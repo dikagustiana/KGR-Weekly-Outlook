@@ -23,6 +23,11 @@ import { ROLE_KINDS, rulesOfRole } from "./input";
 import { jtV4, num } from "../fmt";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
+/** Sum of the kg that are filled and the number of rows without one: a blank is "belum ada", never 0 kg (R64). */
+export function knownKg(rows: Row[], key: string): { kg: ReturnType<typeof D>; blank: number } {
+  const known = rows.filter((r) => s(r[key]) !== null);
+  return { kg: sum(known.map((r) => D(String(r[key])))), blank: rows.length - known.length };
+}
 const isOn = (v: unknown) => ((v as { enabled?: boolean } | null | undefined)?.enabled) === true;
 
 export async function v5InputOn(sb: Supa): Promise<boolean> {
@@ -107,7 +112,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   if (kind === "supplier_invoice") {
     const gl = await fetchAll<Row>((a, b) => sb.from("gl_line").select("voucher_no, debit").eq("voucher_type", "Purchase Invoice").is("deleted_at", null).gte("date", addDays(today, -90)).order("id").range(a, b));
     const by = new Map<string, ReturnType<typeof D>>();
-    for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0")));
+    for (const g of gl) if (s(g.voucher_no)) by.set(String(g.voucher_no), (by.get(String(g.voucher_no)) ?? D(0)).plus(D(s(g.debit) ?? "0"))); // missing-ok: baris jurnal berisi debit atau kredit; debit kosong = baris sisi kredit
     ctx.glByDoc = Object.fromEntries([...by].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, v.toFixed(2)]));
   }
   if (kind === "fixed_cost") {
@@ -121,7 +126,7 @@ export async function uploadContext(sb: Supa, viewer: Viewer, kind: UploadKindV5
   if (kind === "lb_supply") {
     const lead = Number(par.lead_time_days ?? 1);
     const rows = await fetchAll<Row>((a, b) => sb.from("demand_class_weekly").select("ship_date, weight_class, kg_lb").gte("ship_date", today).lte("ship_date", addDays(today, 14)).order("ship_date").order("size_code").order("week_start").range(a, b));
-    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: s(r.kg_lb) ?? "0" }));
+    ctx.classNeed = rows.map((r) => ({ date: addDays(String(r.ship_date), -lead), weight_class: String(r.weight_class), kg_lb: String(r.kg_lb) })); // kolom kg_lb NOT NULL (mart)
   }
   return ctx;
 }
@@ -136,13 +141,13 @@ async function rules(sb: Supa): Promise<TaskRule[]> {
 async function count(q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string): Promise<number> {
   const r = await q;
   if (r.error) throw new LoaderError(where, r.error.message);
-  return r.count ?? 0;
+  return r.count ?? 0; // missing-ok: jumlah baris dari head count; tanpa baris = 0 (galat sudah dilempar di atas)
 }
 
 const exists = async (q: PromiseLike<{ count: number | null; error: { message: string } | null }>, where: string) => {
   const r = await q;
   if (r.error) throw new LoaderError(where, r.error.message);
-  return (r.count ?? 0) > 0;
+  return (r.count ?? 0) > 0; // missing-ok: ada tidaknya baris dari head count; galat sudah dilempar di atas
 };
 type FactOf = (ref: string, anchor: string) => Promise<TaskFact>;
 
@@ -323,11 +328,13 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
   const first: InputCard = { title: "Tugas terbuka", value: String(dueToday.length), sub: late ? `${late} terlambat` : "tidak ada yang terlambat", tone: late ? "bad" : "plain" };
   const ws = mondayOf(today);
   if (role === "cost_accounting") {
-    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
-    const fin = bs.filter((b) => b.invoice_status === "tied").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const bs = mustRows<Row>(await sb.from("batch").select("invoice_status, wp_received_at, costing_status").eq("status", "Aktual").is("deleted_at", null).gte("date", ws).lte("date", today), "kartu batch");
+    // K59: final = the allocation is posted; a tied invoice waits for the posting
+    const fin = bs.filter((b) => b.costing_status === "posted").length, wp = bs.filter((b) => b.wp_received_at).length;
+    const waitPost = bs.filter((b) => b.invoice_status === "tied" && b.costing_status !== "posted").length;
     const inv = bs.filter((b) => b.invoice_status !== "pending").length;
     return [first,
-      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: "sementara / final", tone: "plain" },
+      { title: "Status batch minggu ini", value: `${wp - fin} / ${fin}`, sub: waitPost ? `sementara / final · ${waitPost} faktur tie menunggu posting alokasi` : "sementara / final", tone: waitPost ? "warn" : "plain" },
       { title: "Faktur LB masuk", value: `${inv} dari ${bs.length}`, sub: inv < bs.length ? "costing belum bisa final" : "semua masuk", tone: inv < bs.length ? "warn" : "plain" },
       { title: "WP belum masuk", value: String(bs.length - wp), sub: bs.length - wp ? "biaya/kg batch itu masih estimasi" : "semua batch punya WP", tone: bs.length - wp ? "bad" : "plain" }];
   }
@@ -338,12 +345,13 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     const pend = await count(sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending"), "kartu approval");
     const l = must(await sb.from("upload").select("ok_count, row_count").eq("kind", "po_lines").order("uploaded_at", { ascending: false }).limit(1).maybeSingle(), "kartu upload PO") as Row | null;
     const failed = l && l.ok_count !== null ? Number(l.row_count) - Number(l.ok_count) : 0;
-    const uk = sum(unsized.map((r) => D(s(r.net_kg) ?? "0")));
+    const uk = sum(unsized.map((r) => D(String(r.net_kg)))); // net_kg NOT NULL (mart)
+    const poKg = knownKg(po, "kg");
     return [
-      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(sum(po.map((r) => D(s(r.kg) ?? "0"))), 0)} kg`, tone: "plain" },
+      { title: "PO minggu ini", value: String(po.length), sub: `baris · ${num(poKg.kg, 0)} kg${poKg.blank ? ` (${poKg.blank} baris belum ada kg)` : ""}`, tone: poKg.blank ? "warn" : "plain" },
       { title: "Gagal cek (upload terakhir)", value: String(failed), sub: failed ? "baris perlu dilengkapi" : "tidak ada", tone: failed ? "bad" : "plain" },
       { title: "Karkas tanpa ukuran", value: `${num(uk, 0)} kg`, sub: "dihitung STD di PPIC (C50)", tone: uk.gt(0) ? "bad" : "plain" },
-      { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }];
+      { title: "Menunggu approval", value: String(pend ?? 0), sub: "PO di bawah lantai", tone: pend ? "warn" : "plain" }]; // missing-ok: jumlah permintaan approval (hitungan), tanpa baris = 0
   }
   if (role === "ppic") {
     const all = mustRows<Row>(await sb.from("weight_class").select("code, min_kg, max_kg, avg_kg"), "kartu kelas").map((c) => ({ code: String(c.code), min_kg: s(c.min_kg), max_kg: s(c.max_kg), avg_kg: s(c.avg_kg) }));
@@ -353,7 +361,7 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
     return [first,
       { title: "Kelas berat terdaftar", value: `${reg.length} dari ${all.length}`, sub: reg.length < all.length ? `baru ${reg.join(", ") || "—"}` : "lengkap", tone: reg.length < all.length ? "bad" : "plain" },
       { title: "Yield per kelas", value: yk ? "terisi" : "placeholder", sub: yk ? `${yk} baris di luar STD` : "satu yield STD untuk semua kelas (C42)", tone: yk ? "plain" : "warn" },
-      { title: "Kapasitas 7 hari", value: `${cap ?? 0} dari 7`, sub: "hari terisi", tone: (cap ?? 0) < 7 ? "warn" : "plain" }];
+      { title: "Kapasitas 7 hari", value: `${cap ?? 0} dari 7`, sub: "hari terisi", tone: (cap ?? 0) < 7 ? "warn" : "plain" }]; // missing-ok: jumlah hari berkapasitas (hitungan); hari tanpa baris memang tidak terisi
   }
   if (role === "purchasing" || role === "operations_director") {
     const tmr = addDays(today, 1);
@@ -362,11 +370,11 @@ async function roleCards(sb: Supa, role: Role, today: string, tasks: InputTaskLi
       sb.from("lb_price_decision").select("price, volume_kg_lb, decided_at").eq("date", tmr).order("decided_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const sup = mustRows<Row>(supR, "kartu supply LB");
-    const kg = sum(sup.map((r) => D(s(r.kg) ?? "0")));
+    const supKg = knownKg(sup, "kg"), kg = supKg.kg;
     const d = must(decR, "kartu keputusan LB") as Row | null;
     return [first,
       { title: `Harga LB potong ${dmy(tmr)}`, value: d ? num(s(d.price), 0) : "belum", sub: d ? "diputuskan Direktur Operasional" : "C57: simulasi memakai harga kemarin", tone: d ? "plain" : "bad" },
-      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: "plain" },
+      { title: `Supply terkonfirmasi ${dmy(tmr)}`, value: `${num(kg, 0)} kg`, sub: supKg.blank ? `${supKg.blank} baris belum ada kg, belum terhitung` : d?.volume_kg_lb ? `volume keputusan ${num(s(d.volume_kg_lb), 0)} kg` : "kg LB", tone: supKg.blank ? "warn" : "plain" },
       { title: "Supply tanpa kelas", value: String(sup.filter((r) => !s(r.weight_class)).length), sub: "baris (C58 tidak bisa dicek)", tone: "plain" }];
   }
   if (role === "inventory_accounting") {

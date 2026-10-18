@@ -8,6 +8,18 @@ type Row = Record<string, unknown>;
 
 export class WriteError extends Error {}
 
+/**
+ * Rows of table runrate from the workbook lines. A line without a monthly amount is not written (the column is NOT NULL:
+ * a blank would be stored as 0, missing ≠ 0, R64); a blank adjustment is "no adjustment" (NOT NULL default 0).
+ */
+export function runrateDbRows(weekId: string, runrate: WeekInputs["runrate"]): Row[] {
+  return runrate.flatMap((r, i) => r.monthly_amount === null || r.monthly_amount === undefined ? [] : [{
+    week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount,
+    week_adjustment: r.week_adjustment ?? 0, // missing-ok: penyesuaian kosong = tidak ada penyesuaian (kolom NOT NULL default 0)
+    basis: r.basis ?? null, seq: i + 1,
+  }]);
+}
+
 function chunk<T>(xs: T[], n: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
@@ -113,9 +125,7 @@ export async function loadWeekInputs(
   await must(sb.from("sku_price").upsert(
     inputs.sku_keys.filter((k) => known.has(k.key)).map((k) => ({ week_id: weekId, key: k.key, ref_sell_price: k.ref_sell_price, replacement_buy_price: k.replacement_buy_price, note: k.note ?? null })),
     { onConflict: "week_id,key" }), "sku_price");
-  await must(sb.from("runrate").upsert(
-    inputs.runrate.map((r, i) => ({ week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount ?? 0, week_adjustment: r.week_adjustment ?? 0, basis: r.basis ?? null, seq: i + 1 })),
-    { onConflict: "week_id,pl_line" }), "runrate");
+  await must(sb.from("runrate").upsert(runrateDbRows(weekId, inputs.runrate), { onConflict: "week_id,pl_line" }), "runrate");
 
   const src = opts.source;
   const up = opts.uploadId ?? null;
@@ -159,7 +169,7 @@ export async function loadWeekInputs(
     const old = await fetchAll<{ id: string }>((f, t) => sb.from("gl_line").select("id").is("deleted_at", null).gte("date", from).lte("date", to).order("id").range(f, t));
     const seen = new Map<string, number>();
     const rows = inputs.gl_lines.filter((g) => g.date).map((g, i) => {
-      const n = (seen.get(g.voucher_no ?? "") ?? 0) + 1;
+      const n = (seen.get(g.voucher_no ?? "") ?? 0) + 1; // missing-ok: penghitung baris per voucher (indeks)
       seen.set(g.voucher_no ?? "", n);
       return {
         seq: i + 1, date: g.date, voucher_no: g.voucher_no, voucher_type: g.voucher_type ?? null, account: g.account, account_name: g.account_name ?? null,

@@ -58,6 +58,24 @@ describe("K29 fixed costs not journaled yet", () => {
   });
 });
 
+describe("R59: a schedule that ended falls back to FINAL; a not-started line is absent", () => {
+  const OCT = "2026-10-01";
+  const SEP = { month: "2026-09-01", byLine: { "Salaries and allowance": "-52000000", "Depreciation & amortisation": "-10400000", "Interest Expense": "-24400000" } };
+  const endedSep = (r: (typeof SCHEDULE)[number]): (typeof SCHEDULE)[number] => ({ ...r, start_date: "2026-09-01", end_date: "2026-09-30" });
+  it("gaji/penyusutan/bunga from FINAL September when their schedule only covers September; C55 PERIKSA", () => {
+    const n = fixedNominals({ month: OCT, schedule: [endedSep(SCHEDULE[2]), endedSep(SCHEDULE[1]), endedSep(SCHEDULE[4])], lastFinal: SEP });
+    const src = Object.fromEntries(n.map((x) => [x.pl_line, x.source]));
+    expect(src["Salaries and allowance"]).toBe("estimasi bulan lalu");
+    expect(src["Depreciation & amortisation"]).toBe("estimasi bulan lalu");
+    expect(src["Interest Expense"]).toBe("estimasi bulan lalu");
+    expect(c55({ month: OCT, nominals: n }).status).toBe("PERIKSA");
+  });
+  it("rent starting November is absent in October", () => {
+    const n = fixedNominals({ month: OCT, schedule: [SCHEDULE[0]], lastFinal: SEP });
+    expect(n.filter((x) => x.pl_line === "Rent Expenses")).toEqual([]);
+  });
+});
+
 describe("PRD v5.1 K51: the fixed lines per line, a missing nominal stays missing", () => {
   const onlyDepr = SCHEDULE.filter((r) => r.code === "DEPRESIASI");
   it("schedule with depreciation only: salary, interest and rent still come from the July FINAL", () => {

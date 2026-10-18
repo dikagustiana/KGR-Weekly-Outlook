@@ -21,17 +21,24 @@ export async function idleCostRows(sb: Supa, from: string, to: string): Promise<
   const lo = rates.map((r) => String(r.period_start)).sort()[0], hi = rates.map((r) => String(r.period_end)).sort().reverse()[0];
   const batches = await fetchAll<Row>((a, b) => sb.from("batch").select("date, status, lb_kg").eq("cost_mode", "own")
     .is("deleted_at", null).is("superseded_at", null).gte("date", lo).lte("date", hi).order("id").range(a, b));
-  // kg LB per day: the Aktual batches of the day, else its plan (Rencana)
-  const kg = new Map<string, { aktual: Decimal; rencana: Decimal; hasAktual: boolean }>();
+  // kg LB per day: the Aktual batches of the day, else its plan (Rencana). A batch without kg LB makes its day unknown:
+  // the idle capacity of a rate whose period holds such a day is not computed (an unknown day is not a day of 0 kg).
+  const kg = new Map<string, { aktual: Decimal; rencana: Decimal; hasAktual: boolean; unkAktual: boolean; unkRencana: boolean }>();
   for (const b of batches) {
-    const d = String(b.date), o = kg.get(d) ?? { aktual: D(0), rencana: D(0), hasAktual: false };
-    if (b.status === "Aktual") { o.aktual = o.aktual.plus(D(s(b.lb_kg) ?? "0")); o.hasAktual = true; } else o.rencana = o.rencana.plus(D(s(b.lb_kg) ?? "0"));
+    const d = String(b.date), o = kg.get(d) ?? { aktual: D(0), rencana: D(0), hasAktual: false, unkAktual: false, unkRencana: false };
+    const lb = s(b.lb_kg), aktual = b.status === "Aktual";
+    if (aktual) o.hasAktual = true;
+    if (lb === null) { if (aktual) o.unkAktual = true; else o.unkRencana = true; }
+    else if (aktual) o.aktual = o.aktual.plus(D(lb));
+    else o.rencana = o.rencana.plus(D(lb));
     kg.set(d, o);
   }
+  const unknownDays = new Set([...kg].filter(([, o]) => (o.hasAktual ? o.unkAktual : o.unkRencana)).map(([d]) => d));
   const byDate = new Map([...kg].map(([d, o]) => [d, (o.hasAktual ? o.aktual : o.rencana).toFixed(2)]));
   const dates: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) dates.push(d);
-  return rates.flatMap((r) => idleCostDaily({
+  const known = rates.filter((r) => ![...unknownDays].some((d) => d >= String(r.period_start) && d <= String(r.period_end)));
+  return known.flatMap((r) => idleCostDaily({
     rate: { period_start: String(r.period_start), period_end: String(r.period_end), basis_kg: s(r.basis_kg), rate_per_kg_lb: String(r.rate_per_kg_lb) },
     actualKgLbByDate: byDate, dates,
   }).map((x) => ({ date: x.date, amount: x.amount.toFixed(2) })));

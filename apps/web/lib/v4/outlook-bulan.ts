@@ -38,8 +38,8 @@ export interface AccuracyInput {
   version: string;
   lines: AccuracyLineV4[];
   /** FINAL minus the closing adjustments, per metric (the "before adjustment" columns). */
-  poDays: { n: number; diff: string } | null;
-  runrateDays: { n: number; diff: string } | null;
+  poDays: { n: number; diff: string | null } | null;
+  runrateDays: { n: number; diff: string | null } | null;
   /** PRD v5.1 R38 (§6.5): the fixed-cost estimate the version carried (P&L sign); null = the version had none. */
   fixedOfVersion?: string | null;
   /** PRD v5.2-A R69: C59 of that month (app lawan FS). null = not judged (before August 2026); `error` = the read failed. */
@@ -70,7 +70,7 @@ export interface OutlookBulanInput {
   /** Selected version (?versi=); null = the live draft. */
   selected: string | null;
   accuracy: AccuracyInput | null;
-  solvency: { label: string; equity: string; paidIn: string; affiliate: string; months: string | null; basis?: string | null; cash: string | null } | null;
+  solvency: { label: string; equity: string; paidIn: string; affiliate: string | null; months: string | null; basis?: string | null; cash: string | null } | null;
   on: { m6: boolean };
   pdfHref: string | null;
   /** PRD v5 §4.7 (flag v5_pl): rows with the fixed-cost estimate and the chosen views; absent = the v4 page. */
@@ -83,9 +83,6 @@ const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h
 const tone = (v: Decimal | null | undefined): "neg" | undefined => (v !== null && v !== undefined && v.lt(0) ? "neg" : undefined);
 const deltaTone = (v: Decimal | null | undefined): "better" | "worse" | undefined => (v === null || v === undefined || v.isZero() ? undefined : v.gt(0) ? "better" : "worse");
 const jtText = (v: Decimal) => `${jtV4(v)} jt`;
-const sumRev = (rows: PlRowV4[], date: string, pick: "actual" | "forecast", seg?: (s: string) => boolean) =>
-  rows.filter((r) => r.date === date && isRevenueLine(r.pl_line) && (!seg || seg(r.segment))).reduce((a, r) => a.plus(r[pick] ?? 0), D(0));
-
 /** Short name of an assumption for the register tile (the long name stays in the drawer and the PDF). */
 function registerLabel(r: RegisterRow, windowDays: number): string {
   if (r.code.startsWith("anomaly_")) return `${tglShort(r.code.slice(8))} anomali`;
@@ -148,9 +145,11 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
   const rows = x.rows;
   const last = monthEnd(first);
   const cutOff = sel ? sel.cutOff : x.cutOff;
-  const sm = monthSummaryV4(rows, first, x.tolerance);
+  // R66 (K63): the journal columns follow the costing-rows mode of the page (a locked version: the mode it was locked with)
+  const mode = x.v5?.mode ?? "cogs";
+  const sm = monthSummaryV4(rows, first, x.tolerance, undefined, mode);
   const gpPct = sm.outlook.revenue.isZero() ? null : sm.outlook.gp.div(sm.outlook.revenue);
-  const days = versionDaysV4(rows, first, cutOff);
+  const days = versionDaysV4(rows, first, cutOff, mode);
   const anomalyDates = [...new Set(rows.filter((r) => r.anomaly).map((r) => r.date))].sort();
   const hasOpex = rows.some((r) => !isRevenueLine(r.pl_line) && !r.pl_line.startsWith("COGS") && !r.pl_line.startsWith("Other COGS") && r.forecast !== null);
   const status = sel ? "locked" : "draft";
@@ -361,25 +360,26 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
   if (x.accuracy) {
     const a = x.accuracy;
     const rev = a.lines.find((l) => l.metric === "revenue") ?? null;
-    const diff = (l: AccuracyLineV4) => `${jtV4(l.absError)}${l.pctOfVersion ? ` (${pctV4(l.pctOfVersion.abs())})` : ""}`;
+    const diff = (l: AccuracyLineV4) => l.absError === null ? "belum ada" : `${jtV4(l.absError)}${l.pctOfVersion ? ` (${pctV4(l.pctOfVersion.abs())})` : ""}`;
     const aCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: a.version, num: true }, { key: "f", label: "FINAL", num: true }, { key: "d", label: "Selisih", num: true }];
     // PRD v5.1 R38 (§6.5, flag v5_pl): NIBT by the journal and NIBT with the fixed-cost estimate of the version, both
     // against the FINAL (the closed statements carry every fixed cost)
     const LBL: Record<string, string> = { revenue: "Revenue", gp: "GP P&L", nibt: x.v5 ? "NIBT jurnal" : "NIBT" };
     const nibtLine = a.lines.find((l) => l.metric === "nibt") ?? null;
     const withFixed = x.v5 && nibtLine ? (() => {
-      if (a.fixedOfVersion === null || a.fixedOfVersion === undefined) return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: "belum ada", f: jtV4(nibtLine.final), d: "" } };
+      if (a.fixedOfVersion === null || a.fixedOfVersion === undefined) return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: "belum ada", f: nibtLine.final === null ? "belum ada" : jtV4(nibtLine.final), d: "" } };
+      if (nibtLine.final === null) return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: "belum ada", f: "belum ada", d: "" } };
       const v = nibtLine.value.plus(D(a.fixedOfVersion)), e = v.minus(nibtLine.final);
       return { id: "nibt-fixed", cells: { k: "NIBT + beban tetap", v: jtV4(v), f: jtV4(nibtLine.final), d: `${jtV4(e.abs())}${v.isZero() ? "" : ` (${pctV4(nibtLine.final.minus(v).div(v.abs()).abs())})`}` } };
     })() : null;
     const aRows: TRow[] = [
       // a metric the version did not carry (e.g. NIBT of a version locked without the cost plan) is left out, not shown as 0
       ...(["revenue", "gp", "nibt"] as const).map((m) => a.lines.find((l) => l.metric === m)).filter((l): l is AccuracyLineV4 => !!l)
-        .map((l) => ({ id: l.metric, cells: { k: LBL[l.metric], v: jtV4(l.value), f: jtV4(l.final), d: diff(l) } })),
+        .map((l) => ({ id: l.metric, cells: { k: LBL[l.metric], v: jtV4(l.value), f: l.final === null ? "belum ada" : jtV4(l.final), d: diff(l) } })),
       ...(withFixed ? [withFixed] : []),
       ...(rev ? [{ id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } }] : []),
-      ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: jtV4(rev.absErrorPre) } }] : []),
-      ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? jtV4(a.poDays.diff) : "belum ada"} / ${a.runrateDays ? jtV4(a.runrateDays.diff) : "belum ada"}` } }] : []),
+      ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: rev.absErrorPre === null ? "belum ada" : jtV4(rev.absErrorPre) } }] : []),
+      ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? (a.poDays.diff === null ? "belum lengkap" : jtV4(a.poDays.diff)) : "belum ada"} / ${a.runrateDays ? (a.runrateDays.diff === null ? "belum lengkap" : jtV4(a.runrateDays.diff)) : "belum ada"}` } }] : []),
       // R69: the app's FINAL against the FS (C59); the first cell links to the Rekonsiliasi page
       ...(a.fsRecon ? [{ id: "c59", href: "error" in a.fsRecon ? undefined : a.fsRecon.href, cells: { k: "Rekonsiliasi ke FS (C59)", v: "", f: "", d: fsReconText(a.fsRecon) } }] : []),
     ];
@@ -395,12 +395,13 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
 
   if (x.on.m6 && x.solvency) {
     const s = x.solvency;
-    const interest = rows.filter((r) => r.pl_line === "Interest Expense").reduce((a, r) => a.plus(r.actual ?? 0).plus(r.forecast ?? 0), D(0));
-    const hasInterest = rows.some((r) => r.pl_line === "Interest Expense");
+    // a row carries its actual or its forecast; a row with neither has no amount, and no amount at all = "belum diisi"
+    const interestParts = rows.filter((r) => r.pl_line === "Interest Expense").flatMap((r) => [r.actual, r.forecast]).filter((v): v is Decimal => v !== null && v !== undefined);
+    const interest = interestParts.reduce((a, v) => a.plus(v), D(0)), hasInterest = interestParts.length > 0;
     const sCols: Col[] = [{ key: "k", label: "", kind: "key" }, { key: "v", label: "Rp jt", num: true }];
     const sRows: TRow[] = [
       { id: "eq", cells: { k: `Ekuitas (${pctV4(D(s.equity).div(D(s.paidIn)), 0)} modal disetor)`, v: jtV4(s.equity) } },
-      { id: "af", cells: { k: "Utang pihak berelasi", v: jtV4(s.affiliate) } },
+      { id: "af", cells: { k: "Utang pihak berelasi", v: s.affiliate === null ? "belum ada" : jtV4(s.affiliate) } },
       { id: "bg", cells: { k: `Bunga ${monthWord}`, v: hasInterest ? jtV4(interest.neg()) : "belum diisi" } },
       { id: "kas", cells: { k: "Kas", v: s.cash === null ? "belum diisi" : jtV4(s.cash) } },
       { id: "bn", cells: { k: "Bulan sampai ekuitas negatif", v: monthsToNegative(s.months, s.basis) } },

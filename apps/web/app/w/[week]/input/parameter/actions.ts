@@ -52,9 +52,14 @@ export async function saveParameters(form: FormData) {
   if (can(v.role, "parameter_all")) {
     for (const c of [...LW, "tb_opening_date"]) {
       if (!form.has(c)) continue;
-      try { weekPatch[c] = c === "tb_opening_date" ? parseDate(String(form.get(c))) : parseNumber(String(form.get(c))) ?? 0; } catch (e) { go("err", (e as Error).message); }
+      try {
+        if (c === "tb_opening_date") { weekPatch[c] = parseDate(String(form.get(c))); continue; }
+        // a blank last-week figure leaves the stored value as it is (the column is NOT NULL: a blank must not overwrite it with 0)
+        const n = parseNumber(String(form.get(c)));
+        if (n !== null) weekPatch[c] = n;
+      } catch (e) { go("err", (e as Error).message); }
     }
-    if (LW.some((c) => form.has(c))) weekPatch.lw_source = "diisi manual (Admin)";
+    if (LW.some((c) => weekPatch[c] !== undefined)) weekPatch.lw_source = "diisi manual (Admin)";
   }
   if (Object.keys(weekPatch).length) {
     const { error } = await sb.from("week").update(weekPatch).eq("id", weekId);

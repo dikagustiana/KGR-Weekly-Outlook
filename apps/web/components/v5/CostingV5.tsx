@@ -21,10 +21,10 @@ export function CostingV5({ batches, controls, showControls, sinceMissing = fals
               const r = b.result;
               return (
                 <tr key={b.batch_id}>
-                  <td>{tgl(b.date)}</td><td>{b.batch_ref}</td><td>{b.status}{b.costCheck ? ` · ${b.costCheck}` : ""}</td>
+                  <td>{tgl(b.date)}</td><td>{b.batch_ref}</td><td>{b.status}{b.costCheck ? ` · ${b.costCheck}` : ""}{b.yieldSource ? ` · ${b.yieldSource}` : ""}</td>
                   <td>{r ? b.lbPriceSource : b.lbPriceSource === "belum ada" ? "harga LB belum ada (C57)" : ""}</td>
-                  {!r && b.lbPriceSource === "belum ada" ? (
-                    // K50: no LB price = no cost, never Rp 0
+                  {!r && (b.lbPriceSource === "belum ada" || b.missingInputs.length > 0) ? (
+                    // K50 / R62: no LB price, or a yield / rate not filled = no cost, never Rp 0
                     <><td className="n">—</td><td className="n">belum diisi</td><td className="n">belum diisi</td><td className="n">—</td><td className="n">—</td><td className="n">—</td><td className="n">—</td><td>{b.priceSource}</td></>
                   ) : (
                     <><Td v={r?.kgLb} dp={2} /><Td v={r?.lbPrice} /><Td v={r?.costPool} /><Td v={r?.value} />

@@ -39,7 +39,8 @@ export interface StockSellItem {
 
 export interface StockSellRow extends Omit<StockSellItem, "free_kg" | "cost_per_kg" | "price_ref" | "over_age_kg"> {
   free_kg: Decimal;
-  over_age_kg: Decimal;
+  /** kg above the age limit; null = not shown to this reader (Sales cannot read it) or not in the ledger — never 0. */
+  over_age_kg: Decimal | null;
   cost_per_kg: Decimal | null;
   price_ref: Decimal | null;
   /** kg × cost (stock value at cost); null without a cost. */
@@ -60,7 +61,7 @@ export function stockSellRows(items: StockSellItem[], rate: Num | null): StockSe
     const value = cost === null ? null : kg.times(cost);
     const below = cost !== null && ref !== null && ref.lt(cost);
     return {
-      ...i, free_kg: kg, over_age_kg: D(i.over_age_kg ?? 0), cost_per_kg: cost, price_ref: ref, value,
+      ...i, free_kg: kg, over_age_kg: dn(i.over_age_kg), cost_per_kg: cost, price_ref: ref, value,
       margin_per_kg: cost !== null && ref !== null ? ref.minus(cost) : null,
       holding_per_day: value !== null && r !== null ? value.times(r) : null,
       below_cost: below, loss_at_ref: below ? cost!.minus(ref!).times(kg) : ZERO,

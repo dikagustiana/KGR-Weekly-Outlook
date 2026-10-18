@@ -171,7 +171,7 @@ export async function copyPlanToBatches(sb: Supa, week: WeekRow, planId: string,
     const lbSupply = src.lbSupply.find((x) => String(x.date) === b.date && s(x.price_per_kg) !== null && (x.status === "confirmed" || x.status === "received") && (s(x.weight_class) === cls || !s(x.weight_class)));
     const price = decided?.price ?? s(lbSupply?.price_per_kg) ?? src.v1.lbPriceToday;
     const source = decided ? (decided.weight_class ? `keputusan kelas ${decided.weight_class}` : "keputusan semua kelas") : lbSupply ? "harga supply" : "harga hari ini (parameter)";
-    priceSource.set(source, (priceSource.get(source) ?? 0) + 1);
+    priceSource.set(source, (priceSource.get(source) ?? 0) + 1); // missing-ok: penghitung jumlah batch per sumber harga (hitungan), bukan uang atau kg
     let yields = src.v1.yields;
     if (gate.classPlan && cls) {
       const y = classYields(src, cls);

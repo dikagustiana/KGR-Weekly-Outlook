@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { requireViewer } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase";
 import { MODULE_KEYS, moduleSettings, type ModuleKey } from "@/lib/modules";
+import { mergeFlagValue } from "@/lib/modules-core";
 import { ROLES, type Role } from "@/lib/roles";
 import { processRebuildQueue, queueRebuild } from "@/lib/rebuild";
 import { addDays, isISODate } from "@kgr/engine";
@@ -24,22 +25,29 @@ export async function setFlag(_: ActionState, form: FormData): Promise<ActionSta
     if (!MODULE_KEYS.includes(key)) return { error: "Modul tidak dikenal" };
     const enabled = form.get("enabled") === "1";
     const roles = ROLES.filter((r) => form.get(`role_${r}`) === "1");
-    const value: { enabled: boolean; roles?: Role[]; since?: string } = { enabled };
-    if (roles.length && roles.length < ROLES.length) value.roles = roles;
     const sb = await supabaseServer();
+    // Q-v5.2-5: the stored value is read first — fields the form does not manage (costing_rows_mode of v5_pl …) survive a toggle
+    const prev = must(await sb.from("app_setting").select("value").eq("key", key).maybeSingle(), `app_setting ${key}`) as { value?: unknown } | null;
     // PRD v5.1 R40: v5_costing keeps its start date (value.since, the first day of the lot revaluation K22); the form
     // sets it, a toggle without it keeps the one stored
+    let since: string | null = null;
     if (key === "v5_costing") {
       const typed = String(form.get("since") ?? "").trim();
       if (typed && !isISODate(typed)) return { error: "Tanggal mulai v5 costing tidak valid (YYYY-MM-DD)" };
-      const prev = must(await sb.from("app_setting").select("value").eq("key", key).maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null;
-      const since = typed || sinceOf(prev?.value);
-      if (since) value.since = since;
+      since = typed || sinceOf(prev?.value);
     }
+    // R66 (K63): v5_pl carries the mode of the two v5 costing rows in the journal columns: 'cogs' (default) or 'memo'
+    let mode: "cogs" | "memo" | null = null;
+    if (key === "v5_pl") {
+      const typed = String(form.get("costing_rows_mode") ?? "").trim();
+      if (typed && typed !== "cogs" && typed !== "memo") return { error: "Mode baris costing tidak valid (cogs atau memo)" };
+      mode = (typed || null) as typeof mode;
+    }
+    const value = mergeFlagValue(prev?.value, { key, enabled, roles, allRoles: ROLES.length, since, costingRowsMode: mode });
     const { error } = await sb.from("app_setting").upsert({ key, value }, { onConflict: "key" });
     if (error) return { error: error.message };
     revalidatePath("/", "layout");
-    return { ok: `${key}: ${enabled ? "aktif" : "nonaktif"}${value.roles ? ` untuk ${value.roles.join(", ")}` : enabled ? " untuk semua peran" : ""}${value.since ? `; mulai ${value.since}` : key === "v5_costing" ? "; tanggal mulai belum diisi (revaluasi lot tidak berjalan)" : ""}` };
+    return { ok: `${key}: ${enabled ? "aktif" : "nonaktif"}${Array.isArray(value.roles) ? ` untuk ${(value.roles as string[]).join(", ")}` : enabled ? " untuk semua peran" : ""}${value.since ? `; mulai ${String(value.since)}` : key === "v5_costing" ? "; tanggal mulai belum diisi (revaluasi lot tidak berjalan)" : ""}${key === "v5_pl" ? `; baris costing di laba rugi: ${String(value.costing_rows_mode ?? "cogs")}` : ""}` };
   } catch (e) {
     return { error: (e as Error).message };
   }

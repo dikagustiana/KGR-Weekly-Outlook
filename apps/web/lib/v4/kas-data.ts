@@ -26,7 +26,7 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
   const p = pos;
   // a day built without any bank balance (no template kas harian uploaded yet) has no cash position: the balances and
   // what is projected from them are "belum diisi", never Rp 0 (K12); the planned flows and the missing days stay
-  const noBalance = p !== null && Number(p.accounts ?? 0) === 0;
+  const noBalance = p !== null && Number(p.accounts ?? 0) === 0; // missing-ok: jumlah rekening yang punya saldo (hitungan); 0 rekening = tidak ada posisi kas (K12)
   const hz = (p?.horizon ?? null) as KasHorizon | null;
   const row: KasInput["row"] = p ? {
     date: String(p.date), totalClosing: noBalance ? null : s(p.total_closing), lowest: noBalance ? null : s(p.lowest_next_13w), lowestDate: noBalance ? null : s(p.lowest_date),
@@ -42,7 +42,7 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
     const ir = intr;
     solvency = {
       label: `${MONTH[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`, month, equity: String(cur.equity), paidIn: String(cur.paid_in_capital),
-      affiliate: s(cur.affiliate_payable) ?? "0", months: s(cur.months_to_negative_equity), basis: s(cur.basis_nibt), interestRows: ir.length ? ir.map((r) => ({ actual: s(r.actual), forecast: s(r.forecast) })) : null,
+      affiliate: s(cur.affiliate_payable), months: s(cur.months_to_negative_equity), basis: s(cur.basis_nibt), interestRows: ir.length ? ir.map((r) => ({ actual: s(r.actual), forecast: s(r.forecast) })) : null,
       prevAffiliate: prev && String(prev.month) === firstOfMonth(addDays(month, -1)) ? s(prev.affiliate_payable) : null,
     };
   }

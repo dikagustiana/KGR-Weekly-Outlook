@@ -1,0 +1,15 @@
+{
+  "fixture": "pl-v5-lbprice",
+  "synthetic": true,
+  "note": "Sintetis, BUKAN dari workbook mana pun: angka dibuat untuk membuktikan satu sifat (PRD v5.2-A R67, F14, Q-v5-25). Yield, harga acuan, tarif dan PO ditentukan di inputs.json; angka emas dihitung bebas dari engine dengan decimal Python (generator di bawah).",
+  "claim": "Harga live bird naik Rp 1.000/kg → biaya/kg SKU forecast naik sebesar harga acuan × 1.000 ÷ nilai per kg LB, sehingga GP forecast turun sebesar −1.000 × Σ(kg order × harga acuan SKU) ÷ nilai per kg LB.",
+  "derivation": [
+    "tarif per kg LB = freight + maklon × (1 − susut) = 1.000 + 1.600 × 0,97 = 2.552 (PRD v5 §4.1)",
+    "nilai per kg LB V = Σ yield_SKU × harga acuan_SKU (karkas 1 kg LB, yield STD, semua fresh)",
+    "k = (harga LB + tarif) ÷ V; biaya/kg SKU = k × harga acuan SKU (planCost, basis 1 kg LB)",
+    "GP forecast = Σ kg order × (harga jual − biaya/kg); selisih untuk +1.000 = −1.000 × Σ(kg × harga acuan) ÷ V"
+  ],
+  "generator": "fixtures/pl-v5-lbprice/generate.py (python3 -I, decimal presisi 40); hasil di golden.json, gp_forecast_delta = check_delta_formula",
+  "sources": [],
+  "owner_note": "Fixture ini tidak mengubah golden v1, B.1–B.5 maupun fixtures/month-2026-08; hanya dibaca oleh packages/engine/test/pl-v5-lbprice.test.ts dan apps/web/lib/v5/forecast-cost.test.ts."
+}

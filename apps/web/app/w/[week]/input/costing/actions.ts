@@ -5,14 +5,15 @@ import { supabaseServer } from "@/lib/supabase";
 import { getWeek } from "@/lib/data";
 import { allocateWeek, postWeek } from "@/lib/v3/costing";
 import { D, isISODate } from "@kgr/engine";
+import type { Role } from "@/lib/roles";
 import { parseNumber } from "@kgr/parsers";
 
 export type ActionState = { ok?: string; error?: string };
 
 const ROLES = ["admin", "cost_accounting"] as const;
 
-async function ctx(form: FormData) {
-  const v = await requireModuleAction("m1_costing", [...ROLES]);
+async function ctx(form: FormData, roles: readonly Role[] = ROLES) {
+  const v = await requireModuleAction("m1_costing", [...roles]);
   const sb = await supabaseServer();
   const week = await getWeek(sb, String(form.get("week")));
   if (!week) throw new Error("Minggu tidak ada");
@@ -35,6 +36,20 @@ export async function post(_: ActionState, form: FormData): Promise<ActionState>
   try {
     const { v, sb, week } = await ctx(form);
     const msg = await postWeek(sb, v, week);
+    done(week.week_start);
+    return { ok: msg };
+  } catch (e) { return { error: (e as Error).message }; }
+}
+
+/**
+ * R61: the override to post an allocation that has an SKU without a reference price; the reason is written into
+ * allocation_run.issues. Admin only for now: the tables are written by admin / cost_accounting (RLS); Finance's right comes with
+ * B-R85 (RPC post_allocation_override, docs/v5.2/b5.md), and this action then calls it.
+ */
+export async function postOverride(_: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const { v, sb, week } = await ctx(form, ["admin"]);
+    const msg = await postWeek(sb, v, week, { override: { reason: String(form.get("reason") ?? "") } });
     done(week.week_start);
     return { ok: msg };
   } catch (e) { return { error: (e as Error).message }; }

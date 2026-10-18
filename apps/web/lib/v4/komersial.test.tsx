@@ -52,6 +52,21 @@ describe("Komersial §6.7", () => {
     expect(tile("t-ranking", none)!.note).toContain("Minta penugasan");
     expect(text(tile("t-ranking", none))).not.toContain("Karkas");
   });
+  it("R64: Sales without the cost columns (null holding loss / downgrade risk, as the view returns after B5): the cards say 'tidak tersedia', never '0 jt'", () => {
+    const masked = mart.map((r) => ({ ...r, holding_loss_per_day: null, downgrade_risk_rp: null }));
+    const mm = komersialModel(base({ role: "sales", rows: commercialView(masked, { role: "sales", salesSeesCost: false, assignedKeys: "all" }) }));
+    const risk = text(tile("c-risiko", mm));
+    expect(risk).toContain("tidak tersedia");
+    expect(risk).not.toMatch(/(^|\s)0(,0)?\s*(jt|Rp)/);
+    expect(risk).not.toContain("0 jt");
+    // one SKU without the figure makes the total unknown: not the sum of the others
+    const one = mart.map((r, i) => (i === 1 ? { ...r, downgrade_risk_rp: null, holding_loss_per_day: null } : r));
+    const part = text(tile("c-risiko", komersialModel(base({ rows: commercialView(one, { role: "commercial_lead", salesSeesCost: true, assignedKeys: "all" }) }))));
+    expect(part).toContain("tidak tersedia");
+    expect(part).not.toContain("1,9");
+    // the complete case keeps its number
+    expect(text(tile("c-risiko"))).toContain("1,9");
+  });
   it("spot (K8): the jual-hari-ini fresh SKU before the cut-off; after it the action says why", () => {
     expect(m.spotKeys.map((k) => k.key)).toEqual(["Karkas Fresh"]);
     expect(m.actions.find((a) => a.action === "spot")!.disabledReason).toBeNull();

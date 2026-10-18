@@ -18,4 +18,7 @@ expect k41 bad 1 7
 expect k41 good 0 0
 expect k42 bad 1 6
 expect k42 good 0 0
+# R64: 11 numbered lines (a marker without a reason or without the colon counts as a hit; two zeros on one line count once)
+expect missing bad 1 11
+expect missing good 0 0
 exit "$fail"

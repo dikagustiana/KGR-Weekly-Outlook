@@ -38,7 +38,7 @@ async function monthC48(sb: Supa, first: string, last: string): Promise<ControlV
   const ref = new Map(batches.map((b) => [String(b.id), s(b.batch_ref) ?? String(b.id)]));
   return c48({
     batches: batches.map((b) => ({ ref: ref.get(String(b.id))!, status: String(b.status ?? ""), date: s(b.date) })),
-    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg ?? 0) })),
+    outputs: outs.map((o) => ({ batch_ref: ref.get(String(o.batch_id)) ?? String(o.batch_id), kg: String(o.kg) })), // batch_output_sku.kg NOT NULL
   });
 }
 
@@ -95,7 +95,7 @@ export const finalMandatory = (controls: { code: string }[]): string[] => [...mo
 async function finalPreview(sb: Supa, first: string, settings: ModuleSettings): Promise<FinalPreview> {
   const { state: st, rows, adjustments } = await finalRows(sb, first, settings);
   const controls = worstByCode([...await finalControlsV4(sb, st, settings), ...await finalC59(sb, first, rows, adjustments)]);
-  return { state: st, controls, adjustments, totals: finalTotalsV4({ rows, adjustments }) };
+  return { state: st, controls, adjustments, totals: finalTotalsV4({ rows, adjustments, mode: st.costingMode }) };
 }
 
 /**
@@ -128,7 +128,9 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const t = p.totals;
   const snapshot = {
     month: first, version: "FINAL", rule_version: RULE_VERSION, cut_off: last, time_zone: "Asia/Jakarta",
-    days: versionDaysV4(rows, first, last), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    days: versionDaysV4(rows, first, last, st.costingMode), rows: plRowsToMart(rows), adjustments: p.adjustments,
+    // R66 (K63): the definition of the journal columns of this FINAL (C59 compares it with the FS), only when it is not the v5 default
+    ...(st.costingMode === "memo" ? { costing_rows_mode: st.costingMode } : {}),
     controls: p.controls.map((c) => ({ code: c.code, status: c.status })),
     totals: Object.fromEntries(Object.entries(t.after).map(([k, v]) => [k, f2(v)])),
     totals_before_adjustments: Object.fromEntries(Object.entries(t.before).map(([k, v]) => [k, f2(v)])),
@@ -146,7 +148,7 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
   const mo = await ensureOutlook(sb, first);
   const v1 = must(await sb.from("month_outlook_version").select("revenue, gp").eq("month_outlook_id", String(mo.id)).eq("version", "V1").maybeSingle(), "month_outlook_version") as Row | null;
   const v1r = v1 as Row | null;
-  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: D(String(v1r.gp ?? 0)).minus(t.after.gp).toFixed(2) } : null });
+  const cal = calibrationV4({ month: first, plan: st.plan, v1Bias: v1r && v1r.revenue !== null ? { revenue: D(String(v1r.revenue)).minus(t.after.revenue).toFixed(2), gp: v1r.gp === null || v1r.gp === undefined ? null : D(String(v1r.gp)).minus(t.after.gp).toFixed(2) } : null });
   const next = await ensureOutlook(sb, addDays(last, 1));
   const have = mustRows<Row>(await sb.from("assumption_register").select("code").eq("month_outlook_id", String(next.id)).eq("source", "kalibrasi").neq("status", "superseded").is("deleted_at", null), "assumption_register");
   const fresh = cal.filter((r) => !have.some((h) => String(h.code) === r.code));
@@ -161,6 +163,11 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
 // ------------------------------------------------------------------------------------------------ accuracy mart (P13)
 
 let builtAcc = new Set<string>();
+
+/** A total over days is shown only when every day has the value: one unknown day makes it unknown, never a smaller number (R64). */
+export function dailyTotal(rs: Row[], k: string): string | null {
+  return rs.length && rs.every((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k]))), D(0)).toFixed(2) : null;
+}
 
 /** forecast_accuracy_daily of a month that has FINAL: every V1 / V2 forecast day against the FINAL day. */
 async function buildAccuracy(sb: Supa, first: string): Promise<string> {
@@ -205,7 +212,7 @@ export interface CloseViewV4 {
   hasFinal: boolean;
   preview: { controls: { code: string; name: string; status: string; detail: string[] }[]; before: Record<string, string>; adjustments: Record<string, string>; after: Record<string, string> } | null;
   accuracy: AccuracyLineV4[];
-  daily: { version: string; kind: string; days: number; diff: string; diffKg: string | null; diffPrice: string | null }[];
+  daily: { version: string; kind: string; days: number; diff: string | null; diffKg: string | null; diffPrice: string | null }[];
   calibration: { id: string; code: string; name: string; value: string | null; status: string }[];
   /** DI-01 from the ledger: DOs of the previous month invoiced in this month, and DOs of this month invoiced later. */
   unbilled: { month: string; dos: number; kg: string; cogsRevenue: string; cogsInvoice: string; revaluation: string }[];
@@ -249,15 +256,15 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const posted = adjustments.filter((a) => a.posted === true);
     const sumAdj = (pred: (l: string) => boolean) => posted.filter((a) => pred(String(a.pl_line))).reduce((acc, a) => acc.plus(D(String(a.amount))), D(0)).toFixed(2);
     accuracy = accuracyV4({
-      final: { revenue: fin.revenue ?? "0", gp: fin.gp ?? "0", nibt: fin.nibt ?? "0" },
+      final: { revenue: fin.revenue, gp: fin.gp, nibt: fin.nibt },
       adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
-      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue ?? "0", gp: v.gp ?? "0", nibt: v.nibt ?? "0" })),
+      versions: versions.filter((v) => v.version !== "FINAL").map((v) => ({ version: v.version, revenue: v.revenue, gp: v.gp, nibt: v.nibt })),
     });
     const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
     for (const r of rows) { const k = `${String(r.version)}|${String(r.day_kind)}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
-    const tot = (rs: Row[], k: string) => rs.some((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0)).toFixed(2) : null;
-    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff") ?? "0", diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
+    const tot = dailyTotal;
+    daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff"), diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
   }
   const nextMo = must(await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle(), "month_outlook") as Row | null;
   const cal = nextMo?.id ? mustRows<Row>(await sb.from("assumption_register").select("id, code, name, value_num, status").eq("month_outlook_id", String(nextMo.id)).eq("source", "kalibrasi").is("deleted_at", null).order("code"), "assumption_register") : [];

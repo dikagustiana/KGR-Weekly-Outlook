@@ -1,3 +1,4 @@
+import { sumAllOrNull } from "@/lib/known-sum";
 import Link from "next/link";
 import { clock } from "@/lib/clock";
 import { D, isISODate } from "@kgr/engine";
@@ -28,7 +29,8 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   const form = sp.form ?? "";
   const shown = rows.filter((r) => (!group || r.group_code === group) && (!form || r.form === form) && (sp.all === "1" || !D(String(r.kg)).isZero()));
   const groups = [...new Set(rows.map((r) => String(r.group_code ?? "")))].filter(Boolean).sort();
-  const tot = (k: string) => shown.reduce((a, r) => a.plus(D(String(r[k] ?? 0))), D(0));
+  const tot = (k: string) => sumAllOrNull(shown, k); // cost_ma is null without a cost: one blank SKU = "belum diisi", never a smaller sum
+  const totText = (k: string, unit = "") => { const t = tot(k); return t === null ? "belum diisi" : <><N v={t} />{unit}</>; };
   // PRD v4 §3.6: the five reconciliations, kg and Rp apart (computed on request: it runs the whole ledger)
   const canRekon = !mgmt && ["admin", "finance", "inventory_accounting"].includes(viewer.role) && !!week;
   const rekon = canRekon && sp.rekon === "1" && week ? await rekonSplitForWeek(sb, week, bsInventoryYesterday((await computeForWeek(week.week_start))?.result)) : null;
@@ -47,10 +49,10 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
         </form>
       </Card>
       <div className="kpis">
-        <div className="kpi"><div className="l">Stok</div><div className="v"><N v={tot("kg")} /> kg</div></div>
-        <div className="kpi"><div className="l">Bebas (belum terikat order)</div><div className="v"><N v={tot("free_kg")} /> kg</div></div>
-        <div className="kpi"><div className="l">Nilai (biaya rata-rata)</div><div className="v"><N v={tot("cost_ma")} /></div></div>
-        <div className="kpi"><div className="l">Di atas batas umur</div><div className="v"><N v={tot("over_age_kg")} /> kg</div></div>
+        <div className="kpi"><div className="l">Stok</div><div className="v">{totText("kg", " kg")}</div></div>
+        <div className="kpi"><div className="l">Bebas (belum terikat order)</div><div className="v">{totText("free_kg", " kg")}</div></div>
+        <div className="kpi"><div className="l">Nilai (biaya rata-rata)</div><div className="v">{totText("cost_ma")}</div></div>
+        <div className="kpi"><div className="l">Di atas batas umur</div><div className="v">{totText("over_age_kg", " kg")}</div></div>
       </div>
       <div className="card scroll">
         <table className="t compact">

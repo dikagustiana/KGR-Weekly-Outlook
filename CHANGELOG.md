@@ -2,6 +2,23 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a3] Biaya final hanya dari alokasi, beban tetap per bulan, missing ≠ 0 (docs/PRD-v5.2-A-kode.md irisan A3, R59–R67; docs/v5.2/a3.md)
+
+### Added
+- Lint `missing` (`scripts/lint.py missing`, replaces `scripts/lint-missing.sh`): no `?? 0` / `?? "0"` / `|| 0` / `|| "0"` in `apps/web/lib` and `apps/web/app`, no whitelist, a line opts out only with `// missing-ok: <reason>`; fixtures `scripts/lint-fixtures/missing/{bad,good}`, cases in `scripts/test-lint.sh`, a step in the CI job `lint`.
+- Costing rows mode (R66, K63): `app_setting` `v5_pl.costing_rows_mode` (`'cogs'` default, `'memo'`): in `memo` "Selisih costing" and "Biaya kapasitas idle" are neither COGS nor opex, the journal columns hold journal lines only and a memo block (with NIBT manajemen) sits below the journal NIBT. Admin → Modul has an input for it and keeps the fields it does not manage.
+- Forecast cost (R67): `forecastPlanCost`, `blendClassCosts` (engine), `forecastCostsOf` / `applyForecastCosts` (web): the forecast order lines are costed at the plan cost of their date (the decided LB price), MA with a label as the fallback. Golden `fixtures/pl-v5-lbprice` (LB +Rp 1.000/kg → forecast GP −3.474.990,60).
+- 12-month cash on NIBT after fixed costs plus the non-cash costs inside it, with the reconciliation on the tile (R65).
+- Tests: engine `pl-v5-memo`, `pl-v5-lbprice`, `pl-v5-noncash`; web `costing-k59`, `ledger-k59`, `ledger-r64`, `pl-memo`, `forecast-cost`, `cash-r65`, `admin-setflag`, `r64-missing`.
+
+### Changed
+- A batch cost is final only when its allocation is posted AND every line is priced (K59); a tied invoice alone is `sementara` and the upload names the next step. A price of 0 is no price. Posting is refused naming batch and SKUs; the override is Admin only until B-R85 (Finance: RPC `post_allocation_override`).
+- A missing yield, tariff or maklon is "belum diisi" (C54 PERIKSA, C42 BELUM DIISI), never a cost of Rp 0; the LB decision and yield are those of the batch's class (STD fallback labelled).
+- Fixed costs: a schedule that ended falls back to the last FINAL, a line that has not started is absent (R59).
+- Missing is not 0 across the pages and builders of the PRD list (R64): totals over rows are unknown when one row is blank, accuracy/over-age/last-week/cash plan columns are null with a text, commitments name both kg, run-rate lines without a monthly amount are not written.
+- `scorecard.rp_downgrade` and `priceFloor` return null when their input is missing; `calibrationV4` skips the GP bias of a V1 without GP.
+- `docs/open-questions.md` M2: the 88,2% (30/34) exception is written and the `todo` test is a regression test (O13).
+
 ## [v5.2-a2] Putaran Commercial → PPIC → batch tanpa jalan buntu (docs/PRD-v5.2-A-kode.md irisan A2, R48–R58; docs/v5.2/a2.md)
 
 ### Added

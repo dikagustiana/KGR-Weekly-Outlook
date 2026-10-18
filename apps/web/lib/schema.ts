@@ -18,7 +18,7 @@ export function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((x) => Number.parseInt(x, 10));
   const pb = b.split(".").map((x) => Number.parseInt(x, 10));
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0); // missing-ok: komponen versi yang tidak ditulis = 0 ("5.2" = "5.2.0"), seperti schema_version()
     if (Number.isNaN(d)) throw new Error(`Versi skema tidak dikenal: ${a} / ${b}`);
     if (d !== 0) return Math.sign(d);
   }

@@ -171,8 +171,10 @@ export function allocateBatch(x: AllocateInput): AllocationResult {
 
   const outs = x.outputs.map((o) => {
     const kg = D(o.kg);
-    const price = o.price_ref === null || o.price_ref === undefined || o.price_ref === "" ? null : D(o.price_ref);
-    if (kg.gt(0) && (price === null || price.isZero())) issues.push(`${o.name ?? o.ref}: harga acuan kosong — tidak menerima biaya`);
+    // R61: a reference price of 0 is no price (the allocation line stores null, the SKU cannot make the batch final)
+    const raw = o.price_ref === null || o.price_ref === undefined || o.price_ref === "" ? null : D(o.price_ref);
+    const price = raw === null || raw.isZero() ? null : raw;
+    if (kg.gt(0) && price === null) issues.push(`${o.name ?? o.ref}: harga acuan kosong — tidak menerima biaya`);
     return { o, kg, price, sv: price === null ? ZERO : kg.times(price), alloc: ZERO, share: ZERO };
   });
 
@@ -229,7 +231,7 @@ export function allocateBatch(x: AllocateInput): AllocationResult {
   pools.unshift({ name: MAIN, cost: mainCost, salesValue: sum(priced.map((r) => r.sv)), allocated: mainAllocated, members: priced.length });
   if (priced.length === 0) issues.push("Batch tanpa output SKU — biaya belum teralokasi");
 
-  const unpriced = (r: (typeof outs)[number]) => r.kg.gt(0) && (r.price === null || r.price.isZero());
+  const unpriced = (r: (typeof outs)[number]) => r.kg.gt(0) && r.price === null;
   const lines: AllocationLine[] = outs.map((r) => {
     const costPerKg = x.options.nullMissing && unpriced(r) ? null : div(r.alloc, r.kg);
     const nrvFloor = r.price === null ? null : r.price.minus(sellCost);
@@ -341,11 +343,13 @@ export function lowestStatus(statuses: (CostStatus | null | undefined)[]): CostS
 }
 
 /**
- * Status of a batch's cost (K20, K21): final once its invoices tie to the GL (M1 allocation posted, or the invoice
- * marked tied); sementara once the WP is in (H+1); estimasi from the cut date; rencana before it.
+ * Status of a batch's cost (K20, K21, K59): final only once the M1 allocation is posted AND every allocation line has a
+ * reference price. A tied invoice is the condition to post, not the status: `invoiceStatus` is no longer read here (the
+ * loader labels it "faktur tie, alokasi belum diposting"). sementara once the WP is in (H+1); estimasi from the cut
+ * date; rencana before it.
  */
-export function costStatusOf(b: { date: string | null; wpReceivedAt?: string | null; allocationPosted?: boolean; invoiceStatus?: string | null }, today: string): CostStatus {
-  if (b.allocationPosted || b.invoiceStatus === "tied") return "final";
+export function costStatusOf(b: { date: string | null; wpReceivedAt?: string | null; allocationPosted?: boolean; allPriced?: boolean }, today: string): CostStatus {
+  if (b.allocationPosted === true && b.allPriced === true) return "final";
   if (b.wpReceivedAt) return "sementara";
   if (b.date && b.date <= today) return "estimasi";
   return "rencana";
@@ -411,7 +415,10 @@ export function planCost(x: {
   extraValue?: Num | null;
 }): PlanCostResult {
   const kgLb = D(x.kgLb), lbPrice = D(x.lbPrice), overhead = D(x.overhead ?? 0);
-  const tariffCost = x.directCost !== null && x.directCost !== undefined && x.directCost !== "" ? D(x.directCost) : kgLb.times(D(x.tariffPerKgLb ?? 0));
+  const hasDirect = x.directCost !== null && x.directCost !== undefined && x.directCost !== "";
+  // R62: freight + slaughter fee come from the actual amounts or from the planned tariff, never from an assumed 0
+  if (!hasDirect && (x.tariffPerKgLb === null || x.tariffPerKgLb === undefined || x.tariffPerKgLb === "")) throw new Error("planCost: tarif atau biaya langsung wajib diisi (tidak diasumsikan 0)");
+  const tariffCost = hasDirect ? D(x.directCost!) : kgLb.times(D(x.tariffPerKgLb!));
   const costPool = kgLb.times(lbPrice).plus(tariffCost).plus(overhead);
   const missingPrice: string[] = [];
   const base = x.outputs.map((o) => {
@@ -432,6 +439,39 @@ export function planCost(x: {
     status: x.status, kgLb, lbPrice, tariffCost, overhead, costPool, value, k, gp: value.minus(costPool),
     breakeven, marginPerKgLb: value.isZero() ? null : perKgLb(value.minus(costPool)), lines, missingPrice, canBeFinal: missingPrice.length === 0,
   };
+}
+
+/** R67: the standard plan cost per kg of a forecast order — planCost on a 1 kg LB basis (class yield × LB price + tariff). */
+export function forecastPlanCost(x: {
+  lbPrice: Num; tariffPerKgLb: Num; overhead?: Num | null; outputs: PlanOutput[];
+}): Map<string, Decimal | null> {
+  const r = planCost({ status: "estimasi", kgLb: "1", lbPrice: x.lbPrice, tariffPerKgLb: x.tariffPerKgLb, overhead: x.overhead, outputs: x.outputs });
+  return new Map(r.lines.map((l) => [l.key, l.costPerKg]));
+}
+
+/**
+ * R67: one cost per kg per key from the plan costs of several classes decided for the same day. A forecast order has no
+ * class, so the classes are averaged by the kg of that key they yield: weight = decided LB volume × the class yield of the
+ * key. A class without a decided volume weighs 1 (every class equal; `equalWeights` says so for the label). A key a class
+ * cannot cost (no reference price) has no blended cost — the caller falls back to the MA cost, labelled.
+ */
+export function blendClassCosts(parts: { volume: Num | null; costs: Map<string, Decimal | null>; yields: Map<string, Num> }[]): { costs: Map<string, Decimal | null>; equalWeights: boolean } {
+  if (parts.length === 1) return { costs: parts[0].costs, equalWeights: false };
+  const equalWeights = parts.some((p) => p.volume === null || p.volume === undefined || p.volume === "");
+  const keys = [...new Set(parts.flatMap((p) => [...p.costs.keys()]))];
+  const costs = new Map<string, Decimal | null>();
+  for (const k of keys) {
+    let num = ZERO, den = ZERO, unknown = false;
+    for (const p of parts) {
+      const c = p.costs.get(k) ?? null, y = p.yields.get(k);
+      if (c === null || y === undefined) { unknown = true; break; }
+      const w = (equalWeights ? D(1) : D(p.volume!)).times(D(y));
+      num = num.plus(w.times(c));
+      den = den.plus(w);
+    }
+    costs.set(k, unknown || den.isZero() ? null : num.div(den));
+  }
+  return { costs, equalWeights };
 }
 
 /** Outputs of the need basis (§4.1, K25): the demanded main products at their reference price and the by-products the kg LB yields. */
@@ -626,14 +666,15 @@ export function c53(x: { batches: { ref: string; status: string | null; dueAt: s
  * C54: cost per kg of a SKU above ratio × its reference price (§4.1; e.g. by-products valued at receipt cost). PERIKSA.
  * PRD v5.1 K50: a SKU without cost because it has no reference price is "periksa biaya" as well (never a cost of 0).
  */
-export function c54(x: { rows: { key: string; costPerKg: Num | null; priceRef: Num | null }[]; ratio: Num }): ControlV3 & { keys: string[] } {
+export function c54(x: { rows: { key: string; costPerKg: Num | null; priceRef: Num | null; missing?: string | null }[]; ratio: Num }): ControlV3 & { keys: string[] } {
   const none = (v: Num | null | undefined) => v === null || v === undefined || v === "";
-  const bad = x.rows.filter((r) => (none(r.costPerKg) && none(r.priceRef)) || (!none(r.costPerKg) && !none(r.priceRef)
+  // R62: a batch with no cost because its yield / tariff is not filled (`missing`) is "periksa biaya" too, never a cost of 0
+  const bad = x.rows.filter((r) => !!r.missing || (none(r.costPerKg) && none(r.priceRef)) || (!none(r.costPerKg) && !none(r.priceRef)
     && D(r.priceRef!).gt(0) && D(r.costPerKg!).gt(D(r.priceRef!).times(D(x.ratio)))));
   return {
     code: "C54", module: "M1", name: `Biaya/kg SKU tidak lebih dari ${D(x.ratio).toString()} × harga acuan`, value: D(bad.length), comparator: ZERO, difference: D(bad.length),
     status: bad.length ? "PERIKSA" : "LULUS", action: bad.length ? "Periksa biaya SKU berikut (alokasi joint, biaya penerimaan); harga lantai tampil \"periksa biaya\"" : "",
-    detail: bad.map((r) => none(r.costPerKg) ? `${r.key}: biaya belum ada (harga acuan kosong)` : `${r.key}: ${D(r.costPerKg!).toFixed(0)} vs harga ${D(r.priceRef!).toFixed(0)}`), keys: bad.map((r) => r.key),
+    detail: bad.map((r) => r.missing ? `${r.key}: biaya belum ada (${r.missing})` : none(r.costPerKg) ? `${r.key}: biaya belum ada (harga acuan kosong)` : `${r.key}: ${D(r.costPerKg!).toFixed(0)} vs harga ${D(r.priceRef!).toFixed(0)}`), keys: bad.map((r) => r.key),
   };
 }
 

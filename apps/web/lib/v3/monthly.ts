@@ -100,7 +100,7 @@ export async function computeMonth(sb: Supa, monthFirst: string, today: string, 
   const rrRows = lastWeek ? mustRows(await sb.from("runrate").select("pl_line, monthly_amount").eq("week_id", lastWeek.id), "monthly.runrate") as Row[] : [];
   const variable = drivers ? drivers.coa.filter((c) => c.driver_type === "variable" && c.rp_per_kg !== null && !isCogsLine(String(c.pl_line))).map((c) => ({ pl_line: String(c.pl_line), rp_per_kg: String(c.rp_per_kg) })) : [];
   const opex = days.length ? opexRemaining({
-    fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount ?? 0) })),
+    fixed: drivers?.fixed ?? [], runrate: rrRows.map((r) => ({ pl_line: String(r.pl_line), monthly: String(r.monthly_amount) })),
     variable, forecastKg: sum(orders.map((o) => D(o.kg))), remainingDays: days.length, daysInMonth: daysInMonth(first),
   }) : [];
   const forecastRows = forecastPlRows({ days, orders, opex });
@@ -214,7 +214,7 @@ export async function lockVersion(sb: Supa, viewer: Viewer, first: string, versi
   const tot = sumRows([...rows, ...adjRows]);
   const t = { revenue: tot.actual.revenue.plus(tot.forecast.revenue), cogs: tot.actual.cogs.plus(tot.forecast.cogs), gp: tot.actual.gp.plus(tot.forecast.gp), opex: tot.actual.opex.plus(tot.forecast.opex), nibt: tot.actual.nibt.plus(tot.forecast.nibt) };
   const kgByDay: Record<string, string> = {};
-  for (const o of st.orders) kgByDay[o.delivery_date] = toFixedString(D(kgByDay[o.delivery_date] ?? "0").plus(D(o.kg)), 2) ?? "0";
+  for (const o of st.orders) kgByDay[o.delivery_date] = D(kgByDay[o.delivery_date] ?? "0").plus(D(o.kg)).toFixed(2); // missing-ok: akumulator kg per tanggal, mulai dari 0 untuk dijumlah
   const snapshot = {
     month: first, version, cut_off: st.cutOff, runrate: f2(st.runrate.revenue), gp_pct: toFixedString(st.gpPct, 6), anomalies: st.runrate.anomalies, holidays: st.holidays,
     days: versionDays(rows, first, kgByDay), rows: rows.map(martRow), adjustments: adj.map((a) => ({ code: a.code, pl_line: a.pl_line, amount: a.amount })),
@@ -241,7 +241,8 @@ async function afterFinal(sb: Supa, mo: Row, first: string, final: { revenue: De
   const a = accuracy({
     final: { revenue: final.revenue, gp: final.gp, nibt: final.nibt },
     adjustments: { revenue: sumAdj(isRevenueLine), gp: sumAdj((l) => isRevenueLine(l) || isCogsLine(l)), nibt: sumAdj(() => true) },
-    versions: versions.map((v) => ({ version: String(v.version), revenue: String(v.revenue ?? 0), gp: String(v.gp ?? 0), nibt: String(v.nibt ?? 0) })),
+    // a version locked without every figure (revenue, GP, NIBT) cannot be scored against FINAL: it is left out, not scored as 0
+    versions: versions.filter((v) => v.revenue !== null && v.gp !== null && v.nibt !== null).map((v) => ({ version: String(v.version), revenue: String(v.revenue), gp: String(v.gp), nibt: String(v.nibt) })),
   });
   const rows = a.rows.flatMap((r) => [
     { metric: "bias", value: r.bias }, { metric: "abs_err", value: r.abs_err }, { metric: "MAPE", value: r.ape }, { metric: "bias_pre", value: r.bias_pre }, { metric: "MAPE_pre", value: r.ape_pre },

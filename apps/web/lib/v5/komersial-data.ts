@@ -40,7 +40,7 @@ async function storageRate(sb: Supa, date: string) {
   ]);
   if (!gl.length || !inv.length) return null;
   const lines = lineTotals(actualRowsV4({ gl: gl.map((g) => ({ date: s(g.date), account: s(g.account), debit: s(g.debit), credit: s(g.credit) })), coa: coa.map((c) => ({ account: String(c.account), pl_line: s(c.pl_line), segment: s(c.segment) })), from: first, to: last }));
-  return holdingRate({ storageExpense: lines["Storage Expenses"] ?? null, inventoryEnd: sum(inv.map((r) => D(s(r.cost_ma) ?? "0"))), days: daysInMonth(first) });
+  return holdingRate({ storageExpense: lines["Storage Expenses"] ?? null, inventoryEnd: inv.some((r) => s(r.cost_ma) === null) ? null : sum(inv.map((r) => D(String(r.cost_ma)))), days: daysInMonth(first) });
 }
 
 const STOCK_TILES = ["headline", "c-stok", "c-hari", "c-bawah", "t-ranking", "t-spot"];
@@ -75,10 +75,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const approvals = fail(failed, ["c-approval"], await tileData("commercial: approval diskon", async () => {
     const r = await sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending");
     if (r.error) throw new LoaderError("discount_approval", r.error.message);
-    return r.count ?? 0;
+    return r.count ?? 0; // missing-ok: jumlah baris dari head count; tanpa baris = 0
   }), 0);
   const all = stockSellRows(view.map((r) => ({
-    key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? "0",
+    key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? null,
     urgency: r.urgency, cost_per_kg: r.cost_per_kg ?? r.cost_per_kg_ma, cost_status: r.cost_status, price_ref: r.price_list, cost_check: r.cost_check,
   })), rate);
   const priceOf = new Map(view.map((r) => [r.key, r.price_list]));
@@ -95,10 +95,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     return { commits, lists, orders, items };
   }), { commits: [] as Row[], lists: [] as Row[], orders: [] as Row[], items: [] as Row[] });
   const keyOf = new Map(cm.items.map((i) => [String(i.item_code), String(i.key)]));
-  const weekKg = kgByBaseKey(cm.orders.map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: s(o.kg) ?? "0" })).filter((o) => o.key.startsWith("RPA|")));
+  const weekKg = kgByBaseKey(cm.orders.filter((o) => s(o.kg) !== null).map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: String(o.kg) })).filter((o) => o.key.startsWith("RPA|")));
   const allowed = (k: string) => assigned === "all" || [...assigned].some((a) => baseKey(a) === k);
   const keys = [...new Set([...weekKg.keys(), ...cm.commits.map((x) => String(x.key))])].filter((k) => k.startsWith("RPA|") && allowed(k))
-    .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0));
+    .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0)); // missing-ok: pengurutan: SKU tanpa kg minggu ini diurutkan terakhir; bukan nilai yang ditampilkan
   const rows: CommitmentRow[] = keys.map((k) => {
     const cc = cm.commits.filter((x) => String(x.key) === k).sort((a, b) => Number(b.version) - Number(a.version))[0];
     const pl = cm.lists.find((l) => String(l.key) === k);

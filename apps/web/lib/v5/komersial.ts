@@ -94,7 +94,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     id: r.key, href: `/komersial/${encodeURIComponent(r.key)}`, redNeg: true,
     cells: {
       i: String(i + 1), k: skuLabel(r.key), u: URG[r.urgency ?? "aman"] ?? r.urgency ?? "", kg: kg(r.free_kg), a: r.oldest_age_days === null ? "" : `${num(r.oldest_age_days, 1)} hr`,
-      o: r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
+      o: r.over_age_kg === null ? "tidak ditampilkan" : r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
       fl: rp(r.cost_per_kg), ref: rp(r.price_ref), m: r.margin_per_kg === null ? "—" : `${r.margin_per_kg.gt(0) ? "+" : ""}${minus(num(r.margin_per_kg, 0))}`,
       h: r.holding_per_day === null ? "" : `${num(r.holding_per_day.div(1000), 1)} rb`, l: r.loss_at_ref.isZero() ? "" : `${jtV4(r.loss_at_ref.neg())} jt`,
     },
@@ -105,6 +105,8 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
     id: "t-ranking", pos: P(0, 4, 12, 6), title: `Stok yang harus dijual, urut prioritas · ${filterLabel}`,
     note: [x.rows.length > 16 ? `Menampilkan 16 dari ${x.rows.length} SKU.` : null,
       checked.length ? `${checked.map((r) => skuLabel(r.key)).join(", ")}: biaya per kg di atas batas kali harga acuan (C54, periksa biaya).` : null,
+      // R64: Sales cannot read the age of the stock; the column says so instead of 0
+      x.rows.some((r) => r.over_age_kg === null) ? `Kolom "> batas" (kg di atas batas umur) tidak ditampilkan untuk ${x.sales ? "Sales" : "peran ini"}.` : null,
       x.stockDate ? `Stok per ${tglShort(x.stockDate)}.` : null].filter(Boolean).join(" ") || undefined,
     cara: {
       title: "Ranking stok", fn: "stockSellRows + filterRows", rule: "Urgensi: fresh = jual hari ini; frozen di atas batas umur; mendekati batas = jual minggu ini. Harga lantai = biaya per kg (markup default 0). Rugi simpan per hari = nilai stok × beban storage bulan lalu ÷ persediaan akhir bulan lalu ÷ hari. Rugi di acuan = (biaya − acuan) × kg bila acuan di bawah biaya.",

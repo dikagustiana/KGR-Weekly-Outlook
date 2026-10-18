@@ -56,7 +56,7 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
           <form action={markDelivered} className="row">
             <input type="hidden" name="week" value={week} /><input type="hidden" name="id" value={String(row.id)} />
             {m3Any ? <>
-              <input className="in small" name="kg" inputMode="decimal" size={7} aria-label="kg terkirim" defaultValue={outstandingKg({ kg: String(row.kg ?? 0), fulfilled_kg: String(row.fulfilled_kg ?? 0), cancelled_kg: String(row.cancelled_kg ?? 0) }).toFixed(2)} />
+              <input className="in small" name="kg" inputMode="decimal" size={7} aria-label="kg terkirim" defaultValue={row.kg === null || row.kg === undefined ? "" : outstandingKg({ kg: String(row.kg), fulfilled_kg: String(row.fulfilled_kg), cancelled_kg: String(row.cancelled_kg) }).toFixed(2)} />
               <input className="in small" name="document_ref" size={9} placeholder="No. DO" aria-label="nomor DO / surat jalan" />
             </> : null}
             <button className="b sec small" title={m3Any ? "Catat kg yang terkirim; order tetap terbuka bila masih ada sisa" : "Order sudah dikirim → Aktual"}>Terkirim</button>

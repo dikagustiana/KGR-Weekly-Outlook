@@ -15,10 +15,9 @@
 import { D, ZERO, sum, type Decimal, type Num } from "./decimal";
 import type { ISODate } from "./dates";
 import type { AppLine, ReconHint } from "./fs-recon";
-import { isCogsLine, isRevenueLine, V5_COGS_LINES } from "./monthly";
+import { isCogsLine, isRevenueLine, V5_COGS_LINES, type CostingRowsMode } from "./monthly";
 
-/** `app_setting` v5_pl.costing_rows_mode (R66): 'cogs' = the v5 rows are in COGS (default), 'memo' = memo lines under NIBT. */
-export type CostingRowsMode = "cogs" | "memo";
+/** `app_setting` v5_pl.costing_rows_mode (R66): 'cogs' = the v5 rows are in COGS (default), 'memo' = memo lines under NIBT. The type is monthly.ts's. */
 export const isCostingRowsMode = (v: unknown): v is CostingRowsMode => v === "cogs" || v === "memo";
 
 /** decimal.js keeps a negative zero (−0 × 1, 0 × −1): "-0.00" must never reach a table or a comparison. */

@@ -6,8 +6,8 @@ import "server-only";
  */
 import {
   D, actualDaily, addDays, balancesOn, diffDays, cashControls, cashProjection, cashProjection12m, cashProjection12mOrNull, cashProjectionSplit, ccc, dailyTotals, firstOfMonth, monthSummary,
-  fixedAllMissing, monthEnd, monthSummaryV4, plRowsFromMart, scheduledPayments, solvency, solvencyNibtV5, sum, toFixedString,
-  type CashBalance, type CashPlan, type CashSplit, type CccResult, type ControlV3, type Decimal, type FixedCostRow, type Solvency, type WeekResult,
+  fixedAllMissing, monthEnd, monthSummaryV4, nonCashFixed, plRowsFromMart, scheduledPayments, solvency, solvencyNibtV5, sum, toFixedString,
+  type CashBalance, type CashPlan, type CashSplit, type CccResult, type ControlV3, type Decimal, type FixedCostRow, type Num, type Solvency, type WeekResult,
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
@@ -16,7 +16,7 @@ import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
 import { plDaily, isWorkingDay } from "./monthly";
-import { kasHorizon } from "../v4/kas";
+import { kasHorizon, type CashRecon } from "../v4/kas";
 import { must } from "../loader";
 import type { FixedSource } from "../v5/pl-tiles";
 
@@ -42,9 +42,12 @@ export interface CashState {
   split: CashSplit;
   /** Affiliate funding already received that the scenario takes out: the weekly cash flow's "Pinjaman afiliasi (net)" actual (an assumption, stated on the page). */
   affiliateReceived: Decimal;
-  months: ReturnType<typeof cashProjection12m>;
-  /** 12 months on the NIBT outlook of pl_daily_v4; null without that basis ("tidak tersedia", PRD v4 §6.3). */
+  /** 12 months on the NIBT outlook of pl_daily (v3); null without that basis ("tidak tersedia", never a flat projection on NIBT 0). */
+  months: ReturnType<typeof cashProjection12m> | null;
+  /** 12 months on the NIBT outlook of pl_daily_v4 — with v5_pl on, on the NIBT after fixed costs; null without that basis ("tidak tersedia", PRD v4 §6.3). */
   monthsV4: ReturnType<typeof cashProjection12m> | null;
+  /** R65: how the monthly change was made (v5_pl on), shown in the tile; null = v4 basis. */
+  monthsRecon: CashRecon | null;
   ccc: CccResult | null;
   cccWindowDays: number;
   solvency: Solvency | null;
@@ -81,6 +84,8 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   let nibt: Decimal | null = null, depr: Decimal = D(0), nibtV4: Decimal | null = null, deprV4: Decimal | null = null;
   // K52: set while v5_pl is on (value null = unknown); null = the v4 NIBT
   let nibtSolvency: { value: Decimal | null } | null = null;
+  // R65: the costs inside that NIBT that are not cash (depreciation, amortised prepaid): the 12 months add them back, once
+  let nonCash: ReturnType<typeof nonCashFixed> | null = null;
   if (opts.m4) {
     const rows = await plDaily(sb, firstOfMonth(date));
     if (rows.length) {
@@ -101,12 +106,22 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
         // no `fixed` in the month builder's note = the month was built without the fixed-cost rows: NIBT after fixed
         // costs is unknown (null → "belum ada"), never the NIBT without them
         const fixed = (lock?.note ? (JSON.parse(String(lock.note)) as { fixed?: FixedSource[] }).fixed : null) ?? null;
-        nibtSolvency = { value: solvencyNibtV5(plRowsFromMart(v4 as never, { fixedEstimate: true }), fixed === null || fixedAllMissing(fixed)) };
+        const withFixed = plRowsFromMart(v4 as never, { fixedEstimate: true });
+        nibtSolvency = { value: solvencyNibtV5(withFixed, fixed === null || fixedAllMissing(fixed)) };
+        nonCash = nonCashFixed({ month: firstOfMonth(date), rows: withFixed, schedule, isWorkingDay });
       }
     }
   }
-  const months = cashProjection12m({ month: date, startClosing: projection.startClosing, nibtOutlook: nibt ?? D(0), depreciation: depr });
-  const monthsV4 = cashProjection12mOrNull({ month: date, startClosing: projection.startClosing, nibtOutlook: nibtV4, depreciation: deprV4 });
+  // R65: with v5_pl on, the 12 months rest on the NIBT after fixed costs (null = unknown, never the journal NIBT or 0, K52); the
+  // costs in it that are not cash (depreciation, amortised prepaid) are added back once, so they do not reduce the cash
+  const monthsV4 = nibtSolvency
+    ? cashProjection12mOrNull({ month: date, startClosing: projection.startClosing, nibtOutlook: nibtSolvency.value, depreciation: nonCash?.total ?? null })
+    : cashProjection12mOrNull({ month: date, startClosing: projection.startClosing, nibtOutlook: nibtV4, depreciation: deprV4 });
+  const months = nibtSolvency ? monthsV4 : cashProjection12mOrNull({ month: date, startClosing: projection.startClosing, nibtOutlook: nibt, depreciation: nibt === null ? null : depr });
+  const monthsRecon: CashRecon | null = nibtSolvency && nonCash ? {
+    nibt: nibtSolvency.value === null ? null : f2(nibtSolvency.value), depreciation: f2(nonCash.depreciation)!,
+    prepaid: nonCash.prepaid.map((p) => ({ pl_line: p.pl_line, amount: f2(p.amount)! })), change: monthsV4 ? f2(monthsV4[0].change) : null,
+  } : null;
   const sol = r ? solvency({
     equity: sum(["Shareholder Equity", "Retained earnings", "Current year profit"].map((l) => bsLine(r, l, "yesterday"))),
     paidInCapital: bsLine(r, "Shareholder Equity", "yesterday"),
@@ -135,27 +150,43 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   }
   const payables = r ? ["Trade Payables - Third Parties", "Trade Payables - Affiliates"].map((line) => ({ line, value: bsLine(r, line, "projection") })) : [];
   const controls = cashControls({ date: addDays(date, -1), balances, bsCash, from: week?.week_start ?? date, isWorkingDay, payables });
-  return { date, week, accounts, balances, plans: planRows, scheduled, position: balancesOn(balances, date), projection, split, affiliateReceived, months, monthsV4, ccc: cccRes, cccWindowDays: windowDays, solvency: sol, controls, bsCash };
+  return { date, week, accounts, balances, plans: planRows, scheduled, position: balancesOn(balances, date), projection, split, affiliateReceived, months, monthsV4, ccc: cccRes, cccWindowDays: windowDays, solvency: sol, controls, bsCash, monthsRecon };
 }
 
 // ------------------------------------------------------------------------------------------------ data marts
 
+type PlanFlow = { date: string; amount: Num; status?: string | null; cf_category?: string | null };
+
+/**
+ * The planned flows of one day by kind (PRD v4 §3.7: operations in / out, and affiliate funding). With no cash plan row at
+ * all (plan nor schedule) the flows are unknown (null), not a day with nothing planned (R64).
+ */
+export function dayPlanFlows(plans: PlanFlow[], date: string): { operating_in: string | null; operating_out: string | null; affiliate_net: string | null } {
+  const known = plans.length > 0;
+  const total = (keep: (p: PlanFlow) => boolean) => (known ? sum(plans.filter((p) => p.date === date && (p.status ?? "plan") === "plan" && keep(p)).map((p) => D(p.amount))).toFixed(2) : null);
+  const operations = (p: PlanFlow) => p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening";
+  return {
+    operating_in: total((p) => operations(p) && D(p.amount).gt(0)),
+    operating_out: total((p) => operations(p) && D(p.amount).lt(0)),
+    affiliate_net: total((p) => p.cf_category === "Pinjaman afiliasi (net)"),
+  };
+}
+
 export async function buildCashDay(sb: Supa, date: string, m4: boolean): Promise<string> {
   const st = await loadCash(sb, date, { m4 });
   const d0 = st.projection.days[0];
+  if (!d0) throw new Error("cash_position_daily: proyeksi tanpa hari pertama"); // the projection always starts on `date`; total_plan_in/out are NOT NULL
   await martReplace(sb, "cash_position_daily", date, [{
-    date, total_closing: f2(st.projection.startClosing), total_plan_in: f2(d0?.total_plan_in ?? null) ?? "0", total_plan_out: f2(d0?.total_plan_out ?? null) ?? "0",
+    date, total_closing: f2(st.projection.startClosing), total_plan_in: d0.total_plan_in.toFixed(2), total_plan_out: d0.total_plan_out.toFixed(2),
     projected_closing: f2(d0?.projected_closing ?? null), lowest_next_13w: f2(st.projection.lowest), lowest_date: st.projection.lowestDate, accounts: st.position.length,
     // PRD v4 §3.7: the planned flows of the day split into operations and affiliate funding, and the scenario without the facility
     closing_without_affiliate: f2(st.split.days[0]?.closingWithout ?? null),
-    operating_in: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).gt(0)).map((p) => D(p.amount)))) ?? "0",
-    operating_out: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category !== "Pinjaman afiliasi (net)" && p.cf_category !== "Transfer antar rekening" && D(p.amount).lt(0)).map((p) => D(p.amount)))) ?? "0",
-    affiliate_net: f2(sum(st.plans.concat(st.scheduled).filter((p) => p.date === date && (p.status ?? "plan") === "plan" && p.cf_category === "Pinjaman afiliasi (net)").map((p) => D(p.amount)))) ?? "0",
+    ...dayPlanFlows(st.plans.concat(st.scheduled), date),
     lowest_without_affiliate: f2(st.split.lowestWithout.balance), lowest_without_date: st.split.lowestWithout.date, affiliate_assumption: st.split.assumption,
     // everything the management page "Kas & solvabilitas" shows beyond today's row (K17: the page reads this, it does not compute)
     horizon: kasHorizon({
       date, position: st.position, banks: Object.fromEntries(st.accounts.map((a) => [String(a.account_no), s(a.bank)])), controls: st.controls,
-      split: st.split, months: st.monthsV4, affiliateReceived: st.affiliateReceived,
+      split: st.split, months: st.monthsV4, monthsRecon: st.monthsRecon, affiliateReceived: st.affiliateReceived,
     }),
   }]);
   if (st.ccc) {
@@ -200,7 +231,7 @@ registerV3Kind({
     const n = new Map<string, number>();
     const plans = okP.map((r) => {
       const base = `${r.values.date}|${r.values.account_no ?? ""}|${r.values.cf_category ?? ""}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris per kunci baris (indeks)
       n.set(base, i);
       return { target: "plan", data: { ...r.values, line_key: `${base}|${i}` } as Row };
     });
