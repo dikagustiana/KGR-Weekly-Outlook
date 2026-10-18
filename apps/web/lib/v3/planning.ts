@@ -336,6 +336,18 @@ export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[
 }
 
 /**
+ * Q-v5.2-50 (A5 finding): the notes C42 judges. Only the yield rows the plan stands on count: the class of the plan, the patterns
+ * the plan uses (karkas — K27 stage 2 / O33 (b) leaves the other cut patterns to a later PRD, so a plan that uses none yet means
+ * karkas), and, per class × pattern × key, only the row in effect on the week start. `rows` is already that latest effective row
+ * (loadPlanning keeps one per class × pattern × key), so a row replaced by a newer effective date is not in it; the old `boneless`
+ * placeholder rows of the workbook (BLD, BLP) are out because the plan does not cut boneless.
+ */
+export function c42Notes(rows: PlanningSources["yieldRows"], weightClass: string, usedPatterns: string[]): (string | null)[] {
+  const patterns = new Set(usedPatterns.length ? usedPatterns : ["karkas"]);
+  return rows.filter((y) => y.weight_class === weightClass && patterns.has(y.cut_pattern)).map((y) => y.note);
+}
+
+/**
  * Controls of the PPIC page (PRD v4 §6.4, §7.1): C28 / C30 (v3) and C41, C42, C44, C46, C47 for the week's demand and
  * the proposed (or saved) plan. C45 is added by the caller (it reads the stock mart's status).
  */
@@ -343,8 +355,7 @@ export function ppicWeekControls(src: PlanningSources, p: PlanProposal, today: s
   const stat = statForecast(src);
   const prices = unitPrices(src);
   const planDates = (src.planDays.length ? src.planDays.filter((d) => Number(d.head_count) > 0).map((d) => String(d.date)) : p.days.rows.filter((r) => r.head_count > 0).map((r) => r.date));
-  const used = new Set(p.yields.map((y) => `${y.pattern}|${y.key}`));
-  const notes = src.yieldRows.filter((y) => y.weight_class === (p.cls?.code ?? "") && [...used].some((u) => u.startsWith(`${y.cut_pattern}|`))).map((y) => y.note);
+  const notes = c42Notes(src.yieldRows, p.cls?.code ?? "", Object.keys(p.proposal.patternMix));
   const v4 = ppicControls({
     weekStart: src.week.week_start, demand: p.demand, buyPrice: (u) => unitBuyPrice(src, u), yieldNotes: notes,
     surplus: Object.entries(p.proposal.plan.surplus_kg_by_key).map(([key, kg]) => ({ key, kg: kg.toFixed(2), fresh: prices[key]?.fresh ?? null, frozen: prices[key]?.frozen ?? null })),
