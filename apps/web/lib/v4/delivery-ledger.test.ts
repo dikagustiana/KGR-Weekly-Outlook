@@ -40,4 +40,9 @@ describe("salesWithDeliveries", () => {
     // 800 kg allocated: 600 by the delivery, 200 by the planned rest, the other 1.000 FEFO (assumed)
     expect(outs.filter((m) => !m.assumed).reduce((a, m) => a + Number(m.kg), 0)).toBe(-800);
   });
+
+  it("R64: an order line without kg has no open balance: it stays one outflow with kg null (the ledger names it), not 0 kg and not a delivery-only line", () => {
+    const out = salesWithDeliveries([{ ...line, kg: null }], [{ id: "D1", sales_line_id: "L1", date: "2030-06-04", kg: "600", document_ref: "DO-1" }], keyOf);
+    expect(out.map((x) => [x.status, x.kg])).toEqual([["Aktual", "600"], ["Order", null]]);
+  });
 });

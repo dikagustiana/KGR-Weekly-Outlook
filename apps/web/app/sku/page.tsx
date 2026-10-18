@@ -1,3 +1,4 @@
+import { sumAllOrNull } from "@/lib/known-sum";
 import Link from "next/link";
 import { clock } from "@/lib/clock";
 import { D, isISODate } from "@kgr/engine";
@@ -28,8 +29,7 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   const form = sp.form ?? "";
   const shown = rows.filter((r) => (!group || r.group_code === group) && (!form || r.form === form) && (sp.all === "1" || !D(String(r.kg)).isZero()));
   const groups = [...new Set(rows.map((r) => String(r.group_code ?? "")))].filter(Boolean).sort();
-  // a total is shown only when every shown SKU has the value (cost_ma is null without a cost): one blank = "belum diisi", never a smaller sum
-  const tot = (k: string) => (shown.every((r) => r[k] !== null && r[k] !== undefined) ? shown.reduce((a, r) => a.plus(D(String(r[k]))), D(0)) : null);
+  const tot = (k: string) => sumAllOrNull(shown, k); // cost_ma is null without a cost: one blank SKU = "belum diisi", never a smaller sum
   const totText = (k: string, unit = "") => { const t = tot(k); return t === null ? "belum diisi" : <><N v={t} />{unit}</>; };
   // PRD v4 §3.6: the five reconciliations, kg and Rp apart (computed on request: it runs the whole ledger)
   const canRekon = !mgmt && ["admin", "finance", "inventory_accounting"].includes(viewer.role) && !!week;

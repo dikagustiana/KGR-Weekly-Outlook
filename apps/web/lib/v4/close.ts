@@ -127,6 +127,11 @@ export async function finalizeMonthV4(sb: Supa, viewer: Viewer, first: string, s
 
 let builtAcc = new Set<string>();
 
+/** A total over days is shown only when every day has the value: one unknown day makes it unknown, never a smaller number (R64). */
+export function dailyTotal(rs: Row[], k: string): string | null {
+  return rs.length && rs.every((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k]))), D(0)).toFixed(2) : null;
+}
+
 /** forecast_accuracy_daily of a month that has FINAL: every V1 / V2 forecast day against the FINAL day. */
 async function buildAccuracy(sb: Supa, first: string): Promise<string> {
   const mo = must(await sb.from("month_outlook").select("id").eq("month", first).maybeSingle(), "month_outlook") as Row | null;
@@ -221,8 +226,7 @@ export async function closeViewV4(sb: Supa, first: string, settings: ModuleSetti
     const rows = await fetchAll<Row>((a, b) => sb.from("forecast_accuracy_daily").select("version, date, day_kind, diff, diff_kg, diff_price").eq("month_outlook_id", id).order("date").order("segment").order("version").range(a, b));
     const groups = new Map<string, Row[]>();
     for (const r of rows) { const k = `${String(r.version)}|${String(r.day_kind)}`; groups.set(k, [...(groups.get(k) ?? []), r]); }
-    // a total over days is shown only when every day has the value: one unknown day makes it unknown, never a smaller number
-    const tot = (rs: Row[], k: string) => rs.length && rs.every((r) => r[k] !== null && r[k] !== undefined) ? rs.reduce((a, r) => a.plus(D(String(r[k]))), D(0)).toFixed(2) : null;
+    const tot = dailyTotal;
     daily = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, rs]) => ({ version: k.split("|")[0], kind: k.split("|")[1], days: new Set(rs.map((r) => String(r.date))).size, diff: tot(rs, "diff"), diffKg: tot(rs, "diff_kg"), diffPrice: tot(rs, "diff_price") }));
   }
   const nextMo = must(await sb.from("month_outlook").select("id").eq("month", addDays(last, 1)).maybeSingle(), "month_outlook") as Row | null;

@@ -61,6 +61,23 @@ describe("commercial rules", () => {
   });
 });
 
+describe("R64: a missing price / cost is not 0", () => {
+  it("scorecard: a blast without downgrade (no price) makes the rep's Rp downgrade unknown (null), the kg still count; a rep without blasts has 0 (nothing frozen)", () => {
+    const base = { targets: [], actuals: [], forecasts: [], discounts: [] };
+    const s = scorecard({ ...base, blasts: [{ sales_rep: "Budi", kg: "50", rp_downgrade: "200000" }, { sales_rep: "Budi", kg: "30", rp_downgrade: null }, { sales_rep: "Sari", kg: "10", rp_downgrade: "5000" }] });
+    const by = Object.fromEntries(s.map((r) => [r.sales_rep, r]));
+    expect(by.Budi.rp_downgrade).toBeNull();
+    expect(by.Budi.kg_to_frozen_unsold.toFixed(0)).toBe("80");
+    expect(by.Sari.rp_downgrade!.toFixed(0)).toBe("5000");
+  });
+  it("default floor (no rule): without the blast cost per kg it is unknown, not storage only; a rule still applies", () => {
+    const f = (blastCostPerKg: string | null, rules: Parameters<typeof priceFloor>[0]["rules"] = []) => priceFloor({ key: "K|Fresh", group_code: null, costPerKgMa: "30000", rules, date: "2026-08-26", storagePerKgDay: "10", blastCostPerKg });
+    expect(f(null)).toBeNull();
+    expect(f("500")!.toFixed(0)).toBe("30570");
+    expect(f(null, [{ key: "K|Fresh", group_code: null, markup_rp_per_kg: "300", markup_pct: "0", effective_from: "2026-01-01" }])!.toFixed(0)).toBe("30300");
+  });
+});
+
 describe("order guard (PRD v3 §8 M7: order < price floor refused without approval)", () => {
   const floors = new Map([["K|Fresh", "30500"]]);
   const line = { key: "K|Fresh", customer: "PT A", price: "30000", kg: "100" };

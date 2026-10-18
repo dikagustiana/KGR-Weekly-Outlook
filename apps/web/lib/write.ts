@@ -8,6 +8,18 @@ type Row = Record<string, unknown>;
 
 export class WriteError extends Error {}
 
+/**
+ * Rows of table runrate from the workbook lines. A line without a monthly amount is not written (the column is NOT NULL:
+ * a blank would be stored as 0, missing ≠ 0, R64); a blank adjustment is "no adjustment" (NOT NULL default 0).
+ */
+export function runrateDbRows(weekId: string, runrate: WeekInputs["runrate"]): Row[] {
+  return runrate.flatMap((r, i) => r.monthly_amount === null || r.monthly_amount === undefined ? [] : [{
+    week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount,
+    week_adjustment: r.week_adjustment ?? 0, // missing-ok: penyesuaian kosong = tidak ada penyesuaian (kolom NOT NULL default 0)
+    basis: r.basis ?? null, seq: i + 1,
+  }]);
+}
+
 function chunk<T>(xs: T[], n: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
@@ -113,10 +125,7 @@ export async function loadWeekInputs(
   await must(sb.from("sku_price").upsert(
     inputs.sku_keys.filter((k) => known.has(k.key)).map((k) => ({ week_id: weekId, key: k.key, ref_sell_price: k.ref_sell_price, replacement_buy_price: k.replacement_buy_price, note: k.note ?? null })),
     { onConflict: "week_id,key" }), "sku_price");
-  await must(sb.from("runrate").upsert(
-    // a line without a monthly amount is not written (NOT NULL column: a blank would be stored as 0, missing ≠ 0)
-    inputs.runrate.flatMap((r, i) => r.monthly_amount === null || r.monthly_amount === undefined ? [] : [{ week_id: weekId, pl_line: r.pl_line, monthly_amount: r.monthly_amount, week_adjustment: r.week_adjustment ?? 0 /* missing-ok: penyesuaian kosong = tidak ada penyesuaian (kolom NOT NULL default 0) */, basis: r.basis ?? null, seq: i + 1 }]),
-    { onConflict: "week_id,pl_line" }), "runrate");
+  await must(sb.from("runrate").upsert(runrateDbRows(weekId, inputs.runrate), { onConflict: "week_id,pl_line" }), "runrate");
 
   const src = opts.source;
   const up = opts.uploadId ?? null;

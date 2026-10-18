@@ -27,6 +27,17 @@ export function plainName(name: string): string {
   return name.replace(/\s*\((?:[^()]*\b[IOT]_[A-Za-z_]+[^()]*)\)/g, "").replace(/\b[IOT]_[A-Za-z_]+\b/g, "").replace(/\s{2,}/g, " ").trim();
 }
 
+/**
+ * Last week's base from the released snapshot: only when it carries all three lines (revenue, GP, NIBT). A missing line is
+ * not 0: without the full set the caller takes the journal as the base (R64).
+ */
+export function releaseLastWeek(snapshot: unknown): MingguIniInput["lastWeek"] {
+  const lines = (snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined | null)?.pnl?.lines;
+  const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
+  const rev = get("TOTAL REVENUE"), gp = get("GROSS PROFIT"), ni = get("NET INCOME");
+  return lines && rev !== null && gp !== null && ni !== null ? { revenue: D(rev), gp: D(gp), nibt: D(ni), basis: "rilis" } : null;
+}
+
 export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | undefined>): Promise<MingguIniInput> {
   const settings = await moduleSettings();
   const role = ctx.viewer.role;
@@ -52,13 +63,7 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
   if (prev) {
     const data = fail(failed, ["c-outlook"], await tileData("minggu ini: rilis minggu lalu", async () =>
       must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
-    const lines = (data?.snapshot as { pnl?: { lines?: { line: string; values: Record<string, string> }[] } } | undefined)?.pnl?.lines;
-    const get = (l: string) => lines?.find((x) => x.line === l)?.values?.projection ?? null;
-    // the release is last week's base only when it carries all three lines: a missing line is not 0 (then the journal is the base)
-    const rev = get("TOTAL REVENUE"), gp = get("GROSS PROFIT"), ni = get("NET INCOME");
-    if (lines && rev !== null && gp !== null && ni !== null) {
-      lastWeek = { revenue: D(rev), gp: D(gp), nibt: D(ni), basis: "rilis" };
-    }
+    lastWeek = releaseLastWeek(data?.snapshot);
   }
   if (!lastWeek) {
     const p = r.statements.pnl;

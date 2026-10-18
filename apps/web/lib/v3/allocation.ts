@@ -186,9 +186,13 @@ export function dayControls(d: DayAllocation): ControlV3[] {
     blasts: d.cutoffDone.map((b) => ({ ref: String(b.id), lot_ref_to: s(b.lot_ref_to) ?? (d.led.lots.some((l) => l.ref === `blast:${b.id}`) ? `blast:${b.id}` : null) })),
   });
   const out = all.filter((c) => c.code === "C29" || c.code === "C31");
-  if (d.noKg.length) out.push({
-    code: "C29", module: "M2", name: "Alokasi tidak melebihi kg baris PO", value: D(d.noKg.length), comparator: D(0), difference: D(d.noKg.length), status: "BELUM DIISI", // jumlah baris tanpa kg (hitungan)
-    action: "Isi kg di baris order berikut; alokasinya belum bisa dicek", detail: d.noKg.map((x) => `${x.po_ref ?? x.id} ${x.key}`.trim()),
-  });
+  if (d.noKg.length) {
+    // C29 cannot be judged for a line without kg: the control reads BELUM DIISI naming the lines (a failure of another line stays GAGAL)
+    const miss = d.noKg.map((x) => `${x.po_ref ?? x.id} ${x.key}`.trim());
+    const action = "Isi kg di baris order berikut; alokasinya belum bisa dicek";
+    const i = out.findIndex((c) => c.code === "C29");
+    if (i >= 0) out[i] = { ...out[i], status: out[i].status === "GAGAL" ? "GAGAL" : "BELUM DIISI", action: out[i].status === "GAGAL" ? `${out[i].action}; ${action}` : action, detail: [...out[i].detail, ...miss] };
+    else out.push({ code: "C29", module: "M2", name: "Alokasi tidak melebihi kg baris PO", value: D(miss.length), comparator: D(0), difference: D(miss.length), status: "BELUM DIISI", action, detail: miss }); // jumlah baris tanpa kg (hitungan)
+  }
   return out;
 }

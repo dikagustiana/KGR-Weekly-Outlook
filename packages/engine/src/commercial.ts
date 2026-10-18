@@ -198,7 +198,8 @@ export interface ScorecardRow {
   target_rp: Decimal | null;
   actual_rp: Decimal;
   kg_to_frozen_unsold: Decimal;
-  rp_downgrade: Decimal;
+  /** null when one of the rep's blasts has no computed downgrade (no price): the total is unknown, not the sum of the others. */
+  rp_downgrade: Decimal | null;
   forecast_mape: Decimal | null;
   discount_count: number;
   discount_rp: Decimal;
@@ -231,9 +232,10 @@ export function scorecard(x: {
     const ar = sum(x.actuals.filter((r) => r.sales_rep === rep).map((r) => D(r.value)));
     const fk = sum(x.forecasts.filter((r) => r.sales_rep === rep).map((r) => D(r.kg)));
     const ds = x.discounts.filter((r) => r.sales_rep === rep);
+    const rpDown = (bs: { rp_downgrade: Num | null }[]) => (bs.every((b) => b.rp_downgrade !== null && b.rp_downgrade !== undefined && b.rp_downgrade !== "") ? sum(bs.map((b) => D(b.rp_downgrade!))) : null);
     return {
       sales_rep: rep, target_kg: tk, actual_kg: ak, pct: tk === null ? null : div(ak, tk), target_rp: tr, actual_rp: ar,
-      kg_to_frozen_unsold: sum(x.blasts.filter((r) => r.sales_rep === rep).map((r) => D(r.kg))), rp_downgrade: sum(x.blasts.filter((r) => r.sales_rep === rep).map((r) => D(r.rp_downgrade))),
+      kg_to_frozen_unsold: sum(x.blasts.filter((r) => r.sales_rep === rep).map((r) => D(r.kg))), rp_downgrade: rpDown(x.blasts.filter((r) => r.sales_rep === rep)),
       forecast_mape: fk.isZero() ? null : ak.minus(fk).abs().div(fk), discount_count: ds.length, discount_rp: sum(ds.map((r) => D(r.total_below))),
       kg_spot: sum(spot.filter((r) => r.sales_rep === rep).map((r) => D(r.kg))),
     };
