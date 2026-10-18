@@ -7,6 +7,8 @@
 //   (5) Cost Accounting uploads the WP (H+1 11.00)        (6) invoice + posting
 //   (7) Commercial shows the new cost                     (8) the K35 grid is green
 //   (9) Finance releases without override, v4_release on
+// plus (R48, step 11) PPIC opens the Rencana of the week the locked commitment belongs to (31 Aug) and the class demand holds the kg of the
+// commitment beyond the PO of that week.
 // Steps run in the order of the clock, not of the numbers above (the lock is on Friday, the plan is copied on Thursday:
 // the copy needs the LB price of the cut dates that are still ahead, C57). Everything the app has an upload path for is done
 // through that path by the role that owns the input; the rest is `week-complete.sql` and labelled setup in the log.
@@ -19,6 +21,7 @@ const { Journey, cfg, short, sleep } = require("./lib/e2e.cjs");
 const WEEK = "2026-08-24";
 const NEXT = "2026-08-31";
 const BATCH = "126/PO/KGR/08/2026"; // actual batch of Wed 26 Aug: its WP is due Thu 27 Aug 12.00
+const NEXT_PO = { ref: "KGR26.E2E06", date: "2026-09-01", item: "JLB0922", kg: 4000 }; // PO of the week of the commitment, below it (R48, step 11)
 const PI = { no: "PI26080085", date: "2026-08-26", value: "327933293.00" }; // the supplier invoice of that batch in the GL fixture
 const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const parseId = (s) => Number(String(s).replace(/\./g, "").replace(",", "."));
@@ -105,14 +108,16 @@ async function ppicDrain(J, ppic, date) {
 
   await J.step("1c", A.sales, "Sales: upload PO (tempel): baris sah tersimpan; pelanggan lain, tanggal lewat dan kode tak dikenal ditahan", async () => {
     J.clock("2026-08-27T09:38:00+07:00");
+    // E2E06 is a PO of next week (Tue 1 Sep): next week has no row yet (the Monday rollover is an Admin step), so the upload holds it with "minggu ... belum ada";
+    // step 11 uploads it again once SETUP made the week row, and looks for the rest of the commitment, beyond that PO, in the class demand of that week
     const po = [["no_po", "tanggal_kirim", "kode_item", "kg", "harga", "pelanggan"],
       ["KGR26.E2E01", "2026-08-29", "JLB0922", 250, 60000, "PT A"], ["KGR26.E2E02", "2026-08-29", "JLB1857", 300, 60000, "PT A"], ["KGR26.E2E03", "2026-08-29", "JLB0829", 100, 60000, "PT Lain"],
-      ["KGR26.E2E04", "2026-08-26", "JLB0763", 120, 60000, "PT A"], ["KGR26.E2E05", "2026-08-30", "X-999", 50, 60000, "PT A"]];
+      ["KGR26.E2E04", "2026-08-26", "JLB0763", 120, 60000, "PT A"], ["KGR26.E2E05", "2026-08-30", "X-999", 50, 60000, "PT A"], [NEXT_PO.ref, NEXT_PO.date, NEXT_PO.item, NEXT_PO.kg, 60000, "PT A"]];
     const r = await A.sales.paste("po_lines", po);
-    J.check("PO tersimpan: 2 dari 5 baris lolos cek", !!r.ok && /2 dari 5 baris lolos/.test(r.ok), r.ok || r.error || "");
+    J.check("PO tersimpan: 3 dari 6 baris lolos cek, 2 disimpan, PO minggu depan ditahan karena minggunya belum ada", !!r.ok && /3 dari 6 baris lolos/.test(r.ok) && /2 baru/.test(r.ok) && new RegExp(`1 ditahan \\(${NEXT_PO.ref}: minggu ${NEXT_PO.date} belum ada\\)`).test(r.ok), r.ok || r.error || "");
     const saved = J.db(`select document_ref, kg, price, created_by from public.sales_line where document_ref like 'KGR26.E2E%' and deleted_at is null order by document_ref`).map((x) => x.join(" "));
     J.log(`    DB sales_line PO uji: ${saved.join("; ") || "tidak ada"}`);
-    J.check("DB: tepat dua baris PO tersimpan (E2E01 dan E2E02), oleh Sales", saved.length === 2 && saved.every((x) => x.endsWith(`sales@${cfg.domain}`)), saved.join("; "));
+    J.check("DB: tepat dua baris PO tersimpan (E2E01 dan E2E02), oleh Sales; E2E06 (minggu depan) belum", saved.length === 2 && saved.every((x) => x.endsWith(`sales@${cfg.domain}`)) && !saved.some((x) => x.startsWith(NEXT_PO.ref)), saved.join("; "));
     J.check("baris pelanggan lain, tanggal lewat dan kode tak dikenal tidak tersimpan", J.dbOne(`select count(*) from public.sales_line where document_ref in ('KGR26.E2E03','KGR26.E2E04','KGR26.E2E05')`) === "0");
     await A.sales.shot("T7-1c-sales-po");
   });
@@ -367,6 +372,56 @@ async function ppicDrain(J, ppic, date) {
     const writes = await A.management.page.locator("main form button").count();
     J.check("Manajemen tidak punya tombol tulis di halaman", writes === 0, `${writes} tombol`);
     await A.management.shot("T7-10-manajemen-status-putaran");
+  });
+
+  // --------------------------------------------------------------------------------- R48: Rencana of the commitment week
+  await J.step("11", A.ppic, "PPIC: Rencana minggu komitmen (31 Agu): demand kelas = PO + kg komitmen di atas PO (R48)", async () => {
+    J.clock("2026-08-28T17:05:00+07:00");
+    // The week row of 31 Aug is made by the Monday rollover (an Admin step, not allowed here): SETUP, and taken away again at the end of the step with
+    // everything the step wrote for that week; the table counts of the whole database before and after must be the same
+    const tableCounts = () => J.db(`select table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from public.%I', table_name), false, true, '')))[1]::text
+      from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' and table_name <> 'audit_log' order by 1`).map((r) => `${r[0]}=${r[1]}`);
+    const before = tableCounts();
+    const since = J.dbOne("select now()::text");
+    const flag = (on) => `update public.app_setting set value = jsonb_set(value, '{enabled}', '${on}'::jsonb) where key = 'v5_commercial'`;
+    J.setupFile(`next-week.sql: baris minggu ${NEXT} seperti rollover Senin (rollover = langkah Admin, dilarang di journey; tanpa baris minggu /w/${NEXT}/rencana 404) dan PO ${NEXT_PO.ref} ${NEXT_PO.kg} kg untuk ${NEXT_PO.date} (unggahan Sales ditahan di 1c dan akan membangun ulang mart yang tak bisa ditarik kembali)`, path.join(__dirname, "sql/next-week.sql"));
+    let withCommitment = null, poOnly = null;
+    try {
+      // the numbers come from the database, not from the page: the locked commitment (fresh karkas, highest version) and the POs of that week for the same key
+      const C = Number(J.dbOne(`select fresh_kg from public.sales_commitment where week_start = '${NEXT}' and key = 'RPA|Karkas' and status = 'locked' and deleted_at is null order by version desc limit 1`));
+      const P = Number(J.dbOne(`select coalesce(sum(greatest(0, l.kg - coalesce(l.fulfilled_kg, 0) - coalesce(l.cancelled_kg, 0))), 0) from public.sales_line l join public.item_map m on m.item_code = l.item_code
+        where m.key = 'RPA|Karkas|Fresh' and l.status = 'Order' and l.deleted_at is null and l.superseded_at is null and coalesce(l.demand_status, 'Confirmed') = 'Confirmed' and l.kg is not null
+          and coalesce(l.delivery_date, l.date) between '${NEXT}' and '2026-09-06'`));
+      const extra = Math.max(0, C - P);
+      J.log(`    DB komitmen terkunci ${NEXT} Karkas fresh ${idNum(C)} kg; PO Confirmed Karkas fresh minggu itu ${idNum(P)} kg (${NEXT_PO.ref}); kg komitmen di atas PO = max(0, ${idNum(C)} − ${idNum(P)}) = ${idNum(extra)} kg`);
+      J.check("DB: komitmen terkunci lebih besar dari PO minggu itu (kasus R48)", C > P && P > 0, `komitmen ${C} kg, PO ${P} kg`);
+      const demandOf = async () => {
+        const st = await A.ppic.goto(`/w/${NEXT}/rencana`);
+        const rows = await A.ppic.page.evaluate(() => [...document.querySelectorAll('section[data-tile="t-demand"] tbody tr')].map((r) => [...r.querySelectorAll("th,td")].map((c) => c.textContent.trim())));
+        const total = rows.find((r) => r[0] === "Total");
+        return { st, rows, po: total ? parseId(total[1]) : null, net: total ? parseId(total[3]) : null };
+      };
+      withCommitment = await demandOf();
+      J.log(`    ppic  demand kelas minggu ${NEXT} (komitmen dihitung): ${withCommitment.rows.map((r) => r.slice(0, 4).join(" ")).join(" | ")}`);
+      J.check("Rencana minggu komitmen terbuka untuk PPIC (HTTP 200, bukan 404/500)", withCommitment.st === 200, `HTTP ${withCommitment.st}`);
+      J.check("demand kelas (kolom PO kg, total) = PO + kg komitmen di atas PO (= komitmen terkunci), angka dari database", withCommitment.po === P + extra, `halaman ${withCommitment.po} kg; DB ${P} + ${extra} = ${P + extra} kg`);
+      await A.ppic.shot("T7-11-ppic-rencana-minggu-komitmen");
+      // the same page without the commitment (flag v5_commercial off: K26 counts commitments only with it): the difference is the kg beyond the PO
+      J.setup("flag v5_commercial mati sementara (komitmen tidak dihitung di demand)", flag("false"));
+      await sleep(1500);
+      poOnly = await demandOf();
+      J.log(`    ppic  demand kelas minggu ${NEXT} (tanpa komitmen): ${poOnly.rows.map((r) => r.slice(0, 4).join(" ")).join(" | ")}`);
+      J.check("tanpa komitmen demand kelas = PO saja", poOnly.st === 200 && poOnly.po === P, `HTTP ${poOnly.st}, halaman ${poOnly.po} kg; DB PO ${P} kg`);
+      J.check("selisih dengan dan tanpa komitmen = kg komitmen di atas PO (angka dari database)", withCommitment.po !== null && poOnly.po !== null && withCommitment.po - poOnly.po === extra, `${withCommitment.po} − ${poOnly.po} = ${withCommitment.po - poOnly.po} kg; DB ${idNum(extra)} kg`);
+    } finally {
+      J.setup("flag v5_commercial hidup lagi", flag("true"));
+      J.setupFile("next-week-undo.sql: PO minggu depan, baris minggu 2026-08-31 dan antrean pemicu dihapus lagi (journey sesudah T7 mulai dari minggu 24–30 Agu saja)", path.join(__dirname, "sql/next-week-undo.sql"), { since });
+    }
+    const after = tableCounts();
+    const diff = before.filter((x, i) => x !== after[i]).map((x, i) => `${x} → ${after[before.indexOf(x)]}`);
+    J.log(`    DB jumlah baris ${before.length} tabel (kecuali audit_log) sebelum dan sesudah langkah: ${diff.length ? `BEDA ${diff.join(", ")}` : "sama"}`);
+    J.check(`keadaan database sesudah pembersihan = sebelum langkah ini di ${before.length} tabel (journey sesudah T7 tidak melihat minggu 31/08 maupun PO-nya)`, diff.length === 0 && before.length === after.length, diff.join(", "));
+    J.check("flag v5_commercial hidup lagi", J.dbOne("select value ->> 'enabled' from public.app_setting where key = 'v5_commercial'") === "true");
   });
 
   process.exit(await J.done());
