@@ -267,6 +267,27 @@ describe("add = upsert on the unique triple (sales_rep, customer, key)", () => {
     expect(writes(sb)).toEqual([]);
     expect(sb.tables.sales_assignment[0].email).toBe("budi@x.test");
   });
+  // V10 (review v5.3): the scorecard, the commercial controls and sales_line.sales_rep go by the rep name — one name, one user
+  it("V10: the same name on another key or customer is refused too (one sales_rep = one Sales user), with the user and the key named", async () => {
+    sb = make([row("a1", { email: "budi@x.test", key: "RPA|Karkas", customer: "PT A" })]);
+    const r = await saveAssignmentAction({}, form({ email: "nama@x.test", key: "RPA|Sayap|Fresh", customer: "PT B" }));
+    expect(r.error).toBe('Nama Sales "Budi S" sudah dipakai budi@x.test (penugasan RPA|Karkas); dua pengguna Sales tidak boleh memakai satu nama — ubah nama salah satu pengguna di Admin → Pengguna');
+    expect(writes(sb)).toEqual([]);
+  });
+  it("V10: a user whose name changed in Admin → Pengguna keeps the sales_rep of their rows (no second rep for one person); a brand-new user gets their current name", async () => {
+    svc = memSb({ app_user: USERS.map((u) => (u.email === "budi@x.test" ? { ...u, full_name: "Budi Santoso" } : u)) });
+    sb = make([row("a1", { email: "budi@x.test", sales_rep: "Budi S", key: "RPA|Karkas" })]);
+    await saveAssignmentAction({}, form({ email: "budi@x.test", key: "RPA|Sayap" }));
+    expect((writes(sb)[0].payload as MemRow).sales_rep).toBe("Budi S");
+    await saveAssignmentAction({}, form({ email: "siti@x.test", key: "RPA|Sayap" }));
+    expect((writes(sb)[1].payload as MemRow).sales_rep).toBe("Siti");
+  });
+  it("V10: a deactivated user cannot be assigned; their rows stay (access ends at app_user.active, the rows are history)", async () => {
+    sb = make([row("a1", { email: "off@x.test", sales_rep: "Off" })]);
+    const r = await saveAssignmentAction({}, form({ email: "off@x.test", key: "RPA|Sayap" }));
+    expect(r.error).toBe("off@x.test bukan pengguna Sales yang aktif");
+    expect(sb.tables.sales_assignment).toHaveLength(1);
+  });
   it("the same key for another customer or another Sales user is a new row", async () => {
     sb = make([row("a1", { customer: "PT A" })]);
     await saveAssignmentAction({}, form({ email: "budi@x.test", customer: "PT B", key: "RPA|Karkas" }));
