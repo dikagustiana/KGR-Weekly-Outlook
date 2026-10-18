@@ -2827,3 +2827,865 @@ begin
   exception when others then out := out || 'registry: ERROR(!) ' || sqlerrm || '; '; end;
   raise exception 'RLS-RESULTS v5.2 B2 hygiene (rolled back): %', out;
 end $$;
+
+-- ================================================================================================================
+-- v5.2 B5 (docs/PRD-v5.2-B-db.md B-R85, B-R86, B-R94; Q-v5.2-13, Q-v5.2-18; requests of A2 and A3). Same convention as
+-- above: results in the final error, (!) = unexpected; every block is self-contained and rolls back; each assertion is
+-- guarded so that a missing object shows as ERROR(!) instead of stopping the block. Run against the migrations of
+-- origin/main only (without 20261025000400 and 20261025000500) the blocks show (!): that is the proof of what the
+-- migrations add (docs/v5.2/b5.md).
+-- ================================================================================================================
+
+-- B-R85 R51: batch.lb_price_source accepts the three sources and null, refuses anything else; whoever writes batch
+-- (admin, ppic, cost_accounting, on a writable week) can fill it, nobody else gets a new right
+do $$
+declare out text := ''; n int; w uuid; wc uuid; b uuid; bc uuid; v text; r text; vals text[] := array['keputusan_kelas', 'keputusan_semua_kelas', 'manual'];
+begin
+  insert into public.app_user(email, role) values ('b5a-ppic@x.test','ppic'),('b5a-ca@x.test','cost_accounting'),('b5a-adm@x.test','admin'),
+    ('b5a-sales@x.test','sales'),('b5a-fin@x.test','finance'),('b5a-purch@x.test','purchasing'),('b5a-mgmt@x.test','management'),('b5a-ia@x.test','inventory_accounting');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2034-01-02', '2034-01-05', '2033-12-30') returning id into w;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2034-01-09', '2034-01-12', '2034-01-06', 'closed') returning id into wc;
+  insert into public.batch (week_id, date, status, lb_kg) values (w, '2034-01-03', 'Rencana', 100) returning id into b;
+  insert into public.batch (week_id, date, status, lb_kg) values (wc, '2034-01-10', 'Rencana', 100) returning id into bc;
+
+  begin
+    select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'batch' and column_name = 'lb_price_source' and data_type = 'text' and is_nullable = 'YES';
+    out := out || 'column batch.lb_price_source text null=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from public.batch where lb_price_source is not null;
+    out := out || 'batches with a source before anyone sets one=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'column: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- the three values and null are accepted, for every role that writes batch
+  foreach r in array array['ppic', 'ca', 'adm'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5a-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    foreach v in array vals loop
+      begin update public.batch set lb_price_source = v where id = b; get diagnostics n = row_count;
+        out := out || r || ' sets ' || v || ' rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+      exception when others then out := out || r || ' sets ' || v || ': ERROR(!) ' || sqlerrm || '; '; end;
+    end loop;
+    begin update public.batch set lb_price_source = null where id = b; get diagnostics n = row_count;
+      out := out || r || ' clears the source rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' clears the source: ERROR(!) ' || sqlerrm || '; '; end;
+    -- anything else is refused by the check (admin and ppic alike)
+    begin update public.batch set lb_price_source = 'harga_pasar' where id = b; get diagnostics n = row_count;
+      out := out || r || ' sets a free text: ALLOWED rows=' || n || '(!); ';
+    exception when check_violation then out := out || r || ' sets a free text: refused (23514); ';
+              when others then out := out || r || ' sets a free text: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  begin insert into public.batch (week_id, date, status, lb_kg, lb_price_source) values (w, '2034-01-04', 'Rencana', 100, 'MANUAL');
+    out := out || 'insert with an upper-case source: ALLOWED(!); ';
+  exception when check_violation then out := out || 'insert with an upper-case source: refused; ';
+            when others then out := out || 'insert with an upper-case source: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- no new right: Sales, Finance, Purchasing, Management and Inventory Accounting still write no batch row
+  foreach r in array array['sales', 'fin', 'purch', 'mgmt', 'ia'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5a-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin update public.batch set lb_price_source = 'manual' where id = b; get diagnostics n = row_count;
+      out := out || r || ' sets the source: rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' sets the source: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  -- a closed week stays closed to ppic and cost accounting (the admin still writes)
+  foreach r in array array['ppic', 'ca', 'adm'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5a-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin update public.batch set lb_price_source = 'manual' where id = bc; get diagnostics n = row_count;
+      out := out || r || ' on a closed week rows=' || n || case when (r = 'adm' and n = 1) or (r <> 'adm' and n = 0) then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' on a closed week: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '', true);
+  begin select lb_price_source into v from public.batch where id = b; out := out || 'value left by the non-writers=' || coalesce(v, 'null') || case when v is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'value: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B5 B-R85 lb_price_source (rolled back): %', out;
+end $$;
+
+-- B-R85 A2 (R51, R52 stage 1): plan_check_reason.plan_week_id binds a C58 reason to one plan version; plan_week_class.detail
+-- keeps the split per cut date; both tables keep their write rights (admin, ppic)
+do $$
+declare out text := ''; n int; p1 uuid; p2 uuid; po uuid; pc uuid; id1 uuid; r text; idx text;
+begin
+  insert into public.app_user(email, role) values ('b5b-ppic@x.test','ppic'),('b5b-adm@x.test','admin'),('b5b-fin@x.test','finance'),('b5b-sales@x.test','sales'),('b5b-mgmt@x.test','management');
+  insert into public.plan_week (week_start, version, head_count) values ('2034-01-16', 1, 1000) returning id into p1;
+  insert into public.plan_week (week_start, version, head_count) values ('2034-01-16', 2, 1100) returning id into p2;
+  insert into public.plan_week (week_start, version, head_count) values ('2034-01-23', 1, 900) returning id into po;
+  insert into public.plan_week_class (plan_week_id, weight_class, kg_lb, heads) values (p1, 'K', 5000, 1000) returning id into pc;
+
+  begin
+    select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'plan_check_reason' and column_name = 'plan_week_id' and data_type = 'uuid' and is_nullable = 'YES';
+    out := out || 'column plan_check_reason.plan_week_id uuid null=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'plan_week_class' and column_name = 'detail' and data_type = 'jsonb' and is_nullable = 'YES';
+    out := out || 'column plan_week_class.detail jsonb null=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select indexdef into idx from pg_indexes where schemaname = 'public' and indexname = 'plan_check_reason_plan_code';
+    out := out || 'unique index per plan version and code=' || (coalesce(idx, '') like 'CREATE UNIQUE INDEX%(plan_week_id, code)%deleted_at IS NULL%')::text
+      || case when coalesce(idx, '') like 'CREATE UNIQUE INDEX%(plan_week_id, code)%deleted_at IS NULL%' then '' else '(!)' end || '; ';
+    -- a class row saved without a split (every row saved before v5.2) reads as null
+    select count(*) into n from public.plan_week_class where id = pc and detail is null;
+    out := out || 'a class row saved without detail has detail null=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'columns: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- PPIC writes a reason bound to version 1; a second live reason of the same version and control is refused
+  perform set_config('request.jwt.claims', '{"email":"b5b-ppic@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C58', 'supply menyusul dari CV X', p1) returning id into id1;
+    out := out || 'ppic writes a reason bound to version 1: OK; ';
+  exception when others then out := out || 'ppic writes a bound reason: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C58', 'alasan kedua versi yang sama', p1);
+    out := out || 'second live reason of the same version and code: ALLOWED(!); ';
+  exception when unique_violation then out := out || 'second live reason of the same version and code: refused (23505); ';
+            when others then out := out || 'second live reason: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the reason of the older version is retired, then version 2 gets its own (what the app does); the old one stays as history
+  begin update public.plan_check_reason set deleted_at = now() where id = id1; get diagnostics n = row_count;
+    out := out || 'ppic retires the reason of version 1 rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'retire: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C58', 'supply versi 2 menyusul', p2);
+    out := out || 'a reason bound to version 2: OK; ';
+  exception when others then out := out || 'reason of version 2: ERROR(!) ' || sqlerrm || '; '; end;
+  begin select count(*) into n from public.plan_check_reason where week_start = '2034-01-16' and code = 'C58' and deleted_at is null and plan_week_id = p2;
+    out := out || 'live reasons of version 2=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select count(*) into n from public.plan_check_reason where week_start = '2034-01-16' and code = 'C58' and plan_week_id = p1;
+    out := out || 'reason rows kept for version 1=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'count: ERROR(!) ' || sqlerrm || '; '; end;
+  -- a version of another week, and a version that does not exist, are refused
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C41', 'versi minggu lain tidak boleh', po);
+    out := out || 'reason bound to a version of another week: ALLOWED(!); ';
+  exception when check_violation then out := out || 'reason bound to a version of another week: refused (23514); ';
+            when others then out := out || 'other week: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C41', 'versi yang tidak ada', gen_random_uuid());
+    out := out || 'reason bound to a missing version: ALLOWED(!); ';
+  exception when check_violation or foreign_key_violation then out := out || 'reason bound to a missing version: refused (' || sqlstate || '); ';
+            when others then out := out || 'missing version: ERROR(!) ' || sqlerrm || '; '; end;
+  -- a reason without a version stays possible (rows written before v5.2 and the v4 screens)
+  begin insert into public.plan_check_reason (week_start, code, reason) values ('2034-01-23', 'C44', 'alasan tanpa versi seperti v4'); get diagnostics n = row_count;
+    out := out || 'reason without a version: OK; ';
+  exception when others then out := out || 'reason without a version: ERROR(!) ' || sqlerrm || '; '; end;
+  -- plan_week_class.detail: PPIC writes an object or an array, not a bare value; null stays valid
+  begin update public.plan_week_class set detail = '{"2034-01-16": {"kg_lb": 2500}, "2034-01-17": {"kg_lb": 2500}}'::jsonb where id = pc; get diagnostics n = row_count;
+    out := out || 'ppic writes detail (object) rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'ppic detail: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_week_class set detail = '[{"date": "2034-01-16"}]'::jsonb where id = pc; get diagnostics n = row_count;
+    out := out || 'ppic writes detail (array) rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'ppic detail array: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_week_class set detail = '5'::jsonb where id = pc; get diagnostics n = row_count;
+    out := out || 'detail = a bare number: ALLOWED rows=' || n || '(!); ';
+  exception when check_violation then out := out || 'detail = a bare number: refused (23514); ';
+            when others then out := out || 'detail number: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_week_class set detail = null where id = pc; get diagnostics n = row_count;
+    out := out || 'detail back to null rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'detail null: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- nobody else gains a write right: Finance and Sales write neither table, Management only reads
+  foreach r in array array['fin', 'sales', 'mgmt'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5b-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C42', 'alasan dari role lain', p2);
+      out := out || r || ' writes a reason: ALLOWED(!); ';
+    exception when insufficient_privilege then out := out || r || ' writes a reason: denied; ';
+              when others then out := out || r || ' writes a reason: ERROR(!) ' || sqlerrm || '; '; end;
+    begin update public.plan_week_class set detail = '{}'::jsonb where id = pc; get diagnostics n = row_count;
+      out := out || r || ' writes detail rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when insufficient_privilege then out := out || r || ' writes detail: denied; ';
+              when others then out := out || r || ' writes detail: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  -- Admin writes both
+  perform set_config('request.jwt.claims', '{"email":"b5b-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.plan_check_reason (week_start, code, reason, plan_week_id) values ('2034-01-16', 'C45', 'alasan dari admin', p2);
+    out := out || 'admin writes a bound reason: OK; ';
+  exception when others then out := out || 'admin reason: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.plan_week_class set detail = '{"a": 1}'::jsonb where id = pc; get diagnostics n = row_count;
+    out := out || 'admin writes detail rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin detail: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B5 A2 plan_check_reason.plan_week_id plan_week_class.detail (rolled back): %', out;
+end $$;
+
+-- B-R85 A3 (R61): Finance posts an allocation that has an SKU without a reference price only through
+-- post_allocation_override; no write right on allocation_run or batch is opened to Finance
+do $$
+declare out text := ''; n int; i int; w uuid; wc uuid; b uuid; rs uuid[] := '{}'; bs uuid[] := '{}'; r text; v text; st text; cs text; iss jsonb; pb text; pa timestamptz; ub text;
+begin
+  insert into public.app_user(email, role) values ('b5r-fin@x.test','finance'),('b5r-adm@x.test','admin'),('b5r-ca@x.test','cost_accounting'),
+    ('b5r-sales@x.test','sales'),('b5r-ppic@x.test','ppic'),('b5r-mgmt@x.test','management'),('b5r-ia@x.test','inventory_accounting');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2034-01-30', '2034-02-02', '2034-01-27') returning id into w;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2034-02-06', '2034-02-09', '2034-02-03', 'closed') returning id into wc;
+  -- 1 unpriced (key K-A), 2 priced (and a zero-kg line without a price), 3 unpriced but not balanced, 4 already posted,
+  -- 5 unpriced (no key: the item code is named), 6 unpriced with price 0, 7 unpriced on a closed week
+  for i in 1..7 loop
+    insert into public.batch (week_id, date, status, lb_kg, batch_ref) values (case when i = 7 then wc else w end, case when i = 7 then date '2034-02-07' else date '2034-01-31' end, 'Aktual', 100, 'B5R-' || i) returning id into b;
+    bs := bs || b;
+    insert into public.batch_output_sku (batch_id, key, item_code, kg) values (b, null, 'ITEM' || i, 100);
+    insert into public.allocation_run (batch_id, total_cost, total_allocated, status) values (b, 1000, case when i = 3 then 500 else 1000 end, case when i = 4 then 'posted' else 'draft' end) returning id into b;
+    rs := rs || b;
+    insert into public.allocation_line (allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg)
+    values (b, case when i = 1 then 'K-A' end, 'ITEM' || i, 100, case when i = 2 then 5000 when i = 6 then 0 end, 0, 1, 1000, 10);
+  end loop;
+  insert into public.allocation_line (allocation_run_id, key, item_code, kg, price_ref, sales_value, share, allocated_cost, cost_per_kg) values (rs[2], 'K-ZERO', 'ZERO', 0, null, 0, 0, 0, 0);
+
+  -- no write right opened: Finance updates neither allocation_run nor batch directly (0 rows, nothing changes)
+  perform set_config('request.jwt.claims', '{"email":"b5r-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.allocation_run set status = 'posted', posted_by = 'b5r-fin@x.test' where id = rs[1]; get diagnostics n = row_count;
+    out := out || 'finance posts a run directly rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance direct post: denied(' || sqlstate || '); '; end;
+  begin update public.allocation_run set issues = '["x"]'::jsonb where id = rs[1]; get diagnostics n = row_count;
+    out := out || 'finance edits issues directly rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance edits issues: denied(' || sqlstate || '); '; end;
+  begin update public.batch set costing_status = 'posted' where id = bs[1]; get diagnostics n = row_count;
+    out := out || 'finance sets batch.costing_status directly rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance batch: denied(' || sqlstate || '); '; end;
+  execute 'reset role';
+  select status into st from public.allocation_run where id = rs[1]; select costing_status into cs from public.batch where id = bs[1];
+  out := out || 'run 1 after the direct attempts=' || st || '/' || cs || case when st = 'draft' and cs = 'none' then '' else '(!)' end || '; ';
+
+  -- who may call it: Finance and Admin only
+  foreach r in array array['sales', 'ppic', 'mgmt', 'ca', 'ia'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5r-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin perform public.post_allocation_override(array[rs[1]], 'alasan yang cukup panjang'); out := out || r || ' calls the override: ALLOWED(!); ';
+    exception when insufficient_privilege then out := out || r || ' calls the override: denied; ';
+              when others then out := out || r || ' calls the override: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+
+  -- finance: what the function refuses
+  perform set_config('request.jwt.claims', '{"email":"b5r-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin perform public.post_allocation_override(array[rs[1]], '   pendek  '); out := out || 'reason under 10 characters: ALLOWED(!); ';
+  exception when check_violation then out := out || 'reason under 10 characters: refused (23514); ';
+            when others then out := out || 'short reason: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(null, 'alasan yang cukup panjang'); out := out || 'no run ids: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'no run ids: refused (22023); ';
+            when others then out := out || 'no run ids: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override('{}'::uuid[], 'alasan yang cukup panjang'); out := out || 'empty run ids: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'empty run ids: refused (22023); ';
+            when others then out := out || 'empty run ids: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[gen_random_uuid()], 'alasan yang cukup panjang'); out := out || 'unknown run: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'unknown run: refused (22023); ';
+            when others then out := out || 'unknown run: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[rs[2]], 'alasan yang cukup panjang'); out := out || 'a fully priced run (a normal posting, not an override): ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'a fully priced run (zero-kg line without price ignored): refused (22023); ';
+            when others then out := out || 'priced run: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[rs[3]], 'alasan yang cukup panjang'); out := out || 'an unbalanced run (C21): ALLOWED(!); ';
+  exception when check_violation then out := out || 'an unbalanced run (C21): refused (23514); ';
+            when others then out := out || 'unbalanced run: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[rs[4]], 'alasan yang cukup panjang'); out := out || 'a posted run: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'a posted run: refused (22023); ';
+            when others then out := out || 'posted run: ERROR(!) ' || sqlerrm || '; '; end;
+  begin perform public.post_allocation_override(array[rs[7]], 'alasan yang cukup panjang'); out := out || 'a run of a closed week by finance: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'a run of a closed week by finance: denied; ';
+            when others then out := out || 'closed week: ERROR(!) ' || sqlerrm || '; '; end;
+  -- all or none: one fully priced run in the list undoes the whole call
+  begin perform public.post_allocation_override(array[rs[1], rs[2]], 'alasan yang cukup panjang'); out := out || 'a list with a priced run: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'a list with a priced run: refused (22023); ';
+            when others then out := out || 'list with a priced run: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  select status into st from public.allocation_run where id = rs[1]; select costing_status into cs from public.batch where id = bs[1];
+  out := out || 'run 1 after the refused calls=' || st || '/' || cs || case when st = 'draft' and cs = 'none' then '' else '(!)' end || '; ';
+
+  -- finance posts two unpriced runs (a key, and a zero price named by item code)
+  perform set_config('request.jwt.claims', '{"email":"b5r-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.post_allocation_override(array[rs[6], rs[1], rs[1]], '  harga acuan menyusul dari Sales, WP-0131  ');
+    out := out || 'finance override of runs 1 and 6 (run 1 listed twice) posted=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance override: ERROR(!) ' || sqlerrm || '; '; end;
+  begin n := public.post_allocation_override(array[rs[1]], 'alasan yang cukup panjang'); out := out || 'the same run again: ALLOWED(!); ';
+  exception when invalid_parameter_value then out := out || 'the same run again: refused (22023); ';
+            when others then out := out || 'same run again: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    select status, posted_by, posted_at, issues, updated_by into st, pb, pa, iss, ub from public.allocation_run where id = rs[1];
+    out := out || 'run 1: status=' || st || ' posted_by=' || coalesce(pb, 'null') || ' posted_at set=' || (pa is not null)::text || ' updated_by=' || coalesce(ub, 'null')
+      || case when st = 'posted' and pb = 'b5r-fin@x.test' and pa is not null and ub = 'b5r-fin@x.test' then '' else '(!)' end || '; ';
+    out := out || 'run 1 issues=' || jsonb_array_length(iss) || ' [' || coalesce(iss ->> 0, 'null') || ']'
+      || case when jsonb_array_length(iss) = 1 and (iss ->> 0) like 'override Finance: diposting tanpa harga acuan K-A — harga acuan menyusul dari Sales, WP-0131 (b5r-fin@x.test, 20__-__-__)' then '' else '(!)' end || '; ';
+    select costing_status into cs from public.batch where id = bs[1]; out := out || 'batch 1 costing_status=' || cs || case when cs = 'posted' then '' else '(!)' end || '; ';
+    select status, issues into st, iss from public.allocation_run where id = rs[6];
+    out := out || 'run 6 (price 0): status=' || st || ' [' || coalesce(iss ->> 0, 'null') || ']'
+      || case when st = 'posted' and (iss ->> 0) like 'override Finance: diposting tanpa harga acuan ITEM6 — %' then '' else '(!)' end || '; ';
+    select status into st from public.allocation_run where id = rs[2]; select costing_status into cs from public.batch where id = bs[2];
+    out := out || 'run 2 (priced, not in the call)=' || st || '/' || cs || case when st = 'draft' and cs = 'none' then '' else '(!)' end || '; ';
+    select count(*) into n from public.audit_log where table_name = 'allocation_run' and row_id in (rs[1]::text, rs[6]::text) and op = 'UPDATE' and actor = 'b5r-fin@x.test';
+    out := out || 'audit rows of the two postings by finance=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'result: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- admin: an unpriced run without a key (item code named), and the run of a closed week (the admin writes closed weeks)
+  perform set_config('request.jwt.claims', '{"email":"b5r-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin n := public.post_allocation_override(array[rs[5], rs[7]], 'selisih harga acuan disetujui rapat');
+    out := out || 'admin override of runs 5 and 7 posted=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin override: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin select issues into iss from public.allocation_run where id = rs[5];
+    out := out || 'run 5 names the item code=' || coalesce((iss ->> 0) like 'override Finance: diposting tanpa harga acuan ITEM5 — selisih harga acuan disetujui rapat (b5r-adm@x.test, %', false)::text
+      || case when (iss ->> 0) like 'override Finance: diposting tanpa harga acuan ITEM5 — selisih harga acuan disetujui rapat (b5r-adm@x.test, %' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'run 5: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- the posting of cost accounting is as before: a direct update of a draft run
+  perform set_config('request.jwt.claims', '{"email":"b5r-ca@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.allocation_run set status = 'posted', posted_by = 'b5r-ca@x.test', posted_at = now() where id = rs[2]; get diagnostics n = row_count;
+    out := out || 'cost accounting posts the priced run directly rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'cost accounting post: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+
+  -- privileges: not for anon, for signed-in users (the checks are inside), a fixed search_path
+  begin
+    out := out || 'execute anon=' || has_function_privilege('anon', 'public.post_allocation_override(uuid[],text)', 'execute')::text
+      || ' authenticated=' || has_function_privilege('authenticated', 'public.post_allocation_override(uuid[],text)', 'execute')::text
+      || case when not has_function_privilege('anon', 'public.post_allocation_override(uuid[],text)', 'execute') and has_function_privilege('authenticated', 'public.post_allocation_override(uuid[],text)', 'execute') then '' else '(!)' end || '; ';
+    select count(*) into n from pg_proc p where p.oid = 'public.post_allocation_override(uuid[],text)'::regprocedure and p.prosecdef and exists (select 1 from unnest(p.proconfig) c where c = 'search_path=""');
+    out := out || 'definer with search_path=""=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B5 A3 R61 post_allocation_override (rolled back): %', out;
+end $$;
+
+-- Q-v5.2-13: inventory_accounting and finance change week.opening_stock_flag while the week is open (the stock upload
+-- writes it); released and closed weeks, every other column and every other role stay refused
+do $$
+declare out text := ''; n int; i int; wo uuid; wo2 uuid; wr uuid; wc uuid; r text; v text; d date;
+begin
+  insert into public.app_user(email, role) values ('b5w-ia@x.test','inventory_accounting'),('b5w-fin@x.test','finance'),('b5w-adm@x.test','admin'),('b5w-sales@x.test','sales'),
+    ('b5w-ppic@x.test','ppic'),('b5w-purch@x.test','purchasing'),('b5w-lead@x.test','commercial_lead'),('b5w-ca@x.test','cost_accounting'),('b5w-mgmt@x.test','management');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2034-02-13', '2034-02-16', '2034-02-10') returning id into wo;
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2034-02-20', '2034-02-23', '2034-02-17') returning id into wo2;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2034-02-27', '2034-03-02', '2034-02-24', 'released') returning id into wr;
+  insert into public.week (week_start, update_date, tb_opening_date, status) values ('2034-03-06', '2034-03-09', '2034-03-03', 'closed') returning id into wc;
+  delete from public.rebuild_queue where date between '2034-02-13' and '2034-03-12';
+
+  -- inventory accounting and finance: the flag of an open week, a changed value each time
+  i := 0;
+  foreach r in array array['ia', 'fin'] loop
+    i := i + 1;
+    perform set_config('request.jwt.claims', format('{"email":"b5w-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin update public.week set opening_stock_flag = 'carried-' || r where id = wo; get diagnostics n = row_count;
+      out := out || r || ' changes opening_stock_flag of an open week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' changes opening_stock_flag of an open week: DENIED(!) ' || sqlerrm || '; '; end;
+    begin update public.week set opening_stock_flag = null where id = wo; get diagnostics n = row_count;
+      out := out || r || ' clears it again rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' clears it: DENIED(!) ' || sqlerrm || '; '; end;
+    -- released and closed weeks: refused by the guard
+    begin update public.week set opening_stock_flag = 'x-' || r where id = wr; get diagnostics n = row_count;
+      out := out || r || ' changes the flag of a released week: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || r || ' changes the flag of a released week: denied; ';
+              when others then out := out || r || ' released week: ERROR(!) ' || sqlerrm || '; '; end;
+    begin update public.week set opening_stock_flag = 'x-' || r where id = wc; get diagnostics n = row_count;
+      out := out || r || ' changes the flag of a closed week: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || r || ' changes the flag of a closed week: denied; ';
+              when others then out := out || r || ' closed week: ERROR(!) ' || sqlerrm || '; '; end;
+    -- no other column: the note, the status of a closed row, the lw_* figures, and the flag together with the note
+    begin update public.week set note = 'catatan ' || r where id = wo; get diagnostics n = row_count;
+      out := out || r || ' changes note: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || r || ' changes note: denied; ';
+              when others then out := out || r || ' note: ERROR(!) ' || sqlerrm || '; '; end;
+    begin update public.week set opening_stock_flag = 'both-' || r, note = 'catatan ' || r where id = wo; get diagnostics n = row_count;
+      out := out || r || ' changes the flag and the note together: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || r || ' changes the flag and the note together: denied; ';
+              when others then out := out || r || ' flag and note: ERROR(!) ' || sqlerrm || '; '; end;
+    -- the K69 rule of update_date is untouched: a direct update of the date is refused to inventory accounting
+    if r = 'ia' then
+      begin update public.week set update_date = '2034-02-17' where id = wo; get diagnostics n = row_count;
+        out := out || 'ia changes update_date directly: ALLOWED rows=' || n || '(!); ';
+      exception when insufficient_privilege then out := out || 'ia changes update_date directly: denied; ';
+                when others then out := out || 'ia update_date: ERROR(!) ' || sqlerrm || '; '; end;
+    end if;
+    execute 'reset role';
+  end loop;
+
+  -- every other role that can reach week by policy is still refused by the guard; management has no policy at all
+  foreach r in array array['sales', 'ppic', 'purch', 'lead', 'ca'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5w-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin update public.week set opening_stock_flag = 'z-' || r where id = wo2; get diagnostics n = row_count;
+      out := out || r || ' changes the flag of an open week: ALLOWED rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || r || ' changes the flag: denied; ';
+              when others then out := out || r || ' flag: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '{"email":"b5w-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set opening_stock_flag = 'z-mgmt' where id = wo2; get diagnostics n = row_count;
+    out := out || 'mgmt changes the flag rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'mgmt flag: denied(' || sqlstate || '); '; end;
+  execute 'reset role';
+
+  -- finance keeps what it had: the status between open and released, together with the flag of an open week
+  perform set_config('request.jwt.claims', '{"email":"b5w-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set status = 'released' where id = wo2; get diagnostics n = row_count;
+    out := out || 'finance opens→released rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance status: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set status = 'open' where id = wo2; get diagnostics n = row_count;
+    out := out || 'finance released→open rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance status back: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.week set opening_stock_flag = 'with-status', status = 'released' where id = wo2; get diagnostics n = row_count;
+    out := out || 'finance flag with status on an open week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance flag with status: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- admin: as before (a closed week too)
+  perform set_config('request.jwt.claims', '{"email":"b5w-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.week set opening_stock_flag = 'adm' where id = wc; get diagnostics n = row_count;
+    out := out || 'admin changes the flag of a closed week rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin flag: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select opening_stock_flag into v from public.week where id = wo; out := out || 'open week flag after the refused attempts=' || coalesce(v, 'null') || case when v is null then '' else '(!)' end || '; ';
+  select count(*) into n from public.week where id in (wr, wc) and coalesce(opening_stock_flag, '') like 'x-%'; out := out || 'released/closed weeks changed=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B5 Q-v5.2-13 opening_stock_flag (rolled back): %', out;
+end $$;
+
+-- Q-v5.2-18: the two Sales views also hide holding_loss_per_day and downgrade_risk_rp unless the viewer sees cost
+-- (sales_sees_cost, no parameter row = hidden); list price and the rest stay; column lists as B2
+do $$
+declare out text := ''; n int; r record; cols text; v text;
+  cols_v4 text := 'date:date, key:text, group_code:text, form:text, free_fresh_kg:numeric(12,2), free_frozen_kg:numeric(12,2), oldest_age_days:integer(32,0), hours_to_cutoff:integer(32,0), cost_per_kg_ma:numeric(18,4), price_floor:numeric(18,4), price_list:numeric(18,4), margin_per_kg_list:numeric(18,4), realized_price_7d:numeric(18,4), margin_per_kg_realized:numeric(18,4), holding_loss_per_day:numeric(18,2), downgrade_risk_rp:numeric(18,2), urgency:text, priority_score:numeric(18,2), rank:integer(32,0), ordered_today_kg:numeric(12,2)';
+  cols_v5 text;
+begin
+  cols_v5 := cols_v4 || ', cost_per_kg:numeric(18,4), cost_status:text, cost_check:boolean';
+  insert into public.app_user(email, role) values ('b5v-sales@x.test','sales'),('b5v-mgmt@x.test','management'),('b5v-adm@x.test','admin'),('b5v-fin@x.test','finance'),('b5v-lead@x.test','commercial_lead');
+  insert into public.sales_assignment (sales_rep, email, key) values ('B5V', 'b5v-sales@x.test', 'B5V-A');
+  insert into public.week (week_start, update_date, tb_opening_date) values ('2034-03-13', '2034-03-16', '2034-03-10'), ('2034-03-20', '2034-03-23', '2034-03-17'), ('2034-04-03', '2034-04-06', '2034-03-31');
+  insert into public.parameter (week_id, sales_sees_cost) select id, false from public.week where week_start = '2034-03-13' on conflict (week_id) do update set sales_sees_cost = false;
+  insert into public.parameter (week_id, sales_sees_cost) select id, true from public.week where week_start = '2034-03-20' on conflict (week_id) do update set sales_sees_cost = true;
+  delete from public.parameter p using public.week w where p.week_id = w.id and w.week_start = '2034-04-03';
+  -- 2034-03-14: sales_sees_cost = false; 03-21: true; 03-29: no week row; 04-04: week without a parameter row
+  insert into public.commercial_daily (date, key, group_code, free_fresh_kg, cost_per_kg_ma, cost_per_kg_si, price_floor, price_list, margin_per_kg_list, realized_price_7d, margin_per_kg_realized,
+                                       holding_loss_per_day, downgrade_risk_rp, cost_per_kg, cost_status, cost_check)
+  values ('2034-03-14', 'B5V-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 111, 222, 20900, 'final', true),
+         ('2034-03-21', 'B5V-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 111, 222, 20900, 'final', true),
+         ('2034-03-29', 'B5V-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 111, 222, 20900, 'final', true),
+         ('2034-04-04', 'B5V-A', 'G', 10, 21000, 21100, 23000, 26000, 5000, 25500, 4500, 111, 222, 20900, 'final', true);
+
+  perform set_config('request.jwt.claims', '{"email":"b5v-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin
+    select count(*) as n, count(holding_loss_per_day) + count(downgrade_risk_rp) as shown, count(cost_per_kg_ma) + count(price_floor) as old_shown, max(price_list) as pl, max(urgency) as ur
+      into r from public.commercial_daily_sales where date = '2034-03-14';
+    out := out || 'v4 view sales_sees_cost=false rows=' || r.n || ' holding_loss / downgrade_risk shown=' || r.shown || case when r.n = 1 and r.shown = 0 and r.old_shown = 0 then '' else '(!)' end
+      || '; list price stays=' || coalesce(r.pl::text, 'null') || case when r.pl = 26000 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'v4 view: ERROR(!) ' || sqlerrm || '; '; end;
+  begin
+    select count(*) as n, count(holding_loss_per_day) + count(downgrade_risk_rp) as shown, count(cost_per_kg) + count(cost_status) + count(cost_check) as v5_shown, max(realized_price_7d) as rp
+      into r from public.commercial_daily_sales_v5 where date = '2034-03-14';
+    out := out || 'v5 view sales_sees_cost=false rows=' || r.n || ' holding_loss / downgrade_risk shown=' || r.shown || case when r.n = 1 and r.shown = 0 and r.v5_shown = 0 then '' else '(!)' end
+      || '; realized price stays=' || coalesce(r.rp::text, 'null') || case when r.rp = 25500 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'v5 view: ERROR(!) ' || sqlerrm || '; '; end;
+  -- sales_sees_cost = true: the values are there, both views
+  begin
+    select count(holding_loss_per_day) + count(downgrade_risk_rp) as shown, max(holding_loss_per_day) as h, max(downgrade_risk_rp) as d into r from public.commercial_daily_sales where date = '2034-03-21';
+    out := out || 'v4 view sales_sees_cost=true shown=' || r.shown || ' (' || coalesce(r.h::text, 'null') || ' / ' || coalesce(r.d::text, 'null') || ')' || case when r.shown = 2 and r.h = 111 and r.d = 222 then '' else '(!)' end || '; ';
+    select count(holding_loss_per_day) + count(downgrade_risk_rp) as shown into r from public.commercial_daily_sales_v5 where date = '2034-03-21';
+    out := out || 'v5 view sales_sees_cost=true shown=' || r.shown || case when r.shown = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'sees_cost=true: ERROR(!) ' || sqlerrm || '; '; end;
+  -- no parameter row for the week, or no week: hidden
+  begin
+    select count(*) as n, count(holding_loss_per_day) + count(downgrade_risk_rp) as shown into r from public.commercial_daily_sales_v5 where date = '2034-04-04';
+    out := out || 'v5 view week without parameter row rows=' || r.n || ' shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+    select count(*) as n, count(holding_loss_per_day) + count(downgrade_risk_rp) as shown into r from public.commercial_daily_sales where date = '2034-04-04';
+    out := out || 'v4 view week without parameter row rows=' || r.n || ' shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+    select count(*) as n, count(holding_loss_per_day) + count(downgrade_risk_rp) as shown into r from public.commercial_daily_sales_v5 where date = '2034-03-29';
+    out := out || 'v5 view date without a week rows=' || r.n || ' shown=' || r.shown || case when r.n = 1 and r.shown = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'no parameter: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- everyone who is not Sales sees both columns, in both views, whatever sales_sees_cost says
+  foreach v in array array['b5v-mgmt', 'b5v-adm', 'b5v-fin', 'b5v-lead'] loop
+    perform set_config('request.jwt.claims', format('{"email":"%s@x.test","role":"authenticated"}', v), true);
+    execute 'set local role authenticated';
+    begin
+      select count(holding_loss_per_day) + count(downgrade_risk_rp) as shown, count(*) as n into r from public.commercial_daily_sales_v5 where date in ('2034-03-14', '2034-04-04') and key = 'B5V-A';
+      out := out || v || ' v5 view shown=' || r.shown || case when r.n = 2 and r.shown = 4 then '' else '(!)' end || '; ';
+      select count(holding_loss_per_day) + count(downgrade_risk_rp) as shown, count(*) as n into r from public.commercial_daily_sales where date in ('2034-03-14', '2034-04-04') and key = 'B5V-A';
+      out := out || v || ' v4 view shown=' || r.shown || case when r.n = 2 and r.shown = 4 then '' else '(!)' end || '; ';
+    exception when others then out := out || v || ': ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  perform set_config('request.jwt.claims', '', true);
+
+  -- the column lists (names, order, types) are those of B2
+  select string_agg(column_name || ':' || data_type || coalesce('(' || numeric_precision || ',' || numeric_scale || ')', ''), ', ' order by ordinal_position) into cols
+    from information_schema.columns where table_schema = 'public' and table_name = 'commercial_daily_sales';
+  out := out || 'v4 view columns unchanged=' || (cols = cols_v4)::text || case when cols = cols_v4 then '' else '(!)' end || '; ';
+  select string_agg(column_name || ':' || data_type || coalesce('(' || numeric_precision || ',' || numeric_scale || ')', ''), ', ' order by ordinal_position) into cols
+    from information_schema.columns where table_schema = 'public' and table_name = 'commercial_daily_sales_v5';
+  out := out || 'v5 view columns unchanged=' || (cols = cols_v5)::text || case when cols = cols_v5 then '' else '(!)' end || '; ';
+  out := out || 'anon on views: v4=' || has_table_privilege('anon', 'public.commercial_daily_sales', 'select')::text || ' v5=' || has_table_privilege('anon', 'public.commercial_daily_sales_v5', 'select')::text
+    || case when has_table_privilege('anon', 'public.commercial_daily_sales', 'select') or has_table_privilege('anon', 'public.commercial_daily_sales_v5', 'select') then '(!)' else '' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B5 Q-v5.2-18 views holding_loss downgrade_risk (rolled back): %', out;
+end $$;
+
+-- Q-v5.2-18: price_floor_rule (the markup per key, the recipe of the floor) is not read by Sales; every other role that
+-- read it reads it as before, and nobody gains a write right
+do $$
+declare out text := ''; n int; v text; i int;
+begin
+  insert into public.app_user(email, role) values ('b5p-sales@x.test','sales'),('b5p-lead@x.test','commercial_lead'),('b5p-fin@x.test','finance'),('b5p-adm@x.test','admin'),
+    ('b5p-mgmt@x.test','management'),('b5p-ppic@x.test','ppic'),('b5p-ca@x.test','cost_accounting'),('b5p-od@x.test','operations_director');
+  insert into public.price_floor_rule (key, group_code, markup_rp_per_kg, note) values ('B5P-K', null, 500, 'b5-test');
+  select count(*) into n from public.price_floor_rule; i := n;
+
+  perform set_config('request.jwt.claims', '{"email":"b5p-sales@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin select count(*) into n from public.price_floor_rule; out := out || 'sales reads price_floor_rule rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when insufficient_privilege then out := out || 'sales reads price_floor_rule: denied; ';
+            when others then out := out || 'sales read: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.price_floor_rule (key, markup_rp_per_kg, note) values ('B5P-S', 1, 'b5-sales'); out := out || 'sales writes a floor rule: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'sales writes a floor rule: denied; ';
+            when others then out := out || 'sales write: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  foreach v in array array['lead', 'fin', 'adm', 'mgmt', 'ppic', 'ca', 'od'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5p-%s@x.test","role":"authenticated"}', v), true);
+    execute 'set local role authenticated';
+    begin select count(*) into n from public.price_floor_rule where note = 'b5-test'; out := out || v || ' reads price_floor_rule rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || v || ' read: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  -- the writers are as before: commercial lead, finance and admin write; management does not
+  perform set_config('request.jwt.claims', '{"email":"b5p-lead@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.price_floor_rule (key, markup_rp_per_kg, note) values ('B5P-L', 2, 'b5-lead'); out := out || 'commercial lead writes a floor rule: OK; ';
+  exception when others then out := out || 'commercial lead write: DENIED(!) ' || sqlerrm || '; '; end;
+  begin select count(*) into n from public.price_floor_rule where note = 'b5-lead'; out := out || 'and reads it back=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'read back: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b5p-mgmt@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.price_floor_rule (key, markup_rp_per_kg, note) values ('B5P-M', 3, 'b5-mgmt'); out := out || 'management writes a floor rule: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'management writes a floor rule: denied; ';
+            when others then out := out || 'management write: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  -- a signed-in user who is not an app user reads nothing; the floor rules still shape the floor for the C38 triggers (owner)
+  perform set_config('request.jwt.claims', '{"email":"b5p-stranger@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin select count(*) into n from public.price_floor_rule; out := out || 'stranger reads price_floor_rule rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'stranger read: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select count(*) into n from public.price_floor_rule; out := out || 'the owner still reads all rows=' || n || case when n >= i then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B5 Q-v5.2-18 price_floor_rule (rolled back): %', out;
+end $$;
+
+-- B-R86 (K70, O25–O27): fs_statement_line and fs_line_map — read by admin, finance, management, operations_director;
+-- written by finance and admin; Sales, PPIC and the other roles read nothing and write nothing; anon has no privilege; a row
+-- with locked_at changes and disappears for nobody (Admin and the owner included); the seed of fs_line_map is the 15
+-- draft rows of the minimum mapping
+do $$
+declare out text := ''; n int; i int; r text; v text; sha text := repeat('ab', 32); fid uuid; fid2 uuid; lk timestamptz; st text; ub text; amt numeric; cnt int; roles text[];
+begin
+  insert into public.app_user(email, role) values ('b5f-fin@x.test','finance'),('b5f-adm@x.test','admin'),('b5f-mgmt@x.test','management'),('b5f-od@x.test','operations_director'),
+    ('b5f-sales@x.test','sales'),('b5f-ppic@x.test','ppic'),('b5f-purch@x.test','purchasing'),('b5f-lead@x.test','commercial_lead'),('b5f-ca@x.test','cost_accounting'),('b5f-ia@x.test','inventory_accounting');
+  begin
+    insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 12, 'Revenue', 8361760903, 'fs-uji.xlsx', sha) returning id into fid;
+    insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'BS', 'BS - Management Report', 14, 'Cash and cash equivalents', 495363150.28, 'fs-uji.xlsx', sha) returning id into fid2;
+    out := out || 'setup: two rows inserted by the owner; ';
+  exception when others then out := out || 'setup fs_statement_line: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- reading: the four readers see rows; every other role (and a stranger) sees none of either table
+  roles := array['fin', 'adm', 'mgmt', 'od'];
+  foreach r in array roles loop
+    perform set_config('request.jwt.claims', format('{"email":"b5f-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin select count(*) into n from public.fs_statement_line where month = '2034-04-01'; select count(*) into cnt from public.fs_line_map;
+      out := out || r || ' reads fs_statement_line=' || n || ' fs_line_map=' || cnt || case when n = 2 and cnt = 15 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' reads: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  foreach r in array array['sales', 'ppic', 'purch', 'lead', 'ca', 'ia', 'stranger'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5f-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin select count(*) into n from public.fs_statement_line; select count(*) into cnt from public.fs_line_map;
+      out := out || r || ' reads fs_statement_line=' || n || ' fs_line_map=' || cnt || case when n = 0 and cnt = 0 then '' else '(!)' end || '; ';
+    exception when insufficient_privilege then out := out || r || ' reads: denied; ';
+              when others then out := out || r || ' reads: ERROR(!) ' || sqlerrm || '; '; end;
+    if r <> 'stranger' then
+      begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 99, 'x', 1, 'x.xlsx', sha);
+        out := out || r || ' inserts a FS row: ALLOWED(!); ';
+      exception when insufficient_privilege then out := out || r || ' inserts a FS row: denied; ';
+                when others then out := out || r || ' insert: ERROR(!) ' || sqlerrm || '; '; end;
+      begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('PL', 99, 'x', 1);
+        out := out || r || ' inserts a mapping row: ALLOWED(!); ';
+      exception when insufficient_privilege then out := out || r || ' inserts a mapping row: denied; ';
+                when others then out := out || r || ' insert map: ERROR(!) ' || sqlerrm || '; '; end;
+    end if;
+    execute 'reset role';
+  end loop;
+
+  -- management and operations director read only: no insert, an update or a delete touches no row
+  foreach r in array array['mgmt', 'od'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5f-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 98, 'x', 1, 'x.xlsx', sha);
+      out := out || r || ' inserts a FS row: ALLOWED(!); ';
+    exception when insufficient_privilege then out := out || r || ' inserts a FS row: denied; ';
+              when others then out := out || r || ' insert: ERROR(!) ' || sqlerrm || '; '; end;
+    begin update public.fs_statement_line set amount = 1 where id = fid; get diagnostics n = row_count; out := out || r || ' updates a FS row rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' update: ERROR(!) ' || sqlerrm || '; '; end;
+    begin delete from public.fs_statement_line where id = fid; get diagnostics n = row_count; out := out || r || ' deletes a FS row rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' delete: ERROR(!) ' || sqlerrm || '; '; end;
+    begin update public.fs_line_map set status = 'agreed' where statement = 'PL' and row_no = 12; get diagnostics n = row_count; out := out || r || ' agrees a mapping rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' agree: ERROR(!) ' || sqlerrm || '; '; end;
+    begin delete from public.fs_line_map where statement = 'PL' and row_no = 12; get diagnostics n = row_count; out := out || r || ' deletes a mapping rows=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    exception when others then out := out || r || ' delete map: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+
+  -- finance writes: a row, a second version (the correction), checks of the columns, an update and a delete before the lock
+  perform set_config('request.jwt.claims', '{"email":"b5f-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 13, 'Cost of Sales', -8055051145.97, 'fs-uji.xlsx', sha) returning id into fid;
+    out := out || 'finance inserts a FS row: OK; ';
+  exception when others then out := out || 'finance inserts a FS row: DENIED(!) ' || sqlerrm || '; '; end;
+  begin select created_by into v from public.fs_statement_line where id = fid; out := out || 'created_by=' || coalesce(v, 'null') || case when v = 'b5f-fin@x.test' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'created_by: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256, version) values ('2034-04-01', 'PL', 'PL - Management Report', 13, 'Cost of Sales', -8055051146.00, 'fs-uji-2.xlsx', sha, 2);
+    out := out || 'finance inserts version 2 of the same row: OK; ';
+  exception when others then out := out || 'version 2: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 13, 'Cost of Sales', 1, 'fs-uji.xlsx', sha);
+    out := out || 'same month, statement, row and version twice: ALLOWED(!); ';
+  exception when unique_violation then out := out || 'same month, statement, row and version twice: refused (23505); ';
+            when others then out := out || 'duplicate: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-15', 'PL', 'PL - Management Report', 1, 'x', 1, 'x.xlsx', sha);
+    out := out || 'month not the first day: ALLOWED(!); ';
+  exception when check_violation then out := out || 'month not the first day: refused (23514); ';
+            when others then out := out || 'month: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'CF', 'CF', 1, 'x', 1, 'x.xlsx', sha);
+    out := out || 'statement CF: ALLOWED(!); ';
+  exception when check_violation then out := out || 'statement CF: refused (23514); ';
+            when others then out := out || 'statement: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 2, 'x', 1, 'x.xlsx', 'abc');
+    out := out || 'sha256 that is not 64 hex characters: ALLOWED(!); ';
+  exception when check_violation then out := out || 'sha256 that is not 64 hex characters: refused (23514); ';
+            when others then out := out || 'sha256: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'PL', 'PL - Management Report', 3, 'Row without a number', null, 'fs-uji.xlsx', sha);
+    out := out || 'a row without a number (amount null): OK; ';
+  exception when others then out := out || 'amount null: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256, version) values ('2034-04-01', 'PL', 'PL - Management Report', 4, 'x', 1, 'x.xlsx', sha, 0);
+    out := out || 'version 0: ALLOWED(!); ';
+  exception when check_violation then out := out || 'version 0: refused (23514); ';
+            when others then out := out || 'version: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.fs_statement_line set amount = -8055051145.98 where id = fid; get diagnostics n = row_count; out := out || 'finance updates an unlocked row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance updates an unlocked row: DENIED(!) ' || sqlerrm || '; '; end;
+  begin delete from public.fs_statement_line where month = '2034-04-01' and row_no = 3; get diagnostics n = row_count; out := out || 'finance deletes an unlocked row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance deletes an unlocked row: DENIED(!) ' || sqlerrm || '; '; end;
+  -- the lock: set locked_at; from then on nobody changes or deletes the row, and the lock itself is not undone
+  begin update public.fs_statement_line set locked_at = now() where id = fid; get diagnostics n = row_count; out := out || 'finance locks the row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance locks: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.fs_statement_line set amount = 1 where id = fid; get diagnostics n = row_count; out := out || 'finance updates the locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'finance updates the locked row: refused (42501); ';
+            when others then out := out || 'finance update locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.fs_statement_line set locked_at = null where id = fid; get diagnostics n = row_count; out := out || 'finance unlocks the row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'finance unlocks the row: refused (42501); ';
+            when others then out := out || 'finance unlock: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.fs_statement_line where id = fid; get diagnostics n = row_count; out := out || 'finance deletes the locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'finance deletes the locked row: refused (42501); ';
+            when others then out := out || 'finance delete locked: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the other rows stay free: a correction of a locked month is a new version
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256, version) values ('2034-04-01', 'PL', 'PL - Management Report', 13, 'Cost of Sales', -8055051146.50, 'fs-uji-3.xlsx', sha, 3);
+    out := out || 'a new version next to the locked one: OK; ';
+  exception when others then out := out || 'new version: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+
+  -- Admin writes too, and is stopped by the lock as well; so is the owner (no role set)
+  perform set_config('request.jwt.claims', '{"email":"b5f-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.fs_statement_line (month, statement, sheet, row_no, line, amount, source_file, source_sha256) values ('2034-04-01', 'BS', 'BS - Management Report', 17, 'Trade Receivables - Third Parties', 511953961, 'fs-uji.xlsx', sha);
+    out := out || 'admin inserts a FS row: OK; ';
+  exception when others then out := out || 'admin inserts a FS row: DENIED(!) ' || sqlerrm || '; '; end;
+  begin update public.fs_statement_line set amount = 2 where id = fid; get diagnostics n = row_count; out := out || 'admin updates the locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin updates the locked row: refused (42501); ';
+            when others then out := out || 'admin update locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.fs_statement_line where id = fid; get diagnostics n = row_count; out := out || 'admin deletes the locked row: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin deletes the locked row: refused (42501); ';
+            when others then out := out || 'admin delete locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin update public.fs_statement_line set amount = 3 where id = fid2; get diagnostics n = row_count; out := out || 'admin updates an unlocked row rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin updates an unlocked row: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  begin update public.fs_statement_line set amount = 4 where id = fid; out := out || 'the owner updates the locked row: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'the owner updates the locked row: refused (42501); ';
+            when others then out := out || 'owner update locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.fs_statement_line where id = fid; out := out || 'the owner deletes the locked row: ALLOWED(!); ';
+  exception when insufficient_privilege then out := out || 'the owner deletes the locked row: refused (42501); ';
+            when others then out := out || 'owner delete locked: ERROR(!) ' || sqlerrm || '; '; end;
+  begin select amount into amt from public.fs_statement_line where id = fid; out := out || 'locked row amount after all attempts=' || coalesce(amt::text, 'null') || case when amt = -8055051145.98 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'locked row: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the audit trail records who wrote and who locked
+  begin select count(*) into n from public.audit_log where table_name = 'fs_statement_line' and row_id = fid::text and op = 'UPDATE' and changes ? 'locked_at' and actor = 'b5f-fin@x.test';
+    out := out || 'audit rows of the lock by finance=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'audit: ERROR(!) ' || sqlerrm || '; '; end;
+
+  -- anon: nothing; authenticated cannot truncate (a truncate would skip the lock)
+  begin
+    out := out || 'anon privileges on fs_statement_line / fs_line_map=' || (has_table_privilege('anon', 'public.fs_statement_line', 'select') or has_table_privilege('anon', 'public.fs_statement_line', 'insert')
+        or has_table_privilege('anon', 'public.fs_statement_line', 'update') or has_table_privilege('anon', 'public.fs_statement_line', 'delete')
+        or has_table_privilege('anon', 'public.fs_line_map', 'select') or has_table_privilege('anon', 'public.fs_line_map', 'insert')
+        or has_table_privilege('anon', 'public.fs_line_map', 'update') or has_table_privilege('anon', 'public.fs_line_map', 'delete'))::text
+      || case when has_table_privilege('anon', 'public.fs_statement_line', 'select') or has_table_privilege('anon', 'public.fs_line_map', 'select') or has_table_privilege('anon', 'public.fs_statement_line', 'delete')
+                    or has_table_privilege('anon', 'public.fs_statement_line', 'insert') or has_table_privilege('anon', 'public.fs_statement_line', 'update')
+                    or has_table_privilege('anon', 'public.fs_line_map', 'insert') or has_table_privilege('anon', 'public.fs_line_map', 'update') or has_table_privilege('anon', 'public.fs_line_map', 'delete') then '(!)' else '' end || '; ';
+    out := out || 'authenticated truncate / references / trigger on the two tables=' || (has_table_privilege('authenticated', 'public.fs_statement_line', 'truncate') or has_table_privilege('authenticated', 'public.fs_line_map', 'truncate')
+        or has_table_privilege('authenticated', 'public.fs_statement_line', 'references') or has_table_privilege('authenticated', 'public.fs_statement_line', 'trigger'))::text
+      || case when has_table_privilege('authenticated', 'public.fs_statement_line', 'truncate') or has_table_privilege('authenticated', 'public.fs_line_map', 'truncate')
+                    or has_table_privilege('authenticated', 'public.fs_statement_line', 'references') or has_table_privilege('authenticated', 'public.fs_statement_line', 'trigger') then '(!)' else '' end || '; ';
+    out := out || 'row level security on=' || (select string_agg(c.relname || ':' || c.relrowsecurity::text, ',' order by c.relname) from pg_class c where c.oid in ('public.fs_statement_line'::regclass, 'public.fs_line_map'::regclass))
+      || case when (select bool_and(c.relrowsecurity) from pg_class c where c.oid in ('public.fs_statement_line'::regclass, 'public.fs_line_map'::regclass)) then '' else '(!)' end || '; ';
+  exception when others then out := out || 'privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  begin
+    perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+    execute 'set local role anon';
+    begin select count(*) into n from public.fs_statement_line; out := out || 'anon reads fs_statement_line rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || 'anon reads fs_statement_line: denied; '; end;
+    begin select count(*) into n from public.fs_line_map; out := out || 'anon reads fs_line_map rows=' || n || '(!); ';
+    exception when insufficient_privilege then out := out || 'anon reads fs_line_map: denied; '; end;
+    execute 'reset role';
+  exception when others then execute 'reset role'; out := out || 'anon: ERROR(!) ' || sqlerrm || '; '; end;
+  perform set_config('request.jwt.claims', '', true);
+
+  -- fs_line_map: the seed, then Finance's edits
+  begin
+    select count(*), count(*) filter (where status = 'draft'), count(*) filter (where sign = 1) into n, cnt, i from public.fs_line_map;
+    out := out || 'seed rows=' || n || ' draft=' || cnt || ' sign 1=' || i || case when n = 15 and cnt = 15 and i = 15 then '' else '(!)' end || '; ';
+    select count(*) into n from public.fs_line_map where (statement, row_no, app_line) in (('PL', 12, 'revenue'), ('PL', 13, 'cogs'), ('PL', 15, 'gp'), ('PL', 37, 'opex'), ('PL', 49, 'other'), ('PL', 51, 'nibt'),
+      ('BS', 14, 'kas'), ('BS', 17, 'piutang_pihak_ketiga'), ('BS', 18, 'piutang_pihak_berelasi'), ('BS', 23, 'persediaan_produk'), ('BS', 24, 'persediaan_trading'),
+      ('BS', 47, 'utang_dagang_pihak_ketiga'), ('BS', 48, 'utang_dagang_afiliasi'), ('BS', 51, 'utang_lain_afiliasi'), ('BS', 77, 'ekuitas'));
+    out := out || 'seed pairs of the minimum mapping=' || n || case when n = 15 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'seed: ERROR(!) ' || sqlerrm || '; '; end;
+  perform set_config('request.jwt.claims', '{"email":"b5f-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.fs_line_map set status = 'agreed', note = 'disetujui Finance' where statement = 'PL' and row_no = 12; get diagnostics n = row_count;
+    out := out || 'finance agrees PL b.12 rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+    select status, updated_by into st, ub from public.fs_line_map where statement = 'PL' and row_no = 12;
+    out := out || 'status=' || st || ' updated_by=' || coalesce(ub, 'null') || case when st = 'agreed' and ub = 'b5f-fin@x.test' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance agrees: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign, note) values ('PL', 18, 'delivery', -1, 'baris tambahan oleh Finance'); out := out || 'finance adds a mapping row (status defaults to draft): OK; ';
+    select status into st from public.fs_line_map where statement = 'PL' and row_no = 18; out := out || 'new row status=' || st || case when st = 'draft' then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance adds a mapping: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('PL', 12, 'revenue', 1); out := out || 'a second pair for PL b.12: ALLOWED(!); ';
+  exception when unique_violation then out := out || 'a second pair for PL b.12: refused (23505); ';
+            when others then out := out || 'second pair: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('PL', 19, 'x', 2); out := out || 'sign 2: ALLOWED(!); ';
+  exception when check_violation then out := out || 'sign 2: refused (23514); ';
+            when others then out := out || 'sign: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('PL', 19, 'x', 0); out := out || 'sign 0: ALLOWED(!); ';
+  exception when check_violation then out := out || 'sign 0: refused (23514); ';
+            when others then out := out || 'sign 0: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign, status) values ('PL', 19, 'x', 1, 'approved'); out := out || 'status approved: ALLOWED(!); ';
+  exception when check_violation then out := out || 'status approved: refused (23514); ';
+            when others then out := out || 'status: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('CF', 19, 'x', 1); out := out || 'statement CF: ALLOWED(!); ';
+  exception when check_violation then out := out || 'statement CF in the map: refused (23514); ';
+            when others then out := out || 'map statement: ERROR(!) ' || sqlerrm || '; '; end;
+  begin insert into public.fs_line_map (statement, row_no, app_line, sign) values ('PL', 19, '  ', 1); out := out || 'blank app_line: ALLOWED(!); ';
+  exception when check_violation then out := out || 'blank app_line: refused (23514); ';
+            when others then out := out || 'app_line: ERROR(!) ' || sqlerrm || '; '; end;
+  begin delete from public.fs_line_map where statement = 'PL' and row_no = 18; get diagnostics n = row_count; out := out || 'finance deletes the row it added rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'finance deletes a mapping: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '{"email":"b5f-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.fs_line_map set app_line = 'gp_ubah' where statement = 'PL' and row_no = 15; get diagnostics n = row_count; out := out || 'admin edits a mapping rows=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'admin edits a mapping: DENIED(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  raise exception 'RLS-RESULTS v5.2 B5 B-R86 fs_statement_line fs_line_map (rolled back): %', out;
+end $$;
+
+-- B-R86 C59: the override policy row exists and is Finance's alone; Finance records the override, nobody else can
+do $$
+declare out text := ''; n int; r text; roles text[]; ar text[];
+begin
+  insert into public.app_user(email, role) values ('b5c-fin@x.test','finance'),('b5c-adm@x.test','admin'),('b5c-ca@x.test','cost_accounting'),('b5c-sales@x.test','sales'),
+    ('b5c-ppic@x.test','ppic'),('b5c-mgmt@x.test','management');
+  begin select allowed_roles into ar from public.release_override_policy where code = 'C59';
+    out := out || 'policy C59 allowed_roles=' || coalesce(ar::text, 'none') || case when ar = array['finance'] then '' else '(!)' end || '; ';
+    select count(*) into n from public.release_override_policy where code = 'C59' and coalesce(note, '') like '%O25%';
+    out := out || 'policy C59 cites O25–O27=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'policy: ERROR(!) ' || sqlerrm || '; '; end;
+  perform set_config('request.jwt.claims', '{"email":"b5c-fin@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2034-04-01:FINAL', 'C59', 'selisih ekuitas awal FS Rp 2,71 (b.71)', 'FS v2 BS b.71');
+    out := out || 'finance records override C59: OK; ';
+  exception when others then out := out || 'finance override C59: DENIED(!) ' || sqlerrm || '; '; end;
+  begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2034-05-01:FINAL', 'C59', 'pendek', 'x');
+    out := out || 'finance override C59 with a short reason: ALLOWED(!); ';
+  exception when check_violation then out := out || 'finance override C59 with a short reason: refused (23514); ';
+            when others then out := out || 'short reason: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  foreach r in array array['adm', 'ca', 'sales', 'ppic', 'mgmt'] loop
+    perform set_config('request.jwt.claims', format('{"email":"b5c-%s@x.test","role":"authenticated"}', r), true);
+    execute 'set local role authenticated';
+    begin insert into public.release_override (scope_kind, scope, code, reason, evidence) values ('month', '2034-06-01:FINAL', 'C59', 'alasan yang cukup panjang untuk uji', 'bukti');
+      out := out || r || ' records override C59: ALLOWED(!); ';
+    exception when insufficient_privilege then out := out || r || ' records override C59: denied; ';
+              when others then out := out || r || ' override C59: ERROR(!) ' || sqlerrm || '; '; end;
+    execute 'reset role';
+  end loop;
+  -- the policy is changed by migrations only (B2): Admin cannot widen it
+  perform set_config('request.jwt.claims', '{"email":"b5c-adm@x.test","role":"authenticated"}', true);
+  execute 'set local role authenticated';
+  begin update public.release_override_policy set allowed_roles = array['finance', 'admin'] where code = 'C59'; get diagnostics n = row_count;
+    out := out || 'admin widens policy C59: ALLOWED rows=' || n || '(!); ';
+  exception when insufficient_privilege then out := out || 'admin widens policy C59: denied; ';
+            when others then out := out || 'widen: ERROR(!) ' || sqlerrm || '; '; end;
+  execute 'reset role';
+  perform set_config('request.jwt.claims', '', true);
+  select allowed_roles into ar from public.release_override_policy where code = 'C59'; out := out || 'policy C59 after the attempt=' || coalesce(ar::text, 'none') || case when ar = array['finance'] then '' else '(!)' end || '; ';
+  raise exception 'RLS-RESULTS v5.2 B5 B-R86 C59 (rolled back): %', out;
+end $$;
+
+-- v5.2 B5 hygiene: the new definer function and trigger functions, nothing of B5 for anon, one function per name, the
+-- registry in order (the B2 hygiene block above keeps running over every function of the schema)
+do $$
+declare out text := ''; bad text; n int; f text; v text;
+begin
+  begin
+    select string_agg(version, ',' order by version) into bad from public.schema_registry where version in ('5.2.3', '5.2.4');
+    out := out || 'registry has ' || coalesce(bad, 'none') || case when bad = '5.2.3,5.2.4' then '' else '(!)' end || '; ';
+    v := public.schema_version();
+    out := out || 'schema_version()=' || coalesce(v, 'null') || case when string_to_array(v, '.')::int[] >= array[5,2,4] then '' else '(!)' end || '; ';
+  exception when others then out := out || 'registry: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the helpers of the triggers are not callable by clients; the override function is for signed-in users, never anon
+  foreach f in array array['public.tg_fs_statement_line_lock()', 'public.tg_plan_check_reason_scope()'] loop
+    begin
+      if has_function_privilege('authenticated', f, 'execute') or has_function_privilege('anon', f, 'execute') then out := out || f || ' executable by clients(!); '; end if;
+    exception when others then out := out || f || ': MISSING(!); '; end;
+  end loop;
+  out := out || 'trigger functions checked for clients; ';
+  begin
+    select string_agg(p.oid::regprocedure::text, ', ') into bad from pg_proc p
+     where p.pronamespace = 'public'::regnamespace and p.prosecdef and (p.proconfig is null or not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%'));
+    out := out || 'SECURITY DEFINER functions without a fixed search_path=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+    select string_agg(p.oid::regprocedure::text, ', ') into bad from pg_proc p
+     where p.pronamespace = 'public'::regnamespace and p.prosecdef and has_function_privilege('anon', p.oid, 'execute');
+    out := out || 'SECURITY DEFINER functions executable by anon=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+    select count(*) into n from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('post_allocation_override', 'tg_week_guard', 'tg_fs_statement_line_lock', 'tg_plan_check_reason_scope');
+    out := out || 'one function per name (no overload)=' || n || case when n = 4 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'functions: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the two new tables and the two re-created views: nothing for anon (older tables keep the default privileges of the
+  -- platform and are closed by RLS alone: no policy of theirs names anon)
+  begin
+    select string_agg(x, ', ') into bad from unnest(array['public.fs_statement_line', 'public.fs_line_map', 'public.commercial_daily_sales', 'public.commercial_daily_sales_v5']) x
+     where has_table_privilege('anon', x, 'select') or has_table_privilege('anon', x, 'insert') or has_table_privilege('anon', x, 'update') or has_table_privilege('anon', x, 'delete');
+    out := out || 'tables and views of B5 with anon privileges=' || coalesce(bad, 'none') || case when bad is null then '' else '(!)' end || '; ';
+  exception when others then out := out || 'anon table privileges: ERROR(!) ' || sqlerrm || '; '; end;
+  -- the columns and constraints B5 adds
+  begin
+    select count(*) into n from information_schema.columns where table_schema = 'public' and ((table_name = 'batch' and column_name = 'lb_price_source') or (table_name = 'plan_check_reason' and column_name = 'plan_week_id') or (table_name = 'plan_week_class' and column_name = 'detail'));
+    out := out || 'columns of B5=' || n || case when n = 3 then '' else '(!)' end || '; ';
+    select count(*) into n from pg_constraint where conname in ('batch_lb_price_source_check', 'plan_week_class_detail_check') and contype = 'c';
+    out := out || 'checks of B5=' || n || case when n = 2 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'columns: ERROR(!) ' || sqlerrm || '; '; end;
+  raise exception 'RLS-RESULTS v5.2 B5 hygiene (rolled back): %', out;
+end $$;
