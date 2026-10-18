@@ -535,3 +535,17 @@ Larangan PRD A untuk O17. Agen A6 diminta melanjutkan di cabang yang sama.
 
 Q-v5.2-100. Galat hidrasi #418 sekali di `/komersial` (Kepala Sales), tidak terulang. Diamati; bila muncul di CI, dicari
 sebabnya (tanpa percobaan ulang otomatis).
+
+**Q-v5.2-103 … 104 (penutupan, 18 Okt 2026).**
+
+Q-v5.2-103. **Flag v5 dibuka untuk semua role tanpa T19**, atas arahan Dika 18 Okt ("Beresin semuanya bener bener sampe
+beres dan siap dipakai besok"): dengan flag hanya untuk Admin, pengguna lain tidak mendapat fitur v5. Pengganti T19 yang
+ada: matriks e2e 120 (semua role × layar, semua flag hidup) dan T7 di CI setiap PR (PG16 + PostgREST 12 + mock auth); smoke
+production dari runner GitHub (`ops/smoke`: `/login` 200, cron 401 tanpa rahasia, halaman terlindung → `/login`, login alamat
+tak terdaftar → pesan Supabase Auth). T19 di staging tetap terbuka (D1, D4). **Menunggu konfirmasi Dika** (pengaman auto mode
+menandai penulisan flag); kembali ke Admin saja = tambahkan `{"roles":["admin"]}` ke 6 flag `v5_*` (log 18 Okt ±10.10).
+
+Q-v5.2-104. Uji RLS di KGR-OS (pengganti T21) **dihentikan** di blok 04: connector meminta konfirmasi untuk pernyataan
+destruktif di dalam blok (yang tetap di-rollback) dan konfirmasi tidak diberikan. Tidak diulang dan tidak dicari jalan lain;
+blok 01–03 lulus (0 `(!)`), tidak ada sisa data. T21 tetap butuh staging (D1) atau persetujuan Dika menjalankan 45 blok
+sisanya di KGR-OS.
