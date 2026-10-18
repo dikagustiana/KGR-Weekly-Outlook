@@ -1,0 +1,136 @@
+# v5.2 B5 — bundel docs/v5.2/kgr-os-migrasi-v52-b5.sql di DB baru, dijalankan DUA KALI
+# tanggal: 2026-10-18 05:59 UTC · migrasi B5 @ 64c6859 · server: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+# perintah per putaran: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b5.sql   (satu transaksi, seperti SQL Editor)
+# sha256 berkas bundel: 76e074f086430bb3d1fc0106d782cd5f3d7c57ccdc877e0299d8b59da466dd4b
+# sha256 dua migrasi disambung: bb43b8ff231ff204d0db570f1eec3a7d4d666cfee964161c6377d988eb5c56e7
+# sha256 20261025000400_v52_costing.sql: e77526572fef255670e2b79f3e1042167638e9b7cc8fce4873a67f745a1f7ebb
+# sha256 20261025000500_v52_fs.sql:      0d3402496dfd735042984d47469448dfb24e85a16db0d7c018c71b6f2a1c354c
+
+## 0. bundel menolak DB tanpa B2 (b5_e_pre: migrasi hanya s.d. 20261024000300, v5.1)
+  psql:docs/v5.2/kgr-os-migrasi-v52-b5.sql:57: ERROR:  Bundel B2 belum terpasang di database ini (docs/v5.2/kgr-os-migrasi-v52-b2.sql dulu, lalu notify pgrst); v5.2 B5 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+  exit: 3
+  tidak ada yang setengah terpasang: fs_line_map tidak ada=t, kolom batch.lb_price_source tidak ada=t, versi registry: belum ada
+
+## sebelum bundel (b5_e_b2: shim + 36 migrasi origin/main s.d. B2 + seed)
+  schema_version(): 5.2.2 · fs_line_map: belum ada · batch.lb_price_source: f
+
+## putaran 1
+   no |                                                                 cek                                                                  | ada 
+  ----+--------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0400 batch.lb_price_source: text, boleh kosong, check tiga sumber (R51)                                                              | t
+    2 | 0400 plan_check_reason.plan_week_id: FK ke plan_week, unik per versi dan kode, versi harus minggu yang sama (A2)                     | t
+    3 | 0400 plan_week_class.detail: jsonb, boleh kosong, check object atau array (A2)                                                       | t
+    4 | 0400 post_allocation_override: definer, search_path kosong, untuk authenticated, bukan anon (A3, R61)                                | t
+    5 | 0400 override posting: tidak ada policy UPDATE untuk finance di allocation_run dan batch                                             | t
+    6 | 0400 fungsi override: kalimat override Finance dan batch.costing_status posted dalam satu fungsi                                     | t
+    7 | 0400 tg_week_guard: opening_stock_flag untuk inventory_accounting dan finance saat minggu open; aturan update_date tetap (Q-v5.2-13) | t
+    8 | 0400 view Sales v4 dan v5: holding_loss_per_day dan downgrade_risk_rp di dalam sales_sees_cost; 20 dan 23 kolom (Q-v5.2-18)          | t
+    9 | 0400 dua view Sales: SELECT untuk authenticated, tanpa hak anon                                                                      | t
+   10 | 0400 price_floor_rule_read: Sales tidak membaca (Q-v5.2-18)                                                                          | t
+   11 | 0400 audit_log: redaksi Sales memuat price_floor_rule (jejak ubah markup tidak terbaca Sales, Q-v5.2-18)                             | t
+   12 | 0400 versi 5.2.3 tercatat                                                                                                            | t
+   13 | 0500 fs_statement_line: kolom persis B-R86, unik (month, statement, row_no, version), RLS, tanpa hak anon                            | t
+   14 | 0500 fs_statement_line: baris locked_at tidak bisa diubah atau dihapus siapa pun (trigger, 42501)                                    | t
+   15 | 0500 fs tabel: authenticated tanpa truncate, references, trigger; service_role tanpa truncate                                        | t
+   16 | 0500 fs_line_map: kolom persis, PK (statement, row_no), status draft/agreed, sign -1/1, RLS, tanpa hak anon                          | t
+   17 | 0500 fs tabel: baca admin/finance/management/operations_director, tulis finance/admin (kedua tabel)                                  | t
+   18 | 0500 seed fs_line_map: 15 pasangan minimum (statement, baris) dari FS_MIN_MAP                                                        | t
+   19 | 0500 kebijakan override C59 (Finance)                                                                                                | t
+   20 | 0500 audit_log: jejak tabel FS hanya untuk pembaca tabelnya (policy restrictif)                                                      | t
+   21 | 0500 fungsi pembantu trigger (kunci FS, minggu alasan) tidak untuk klien                                                             | t
+   22 | semua SECURITY DEFINER di public: search_path tetap                                                                                  | t
+   23 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                | t
+   24 | satu fungsi per nama untuk yang ditambah atau diganti (tanpa overload baru)                                                          | t
+   25 | 0500 versi 5.2.4 tercatat dan schema_version() = 5.2.4 atau lebih                                                                    | t
+   26 | bundle_sha256 terisi untuk 5.2.3 dan 5.2.4                                                                                           | t
+  (26 rows)
+  
+  exit: 0
+  schema_version(): 5.2.4 · baris cek true: 26
+
+## putaran 2
+   no |                                                                 cek                                                                  | ada 
+  ----+--------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0400 batch.lb_price_source: text, boleh kosong, check tiga sumber (R51)                                                              | t
+    2 | 0400 plan_check_reason.plan_week_id: FK ke plan_week, unik per versi dan kode, versi harus minggu yang sama (A2)                     | t
+    3 | 0400 plan_week_class.detail: jsonb, boleh kosong, check object atau array (A2)                                                       | t
+    4 | 0400 post_allocation_override: definer, search_path kosong, untuk authenticated, bukan anon (A3, R61)                                | t
+    5 | 0400 override posting: tidak ada policy UPDATE untuk finance di allocation_run dan batch                                             | t
+    6 | 0400 fungsi override: kalimat override Finance dan batch.costing_status posted dalam satu fungsi                                     | t
+    7 | 0400 tg_week_guard: opening_stock_flag untuk inventory_accounting dan finance saat minggu open; aturan update_date tetap (Q-v5.2-13) | t
+    8 | 0400 view Sales v4 dan v5: holding_loss_per_day dan downgrade_risk_rp di dalam sales_sees_cost; 20 dan 23 kolom (Q-v5.2-18)          | t
+    9 | 0400 dua view Sales: SELECT untuk authenticated, tanpa hak anon                                                                      | t
+   10 | 0400 price_floor_rule_read: Sales tidak membaca (Q-v5.2-18)                                                                          | t
+   11 | 0400 audit_log: redaksi Sales memuat price_floor_rule (jejak ubah markup tidak terbaca Sales, Q-v5.2-18)                             | t
+   12 | 0400 versi 5.2.3 tercatat                                                                                                            | t
+   13 | 0500 fs_statement_line: kolom persis B-R86, unik (month, statement, row_no, version), RLS, tanpa hak anon                            | t
+   14 | 0500 fs_statement_line: baris locked_at tidak bisa diubah atau dihapus siapa pun (trigger, 42501)                                    | t
+   15 | 0500 fs tabel: authenticated tanpa truncate, references, trigger; service_role tanpa truncate                                        | t
+   16 | 0500 fs_line_map: kolom persis, PK (statement, row_no), status draft/agreed, sign -1/1, RLS, tanpa hak anon                          | t
+   17 | 0500 fs tabel: baca admin/finance/management/operations_director, tulis finance/admin (kedua tabel)                                  | t
+   18 | 0500 seed fs_line_map: 15 pasangan minimum (statement, baris) dari FS_MIN_MAP                                                        | t
+   19 | 0500 kebijakan override C59 (Finance)                                                                                                | t
+   20 | 0500 audit_log: jejak tabel FS hanya untuk pembaca tabelnya (policy restrictif)                                                      | t
+   21 | 0500 fungsi pembantu trigger (kunci FS, minggu alasan) tidak untuk klien                                                             | t
+   22 | semua SECURITY DEFINER di public: search_path tetap                                                                                  | t
+   23 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                | t
+   24 | satu fungsi per nama untuk yang ditambah atau diganti (tanpa overload baru)                                                          | t
+   25 | 0500 versi 5.2.4 tercatat dan schema_version() = 5.2.4 atau lebih                                                                    | t
+   26 | bundle_sha256 terisi untuk 5.2.3 dan 5.2.4                                                                                           | t
+  (26 rows)
+  
+  exit: 0
+  schema_version(): 5.2.4 · baris cek true: 26
+
+## hasil bundel sama dengan migrasi satu per satu (sidik definisi, ACL, jumlah baris; registry dikecualikan karena bundle_sha256)
+  bundel:   schema_version(): 5.2.4
+  bundel:   definisi md5 (fungsi, view, policy, constraint, index, trigger, kolom B5): 0ec6444301b39ef2e81c39fd2bbf10f7
+  bundel:   acl md5 (tabel, view, fungsi): 9e363f0e770980abb68a1836c6460cef
+  bundel:   semua fungsi public (md5 definisi, 68 fungsi): 225782c73e7ee8c7b264069a16b2c60d
+  bundel:   baris: fs_line_map=15 (draft 15), fs_statement_line=0, release_override_policy=38 (C59: {finance})
+  migrasi:  schema_version(): 5.2.4
+  migrasi:  definisi md5 (fungsi, view, policy, constraint, index, trigger, kolom B5): 0ec6444301b39ef2e81c39fd2bbf10f7
+  migrasi:  acl md5 (tabel, view, fungsi): 9e363f0e770980abb68a1836c6460cef
+  migrasi:  semua fungsi public (md5 definisi, 68 fungsi): 225782c73e7ee8c7b264069a16b2c60d
+  migrasi:  baris: fs_line_map=15 (draft 15), fs_statement_line=0, release_override_policy=38 (C59: {finance})
+  => SAMA
+  registry bundel: 5.1.0|- ; 5.2.0|- ; 5.2.1|- ; 5.2.2|- ; 5.2.3|bb43b8ff231f ; 5.2.4|bb43b8ff231f
+
+## rantai penuh: v5.1 (b5_e_chain) -> bundel B2 -> bundel B5 (dua kali)
+  bundel B2 exit: 0 · schema_version(): 5.2.2
+  bundel B5 putaran 1 exit: 0 · schema_version(): 5.2.4 · baris cek true: 26
+  bundel B5 putaran 2 exit: 0 · schema_version(): 5.2.4 · baris cek true: 26
+  rantai = migrasi satu per satu: SAMA
+
+## tabel cek (putaran 2 di b5_e_b2)
+   no |                                                                 cek                                                                  | ada 
+  ----+--------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0400 batch.lb_price_source: text, boleh kosong, check tiga sumber (R51)                                                              | t
+    2 | 0400 plan_check_reason.plan_week_id: FK ke plan_week, unik per versi dan kode, versi harus minggu yang sama (A2)                     | t
+    3 | 0400 plan_week_class.detail: jsonb, boleh kosong, check object atau array (A2)                                                       | t
+    4 | 0400 post_allocation_override: definer, search_path kosong, untuk authenticated, bukan anon (A3, R61)                                | t
+    5 | 0400 override posting: tidak ada policy UPDATE untuk finance di allocation_run dan batch                                             | t
+    6 | 0400 fungsi override: kalimat override Finance dan batch.costing_status posted dalam satu fungsi                                     | t
+    7 | 0400 tg_week_guard: opening_stock_flag untuk inventory_accounting dan finance saat minggu open; aturan update_date tetap (Q-v5.2-13) | t
+    8 | 0400 view Sales v4 dan v5: holding_loss_per_day dan downgrade_risk_rp di dalam sales_sees_cost; 20 dan 23 kolom (Q-v5.2-18)          | t
+    9 | 0400 dua view Sales: SELECT untuk authenticated, tanpa hak anon                                                                      | t
+   10 | 0400 price_floor_rule_read: Sales tidak membaca (Q-v5.2-18)                                                                          | t
+   11 | 0400 audit_log: redaksi Sales memuat price_floor_rule (jejak ubah markup tidak terbaca Sales, Q-v5.2-18)                             | t
+   12 | 0400 versi 5.2.3 tercatat                                                                                                            | t
+   13 | 0500 fs_statement_line: kolom persis B-R86, unik (month, statement, row_no, version), RLS, tanpa hak anon                            | t
+   14 | 0500 fs_statement_line: baris locked_at tidak bisa diubah atau dihapus siapa pun (trigger, 42501)                                    | t
+   15 | 0500 fs tabel: authenticated tanpa truncate, references, trigger; service_role tanpa truncate                                        | t
+   16 | 0500 fs_line_map: kolom persis, PK (statement, row_no), status draft/agreed, sign -1/1, RLS, tanpa hak anon                          | t
+   17 | 0500 fs tabel: baca admin/finance/management/operations_director, tulis finance/admin (kedua tabel)                                  | t
+   18 | 0500 seed fs_line_map: 15 pasangan minimum (statement, baris) dari FS_MIN_MAP                                                        | t
+   19 | 0500 kebijakan override C59 (Finance)                                                                                                | t
+   20 | 0500 audit_log: jejak tabel FS hanya untuk pembaca tabelnya (policy restrictif)                                                      | t
+   21 | 0500 fungsi pembantu trigger (kunci FS, minggu alasan) tidak untuk klien                                                             | t
+   22 | semua SECURITY DEFINER di public: search_path tetap                                                                                  | t
+   23 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                | t
+   24 | satu fungsi per nama untuk yang ditambah atau diganti (tanpa overload baru)                                                          | t
+   25 | 0500 versi 5.2.4 tercatat dan schema_version() = 5.2.4 atau lebih                                                                    | t
+   26 | bundle_sha256 terisi untuk 5.2.3 dan 5.2.4                                                                                           | t
+  (26 rows)
+  

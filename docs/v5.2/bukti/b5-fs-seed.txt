@@ -1,0 +1,26 @@
+# v5.2 B5 — seed fs_line_map: baris, label, dan sel dicocokkan dengan workbook FS v2 dan FS_MIN_MAP (A4)
+# tanggal: 2026-10-18 05:59 UTC · perintah: python3 -I supabase/tests/check-fs-seed.py reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx
+# kolom K = 31 Agu 2026, kolom L = 30 Sep 2026 pada baris yang sama; semua angka Rupiah dari sel, tidak diimpor ke migrasi (itu B-R91)
+
+PL - Management Report: K10=2026-08-31 L10=2026-09-30 -> ok
+BS - Management Report: K10=2026-08-31 L10=2026-09-30 -> ok
+workbook reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx sha256 7e68aa89751cd8938bd5c9cd4f961ebbbf8eed56ac55cf3ad1faf0d8fc3504c5
+seed rows in supabase/migrations/20261025000500_v52_fs.sql: 15; FS_MIN_MAP rows in packages/engine/src/fs-map.ts: 15
+row    app_line                    FS label (workbook col B)                  Aug (col K), Rp     Sep (col L), Rp  checks
+PL b.12 revenue                     Revenue                                   8,361,760,903.00    5,039,854,191.00  ok
+PL b.13 cogs                        Cost of Sales                            -8,055,051,145.97   -5,515,286,606.26  ok
+PL b.15 gp                          GROSS PROFIT                                306,709,757.03     -475,432,415.26  ok
+PL b.37 opex                        TOTAL OPERATING EXPENSES                   -302,908,802.02     -312,165,167.06  ok
+PL b.49 other                       TOTAL OTHER INCOME (EXPENSE)                -30,318,815.52     -122,460,957.41  ok
+PL b.51 nibt                        INCOME (LOSS) BEFORE TAX                    -26,517,860.51     -910,058,539.73  ok
+BS b.14 kas                         Cash and cash equivalents                   495,363,150.28      102,996,959.86  ok
+BS b.17 piutang_pihak_ketiga        Trade Receivables - Third Parties           511,953,961.00      800,198,009.00  ok
+BS b.18 piutang_pihak_berelasi      Trade Receivables - Related Parties                   0.00                0.00  ok
+BS b.23 persediaan_produk           Inventory - Product                       1,492,898,044.05    4,724,212,503.35  ok
+BS b.24 persediaan_trading          Inventory - Trading                       2,039,660,533.52    1,928,193,717.73  ok
+BS b.47 utang_dagang_pihak_ketiga   Trade Payables - Third Parties               56,032,690.40      139,076,516.40  ok
+BS b.48 utang_dagang_afiliasi       Trade Payables - Affiliates                           0.00                0.00  ok
+BS b.51 utang_lain_afiliasi         Other Payable - Related Parties           5,627,124,444.35    9,845,918,888.89  ok
+BS b.77 ekuitas                     TOTAL EQUITY                              1,612,612,014.63      702,553,474.90  ok
+check numbers (Rp jt): Aug revenue 8361.8, GP 306.7, NIBT -26.5, kas 495.4, ekuitas 1612.6; Sep revenue 5039.9, GP -475.4, NIBT -910.1, kas 103.0, ekuitas 702.6
+seed check: OK
