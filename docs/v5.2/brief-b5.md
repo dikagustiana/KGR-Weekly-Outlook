@@ -41,7 +41,7 @@ PostgreSQL 16 sudah jalan: socket `/tmp`, port 5432, user `postgres`. Buat DB se
 - Rerun dua migrasi di DB yang sudah memuatnya: exit 0, definisi tidak berubah.
 - `test:rls OK` penuh di cabang.
 - Bundel KGR-OS `docs/v5.2/kgr-os-migrasi-v52-b5.sql` dengan pola persis bundel B2 (`docs/v5.2/kgr-os-migrasi-v52-b2.sql`): kepala (tujuan, sha256 tiap berkas dan gabungan), prasyarat (schema_version() = '5.2.2' dan objek B2 ada), dua berkas apa adanya, isi `bundle_sha256` registry, `notify pgrst, 'reload schema'`, tabel cek (kolom `ada` true semua). Uji dua kali di DB baru (shim + migrasi s.d. B2 + seed) dan ditolak di DB tanpa B2.
-- Dokumen `docs/v5.2/b5.md` (pola `b2.md`: hasil, berkas, per requirement, probe, keputusan baru Q-v5.2-20…, batas bukti) dan `docs/v5.2/bukti/b5-*.txt`.
+- Dokumen `docs/v5.2/b5.md` (pola `b2.md`: hasil, berkas, per requirement, probe, keputusan baru Q-v5.2-60…69 (rentang khusus B5), batas bukti) dan `docs/v5.2/bukti/b5-*.txt`.
 
 ## Laporan akhir (pesan terakhirmu)
 Cabang + SHA head, daftar berkas, hasil test:rls (jumlah blok, `(!)`), probe main vs cabang, sha bundel, Q-v5.2 baru, dan apa pun yang tidak bisa kamu kerjakan beserta alasannya. Jangan mengklaim "lulus" tanpa menyebut lingkungannya (PG16 lokal + shim).
