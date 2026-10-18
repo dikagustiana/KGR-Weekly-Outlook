@@ -408,3 +408,77 @@ Q-v5.2-52. PPIC mendapat tombol bangun ulang antrean (sampai hari ini) di layar 
 Q-v5.2-53. Komitmen tetap per key dasar (`RPA|Karkas`). Aturan assignment Sales: Kepala Sales menugaskan key dasar bila Sales itu membuat komitmen (O21(b): key dasar mencakup semua bentuk); assignment berakhiran bentuk hanya untuk Sales yang tidak membuat komitmen. Dicatat juga di `docs/v5.2/users.md` saat user dibuat (B-R87).
 
 Q-v5.2-54. Data uji e2e ditangani di `week-complete.sql` tanpa melonggarkan kontrol. Diterima.
+
+**Q-v5.2-30 … 39, 46 … 48 (dari A3, `docs/v5.2/a3.md` §4).** Diputuskan agen atas delegasi Dika, 18 Okt 2026. Butir DB
+A3 ditulis di `a3.md` sebagai Q-v5.2-40…42; nomor itu sudah dipakai A4, jadi di sini menjadi Q-v5.2-46…48.
+
+Q-v5.2-30. Override posting alokasi Finance lewat RPC `post_allocation_override` (B5 di KGR-OS 18 Okt); kode
+penggantinya di A1c (#53). Diterima.
+
+Q-v5.2-31. Mode `memo` (O24 b) aktif di KGR-OS sejak 18 Okt 06.42 UTC (log), sesudah A3 di production. Finance tetap
+boleh meminta kembali ke `cogs` (satu `update app_setting`, dicatat di log).
+
+Q-v5.2-32. Beban nonkas di kas 12 bulan = penyusutan dan amortisasi prepaid saja. Diterima; daftar dikonfirmasi Finance
+saat FINAL Agustus (BUTUH-DIKA bila ada baris lain).
+
+Q-v5.2-33. kg komitmen kosong ditolak (R64). Diterima.
+
+Q-v5.2-34. Baris order tanpa kg: keluar dari alokasi, C29 BELUM DIISI, pengiriman ditolak. Diterima.
+
+Q-v5.2-35. Stok lot tanpa umur tidak dihitung layak jual. Diterima (penjaga; ledger selalu menulis umur).
+
+Q-v5.2-36. Periode tarif dengan batch tanpa kg LB tidak dihitung idle-nya. Diterima untuk v5.2; catatan di layar masuk
+irisan A6 (bukan kontrol baru).
+
+Q-v5.2-37. Run-rate kosong tidak ditulis, penyesuaian kosong = tanpa penyesuaian, `week.lw_*` kosong tidak menimpa.
+Diterima.
+
+Q-v5.2-38. Lint `missing` tidak diperluas ke `?? D(0)` / `ZERO` (12 pemakaian ditinjau tangan). Diterima.
+
+Q-v5.2-39. Pengecualian O13 (88,2%, 30/34) tetap berlaku sampai Finance menyerahkan recost Accurate per GRN Agustus.
+
+Q-v5.2-46. `cash_position_daily.total_plan_in/out` tetap NOT NULL DEFAULT 0 di v5.2 (tanpa pembaca di app). Tidak diubah.
+
+Q-v5.2-47. `runrate.*`, `week.lw_*`, `sales_commitment.*_kg` tetap NOT NULL; kode menolak kosong, tidak menyimpan 0.
+Tidak diubah di v5.2.
+
+Q-v5.2-48. `allocation_line.cost_per_kg` tetap NOT NULL; A3 menilai `price_ref`. Diterima.
+
+**Q-v5.2-70 … 79 (dari A1c `docs/v5.2/a1c.md` §4 dan B6 `docs/v5.2/b6.md`).** Diputuskan agen atas delegasi Dika,
+18 Okt 2026.
+
+Q-v5.2-70. `batch.lb_price_source` untuk harga dari supply LB atau parameter = `manual`. Diterima; pembedaan supply vs
+parameter tetap di pesan salin.
+
+Q-v5.2-71. `surplus_for_sales_v52` menormalkan kunci unit (`Karkas` → `RPA|Karkas`) di B6. Diterima (perbaikan view B2;
+hasil kode A1c sama sebelum dan sesudah bundel).
+
+Q-v5.2-72. `plan_day` juga ditutup untuk Sales, sejalan dengan Q-v5.2-15: satu `alter policy` di migrasi berikutnya
+(B7, irisan A6), sesudah kode yang tidak lagi membacanya sebagai Sales ada di production (sudah, A1c).
+
+Q-v5.2-73. `tg_plan_check_reason_scope` menjadi SECURITY DEFINER (isi sama, `search_path` kosong). Diterima.
+
+Q-v5.2-74. `audit_log_sales_redact` memuat `plan_week`, `plan_week_class`, `demand_weekly`, `demand_class_weekly`.
+Diterima; `plan_day` ikut saat Q-v5.2-72 dikerjakan.
+
+Q-v5.2-75. Posting biasa memposting run berharga lengkap dan menyebut yang tertahan; C24 tetap menahan rilis. Diterima.
+
+Q-v5.2-76. Halaman Input costing dibuka untuk Finance (ringkas: kontrol C21–C24 + kartu override); navigasi Demand
+dicabut untuk Sales. Diterima.
+
+Q-v5.2-77. `plan_week_class.detail` yang tidak sah menahan salin (tidak jatuh ke profil). Diterima.
+
+Q-v5.2-78. Alasan C58 ganda dicegah di kode; hanya C58 yang terikat versi. Diterima.
+
+Q-v5.2-79. Urutan wajib: A1c di production lebih dulu, lalu bundel B6 di KGR-OS, lalu merge cabang B6. Diterima.
+
+**Q-v5.2-80 … 82 (dari A1d, `docs/v5.2/a1d.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-80. `supabaseServer()` satu klien per request (cache React); route handler tetap klien baru per panggilan.
+Diterima.
+
+Q-v5.2-81. Rebuild dari tombol app membaca minggu dengan klien servis, identik dengan cron. Diterima (mart bersama tidak
+bergantung pada siapa yang menekan tombol).
+
+Q-v5.2-82. Halaman yang menghitung langsung (`loadCash`, `computeMonth`, kunci versi) tetap memakai RLS pemanggil.
+Diterima untuk v5.2; perbedaan tampilan vs mart untuk role sempit dicatat sebagai batas.
