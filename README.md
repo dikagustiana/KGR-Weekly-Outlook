@@ -45,14 +45,15 @@ pnpm build
 - **Skema tertinggal (K57).** Bila database belum punya objek yang dipakai kode, header menampilkan satu banner;
   rilis dan aksi tulis modul ditolak dengan pesan yang sama, dan rebuild membiarkan antrean dengan catatan itu.
   Terapkan bundel `docs/v5.*/kgr-os-migrasi-*.sql` yang sesuai (lihat `docs/v5.2/kgr-os-log.md`).
-- **Uji e2e (K64, PRD v5.2-A R70–R74).** `pnpm e2e` menaikkan tumpukan lokal dan menjalankan matriks flag, journey T7, F19 dan volume;
+- **Uji e2e (K64, PRD v5.2-A R70–R74).** `pnpm e2e` menaikkan tumpukan lokal dan menjalankan matriks flag, journey T7, A6 (irisan UI), F19 dan volume;
   log, tangkapan layar PNG, log request mock dan log proses ada di `tests/e2e/out` (diabaikan git; job CI `e2e` mengunggahnya sebagai artifact).
   Lingkungan di log bernama "PG16 lokal + PostgREST 12 + mock auth": PostgreSQL 16 sendiri (port 54329, di bawah faketime), shim, semua
   migrasi dua kali, seed, PostgREST 12, satu origin tiruan Supabase (auth, storage) dan `next start`. Bukan Supabase. Prasyarat:
   PostgreSQL 16 (`apt-get install postgresql-16`), `faketime`, binari PostgREST 12 di PATH, Chromium untuk Playwright
   (`npx playwright install --with-deps chromium`), `pnpm install`. Variabel: `tests/e2e/stack/env.sh` (semua path, port, URL, kunci dan
   user bisa diganti; journey yang sama dapat dijalankan terhadap URL staging dengan `E2E_SKIP_UP=1`, PRD v5.2-B T19). `E2E_BUILD=never`
-  memakai `apps/web/.next` yang dibuat `pnpm e2e:build`; `E2E_ONLY="T7 F19"` menjalankan sebagian. Penjelasan lengkap: `docs/v5.2/a5.md`.
+  memakai `apps/web/.next` yang dibuat `pnpm e2e:build`; `E2E_ONLY="T7 F19"` menjalankan sebagian; `E2E_SCREENS=1` membuat A6 juga mengambil 18 tangkapan layar enam layar utama (1366x768, 899, 390 px) di `tests/e2e/out/screens`.
+  A6 menulis ke database lokal (SETUP) dan hanya untuk tumpukan lokal; terhadap staging jalankan `E2E_ONLY="T7"`. Penjelasan lengkap: `docs/v5.2/a5.md`, `docs/v5.2/a6.md`.
   Ketergantungan `cdn.sheetjs.com` (`xlsx` 0.20.3 di `@kgr/parsers`): job CI memakai cache pnpm store; bila host itu diblokir pada cache dingin,
   `pnpm install --frozen-lockfile` gagal dan job `engine`, `lint`, `e2e` ikut gagal (di lingkungan tanpa akses ke host itu pasang `xlsx@0.18.5`
   secara lokal saja, jangan di-commit).
