@@ -59,5 +59,8 @@ view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat 
 | ±06.27 | ✎ B5 2/2 fs + penutup | `20261025000500_v52_fs.sql` + `bundle_sha256` + `notify pgrst` + tabel cek | tabel cek **26/26 true**; sidik = `ref_b5` **9/9 identik**; `schema_version()` **5.2.4** |
 | ±06.28 | baca | data vs manifest `bak_20261018t0612` | `gl_line` 1.840, `app_setting` 16, `rebuild_queue` queued 7, `sales_assignment` 0, `week` 1 sama; `release_override_policy` 36 → 38 (C55, C59); `audit_log` +2 (dua baris kebijakan itu); `fs_line_map` 15 draft |
 
+| 06.41 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0641`** |
+| 06.42 | ✎ O24(b) mode memo | `update app_setting set value = value \|\| '{"costing_rows_mode":"memo"}' where key = 'v5_pl'` (dibatalkan bila ≠ 1 baris), sesudah kode A3 (#51 `b408a9a`) di `main` | `v5_pl` = `{"roles":["admin"],"enabled":true,"costing_rows_mode":"memo"}` |
+
 Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
 memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.

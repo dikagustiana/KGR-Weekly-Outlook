@@ -46,6 +46,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | A4 R68 | **merge** (#42 `443bbf0`) | `fsRecon` + C59 engine + fixture Agu/Sep; CI run 39100986309 ✓. Temuan D9 (ekuitas b.71) |
 | A1b K69 | **merge** (#44 `bed6039`) | `update_date` hanya Admin/Finance di minggu open; CI main run 39101702229 ✓ |
 | A2 R48–R58 | **merge** (#45 `4b440d8`) | gate agen di `e70e495` (engine 426, web 341, parity 17161, test:rls 37 blok); golden B.5 diubah sesuai R58; CI main run 39101910881 ✓. Sisa R51/R52 menunggu kolom B-R85 (B5) |
+| A3 R59–R67 | **merge** (#51 `b408a9a`) | gate agen + CI run 39104756583 engine ✓ lint ✓ rls ✓; mode memo O24(b) di KGR-OS 18 Okt 06.42 UTC |
 | A1b schema_version | **merge** (#50 `044d735`) | banner skema dari RPC `schema_version()`, `EXPECTED_SCHEMA` 5.2.2; KGR-OS 5.2.4. CI run 39104463074 engine ✓ lint ✓ rls ✓ |
 | A4 R69 | **merge** (#49 `f3b33cb`, sesudah B5 di KGR-OS) | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
@@ -56,7 +57,7 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 Sesi 18 Okt (berjalan). KGR-OS = repo 5.2.4. Agen aktif: A3 (menggabungkan `main` ke #51, konflik dengan R69), A5 (e2e).
 
-1. Review + merge A3 #51 sesudah konflik selesai dan CI hijau; lalu PR kecil: override Finance lewat RPC `post_allocation_override`, `EXPECTED_SCHEMA` 5.2.4.
+1. (selesai) A3 #51 merge, mode memo aktif. Berikut: irisan A1c (override Finance lewat RPC, `EXPECTED_SCHEMA` 5.2.4, A2 menulis kolom B5, Sales lewat `surplus_for_sales_v52`).
 2. A5 (R70–R74, job CI `e2e`).
 3. Q-v5.2-15: komersial Sales lewat `surplus_for_sales_v52`, lalu migrasi B mencabut baca `plan_week`/`demand_weekly` untuk Sales.
 4. B6: data Agu–Sep (GL/TB/DI/bank/stok) + rebuild + FINAL + impor FS (B-R90/91) — butuh app terhadap KGR-OS (D2/D3) atau `db-ops` dengan secret (D4).
