@@ -482,3 +482,8 @@ bergantung pada siapa yang menekan tombol).
 
 Q-v5.2-82. Halaman yang menghitung langsung (`loadCash`, `computeMonth`, kunci versi) tetap memakai RLS pemanggil.
 Diterima untuk v5.2; perbedaan tampilan vs mart untuk role sempit dicatat sebagai batas.
+
+Q-v5.2-83. Preview Deployment Vercel dimatikan untuk cabang kerja (`v*/**`, `ops/**`, `docs/**`, `claude/**`) lewat
+`git.deploymentEnabled` di `apps/web/vercel.json` (PR #55). Alasan: kuota deploy harian habis oleh preview, sehingga
+merge #53 tidak sampai ke production ("Deployment rate limited — retry in 24 hours"). Preview tidak dipakai di Definisi
+Selesai (T19 memakai staging). Diputuskan agen atas delegasi Dika, 18 Okt 2026.

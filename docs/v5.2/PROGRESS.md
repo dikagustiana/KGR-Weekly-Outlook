@@ -49,6 +49,9 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 | A5 R70–R74 | **merge** (#52 `9431b44`) | job CI `e2e`: T7 49 lulus 0 xfail, matriks 120, volume 13, F19 12 + 4 xfail (Q-v5.2-51 cron tanpa sesi → cabang `v5.2/a1d-cron-client`). **Cron jangan dinyalakan sebelum perbaikan ini** |
 | A3 R59–R67 | **merge** (#51 `b408a9a`) | gate agen + CI run 39104756583 engine ✓ lint ✓ rls ✓; mode memo O24(b) di KGR-OS 18 Okt 06.42 UTC |
 | A1b schema_version | **merge** (#50 `044d735`) | banner skema dari RPC `schema_version()`, `EXPECTED_SCHEMA` 5.2.2; KGR-OS 5.2.4. CI run 39104463074 engine ✓ lint ✓ rls ✓ |
+| A1c objek B5 di kode + Q-v5.2-15 sisi kode | **merge** (#53 `5119dc1`); **belum di production** | CI run 39108199326 (PR) dan 39108195839 (push): engine ✓ lint ✓ rls ✓ e2e ✓. Run PR sebelumnya merah palsu: `test-rls.sh` memakai `echo "$OUT" | grep -q` di bawah pipefail (SIGPIPE → "no results"); diperbaiki dengan here-string (`e2b09eb`, diulang lokal 50/50 → 0/50). Deploy Vercel `5119dc1` gagal: **"Deployment rate limited — retry in 24 hours"** (kuota harian habis oleh preview cabang) → PR #55 (deploy hanya `main`). Bundel B6 menunggu A1c di production (Q-v5.2-79) |
+| A1d Q-v5.2-51 | PR #54 (`1a9c8f9`, sudah memuat #53) | merge lokal A1c: satu konflik `snapshot.json`; typecheck ✓, web 681/681, lint ✓ |
+| B6 Q-v5.2-15 sisi DB | cabang `b2faa52` (sudah memuat #53); `ref_b6` lokal siap | test:rls OK 47 blok (lokal PG16); sidik `ref_b6` vs `ref_b5`: hanya fn, pol, view berubah. Menunggu A1c di production |
 | A4 R69 | **merge** (#49 `f3b33cb`, sesudah B5 di KGR-OS) | `origin/v5.2/a4-fs-recon` `880db36`; merge sesudah B5 di `main` dan KGR-OS |
 | Sidik skema KGR-OS | **selesai** | KGR-OS = repo v5.0 (modulo CRLF, MAINTAIN PG17); gladi bundel v5.1 + B2 lokal 12/12 + 24/24 (`docs/v5.2/bukti/kgr-os-schema-vs-repo.md`) |
 | Workflow `db-ops` | **merge** (#46 `e532204`, #48 `c7b5714`) | pemicu push `ops/db-ops.json` ke cabang `ops/db-run` (integrasi agen tidak bisa `workflow_dispatch`, 403). Uji pemicu run 39103012742 (18 Okt 06.09 UTC): guard berhenti benar — `STAGING_DB_URL` dan `SUPABASE_DB_URL` belum diisi (D4) | staging-migrate / test-rls / bundle, kgr-os-apply (pg_dump + uji kering + `psql -1`), restore-test T23; menunggu D1 + D4 |
@@ -56,13 +59,13 @@ Baca ini di awal setiap sesi. Pelaksana: agen Claude Code atas delegasi Dika (br
 
 ## Berikutnya
 
-Sesi 18 Okt (berjalan). KGR-OS = repo 5.2.4. Agen aktif: A3 (menggabungkan `main` ke #51, konflik dengan R69), A5 (e2e).
+Sesi 18 Okt (berjalan, ±08.00 UTC). KGR-OS = repo 5.2.4.
 
-1. (selesai) A3 #51 merge, mode memo aktif. Berikut: irisan A1c (override Finance lewat RPC, `EXPECTED_SCHEMA` 5.2.4, A2 menulis kolom B5, Sales lewat `surplus_for_sales_v52`).
-2. A5 (R70–R74, job CI `e2e`).
-3. Q-v5.2-15: komersial Sales lewat `surplus_for_sales_v52`, lalu migrasi B mencabut baca `plan_week`/`demand_weekly` untuk Sales.
-4. B6: data Agu–Sep (GL/TB/DI/bank/stok) + rebuild + FINAL + impor FS (B-R90/91) — butuh app terhadap KGR-OS (D2/D3) atau `db-ops` dengan secret (D4).
-5. Mode memo O24 di KGR-OS sesudah A3 di production; flag v5 ke semua role sesudah T19 (atau keputusan Dika).
+1. Kuota deploy Vercel pulih → push `main` berikutnya men-deploy A1c (+ #54/#55 bila sudah merge). Cek status commit
+   `main` ("Vercel" = success) sebelum langkah 2.
+2. B6: backup → `docs/v5.2/kgr-os-migrasi-v52-b6.sql` (cek 15/15) → sidik = `ref_b6` → log → PR cabang B6 → merge.
+3. A1d (#54) merge sesudah CI hijau; cron (CRON_SECRET) baru boleh dinyalakan sesudah A1d di production.
+4. A6 (Q-v5.2-50/52/72, .xls, R75–R79), B6 data Agu–Sep (D2/D3/D4), flag ke semua role sesudah T19.
 
 ## Blocker aktif
 
