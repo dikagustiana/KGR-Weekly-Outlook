@@ -1,21 +1,28 @@
 "use client";
 /**
- * Upload dan cek (PRD v5 §4.9, §6.4, K34): a file (.xlsx through the SheetJS mini build, loaded on demand; .csv
- * without a library), a range pasted from Excel (TSV), or the mockup example; the same validateUpload as the server;
+ * Upload dan cek (PRD v5 §4.9, §6.4, K34): a file (.xlsx through the SheetJS mini build, loaded on demand; the legacy .xls
+ * through the core build, loaded only for such a file (R78); .csv without a library), a range pasted from Excel (TSV), or
+ * the mockup example; the same validateUpload as the server;
  * "Simpan N baris yang lolos" sends the raw grid and the preview fingerprint — the server checks again and refuses a
  * different result. An example is never saved.
  */
 import { useActionState, useMemo, useState, type ChangeEvent } from "react";
 import { UPLOAD_TEMPLATES, parseCsv, parseTsv, templateGrid, validateUpload, type Grid, type UploadContext, type UploadKindV5 } from "@kgr/engine/upload";
-import { workbookGrid, type SheetLib } from "@/lib/v5/upload-grid";
+import { isLegacyXls, workbookGrid, type SheetLib } from "@/lib/v5/upload-grid";
 
 export type ActionState = { ok?: string; error?: string };
 /** PRD v5.1 R36 (v4 §5.1 rule 3): the level of a check in words, no icon and no colour. */
 const CHECK_LEVEL = { ok: "", warn: "catatan:", fail: "ditahan:", info: "" } as const;
 const LEVEL = { ok: "lolos", warn: "catatan", fail: "gagal" } as const;
 
-async function sheetLib(): Promise<SheetLib & { write: (wb: unknown, o: { type: "array"; bookType: "xlsx" }) => ArrayBuffer; utils: SheetLib["utils"] & { aoa_to_sheet(r: unknown[][]): unknown; book_new(): unknown; book_append_sheet(wb: unknown, ws: unknown, n: string): void } }> {
+type Lib = SheetLib & { write: (wb: unknown, o: { type: "array"; bookType: "xlsx" }) => ArrayBuffer; utils: SheetLib["utils"] & { aoa_to_sheet(r: unknown[][]): unknown; book_new(): unknown; book_append_sheet(wb: unknown, ws: unknown, n: string): void } };
+async function sheetLib(): Promise<Lib> {
   const mod = await import("xlsx/dist/xlsx.mini.min.js");
+  return ((mod as { default?: unknown }).default ?? mod) as never;
+}
+/** R78: the build that also reads .xls (BIFF); about twice the size of the mini build, so only a legacy file loads it. */
+async function legacyLib(): Promise<Lib> {
+  const mod = await import("xlsx/dist/xlsx.core.min.js");
   return ((mod as { default?: unknown }).default ?? mod) as never;
 }
 
@@ -42,12 +49,14 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
     try {
       if (name.endsWith(".csv") || name.endsWith(".txt")) { setSrc({ name: f.name, grid: parseCsv(await f.text()), sample: false }); setStatus(""); return; }
       if (name.endsWith(".tsv")) { setSrc({ name: f.name, grid: parseTsv(await f.text()), sample: false }); setStatus(""); return; }
-      if (name.endsWith(".xls")) { setStatus("Format .xls lama tidak dibaca build mini: simpan ulang sebagai .xlsx, atau salin sel dan tempel di bawah."); return; }
       setStatus("Membaca file…");
-      setSrc({ name: f.name, grid: workbookGrid(await sheetLib(), new Uint8Array(await f.arrayBuffer())), sample: false });
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      // R78: .xls (by its name or by its content) through the core build; everything else through the mini build
+      const legacy = name.endsWith(".xls") || isLegacyXls(bytes);
+      setSrc({ name: f.name, grid: workbookGrid(legacy ? await legacyLib() : await sheetLib(), bytes), sample: false });
       setStatus("");
     } catch (err) {
-      setStatus(`File tidak terbaca: ${err instanceof Error ? err.message : String(err)}`);
+      setStatus(`File tidak terbaca: ${err instanceof Error ? err.message : String(err)}${name.endsWith(".xls") ? ". Simpan ulang sebagai .xlsx, atau salin sel dan tempel di bawah." : ""}`);
     }
   }
 
@@ -65,7 +74,7 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
   return (
     <div className="upl" data-upload={kind}>
       <div className="actionbar">
-        <label className="v4b">Pilih file Excel atau CSV<input type="file" accept=".xlsx,.csv" onChange={onFile} className="sr-only" /></label>
+        <label className="v4b">Pilih file Excel atau CSV<input type="file" accept=".xlsx,.xls,.csv" onChange={onFile} className="sr-only" /></label>
         {sample ? <button type="button" className="v4b" onClick={() => setSrc({ name: "contoh", grid: sample, sample: true })}>Pakai file contoh</button> : null}
         <button type="button" className="v4b" onClick={makeTemplate}>Buat template</button>
         {tplUrl ? <a className="v4b link" href={tplUrl} download={tplUrl.startsWith("blob:") ? tpl.fileName : undefined}>Unduh {tpl.fileName}</a> : null}
