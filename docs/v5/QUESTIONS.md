@@ -340,3 +340,150 @@ Q-v5.2-17. **Price list terkunci yang diarsip permanen**: diterima (A-REL-9). La
 Q-v5.2-18. **Sisa kebocoran biaya ke Sales**: `holding_loss_per_day` dan `downgrade_risk_rp` di dua view Sales ikut dibungkus `sees`, dan `price_floor_rule` tidak terbaca Sales (migrasi B5, kolom view sama). `floor_of` tetap tanpa `execute` untuk klien.
 
 Q-v5.2-19. **Snapshot sebagai bukti**: DB hanya menghitung ulang C53 dan K35. Diterima.
+
+**Q-v5.2-20 … 29 (dari A2, `docs/v5.2/a2.md` §6).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-20…22. **Objek DB untuk A2 (B-R85)**: `plan_check_reason.plan_week_id`, `plan_week_class.detail jsonb`, `batch.lb_price_source` dimasukkan ke migrasi B5 (`docs/v5.2/brief-b5.md`). Sampai bundel B5 ada di KGR-OS, kode memakai pengganti yang tertulis di `a2.md` (alasan C58 terikat versi lewat waktu; pembagian tanggal dari profil demand; provenance di pesan salin). Kode yang memakai kolom itu menyusul sesudah B5 di KGR-OS.
+
+Q-v5.2-23. Forecast mingguan disebar rata 7 hari (meniru `splitHeadsByDay` v4). Diterima; pola lain menunggu data PPIC.
+
+Q-v5.2-24. C58 untuk STD: tanpa supply sama sekali = BELUM DIISI; ada supply tetapi bukan kelasnya, atau kebutuhan STD dengan supply apa pun = PERIKSA; supply tanpa kelas diabaikan (O20). Diterima. Akibatnya, selama `size_class_map` kosong (D8) salin ke batch butuh alasan C58 tertulis.
+
+Q-v5.2-25. Yield matrix berbasis kg LB dibagi (1 − susut) untuk `planBatchRow`; urutan yield kelas → STD → parameter v1, berlabel. Diterima.
+
+Q-v5.2-26. Tanggal potong sebelum tanggal data tanpa keputusan LB tidak ditahan C57; harga jatuh ke supply lalu parameter hari ini (berlabel). Diterima (K25 berlaku untuk keputusan ke depan).
+
+Q-v5.2-27. Upload WP: baris file yang tertahan mempertahankan baris lamanya dan C22 menghitungnya; baris yang tidak ada di file ditarik. Diterima (R58).
+
+Q-v5.2-28. Commit PO upload tetap per baris karena approval C38 per baris. Diterima untuk v5.2.
+
+Q-v5.2-29. Karkas `Frozen` dikeluarkan dari demand kelas (perbandingan bentuk tanpa beda huruf). Diterima (perbaikan bug).
+
+**Q-v5.2-40 … 45 (dari A4, `docs/v5.2/a4.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-40. C59 pada kunci FINAL dinilai hanya bila FS bulan itu sudah diimpor dan ada pemetaan `agreed`; tanpa itu C59 BELUM DIISI di halaman dan tidak menahan FINAL (urutan B6: FINAL dulu, impor FS sesudahnya). Diterima. DoD 5 tetap meminta C59 Agustus/September terlihat di halaman Rekonsiliasi sesudah impor.
+
+Q-v5.2-41. Ekuitas b.77 berselisih Rp 2,71 (b.71 FS ≠ TB; FS sendiri tidak seimbang Rp 4,93). Angka tidak disesuaikan (K62). Keputusan Finance: koreksi b.71 di FS, atau override C59 bulanan dengan alasan ini — dicatat di BUTUH-DIKA D9; sampai itu, baris b.77 berstatus `beda` dengan sebab tertulis (memenuhi DoD 5 "setiap beda punya sebab tertulis").
+
+Q-v5.2-42. Penanda "jurnal bulan lengkap" per bulan tidak dibuat di v5.2; sebab `data belum ada` ditentukan dari tanggal jurnal terakhir vs akhir bulan. Diterima.
+
+Q-v5.2-43. FINAL terkunci tanpa baris laba rugi v4 di snapshot ditolak dengan galat (tidak diganti angka bulan berjalan). Diterima (gagal-tertutup).
+
+Q-v5.2-44. Neraca app akhir bulan = TB minggu terakhir (week_start ≤ akhir bulan) + jurnal sesudah tanggal TB. Diterima.
+
+Q-v5.2-45. `fs_line_map.status` ('draft'|'agreed') ada di migrasi B5; teks B-R86 PRD B dianggap diselaraskan oleh migrasi itu.
+
+**Q-v5.2-60 … 69 (dari B5, `docs/v5.2/b5.md` §6).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-60. Bentuk `fs_statement_line`/`fs_line_map` mengikuti B-R86 dan cocok dengan loader A4 (0 kolom tak dikenal). `fs_line_map.status` ('draft'|'agreed') dan `source_file`/`source_sha256` NOT NULL (K70) dianggap bagian B-R86. Peran di luar empat pembaca membaca 0 baris (bukan galat). Diterima.
+
+Q-v5.2-61. Override posting alokasi oleh Finance (R61) = RPC `post_allocation_override(uuid[], text)`, bukan hak UPDATE tabel. Diterima (paling sempit). Kode A3 beralih ke RPC sesudah bundel B5 ada di KGR-OS; sampai itu override hanya Admin.
+
+Q-v5.2-62. Indeks lama `plan_check_reason (week_start, code)` tidak dicabut (tanpa drop): alasan versi lama ditarik dulu sebelum versi baru menulis alasannya (perilaku A2 sekarang). Diterima.
+
+Q-v5.2-63. Bentuk isi `plan_week_class.detail` ditentukan kode A2; DB hanya menjaga tipe (object/array). Diterima.
+
+Q-v5.2-64. `audit_log`: jejak `price_floor_rule` disembunyikan dari Sales dan jejak tabel FS hanya untuk pembacanya. Jejak tabel biaya/kas masih terbaca peran non-Sales: diterima untuk v5.2 (peran itu internal; PRD tidak membatasi), dicatat untuk PRD berikutnya.
+
+Q-v5.2-65. C59 tidak ditegakkan `release_month` di v5.2; penahanan di pra-pemeriksaan FINAL app (A4, Q-v5.2-40). Diterima.
+
+Q-v5.2-66. `fs_statement_line.locked_at` diisi oleh impor B-R91 (bukan trigger); mengubah pasangan `fs_line_map` yang sudah `agreed` tidak mengembalikannya ke `draft` — perubahan pemetaan hanya oleh Finance/Admin dan tercatat `updated_by/updated_at`. Diterima untuk v5.2; persetujuan pemetaan untuk Agustus–September dicatat di `docs/v5.2/fs-recon-2026-08.md`/`-09.md` (B6).
+
+Q-v5.2-67. Q-v5.2-15 (cabut baca `plan_week`/`demand_weekly` untuk Sales) tetap menunggu kode komersial yang memakai `surplus_for_sales_v52`. Diterima.
+
+Q-v5.2-68. Penanda "jurnal bulan lengkap" tidak dibuat (sama dengan Q-v5.2-42). Diterima.
+
+Q-v5.2-69. Prasyarat bundel B5 = `schema_version() >= 5.2.2` (bundel bisa dijalankan ulang). Diterima.
+
+**Keputusan Dika 18 Okt 2026 (chat): "langsung aja merge di database utama gak usah staging".** Rem "staging dulu" (brief Bab 4, K67, Q-v5.2-4) dilepas untuk bundel v5.1, B2, B5: ketiganya diterapkan langsung di KGR-OS 18 Okt (rincian dan bukti: `docs/v5.2/kgr-os-log.md` § 18 Okt). Rem lain dipertahankan agen: backup `bak_20261018t0612` sebelum perubahan, tiap berkas atomik, tabel cek semua true (12/12, 24/24, 26/26), dan sidik skema KGR-OS = DB lokal dengan bundel yang sama (9/9 kategori sesudah tiap bundel). Akibat: T19, T21 (test:rls di Supabase sungguhan) dan T23 (uji pulih ke staging) belum punya bukti di Supabase; tetap terbuka sampai staging ada atau Dika menutupnya.
+
+**Q-v5.2-50 … 54 (dari A5, `docs/v5.2/a5.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-50. C42 hanya menilai baris yield yang berlaku (tanggal berlaku terbaru per kelas × pola × key) dan hanya pola yang dipakai rencana (karkas; O33(b)); baris placeholder `boneless` lama tidak menahan. Dikerjakan di irisan A6. Editor rentang kelas dan peta ukuran → kelas tetap di luar v5.2 (diisi lewat data master, BUTUH-DIKA D8).
+
+Q-v5.2-51. Route cron dan setiap builder memakai klien yang diberikan pemanggil (service client di cron, klien sesi di app); tidak ada `supabaseServer()` di dalam builder. Dikerjakan di cabang `v5.2/a1d-cron-client`. **Cron tidak boleh dinyalakan (`CRON_SECRET`, D2) sebelum perbaikan ini ada di production.**
+
+Q-v5.2-52. PPIC mendapat tombol bangun ulang antrean (sampai hari ini) di layar alokasi bila C45 STALE, sama dengan aksi Finance; tidak menunggu cron. Dikerjakan di irisan A6.
+
+Q-v5.2-53. Komitmen tetap per key dasar (`RPA|Karkas`). Aturan assignment Sales: Kepala Sales menugaskan key dasar bila Sales itu membuat komitmen (O21(b): key dasar mencakup semua bentuk); assignment berakhiran bentuk hanya untuk Sales yang tidak membuat komitmen. Dicatat juga di `docs/v5.2/users.md` saat user dibuat (B-R87).
+
+Q-v5.2-54. Data uji e2e ditangani di `week-complete.sql` tanpa melonggarkan kontrol. Diterima.
+
+**Q-v5.2-30 … 39, 46 … 48 (dari A3, `docs/v5.2/a3.md` §4).** Diputuskan agen atas delegasi Dika, 18 Okt 2026. Butir DB
+A3 ditulis di `a3.md` sebagai Q-v5.2-40…42; nomor itu sudah dipakai A4, jadi di sini menjadi Q-v5.2-46…48.
+
+Q-v5.2-30. Override posting alokasi Finance lewat RPC `post_allocation_override` (B5 di KGR-OS 18 Okt); kode
+penggantinya di A1c (#53). Diterima.
+
+Q-v5.2-31. Mode `memo` (O24 b) aktif di KGR-OS sejak 18 Okt 06.42 UTC (log), sesudah A3 di production. Finance tetap
+boleh meminta kembali ke `cogs` (satu `update app_setting`, dicatat di log).
+
+Q-v5.2-32. Beban nonkas di kas 12 bulan = penyusutan dan amortisasi prepaid saja. Diterima; daftar dikonfirmasi Finance
+saat FINAL Agustus (BUTUH-DIKA bila ada baris lain).
+
+Q-v5.2-33. kg komitmen kosong ditolak (R64). Diterima.
+
+Q-v5.2-34. Baris order tanpa kg: keluar dari alokasi, C29 BELUM DIISI, pengiriman ditolak. Diterima.
+
+Q-v5.2-35. Stok lot tanpa umur tidak dihitung layak jual. Diterima (penjaga; ledger selalu menulis umur).
+
+Q-v5.2-36. Periode tarif dengan batch tanpa kg LB tidak dihitung idle-nya. Diterima untuk v5.2; catatan di layar masuk
+irisan A6 (bukan kontrol baru).
+
+Q-v5.2-37. Run-rate kosong tidak ditulis, penyesuaian kosong = tanpa penyesuaian, `week.lw_*` kosong tidak menimpa.
+Diterima.
+
+Q-v5.2-38. Lint `missing` tidak diperluas ke `?? D(0)` / `ZERO` (12 pemakaian ditinjau tangan). Diterima.
+
+Q-v5.2-39. Pengecualian O13 (88,2%, 30/34) tetap berlaku sampai Finance menyerahkan recost Accurate per GRN Agustus.
+
+Q-v5.2-46. `cash_position_daily.total_plan_in/out` tetap NOT NULL DEFAULT 0 di v5.2 (tanpa pembaca di app). Tidak diubah.
+
+Q-v5.2-47. `runrate.*`, `week.lw_*`, `sales_commitment.*_kg` tetap NOT NULL; kode menolak kosong, tidak menyimpan 0.
+Tidak diubah di v5.2.
+
+Q-v5.2-48. `allocation_line.cost_per_kg` tetap NOT NULL; A3 menilai `price_ref`. Diterima.
+
+**Q-v5.2-70 … 79 (dari A1c `docs/v5.2/a1c.md` §4 dan B6 `docs/v5.2/b6.md`).** Diputuskan agen atas delegasi Dika,
+18 Okt 2026.
+
+Q-v5.2-70. `batch.lb_price_source` untuk harga dari supply LB atau parameter = `manual`. Diterima; pembedaan supply vs
+parameter tetap di pesan salin.
+
+Q-v5.2-71. `surplus_for_sales_v52` menormalkan kunci unit (`Karkas` → `RPA|Karkas`) di B6. Diterima (perbaikan view B2;
+hasil kode A1c sama sebelum dan sesudah bundel).
+
+Q-v5.2-72. `plan_day` juga ditutup untuk Sales, sejalan dengan Q-v5.2-15: satu `alter policy` di migrasi berikutnya
+(B7, irisan A6), sesudah kode yang tidak lagi membacanya sebagai Sales ada di production (sudah, A1c).
+
+Q-v5.2-73. `tg_plan_check_reason_scope` menjadi SECURITY DEFINER (isi sama, `search_path` kosong). Diterima.
+
+Q-v5.2-74. `audit_log_sales_redact` memuat `plan_week`, `plan_week_class`, `demand_weekly`, `demand_class_weekly`.
+Diterima; `plan_day` ikut saat Q-v5.2-72 dikerjakan.
+
+Q-v5.2-75. Posting biasa memposting run berharga lengkap dan menyebut yang tertahan; C24 tetap menahan rilis. Diterima.
+
+Q-v5.2-76. Halaman Input costing dibuka untuk Finance (ringkas: kontrol C21–C24 + kartu override); navigasi Demand
+dicabut untuk Sales. Diterima.
+
+Q-v5.2-77. `plan_week_class.detail` yang tidak sah menahan salin (tidak jatuh ke profil). Diterima.
+
+Q-v5.2-78. Alasan C58 ganda dicegah di kode; hanya C58 yang terikat versi. Diterima.
+
+Q-v5.2-79. Urutan wajib: A1c di production lebih dulu, lalu bundel B6 di KGR-OS, lalu merge cabang B6. Diterima.
+
+**Q-v5.2-80 … 82 (dari A1d, `docs/v5.2/a1d.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-80. `supabaseServer()` satu klien per request (cache React); route handler tetap klien baru per panggilan.
+Diterima.
+
+Q-v5.2-81. Rebuild dari tombol app membaca minggu dengan klien servis, identik dengan cron. Diterima (mart bersama tidak
+bergantung pada siapa yang menekan tombol).
+
+Q-v5.2-82. Halaman yang menghitung langsung (`loadCash`, `computeMonth`, kunci versi) tetap memakai RLS pemanggil.
+Diterima untuk v5.2; perbedaan tampilan vs mart untuk role sempit dicatat sebagai batas.
+
+Q-v5.2-83. Preview Deployment Vercel dimatikan untuk cabang kerja (`v*/**`, `ops/**`, `docs/**`, `claude/**`) lewat
+`git.deploymentEnabled` di `apps/web/vercel.json` (PR #55). Alasan: kuota deploy harian habis oleh preview, sehingga
+merge #53 tidak sampai ke production ("Deployment rate limited — retry in 24 hours"). Preview tidak dipakai di Definisi
+Selesai (T19 memakai staging). Diputuskan agen atas delegasi Dika, 18 Okt 2026.
