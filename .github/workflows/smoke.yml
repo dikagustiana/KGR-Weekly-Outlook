@@ -28,6 +28,7 @@ jobs:
           check /api/cron/rebuild 401 '"unauthorized"'
           check /w/2026-08-24 307
           check /admin/pengguna 307
+          check /komersial/assignment 307
           echo "--- login with an address that does not exist (proves app -> Supabase Auth; no real credentials)"
           curl -sS -c jar.txt "$BASE/login" -o login.html
           python3 - <<'PY' > fields.txt
