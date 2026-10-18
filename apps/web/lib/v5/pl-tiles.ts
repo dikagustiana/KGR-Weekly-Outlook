@@ -51,6 +51,18 @@ function colLabel(t: PlTable, c: PlColumn, budgetEmpty: boolean): string {
 
 const cell = (v: Decimal | null, pct: boolean, missing: string) => (v === null ? missing : pct ? pctV4(v, 1) : jtV4(v));
 
+/**
+ * PRD v5.2 O19: "Beban tetap belum dijurnal" is a cumulative estimate per month (the month's nominal ÷ calendar days, less what the journal
+ * already holds). In the week a salary is posted the journal passes the estimate and the row turns positive: it gives back the estimate of
+ * the weeks before, and the month is right. The note says so, only when a column of the row is positive.
+ */
+export const FIXED_POSITIVE_NOTE = " \"Beban tetap belum dijurnal\" bisa positif di minggu posting gaji: baris ini kumulatif per bulan (nominal bulan ÷ hari kalender dikurangi yang sudah dijurnal), jadi minggu saat gaji dijurnal mengembalikan estimasi minggu-minggu sebelumnya; total bulan tetap benar.";
+export function fixedPositiveNote(t: PlTable): string {
+  const row = t.rows.find((r) => r.key === "fixed");
+  if (!row || t.fixedMissing) return "";
+  return row.values.some((v, i) => v !== null && v.gt(0) && t.columns[i].kind !== "share" && t.columns[i].kind !== "budget") ? FIXED_POSITIVE_NOTE : "";
+}
+
 /** K30 tile: Actual vs run-rate (rr) or Per minggu (wk); the other view and the split are links (query string). */
 export function plTableTile(t: PlTable, o: {
   id: string; pos: TilePos; hrefs: { rr: string; wk: string }; fixed: FixedSource[]; status: string;
@@ -58,6 +70,8 @@ export function plTableTile(t: PlTable, o: {
   mode?: CostingRowsMode;
   /** R67: which cost the forecast order lines took (plan cost or MA), as the month builder recorded it. */
   forecastText?: string | null;
+  /** PRD v5.2 O17: the Manajemen tile is collapsed by default at <= 768 px (Minggu ini); the month page keeps it open. */
+  collapseMobile?: boolean;
 }): TileModel {
   const budgetIdx = t.columns.findIndex((c) => c.kind === "budget");
   const budgetEmpty = budgetIdx >= 0 && t.rows.every((r) => r.values[budgetIdx] === null);
@@ -78,15 +92,17 @@ export function plTableTile(t: PlTable, o: {
   const fw = fixedWords(o.fixed);
   const est = o.fixed.filter((f) => f.source === "estimasi bulan lalu");
   const fixedText = byK29(o.fixed).map((f) => `${LINE_WORD[f.pl_line] ?? f.pl_line} ${jtV4(f.nominal)}`).join(" + ");
+  const fixedNote = fixedPositiveNote(t);
   const memoNote = o.mode === "memo" ? ` Selisih costing dan biaya kapasitas idle tampil sebagai memo: kolom jurnal memuat baris jurnal saja (sama dengan FS), NIBT manajemen (${jtV4(o5.nibtMgmt)} jt) memuat keduanya (K63).` : "";
   const note = (t.view === "rr"
     ? [gpRest === null ? null : `Sisa bulan GP ${jtV4(gpRest)} jt.`,
       t.fixedMissing
         ? `NIBT menurut jurnal ${jtV4(o5.nibt)} jt; beban tetap bulan ini belum ada (jadwal Finance dan FINAL bulan lalu kosong, C55), jadi NIBT setelah beban tetap belum bisa dihitung.`
         : `NIBT menurut jurnal ${jtV4(o5.nibt)} jt${fw ? ` belum memuat ${fw}` : ""}; setelah beban tetap ${jtV4(o5.fixed.neg())} jt, ${monthWord(t.month)} ${o5.nibtAfter.lt(0) ? "diproyeksikan rugi" : "diproyeksikan laba"} ${jtV4(o5.nibtAfter)} jt.`].filter(Boolean).join(" ")
-    : `Minggu tertutup dari jurnal; kolom miring berisi PO dan run-rate.${fw ? ` ${fw.charAt(0).toUpperCase()}${fw.slice(1)} baru dijurnal saat tutup buku, jadi tiap minggu memuat estimasinya per hari kalender.` : ""}`) + memoNote;
+    : `Minggu tertutup dari jurnal; kolom miring berisi PO dan run-rate.${fw ? ` ${fw.charAt(0).toUpperCase()}${fw.slice(1)} baru dijurnal saat tutup buku, jadi tiap minggu memuat estimasinya per hari kalender.` : ""}`) + fixedNote + memoNote;
   return {
     id: o.id, pos: o.pos, title: `Laba rugi ${monthWord(t.month)} ${t.month.slice(0, 4)} (Rp jt)`, note,
+    ...(o.collapseMobile ? { collapse: { label: "tabel laba rugi" } } : {}),
     views: [{ label: "Tampilan laba rugi", current: t.view, options: [{ value: "rr", label: "Actual vs run-rate", href: o.hrefs.rr }, { value: "wk", label: "Per minggu", href: o.hrefs.wk }] }],
     cara: {
       title: "Laba rugi bulan", fn: `plTable('${t.view}')`, status: o.status,
@@ -253,6 +269,6 @@ export function mingguIniV5(tiles: TileModel[], x: { v5: MingguIniV5Pl; weekStar
     return moved;
   });
   const table = plTable(x.v5.pl, x.v5.first, { rows: x.v5.rows, cutOff: x.v5.cutOff, highlight: x.weekStart, split: x.split && x.v5.pl === "wk", nominals: x.v5.fixed, mode });
-  out.push(plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href("rr"), wk: x.v5.href("wk") }, fixed: x.v5.fixed, status: "draft", mode }));
+  out.push(plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href("rr"), wk: x.v5.href("wk") }, fixed: x.v5.fixed, status: "draft", mode, collapseMobile: true }));
   return out;
 }

@@ -98,7 +98,7 @@ export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: 
   return (
     <TileGrid label={label}>
       {ordered.map((t) => (
-        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.error ? undefined : t.note} source={t.error ? undefined : t.source}
+        <Tile key={t.id} id={t.id} pos={t.pos} title={t.title} kind={t.kind} note={t.error ? undefined : t.note} source={t.error ? undefined : t.source} collapse={t.error ? undefined : t.collapse?.label}
           extra={legendOf(t) || t.cara || t.views ? <span className="tile-x">{(t.views ?? []).map((v) => <Slicer key={v.label} label={v.label} options={v.options} current={v.current} hideLabel />)}{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
           {t.error ? <p className="tile-err" role="alert" data-tile-error="">Gagal memuat data tile ini: {t.error}</p> : <>{body(t)}{extras?.[t.id] ?? null}</>}
         </Tile>
