@@ -97,10 +97,6 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
   const base = `${weekStart}/${loaded.week.update_date}_${stamp}`;
   const now = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
   const pdf = await outlookPdf(result, { releasedBy, generatedAt: now, k25: opts.k25 === true });
-  const up1 = await sb.storage.from("releases").upload(`${base}.json`, new Blob([json], { type: "application/json" }), { contentType: "application/json" });
-  if (up1.error) throw new WriteError(`Simpan snapshot: ${up1.error.message}`);
-  const up2 = await sb.storage.from("releases").upload(`${base}.pdf`, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { contentType: "application/pdf" });
-  if (up2.error) throw new WriteError(`Simpan PDF: ${up2.error.message}`);
   const i = loaded.inputs;
   const ops = [
     ...i.sales_lines.filter((r) => r.source === "Ops").map((r) => ({ table: "sales_line", id: r.id, document_ref: r.document_ref })),
@@ -108,8 +104,47 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     ...i.batches.filter((r) => r.source === "Ops").map((r) => ({ table: "batch", id: r.id, document_ref: r.document_ref })),
     ...i.opening_stock.filter((r) => r.source === "Ops").map((r) => ({ table: "opening_stock", id: r.id, document_ref: r.document_ref })),
   ];
-  // PRD v4 §7.2: the release row is written only by public.release_week, which checks again in the transaction
-  const { data, error } = await sb.rpc("release_week", { p_week_id: loaded.week.id, p_json: json, p_sha: sha, p_pdf_path: `${base}.pdf`, p_ops: ops });
-  if (error) throw new WriteError(error.message);
-  return { id: String(data), sha, overall: result.controls.overall, ops: ops.length };
+  // V7 (review v5.3): the files are stored before public.release_week runs (the release row names the PDF path), so a
+  // release the RPC refuses — or a PDF upload that fails after the JSON — would leave files without a release row. The
+  // files stored so far are removed on any failure past the first upload (lib/release-orphans.test.ts).
+  const stored: string[] = [];
+  try {
+    const up1 = await sb.storage.from("releases").upload(`${base}.json`, new Blob([json], { type: "application/json" }), { contentType: "application/json" });
+    if (up1.error) throw new WriteError(`Simpan snapshot: ${up1.error.message}`);
+    stored.push(`${base}.json`);
+    const up2 = await sb.storage.from("releases").upload(`${base}.pdf`, new Blob([new Uint8Array(pdf)], { type: "application/pdf" }), { contentType: "application/pdf" });
+    if (up2.error) throw new WriteError(`Simpan PDF: ${up2.error.message}`);
+    stored.push(`${base}.pdf`);
+    // PRD v4 §7.2: the release row is written only by public.release_week, which checks again in the transaction
+    const { data, error } = await sb.rpc("release_week", { p_week_id: loaded.week.id, p_json: json, p_sha: sha, p_pdf_path: `${base}.pdf`, p_ops: ops });
+    if (error) throw new WriteError(error.message);
+    return { id: String(data), sha, overall: result.controls.overall, ops: ops.length };
+  } catch (e) {
+    await removeReleaseFiles(sb, stored);
+    throw e;
+  }
+}
+
+/**
+ * V7: remove the files of a release that did not happen. `storage.objects` has no delete policy for a session
+ * (kgr_storage_release allows insert only), so the service client removes them; without the key the session client is
+ * tried, and whatever stays is logged by path so Admin can remove it by hand. Never throws: the caller's error is the one
+ * the user must see.
+ */
+export async function removeReleaseFiles(sb: Supa, paths: string[]): Promise<void> {
+  if (!paths.length) return;
+  const client = supabaseService() ?? sb;
+  let left = paths, why = "";
+  try {
+    const r = await client.storage.from("releases").remove(paths);
+    if (r.error) why = `: ${r.error.message}`;
+    else {
+      // the storage API lists the objects it removed; a list without a path = RLS kept it (no delete policy for a session)
+      const gone = new Set((r.data as { name?: string }[] | null ?? []).map((o) => String(o.name ?? ""))); // k41-ok: r.error sudah ditangani di cabang atas; data kosong = tidak ada yang terhapus, dicatat sebagai yatim
+      left = paths.filter((p) => !gone.has(p));
+    }
+  } catch (e) {
+    why = `: ${(e as Error).message}`;
+  }
+  if (left.length || why) console.error(`[release] berkas yatim di bucket releases (rilis tidak terjadi sesudah berkas diunggah): ${left.join(", ") || "-"}${why}`);
 }
