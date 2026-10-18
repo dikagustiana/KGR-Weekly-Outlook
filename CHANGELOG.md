@@ -2,6 +2,37 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a2] Putaran Commercial → PPIC → batch tanpa jalan buntu (docs/PRD-v5.2-A-kode.md irisan A2, R48–R58; docs/v5.2/a2.md)
+
+### Added
+- One copy gate (K58): `copyGate` / `copyPlanToBatches` in `lib/v5/copy-plan.ts` — C42/C45/C46/C47, C57 per cut date × class, C58 (only when `v5_ppic_class` is on for the caller, or with a written reason of this plan version), the downgrade approval; both copy actions and both Rencana pages go through it.
+- Batches are written from the saved `plan_week_class` of the plan version (kg LB and heads per class, class yield with the STD fallback labelled); engine `splitClassPlan`.
+- Tile `t-approval` and `rencanaV5Extras`: Finance / admin approve a plan with a downgrade above the limit on the v5 screen.
+- `refreshTasks`: commitments saved or locked, a surplus answered and a WP uploaded queue the due dates of their tasks (`dueDatesFor`) and the queue is processed inline.
+- Engine: `weightedOpenKg`, `forecastLinesByDate`, `effectiveForecasts` (K2), `lbDecisionFor`, `c57` per class, `assignmentCovers` / `inAssignmentScope` (O21(b)), `UploadContext.assignments`, `UploadBatch.output`.
+- Tests: engine `a2-loop`; web `ppic-loop`, `copy-gate`, `rencana-extras`, `commercial-actions`, `upload-loop`, `lb-decision`; in-memory Supabase client `test-support/mem-sb.ts`; PostgREST 12.2.3 evidence for R55 (`docs/v5.2/bukti/a2-r55-postgrest.*`).
+
+### Changed
+- Class demand = open kg (kg − fulfilled − cancelled, never below 0) × status weight, forecasts as STD lines per date, stock netting after the weighting (R49); a Tentative 100 kg line is 70 kg, a Confirmed 100 kg with 60 kg delivered is 40 kg. Golden B.3 unchanged.
+- C58 judges STD as a class of its own and says "n kg tanpa kelas" (kg, not rows) (R50).
+- Commitments are saved as one request (`upsert … onConflict: "id"`), only the rows that changed; a locked row left alone makes no new version (R55).
+- The surplus answer carries the SKU of the surplus row and is checked against the plan's surplus list (R56).
+- A Sales PO upload replaces or retires only lines inside one assignment row — customer and key together (R58, O21(b)).
+- Steps after a saved upload (update date, queue) no longer leave the upload `staged` when they fail.
+- **Golden `fixtures/upload-samples/expected.json` (costing_wp, `wp_sample.xlsx`, batch B260826) changed — C22 is judged on the output that will be saved** (PRD A R58: "C22 dihitung atas output yang akan disimpan (baris lolos + output lama yang dipertahankan)"), per row:
+  - X-HATI 401,2 kg and KPL-01 338,0 kg are rows held for an unknown code (level `fail`, unchanged); they were counted in Σ SKU, they are not any more. The other six rows (612,4 · 2.081,0 · 1.108,7 · 1.710,0 · 213,9 · 317,6) count as before.
+  - C22 detail: `6.782,8 vs 7.286,6 kg (LB − susut 3%), selisih 6,9% (batas 2%)` → `6.043,6 vs 7.286,6 kg (LB − susut 3%), selisih 17,1% (batas 2%)`
+  - fingerprint `v1:1608d6f7fec05514143f37752ffc` → `v1:109f236b1e87d90966ef14a2667f`
+  - unchanged: `total` 8, `ok_count` 6, `ok_lines`, all `rows`, `needsReason` `["B260826"]`, the other checks (yield karkas 73,4%), `summary`; po_lines and yield_matrix unchanged.
+
+### Fixed
+- A locked commitment above the PO crashed the Rencana v5 page and the class demand builder (a synthetic id went into a UUID query).
+- "Salin ke batch rencana" of the v4 screen skipped C57/C58 and the downgrade approval; the batches were cut from the STD plan days, not the saved class plan.
+- A downgrade approval could not be given on the v5 screen (the form sat on a tile that did not exist).
+- Lock, surplus answer and WP did not refresh their grid cell; the commitment form wrote a new version for every locked SKU, one request at a time.
+- Karkas `Frozen` was counted as live-bird need (the form was compared in lower case).
+- C22 counted rows that were rejected (70 + 27 = 97 passed while 70 was saved).
+
 ## [v5.1-4] Flag per role, C57/C58 PPIC, upload 0.xxx dan O15, UI §5.1/§6.5/K20 (docs/PRD-v5.1.md irisan 4)
 
 ### Added
