@@ -185,4 +185,4 @@ Lingkungan semua bukti di bawah: **PG16 lokal + PostgREST 12 + mock auth** (buka
 | T17 biaya jujur | lulus di A3 (tes unit); e2e: faktur tie tetap sementara sampai posting, lalu final (R60) |
 | T18 engine dan snapshot tetap | lulus: parity 17161/17161, `snapshot:diff` EMPTY (di dasar main b408a9a + A5) |
 | T11 (v5.1) kombinasi flag | 10 kombinasi × 10 role × 8 halaman, tabel tertulis, kolom biaya, API Sales: lulus di PG16 lokal + mock auth (120 cek); belum Supabase |
-| F19 | rebuild cron dua kali identik (lulus); cron berbeda dari rebuild sesi (temuan Q-v5.2-51, XFAIL di F19) |
+| F19 | rebuild cron dua kali identik (lulus); cron berbeda dari rebuild sesi (temuan Q-v5.2-51, XFAIL di F19 saat A5); ditutup di A1d: builder dan cron memakai klien dari pemanggil, F19 16 cek lulus tanpa XFAIL (`docs/v5.2/a1d.md`) |
