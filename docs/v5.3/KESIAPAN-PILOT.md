@@ -4,6 +4,8 @@
 Deployments 7156264852, 14.57 UTC) · Database: KGR-OS `pczjhmzpkknzkziipvit`, `schema_version()` 5.2.6 (dibaca lewat connector,
 hanya SELECT, 18 Okt ±15.10 UTC).
 
+Kolom *Deployed* menilai `main` `9d10f83` yang aktif di production saat laporan ditulis; PR #66–#69 **belum di-merge dan belum di-deploy** sampai Dika melakukannya (§6 langkah 3).
+
 Semua klaim "lulus" menyebut lingkungannya: **vitest** (klien memori, tanpa RLS), **PG16 lokal + shim** (`test-rls.sh`), **PG16
 lokal + PostgREST 12 + mock auth** (stack e2e, *bukan Supabase*), **KGR-OS (connector)**, **CI run N**. Tidak ada klaim untuk
 production selain yang dibaca dari GitHub Deployments dan KGR-OS.
@@ -14,12 +16,12 @@ production selain yang dibaca dari GitHub Deployments dan KGR-OS.
 |---|---|---|---|---|
 | Login, role, navigasi per peran | ya | ya (`9d10f83`) | ya untuk Admin; peran lain **belum ada akunnya** (KGR-OS: 1 `app_user`) | CI run 39138187255 hijau; smoke `ops/smoke`; KGR-OS SELECT 18 Okt |
 | Upload Finance / Inventory Accounting (TB, jurnal, DI, bank, stok) | ya | ya | **belum**: 0 `upload` di KGR-OS; jurnal hanya ekspor lama 1–26 Agu (1.840 baris) | KGR-OS SELECT; SIAP-PAKAI §4b |
-| Rebuild mart + cron | ya (V8 diperketat, PR #66) | kode ya; **tidak jalan** tanpa D2 | **belum**: `data_status` 0 baris, 7 tanggal 24–30 Agu masih `queued`; 42 baris `done` adalah "di luar jendela data", bukan mart | `rebuild.ts:109` `REBUILD_NO_KEY`; KGR-OS SELECT |
-| Komitmen Sales, price list, penugasan Sales | ya (V10 diperketat, PR #68) | ya | **belum**: 0 `sales_assignment`, 0 user Sales; minggu 19 Okt belum dibuat (hanya minggu 24 Agu) | KGR-OS SELECT; e2e A7, L hijau di CI main |
+| Rebuild mart + cron | ya (V8 diperketat, PR #66) | kode `main` ya; **#66 belum di-deploy** (menunggu merge); **tidak jalan** tanpa D2 | **belum**: `data_status` 0 baris, 7 tanggal 24–30 Agu masih `queued`; 42 baris `done` adalah "di luar jendela data", bukan mart | `rebuild.ts:109` `REBUILD_NO_KEY`; KGR-OS SELECT |
+| Komitmen Sales, price list, penugasan Sales | ya (V10 diperketat, PR #68) | kode `main` ya; **#68 belum di-deploy** | **belum**: 0 `sales_assignment`, 0 user Sales; minggu 19 Okt belum dibuat (hanya minggu 24 Agu) | KGR-OS SELECT; e2e A7, L hijau di CI main |
 | Rencana PPIC (demand → kelas → batch) | ya | ya | **belum**: master kelas/yield/kapasitas (D8) belum ada → semua kelas STD | PRD v5.3 bab Masalah; e2e T7/O hijau |
 | Keputusan harga LB (K25, tile simulasi) | ya | ya | **tidak**: input simulasi angka contoh (V4: breakeven 19.466 vs aktual 23.211–24.818); label "contoh" belum ada (R97, agen pembangun) | `supabase/seed/06_sku_price.sql`, `ppic-data.ts:179-187`; layar 18 Okt |
-| Rilis minggu (JSON + PDF + `release_week`) | ya (V7 diperketat, PR #67) | ya | **belum**: 0 `release`; grid kelengkapan butuh rebuild (D2) → K45 menolak rilis sampai grid dibangun | `release.ts`; e2e P hijau |
-| Manajemen (Minggu ini, P&L, kartu) | ya | ya | **tidak** sebagai angka resmi: kartu Stok/Kas bersumber seed/parity dengan label "belum ada" (V5); FS acuan ada tetapi `fs_line_map` 15 baris draft (V3) | tangkapan layar 1366/390 (PG16 lokal); KGR-OS SELECT |
+| Rilis minggu (JSON + PDF + `release_week`) | ya (V7 diperketat, PR #67) | kode `main` ya; **#67 belum di-deploy** | **belum**: 0 `release`; grid kelengkapan butuh rebuild (D2) → K45 menolak rilis sampai grid dibangun | `release.ts`; e2e P hijau |
+| Manajemen (Minggu ini, P&L, kartu) | ya | ya; perbaikan 390 px **#69 belum di-deploy** | **tidak** sebagai angka resmi: kartu Stok/Kas bersumber seed/parity dengan label "belum ada" (V5); FS acuan ada tetapi `fs_line_map` 15 baris draft (V3) | tangkapan layar 1366/390 (PG16 lokal); KGR-OS SELECT |
 | Flag v5 | ya | ya, 6 flag `v5_*` hidup untuk semua role | keputusan Dika (V11) | KGR-OS SELECT `app_setting` |
 
 ## 2. Status V1–V13 dan temuan baru
