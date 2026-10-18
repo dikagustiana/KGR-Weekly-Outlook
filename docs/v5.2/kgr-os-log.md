@@ -69,5 +69,8 @@ view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat 
 | 08.19 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0819`**: 96 tabel, 3.392 kB, anon/authenticated tanpa `usage`; `schema_version()` 5.2.4 |
 | ±08.21 | ✎ bundel B6 (Q-v5.2-15/71/73/74), sesudah A1c di production (Q-v5.2-79) | `docs/v5.2/kgr-os-migrasi-v52-b6.sql` apa adanya (sha256 `227c5107…7426`), satu panggilan | tabel cek **15/15 true**; `schema_version()` **5.2.5**; sidik = lokal `ref_b6` **9/9 identik** (fn `1a5059f1`, pol `1b63d4c0`, view `3ca62957`; regex `\.` dan `\s` utuh) |
 
+| 08.28 | ✎ backup | `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261018t0828`**: 96 tabel, 3.392 kB, anon/authenticated tanpa `usage`; `schema_version()` 5.2.5 |
+| ±08.30 | ✎ bundel B7 (Q-v5.2-72/74/84), sesudah CI cabang B7 hijau (`4db83d0`: engine, lint, rls, e2e) | `docs/v5.2/kgr-os-migrasi-v52-b7.sql` apa adanya (sha256 `4336a9f8…8565`), satu panggilan | tabel cek **16/16 true**; `schema_version()` **5.2.6**; sidik = lokal `ref_b7` **9/9 identik** (pol `78fa5b92`; regex `\m`/`\M` di cek 11 utuh) |
+
 Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
 memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.
