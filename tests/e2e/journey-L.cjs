@@ -53,12 +53,17 @@ const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))
     J.check("tanpa alasan: ditolak 'Komitmen sudah dikunci: versi baru wajib alasan', tidak ada yang disimpan", !!bad.error && /sudah dikunci: versi baru wajib alasan/.test(bad.error) && /Tidak ada komitmen yang disimpan/.test(bad.error), bad.error || bad.ok || "");
     J.log(`    DB komitmen sesudah penolakan: ${fmtC(commit())}`);
     J.check("DB: komitmen tidak berubah (hanya v1 terkunci)", JSON.stringify(commit()) === JSON.stringify(before.commit), fmtC(commit()));
-    // (b) with a reason: v2 as a draft (the form is reset after an action: the number and the reason are typed again)
-    await fresh.fill("16000");
-    await A.commercial_lead.page.locator('input[name="reason"]').fill("PO tambahan PT A");
+    // Q-v5.2-114 (A8): a refusal keeps what was typed (React empties a plain <form action> after every action, a refusal included): the number stays,
+    // so the lead only adds the reason
+    J.check("sesudah penolakan: angka yang diketik (16000) tetap di formulir, tidak perlu diketik ulang", (await fresh.inputValue()) === "16000", await fresh.inputValue());
+    // (b) with a reason: v2 as a draft (the number is not typed again; only the reason)
+    const reasonBox = A.commercial_lead.page.locator('input[name="reason"]');
+    await reasonBox.fill("PO tambahan PT A");
     const ok = await A.commercial_lead.act("Simpan draft");
     J.log(`    commercial_lead  dengan alasan: ${short(ok.ok || ok.error || "", 220)}`);
     J.check("dengan alasan: v2 tersimpan sebagai draft", !!ok.ok && /1 SKU komitmen disimpan sebagai draft/.test(ok.ok) && /1 versi baru/.test(ok.ok), ok.ok || ok.error || "");
+    // after a save the form is back to the stored values: the reason is empty again, the row shows the saved draft (16.000)
+    J.check("sesudah tersimpan: kolom alasan kosong lagi dan angka baris = yang tersimpan (16.000)", (await reasonBox.inputValue()) === "" && (await fresh.inputValue()) === "16.000", `alasan "${await reasonBox.inputValue()}", fresh ${await fresh.inputValue()}`);
     const c1 = commit();
     J.log(`    DB komitmen: ${fmtC(c1)}`);
     J.check("DB: v1 tetap terkunci dan v2 draft 16.000 / 2.000 dengan alasan 'PO tambahan PT A'", c1.length === 2 && c1[0][1] === "locked" && c1[1][0] === "2" && c1[1][1] === "draft" && Number(c1[1][2]) === 16000 && Number(c1[1][3]) === 2000 && c1[1][5] === "PO tambahan PT A", fmtC(c1));

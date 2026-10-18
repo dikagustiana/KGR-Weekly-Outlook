@@ -14,7 +14,7 @@ export function CommitmentForm({ c, save, lock }: { c: KomersialV5Input["commitm
   const open = c.rows.some((r) => r.status !== "locked");
   return (
     <div className="actionbar">
-      <ActionForm v4 action={save} submit="Simpan draft" className="tile-form">
+      <ActionForm v4 keep action={save} submit="Simpan draft" className="tile-form">
         <input type="hidden" name="week_start" value={c.weekStart} /><input type="hidden" name="n" value={c.rows.length} />
         <CommitmentRows c={c} />
         <input name="reason" size={24} placeholder="alasan (wajib bila sudah dikunci)" aria-label="alasan versi baru" />
