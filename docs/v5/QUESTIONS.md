@@ -316,3 +316,27 @@ Q-v5.2-6. **Data production lewat SQL yang meniru upload.** Jalur upload app (te
 Q-v5.2-7. **Uji bundel DATA = uji kering di KGR-OS.** Staging tidak memuat data production (O39), jadi bundel data (bukan DDL) diuji dengan menjalankannya di KGR-OS dalam `begin … rollback` lalu memeriksa tabel ceknya, sesudah backup. Bundel skema/migrasi tetap wajib lulus di staging dulu.
 
 Q-v5.2-8. **Data master PPIC tidak diisi dari fixture.** PRD v5 (baris 280, 491, 621) menyatakan rentang kelas K/S/B, yield per kelas, dan kapasitas di mockup/fixture adalah ilustrasi yang tidak boleh menjadi seed. Hanya `weight_class` STD (sudah terisi) yang bersumber. `size_class_map`, rentang/rata-rata K/S/B, yield per kelas, dan `capacity` menunggu data PPIC (BUTUH-DIKA D8). Tanpa itu kebutuhan kelas memakai STD (fallback berlabel, O20/R63).
+
+Q-v5.2-9. **Cakupan B-R89.** `fs_mapping_reference` diisi kolom Q sheet `PL`/`BS` FS v2 (kriteria `SUMIFS` Management Report), null bila FS tidak memetakan akun itu; label detail lama (kolom R, "Revenue - LB Main Product" dst.) tidak dipertahankan karena tidak dipakai FS maupun kode. Akun yang muncul di GL September tetapi belum ada di `coa_map` ditambah dengan atribut akun sejenis. `pl_line` hanya dipindah untuk akun non-tetap yang berada di baris K29 (B-CST-1: 6100010, 6200006 perjalanan → Office Transportation expenses sesuai FS; 6400007 selisih stok → Other Income seperti kembarannya 7100006). Beda seksi lain (6300004, 6350001, 7100011) dan label Q yang tidak dipakai Management Report tidak diubah: itu definisi FS yang dicatat di rekonsiliasi, bukan disesuaikan (K62).
+
+**Q-v5.2-10 … 19 (dari B2, `docs/v5.2/b2.md` §6).** Diputuskan agen atas delegasi Dika, 17 Okt 2026. Rincian temuan tetap di `b2.md`.
+
+Q-v5.2-10. **C53 di DB meniru engine** ("BELUM DIISI" = WP belum masuk lewat tenggat; WP yang masuk terlambat tidak menahan). Dipertahankan: DB tidak lebih ketat daripada layar. Prasyarat operasional: `v5_costing` dan `m1_costing` dinyalakan bersama (tanpa `m1_costing`, snapshot tanpa C53 → rilis ditolak, sengaja).
+
+Q-v5.2-11. **C55 dibaca dari snapshot**, tidak dihitung ulang DB. Diterima (K68 tidak menuntut lebih).
+
+Q-v5.2-12. **Penulis `week.update_date` di app** dipersempit ke Admin dan Finance (`roles.ts` area `update_date`), dikerjakan di irisan A1b sebelum bundel B2 aktif di KGR-OS. Upload Admin ke minggu `released`/`closed` yang mengubah `update_date`: buka minggunya dulu (K69).
+
+Q-v5.2-13. **`opening_stock_flag` oleh Inventory Accounting.** Hari ini guard menolaknya *setelah* baris upload stok ditulis (`lib/upload.ts:479` `must(...)`), jadi upload berhenti setengah jalan. Diputuskan: `tg_week_guard` mengizinkan `opening_stock_flag` untuk `inventory_accounting` dan `finance` pada minggu `open` saja (migrasi B5; kolom lain tidak berubah), dengan blok tes RLS.
+
+Q-v5.2-14. **K35**: grid kosong total tetap ditolak walau ada override (K45). Diterima.
+
+Q-v5.2-15. **Sales dan rencana.** Residu `plan_week`/`demand_weekly` terbaca Sales ditutup bertahap: kode `app/komersial/actions-v5.ts` mengambil `plan_week_id` lewat `surplus_for_sales_v52` (A2), lalu policy baca `plan_week`/`demand_weekly` untuk Sales dicabut di B5. Angka "tanpa ukuran" untuk Sales (`input-data.ts`) tidak ditampilkan bagi Sales.
+
+Q-v5.2-16. **Dampak O21(b) pada data**: `sales_assignment` di KGR-OS kosong (dicek 17 Okt 2026, 0 baris), jadi tidak ada assignment berakhiran bentuk yang berubah makna. Assignment dibuat sesudah bundel (B-R87) dengan aturan baru.
+
+Q-v5.2-17. **Price list terkunci yang diarsip permanen**: diterima (A-REL-9). Layar Admin menampilkan peringatan sebelum arsip (A6).
+
+Q-v5.2-18. **Sisa kebocoran biaya ke Sales**: `holding_loss_per_day` dan `downgrade_risk_rp` di dua view Sales ikut dibungkus `sees`, dan `price_floor_rule` tidak terbaca Sales (migrasi B5, kolom view sama). `floor_of` tetap tanpa `execute` untuk klien.
+
+Q-v5.2-19. **Snapshot sebagai bukti**: DB hanya menghitung ulang C53 dan K35. Diterima.
