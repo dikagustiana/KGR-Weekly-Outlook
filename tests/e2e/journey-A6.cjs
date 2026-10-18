@@ -10,6 +10,9 @@
 //   (4) R78   a .xls file is read by the Input panel (also one named .xlsx that is an .xls inside)
 //   (5) R79   "1,234" in a number column is held with "format ribuan ambigu"
 //   (6) Q-v5.2-52  C45 STALE with more dates in the queue than one inline run takes: PPIC rebuilds them from the allocation screen
+//   (7) O16   the free stock of Commercial is less the locked commitments of next week not covered by a PO (note with both numbers, and
+//             Manajemen's status line); O17 the Manajemen P&L is collapsed by default at 390 px and "Perlu keputusan" is in view without
+//             opening it; O19 the note of the P&L explains a positive "Beban tetap belum dijurnal"
 // Screenshots (E2E_SCREENS=1, opt-in: 18 PNG, about 20 s) go to out/screens/A6-<screen>-<width>.png; nothing in them but fixture data
 // and the synthetic e2e users.
 const fs = require("node:fs");
@@ -90,6 +93,94 @@ const SIZES = [{ w: 1366, h: 768, tag: "1366x768", full: false }, { w: 899, h: 9
       J.check(`${name}: 390 px tanpa gulir horizontal halaman (${a.role})`, st === 200 && over <= 1, `HTTP ${st}, selisih ${over} px`);
       await resize(a, SIZES[0]);
     }
+  });
+
+  // ------------------------------------------------------------------------------- 1c O17 + O19 (Manajemen P&L)
+  await J.step("1c", A.management, "O17: laba rugi Manajemen tertutup di 390 px dan 'Perlu keputusan' terlihat tanpa membukanya (1366 dan 899 px tetap); O19: catatan beban tetap positif", async () => {
+    const m = A.management, tile = 'section[data-tile="t-laba-rugi"]', dec = 'section[data-tile="keputusan"]';
+    const vis = (sel) => m.page.locator(sel).first().isVisible();
+    const box = (sel) => m.page.locator(sel).first().boundingBox();
+    const pageTop = (sel) => m.page.evaluate((q) => { const e = document.querySelector(q); return e ? e.getBoundingClientRect().top + window.scrollY : null; }, sel);
+    // above 768 px nothing changed: the table is there, there is no button, the checkbox is not there
+    for (const s of [SIZES[0], SIZES[1]]) {
+      await resize(m, s); await m.goto(`/minggu-ini/${WEEK}`);
+      J.check(`${s.w} px: tabel laba rugi terlihat, tanpa tombol buka/tutup`, (await vis(`${tile} table`)) && !(await vis(`${tile} .tile-collapse-btn`)) && !(await vis("#t-laba-rugi-buka")), "");
+    }
+    // O19 at 1366: the fixture week has a positive "Beban tetap belum dijurnal" (the salary of August is in the journal); the note says why
+    await resize(m, SIZES[0]); await m.goto(`/minggu-ini/${WEEK}`);
+    const fixedCells = await m.page.evaluate(() => {
+      const row = [...document.querySelectorAll('section[data-tile="t-laba-rugi"] tbody tr')].find((r) => /Beban tetap belum dijurnal/.test(r.textContent || ""));
+      return row ? [...row.querySelectorAll("td")].map((c) => (c.textContent || "").trim()) : [];
+    });
+    const positive = fixedCells.slice(1).some((c) => /^\d/.test(c) && parseFloat(c.replace(/\./g, "").replace(",", ".")) > 0);
+    const note = ((await m.page.locator(`${tile} [data-tile-note]`).first().innerText()) || "").replace(/\s+/g, " ");
+    J.log(`    management  baris beban tetap belum dijurnal: ${fixedCells.join(" | ")}`);
+    J.check("O19: baris 'Beban tetap belum dijurnal' punya kolom positif di minggu posting gaji", positive, fixedCells.join(" | "));
+    J.check("O19: catatan tile menjelaskan: kumulatif per bulan, bisa positif di minggu posting gaji, total bulan tetap benar", /bisa positif di minggu posting gaji/.test(note) && /kumulatif per bulan/.test(note) && /total bulan tetap benar/.test(note), note.slice(-260));
+    // O17 at 390 px: closed by default
+    await resize(m, SIZES[2]); await m.goto(`/minggu-ini/${WEEK}`);
+    J.check("390 px: kotak buka/tutup ada dan belum dicentang (tertutup)", (await m.page.locator("#t-laba-rugi-buka").count()) === 1 && !(await m.page.locator("#t-laba-rugi-buka").isChecked()));
+    J.check("390 px: tombol 'Tampilkan tabel laba rugi' terlihat, tabel dan catatan tersembunyi", /Tampilkan tabel laba rugi/.test(await m.page.locator(`${tile} .tile-collapse-btn`).first().innerText()) && !(await vis(`${tile} table`)) && !(await vis(`${tile} [data-tile-note]`)));
+    const closed = await box(tile);
+    J.check("390 px: tile laba rugi tertutup hanya setinggi kepala dan tombol (< 260 px)", !!closed && closed.height < 260, `${Math.round(closed?.height ?? -1)} px`);
+    J.check("390 px: 'Perlu keputusan' terlihat tanpa membuka laba rugi", await vis(dec));
+    const topClosed = await pageTop(dec);
+    await m.page.locator(`${dec} h2`).first().scrollIntoViewIfNeeded();
+    const h = await box(`${dec} h2`), vp = m.page.viewportSize();
+    J.check("390 px: judul 'Perlu keputusan minggu ini' masuk layar sesudah gulir, laba rugi masih tertutup", !!h && h.y >= 0 && h.y + h.height <= vp.height && !(await vis(`${tile} table`)), `y ${Math.round(h?.y ?? -1)} dari ${vp.height}`);
+    await m.shot("A6-minggu-ini-390-keputusan", { fullPage: false });
+    // opening shows the table and pushes the decisions down; closing again puts them back
+    await m.page.evaluate(() => window.scrollTo(0, 0));
+    await m.page.locator('label[for="t-laba-rugi-buka"]').click();
+    await sleep(200);
+    J.check("390 px: sesudah tombol ditekan tabel laba rugi dan catatannya terlihat, tombol berganti 'Sembunyikan'", (await vis(`${tile} table`)) && (await vis(`${tile} [data-tile-note]`)) && /Sembunyikan tabel laba rugi/.test(await m.page.locator(`${tile} .tile-collapse-btn`).first().innerText()));
+    const topOpen = await pageTop(dec);
+    J.log(`    management  letak atas 'Perlu keputusan' di 390 px: tertutup ${Math.round(topClosed)} px, terbuka ${Math.round(topOpen)} px`);
+    J.check("390 px: membuka laba rugi mendorong 'Perlu keputusan' ke bawah (≥ 300 px)", topOpen - topClosed >= 300, `${Math.round(topOpen - topClosed)} px`);
+    await m.page.locator('label[for="t-laba-rugi-buka"]').click();
+    await sleep(200);
+    J.check("390 px: ditekan lagi, laba rugi tertutup kembali", !(await vis(`${tile} table`)) && Math.abs((await pageTop(dec)) - topClosed) <= 2);
+    // the month page keeps its P&L open at every width
+    await m.goto(`/m/${WEEK.slice(0, 7)}`);
+    J.check("Outlook bulan 390 px: laba rugi tetap terbuka (O17 hanya untuk Minggu ini)", (await vis(`${tile} table`)) && (await m.page.locator("#t-laba-rugi-buka").count()) === 0);
+    await resize(m, SIZES[0]);
+  });
+
+  // ------------------------------------------------------------------------------------------- 1d O16 free stock
+  await J.step("1d", A.commercial_lead, "O16: stok bebas Komersial dikurangi komitmen terkunci minggu depan yang belum tertutup PO (catatan dengan dua angka; Manajemen sama)", async () => {
+    const NEXT = "2026-08-31";
+    const fmt = (n) => Math.round(n).toLocaleString("id-ID");
+    const data = J.dbOne("select update_date::text from public.week where update_date <= '2026-08-28' order by update_date desc limit 1");
+    const free = new Map(J.db(`select key, (free_fresh_kg + free_frozen_kg)::text from public.commercial_daily where date = (select max(date) from public.commercial_daily where date <= '${data}')`).map((r) => [r[0], Number(r[1])]));
+    const cm = J.db(`select distinct on (key) key, fresh_kg::text, frozen_kg::text from public.sales_commitment where week_start = '${NEXT}' and status = 'locked' and deleted_at is null order by key, version desc`);
+    const po = new Map(J.db(`select m.key, sum(l.kg)::text from public.sales_line l join public.item_map m on m.item_code = l.item_code where l.status = 'Order' and l.deleted_at is null and l.superseded_at is null and coalesce(l.demand_status, 'Confirmed') = 'Confirmed' and l.kg is not null and coalesce(l.delivery_date, l.date) between '${NEXT}' and '2026-09-06' group by 1`).map((r) => [r[0], Number(r[1])]));
+    let deducted = 0;
+    for (const [key, fresh, frozen] of cm) for (const [form, kg] of [["Fresh", Number(fresh)], ["Frozen", Number(frozen)]]) {
+      const k = `${key}|${form}`, unc = Math.max(0, kg - (po.get(k) || 0));
+      deducted += Math.min(free.get(k) || 0, unc);
+    }
+    const gross = [...free.values()].reduce((a, b) => a + b, 0);
+    J.log(`    DB data ${data}: stok bebas ${fmt(gross)} kg; komitmen terkunci ${NEXT}: ${cm.map((r) => r.join(" ")).join("; ") || "tidak ada"}; PO minggu itu: ${[...po].map(([k, v]) => `${k} ${fmt(v)}`).join("; ") || "tidak ada"}; dikurangi ${fmt(deducted)} kg`);
+    J.check("DB: ada komitmen terkunci minggu depan dan stok bebas (data T7)", cm.length > 0 && gross > 0 && deducted > 0, `${cm.length} komitmen, ${fmt(gross)} kg, dikurangi ${fmt(deducted)} kg`);
+    const st = await A.commercial_lead.goto("/komersial");
+    J.check("Komersial terbuka untuk Kepala Sales", st === 200, `HTTP ${st}`);
+    const card = A.commercial_lead.page.locator('section[data-tile="c-stok"]');
+    const note = ((await card.locator("[data-tile-note]").first().innerText()) || "").replace(/\s+/g, " ");
+    J.log(`    commercial_lead  catatan kartu stok bebas: ${note}`);
+    const m = /Stok bebas ([\d.]+) kg dikurangi komitmen terkunci minggu depan yang belum tertutup PO ([\d.]+) kg = ([\d.]+) kg/.exec(note);
+    const num = (t) => Number(String(t).replace(/\./g, ""));
+    J.check("catatan kartu menyebut kedua angka dan hasilnya (kotor − komitmen = bersih)", !!m && num(m[1]) - num(m[2]) === num(m[3]), note.slice(0, 200));
+    J.check("angka catatan = hitungan dari database (±1 kg pembulatan)", !!m && Math.abs(num(m[1]) - gross) <= 1 && Math.abs(num(m[2]) - deducted) <= 1, m ? `${m[1]} / ${m[2]} vs ${fmt(gross)} / ${fmt(deducted)}` : note);
+    const cardText = ((await card.innerText()) || "").replace(/\s+/g, " ");
+    J.check("kartu menampilkan stok bersih (kg), bukan stok kotor", !!m && cardText.includes(`kg ${m[3]}`), short(cardText, 140));
+    const board = await A.commercial_lead.text("main");
+    J.check("peringkat memberi tahu bahwa 'Bebas kg' sudah dikurangi komitmen", /Kolom "Bebas kg" sudah dikurangi komitmen terkunci minggu depan/.test(board));
+    // Manajemen: the same free stock on the status line
+    await A.management.goto(`/minggu-ini/${WEEK}`);
+    const mt = await A.management.text("main");
+    const line = (mt.match(/Stok bebas belum ke PO:[^\n]*/) || [""])[0];
+    J.log(`    management  ${short(line, 200)}`);
+    J.check("Manajemen: baris 'Stok bebas belum ke PO' memakai angka yang sama (setelah komitmen terkunci)", /setelah komitmen terkunci [\d.]+ kg/.test(line) && !!m && line.includes(`${m[3]} kg`), line);
   });
 
   if (SCREENS) {
