@@ -33,6 +33,23 @@ Status KGR-OS: diterapkan 16/10/2026 oleh pemilik dengan file sekaligus di SQL E
 
 v5/2, v5/3, v5/4 dan v5/6 tanpa migrasi. Semua migrasi hanya menambah dan bisa dijalankan ulang; sudah diterapkan dua kali pada salinan latihan KGR-OS dan diuji `test:rls` (22 blok) di PostgreSQL lokal.
 
+### v5.1 dan v5.2 (diterapkan 18 Okt 2026)
+
+Diterapkan agen atas delegasi Dika lewat connector Supabase, tanpa staging (keputusan Dika 18 Okt), masing-masing sesudah backup
+dalam DB (`bak_<UTC>`), satu panggilan atomik, tabel cek semua `true`, lalu sidik skema dibandingkan dengan PG16 lokal yang memuat
+migrasi yang sama (9/9 identik). Log: `docs/v5.2/kgr-os-log.md`.
+
+| Urutan | Bundel | Migrasi | `schema_version()` | Cek |
+|---|---|---|---|---|
+| 1 | `docs/v5.1/kgr-os-migrasi-v51.sql` | v5.1 | — | 12/12 |
+| 2 | `docs/v5.2/kgr-os-migrasi-v52-b2.sql` | `20261025000100`…`0300` | 5.2.2 | 24/24 |
+| 3 | `docs/v5.2/kgr-os-migrasi-v52-b5.sql` | `20261025000400`, `0500` | 5.2.4 | 26/26 |
+| 4 | `docs/v5.2/kgr-os-migrasi-v52-b6.sql` | `20261025000600` (sesudah kode A1c di production) | 5.2.5 | 15/15 |
+| 5 | `docs/v5.2/kgr-os-migrasi-v52-b7.sql` | `20261025000700` | 5.2.6 | 16/16 |
+
+Kirim lewat connector Supabase: jangan ada escape `\uXXXX` di teks (transport mengubahnya menjadi karakter asli; bangun backslash
+dengan `chr(92)`). Lewat `psql` (workflow `db-ops`) masalah ini tidak ada.
+
 ## Flag (urutan menghidupkan)
 
 Prasyarat v4: `v4_design`, `m1_costing`, `m2_ledger`, `m3_planning`, `m4_monthly`, `m6_cash`, `m7_commercial` (dan `m7_approval` untuk C38). Lalu, satu per satu, masing-masing diikuti Admin → Modul → "Bangun ulang data mart" untuk periode berjalan:
