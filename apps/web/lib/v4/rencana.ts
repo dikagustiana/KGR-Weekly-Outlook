@@ -99,13 +99,14 @@ export function rencanaModel(x: RencanaInput): RencanaModel {
     const info = units.get(u)!;
     const net = d.unitNet.find((q) => q.key === u)?.kg ?? D(0);
     const hr = headsRow(u), sh = short(u);
+    const bindingHeads = x.demand.heads.patterns.find((q) => q.binding === u)?.heads;
     const main = info.cls === "main";
     const kph = main ? hr?.kg_per_head ?? null : sh?.kg_per_head ?? null;
     return {
       id: u,
       cells: {
         u: `${u}${binding.has(u) ? " (binding)" : ""}`, w: kg0(info.weighted), s: kg0(info.stock), n: kg0(net), k: kph ? num(kph, 4) : "tanpa yield",
-        h: main ? (binding.has(u) ? num(x.demand.heads.patterns.find((q) => q.binding === u)?.heads ?? 0, 0) : hr ? num(hr.heads.ceil(), 0) : "") : "tidak menentukan ekor",
+        h: main ? (binding.has(u) ? (bindingHeads === undefined ? "belum ada" : num(bindingHeads, 0)) : hr ? num(hr.heads.ceil(), 0) : "") : "tidak menentukan ekor",
         x: sh && sh.shortfall_kg.gt(0) ? kg0(sh.shortfall_kg) : "", a: sh && sh.shortfall_kg.gt(0) ? SARAN[x.buyPrice(u) !== null ? "buy_trading" : "reduce_order"] : "",
       },
     };
@@ -127,7 +128,7 @@ export function rencanaModel(x: RencanaInput): RencanaModel {
     const h = kph && !kph.isZero() ? net.div(kph).ceil() : null;
     return {
       key: u, label: u.split(" ")[0], bar: h ? h.toNumber() : null, barText: h ? num(h, 0) : undefined, barTone: (main ? "s1" : "s3") as "s1" | "s3",
-      title: main ? `${u}: ${num(h ?? 0, 0)} ekor${binding.has(u) ? " (binding)" : ""}` : `${u}: ${num(h ?? 0, 0)} ekor bila dipakai, tidak menentukan ekor (K1)`,
+      title: main ? `${u}: ${h === null ? "ekor belum ada (tanpa yield)" : `${num(h, 0)} ekor`}${binding.has(u) ? " (binding)" : ""}` : `${u}: ${h === null ? "ekor belum ada (tanpa yield)" : `${num(h, 0)} ekor bila dipakai`}, tidak menentukan ekor (K1)`,
     };
   }).filter((q) => q.bar !== null);
   tiles.push({

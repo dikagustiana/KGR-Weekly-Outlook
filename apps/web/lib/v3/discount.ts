@@ -141,11 +141,12 @@ export async function computeScorecard(sb: Supa, weekStart: string): Promise<Ret
   const repOf = (r: Row, key: string) => s(r.sales_rep) ?? (r.customer ? byCustomer.get(String(r.customer).toLowerCase()) : undefined) ?? byKey.get(key) ?? "";
   return scorecard({
     targets: targets.map((t) => ({ sales_rep: String(t.sales_rep), target_kg: s(t.target_kg), target_rp: s(t.target_rp) })),
-    actuals: sales.map((x) => { const key = keyOf(s(x.key_manual), s(x.item_code)); return { sales_rep: repOf(x, key), kg: s(x.kg) ?? "0", value: D(s(x.kg) ?? "0").times(D(s(x.price) ?? "0")).toFixed(2) }; }),
+    // a sale without kg or price cannot be valued: it is left out of the realised figures, not counted at Rp 0
+    actuals: sales.filter((x) => s(x.kg) !== null && s(x.price) !== null).map((x) => { const key = keyOf(s(x.key_manual), s(x.item_code)); return { sales_rep: repOf(x, key), kg: String(x.kg), value: D(String(x.kg)).times(D(String(x.price))).toFixed(2) }; }),
     forecasts: fc.map((f) => ({ sales_rep: s(f.sales_rep) ?? "", kg: String(f.kg) })),
-    blasts: blasts.map((b) => ({ sales_rep: byKey.get(String(b.key_from)) ?? "", kg: String(b.kg), rp_downgrade: s(b.rp_downgrade) ?? "0" })),
+    blasts: blasts.map((b) => ({ sales_rep: byKey.get(String(b.key_from)) ?? "", kg: String(b.kg), rp_downgrade: s(b.rp_downgrade) })),
     discounts: disc.map((d) => ({ sales_rep: byEmail.get(String(d.requested_by ?? "").toLowerCase()) ?? "", total_below: String(d.total_below) })),
-    spot: spot.map((x) => ({ sales_rep: repOf(x, keyOf(s(x.key_manual), s(x.item_code))), kg: s(x.kg) ?? "0" })),
+    spot: spot.filter((x) => s(x.kg) !== null).map((x) => ({ sales_rep: repOf(x, keyOf(s(x.key_manual), s(x.item_code))), kg: String(x.kg) })),
   }).filter((r) => r.sales_rep !== "");
 }
 

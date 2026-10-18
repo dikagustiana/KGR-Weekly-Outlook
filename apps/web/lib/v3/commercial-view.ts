@@ -56,12 +56,12 @@ export function commercialView(rows: Raw[], opts: { role: Role; salesSeesCost: b
   return rows
     .filter((r) => !sales || opts.assignedKeys === "all" || opts.assignedKeys.has(String(r.key)))
     .map((r) => ({
-      date: str(r.date), key: String(r.key), group_code: str(r.group_code), form: str(r.form), free_fresh_kg: str(r.free_fresh_kg) ?? "0", free_frozen_kg: str(r.free_frozen_kg) ?? "0",
+      date: str(r.date), key: String(r.key), group_code: str(r.group_code), form: str(r.form), free_fresh_kg: str(r.free_fresh_kg) ?? "0", free_frozen_kg: str(r.free_frozen_kg) ?? "0", // missing-ok: kolom commercial_daily.free_fresh_kg dan free_frozen_kg NOT NULL di DB; fallback hanya penjaga tipe
       oldest_age_days: int(r.oldest_age_days), hours_to_cutoff: int(r.hours_to_cutoff),
       cost_per_kg_ma: showMa ? str(r.cost_per_kg_ma) : null, cost_per_kg_si: sales ? null : str(r.cost_per_kg_si),
       price_floor: str(r.price_floor), price_list: str(r.price_list), margin_per_kg_list: str(r.margin_per_kg_list), realized_price_7d: str(r.realized_price_7d),
       margin_per_kg_realized: str(r.margin_per_kg_realized), holding_loss_per_day: str(r.holding_loss_per_day), downgrade_risk_rp: str(r.downgrade_risk_rp),
-      urgency: str(r.urgency), priority_score: str(r.priority_score), rank: int(r.rank), ordered_today_kg: str(r.ordered_today_kg) ?? "0",
+      urgency: str(r.urgency), priority_score: str(r.priority_score), rank: int(r.rank), ordered_today_kg: str(r.ordered_today_kg) ?? "0", // missing-ok: kolom commercial_daily.ordered_today_kg NOT NULL di DB; fallback hanya penjaga tipe
       cost_per_kg: showMa ? str(r.cost_per_kg) : null, cost_status: str(r.cost_status), cost_check: r.cost_check === true,
     }))
     .sort((a, b) => (opts.keepOrder ? 0 : (a.rank ?? 9e9) - (b.rank ?? 9e9)));

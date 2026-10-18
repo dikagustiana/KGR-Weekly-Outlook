@@ -13,7 +13,7 @@ import { parseCostingWorkbook, parseV3Table, wpBatchRef, type WpBatch } from "@k
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
 import { fetchAll, listWeeks, type WeekRow } from "../data";
-import { inChunks, must, mustRows } from "../loader";
+import { inChunks, must, mustRows, needParameter } from "../loader";
 import { WriteError } from "../write";
 import { plan0, registerV3Kind, weekOfDate, type Row, type V3Stage } from "./uploads";
 
@@ -81,7 +81,7 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
     for (const x of xs) g.set(k(x), [...(g.get(k(x)) ?? []), x]);
     return g;
   };
-  const p = (must(param, "costing.parameter") ?? {}) as Partial<CostingParams>;
+  const p = needParameter(must(param, "costing.parameter"), "costing.parameter") as Partial<CostingParams>;
   return {
     week, batches, outputs: group(outs as unknown as OutputRow[], (o) => o.batch_id), latestRun, lines: group(lines, (l) => l.allocation_run_id),
     pools, poolLines, rates,
@@ -89,7 +89,7 @@ export async function loadCostingWeek(sb: Supa, week: WeekRow): Promise<CostingW
     prices: new Map((prices as Row[]).map((r) => [String(r.key), s(r.ref_sell_price)])),
     params: {
       by_product_method: p.by_product_method === "nrv" ? "nrv" : "joint", yield_gap_tolerance: s(p.yield_gap_tolerance) ?? "0.02",
-      avg_lb_kg_default: s(p.avg_lb_kg_default) ?? "2", selling_cost_per_kg: s(p.selling_cost_per_kg) ?? "0",
+      avg_lb_kg_default: String(p.avg_lb_kg_default), selling_cost_per_kg: String(p.selling_cost_per_kg),
     },
   };
 }
@@ -343,7 +343,7 @@ registerV3Kind({
         const out: Row = {};
         for (const a of agg.values()) {
           const col = (a.key && OUT_COL[a.key]) || "out_other";
-          out[col] = D(String(out[col] ?? 0)).plus(a.kg).toFixed(2);
+          out[col] = D(String(out[col] ?? 0)).plus(a.kg).toFixed(2); // missing-ok: akumulator kg per kolom out_* batch, mulai dari 0 untuk dijumlah
         }
         const ins = await sb.from("batch").insert({
           week_id: p.weekId, date: b.date, status: "Aktual", batch_ref: ref, supplier: b.supplier, lb_kg: b.lb_kg,

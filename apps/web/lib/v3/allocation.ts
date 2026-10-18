@@ -101,7 +101,8 @@ export async function loadDayAllocation(sb: Supa, date: string): Promise<DayAllo
   const p = (must(param, "allocation.parameter") ?? {}) as Row;
   const priceMap = new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)]));
   const info = new Map(src.inputs.keys.map((k) => [k.key, k]));
-  const blastCostPerKg = s(p.blast_cost_per_kg) ?? String(src.inputs.params.blastCostPerKg ?? "0");
+  // the week's parameter, else the latest week's (the ledger's, which stops when it has none): a stated cost, never a default of 0
+  const blastCostPerKg = s(p.blast_cost_per_kg) ?? String(src.inputs.params.blastCostPerKg);
   const cutoff = cutoffBlasts({
     date, lotsLeft: current.lotsLeft, futureOrders, windows: W, frozenKeyOf: (k) => frozenKeyOf(k, info.get(k)),
     price: (k) => priceMap.get(k) ?? null, blastCostPerKg,

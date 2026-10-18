@@ -18,7 +18,7 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, weekOfDate, type Row } from "./uploads";
 import { consumeApprovals, floorGuard } from "./discount";
 import { parseSetting, MODULE_KEYS, type ModuleSettings } from "../modules-core";
-import { inChunks, must, mustRows } from "../loader";
+import { inChunks, must, mustRows, needParameter } from "../loader";
 
 /** Module flags read with the caller's client (uploads run outside the page cache). */
 async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
@@ -94,7 +94,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   // the replacement buy price is per week (sku_price, I_Master G), not a column of sku_key
   const buy = new Map(prices.map((x) => [String(x.key), s(x.replacement_buy_price)]));
   const keyOf = keyResolver(items.map((i) => ({ item_code: s(i.item_code), key: String(i.key) })));
-  const p = (must(param, "planning.parameter") ?? {}) as Row;
+  const p = needParameter(must(param, "planning.parameter"), "planning.parameter") as Row;
   const stockDate = addDays(ws, -1);
   const sd = must(await sb.from("lot_balance_daily").select("date").lte("date", stockDate).order("date", { ascending: false }).limit(1).maybeSingle(), "planning.lot_balance_daily");
   const sdate = sd ? String((sd as Row).date) : null;
@@ -104,9 +104,10 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
   // the latest yield row per (class, pattern, key) effective on the week start
   const ym = new Map<string, Row>();
   for (const y of yields) if (!y.effective_to || String(y.effective_to) >= ws) ym.set(`${y.weight_class}|${y.cut_pattern}|${y.key}`, y);
-  const poLines: PoLine[] = orders.map((o) => ({
+  // a PO line without kg adds no demand: left out, not counted at 0
+  const poLines: PoLine[] = orders.filter((o) => s(o.kg) !== null).map((o) => ({
     id: String(o.id), ref: String(o.id), key: keyOf(s(o.key_manual), s(o.item_code)), delivery_date: s(o.delivery_date) ?? s(o.date),
-    demand_status: s(o.demand_status) ?? "Confirmed", kg: s(o.kg) ?? "0", fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
+    demand_status: s(o.demand_status) ?? "Confirmed", kg: String(o.kg), fulfilled_kg: s(o.fulfilled_kg), cancelled_kg: s(o.cancelled_kg), price: s(o.price), customer: s(o.customer),
     po_ref: s(o.po_ref), po_date: s(o.po_date), sales_rep: s(o.sales_rep), item_code: s(o.item_code),
     synthetic: false, size_kg: null,
   }));
@@ -117,7 +118,7 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     const commits = await fetchAll<Row>((a, b) => sb.from("sales_commitment").select("key, size_kg, fresh_kg, frozen_kg, price, status, version").eq("week_start", ws).eq("status", "locked").is("deleted_at", null).order("id").range(a, b));
     const extra = commitmentDemand({
       weekStart: ws, orders: poLines.filter((o) => o.demand_status === "Confirmed").map((o) => ({ key: o.key, kg: o.kg })),
-      commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg ?? 0), frozen_kg: String(c.frozen_kg ?? 0), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
+      commitments: commits.map((c) => ({ key: String(c.key), size_kg: s(c.size_kg), fresh_kg: String(c.fresh_kg), frozen_kg: String(c.frozen_kg), price: s(c.price), status: "locked" as const, version: Number(c.version ?? 1) })),
     });
     poLines.push(...extra.map((e) => ({ ...e, id: e.ref, po_ref: null, po_date: null, sales_rep: null, item_code: null, customer: e.customer ?? null, synthetic: true, size_kg: s(e.size_kg) })));
   }
@@ -129,8 +130,8 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     threshold: s(p.downgrade_approval_threshold) ?? "25000000",
     leadTimeDays: Number(p.lead_time_days ?? 1),
     v1: {
-      shrink: s(p.target_shrink) ?? "0.03", freight: s(p.freight_plan_per_kg_lb) ?? "0", maklon: s(p.maklon_per_kg_processed) ?? "0", lbPriceToday: s(p.lb_price_today) ?? "0",
-      yields: { karkas: s(p.yield_karkas) ?? "0", kepala: s(p.yield_kepala) ?? "0", ceker: s(p.yield_ceker) ?? "0", usus: s(p.yield_usus) ?? "0", hja: s(p.yield_hja) ?? "0", lemak: s(p.yield_lemak) ?? "0" },
+      shrink: String(p.target_shrink), freight: String(p.freight_plan_per_kg_lb), maklon: String(p.maklon_per_kg_processed), lbPriceToday: String(p.lb_price_today),
+      yields: { karkas: String(p.yield_karkas), kepala: String(p.yield_kepala), ceker: String(p.yield_ceker), usus: String(p.yield_usus), hja: String(p.yield_hja), lemak: String(p.yield_lemak) },
     },
     keys: new Map(keys.map((k) => [String(k.key), {
       segment: String(k.segment), sku: String(k.sku), form: String(k.form), cut_component: s(k.cut_component),
@@ -139,16 +140,16 @@ export async function loadPlanning(sb: Supa, week: WeekRow): Promise<PlanningSou
     }])),
     prices: new Map(prices.map((x) => [String(x.key), s(x.ref_sell_price)])),
     // PRD v5 §5.1: K / S / B exist before PPIC gives them an average; a class without one is not a v4 plan class yet
-    weightClasses: classes.filter((c) => c.avg_kg !== null && c.avg_kg !== undefined).map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })),
+    weightClasses: classes.filter((c) => c.avg_kg !== null && c.avg_kg !== undefined).map((c) => ({ code: String(c.code), avg_kg: String(c.avg_kg), min_kg: s(c.min_kg), max_kg: s(c.max_kg), sort_order: Number(c.sort_order ?? 0) })), // missing-ok: urutan tampil kelas (indeks), bukan uang atau kg
     yieldRows: [...ym.values()].map((y) => ({ weight_class: String(y.weight_class), cut_pattern: String(y.cut_pattern), key: String(y.key), yield_pct: String(y.yield_pct), note: s(y.note) })),
     history: {
       from: hFrom, to: hTo,
-      sales: hist.map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg ?? 0) })),
+      sales: hist.filter((h) => s(h.kg) !== null).map((h) => ({ date: String(h.date), key: keyOf(s(h.key_manual), s(h.item_code)), kg: String(h.kg) })),
       stockout: new Set(outs.map((o) => `${String(o.key)}|${String(o.date)}`)),
     },
     reasons: reasons.map((r) => ({ code: String(r.code), reason: String(r.reason), created_at: s(r.created_at) })),
     substitutions: subs.map((x) => ({ key_demand: String(x.key_demand), key_substitute: String(x.key_substitute), priority: Number(x.priority ?? 1), max_pct: String(x.max_pct ?? 1) })),
-    stock: { date: sdate, lots: lots.map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days ?? 0) })) },
+    stock: { date: sdate, lots: lots.map((l) => ({ key: String(l.key), form: l.form === "fresh" ? "fresh" : "frozen", free_kg: String(l.free_kg), age_days: Number(l.age_days ?? 0) })) }, // missing-ok: kolom lot_balance_daily.age_days selalu ditulis ledger (age_days: number di engine); fallback hanya penjaga tipe
     windows: { fresh: Number(p.fresh_window_hours_default ?? 48), frozen: Number(p.frozen_age_limit_days_default ?? 30) },
     capacity: new Map(cap.map((c) => [String(c.date), { cut_capacity_head: c.cut_capacity_head === null ? null : Number(c.cut_capacity_head), chiller_kg: s(c.chiller_kg), abf_kg: s(c.abf_kg) }])),
     lbSupply: lb,
@@ -322,7 +323,7 @@ export async function varianceRows(sb: Supa, src: PlanningSources): Promise<Row[
   const outs = batches.length ? await inChunks(batches.map((x) => String(x.id)), (c) => fetchAll<Row>((a, b) => sb.from("batch_output_sku").select("batch_id, key, kg").in("batch_id", c).is("deleted_at", null).order("id").range(a, b))) : [];
   const dateOf = new Map(batches.map((b) => [String(b.id), String(b.date)]));
   const rows = planVarianceDaily({
-    planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count ?? 0), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
+    planDays: src.planDays.map((d) => ({ date: String(d.date), head_count: Number(d.head_count), target_kg_by_key: (d.target_kg_by_key ?? {}) as Record<string, string> })),
     actualOutput: outs.map((o) => ({ date: dateOf.get(String(o.batch_id)) ?? ws, unit: (o.key ? unitOf(src, String(o.key)) : null) ?? String(o.key ?? "tanpa key"), kg: String(o.kg) })),
     actualHeads: batches.filter((b) => b.head_count !== null).map((b) => ({ date: String(b.date), heads: Number(b.head_count) })),
     from: ws, to: we,

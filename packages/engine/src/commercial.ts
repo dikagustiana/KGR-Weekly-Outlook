@@ -36,12 +36,14 @@ export interface PriceFloorRule {
 }
 
 /** Floor = MA cost + markup of the most specific rule in force (key, then group); default storage × 7 + blast. */
-export function priceFloor(x: { key: string; group_code: string | null; costPerKgMa: Num | null; rules: PriceFloorRule[]; date: ISODate; storagePerKgDay: Num | null; blastCostPerKg: Num }): Decimal | null {
+export function priceFloor(x: { key: string; group_code: string | null; costPerKgMa: Num | null; rules: PriceFloorRule[]; date: ISODate; storagePerKgDay: Num | null; blastCostPerKg: Num | null }): Decimal | null {
   if (x.costPerKgMa === null || x.costPerKgMa === undefined || x.costPerKgMa === "") return null;
   const cost = D(x.costPerKgMa);
   const inForce = x.rules.filter((r) => r.effective_from <= x.date).sort((a, b) => b.effective_from.localeCompare(a.effective_from));
   const rule = inForce.find((r) => r.key === x.key) ?? inForce.find((r) => r.key === null && r.group_code !== null && r.group_code === x.group_code) ?? inForce.find((r) => r.key === null && r.group_code === null);
   if (rule) return cost.plus(D(rule.markup_rp_per_kg)).plus(cost.times(D(rule.markup_pct)));
+  // R64: without the blast cost per kg (no parameter row) the default floor is unknown, never storage only
+  if (x.blastCostPerKg === null || x.blastCostPerKg === undefined || x.blastCostPerKg === "") return null;
   return cost.plus(D(x.storagePerKgDay ?? 0).times(7)).plus(D(x.blastCostPerKg));
 }
 
@@ -106,7 +108,7 @@ export function priceFloorV5(x: { key: string; group_code: string | null; costPe
   return rule ? cost.plus(D(rule.markup_rp_per_kg)).plus(cost.times(D(rule.markup_pct))) : cost;
 }
 
-export function commercialRows(x: { date: ISODate; items: CommercialInput[]; urgencyRules: UrgencyRule[]; floorRules: PriceFloorRule[]; blastCostPerKg: Num; costAnomalyRatio?: Num }): CommercialRow[] {
+export function commercialRows(x: { date: ISODate; items: CommercialInput[]; urgencyRules: UrgencyRule[]; floorRules: PriceFloorRule[]; blastCostPerKg: Num | null; costAnomalyRatio?: Num }): CommercialRow[] {
   const rows = x.items.filter((i) => D(i.free_kg).gt(0)).map((i): CommercialRow => {
     const free = D(i.free_kg);
     const v5 = i.cost_per_kg !== undefined;
@@ -213,7 +215,8 @@ export function scorecard(x: {
   targets: { sales_rep: string; target_kg: Num | null; target_rp: Num | null }[];
   actuals: { sales_rep: string; kg: Num; value: Num }[];
   forecasts: { sales_rep: string; kg: Num }[];
-  blasts: { sales_rep: string; kg: Num; rp_downgrade: Num }[];
+  /** A blast without a computed downgrade (no price) adds its kg and no Rp (null), never an invented amount. */
+  blasts: { sales_rep: string; kg: Num; rp_downgrade: Num | null }[];
   discounts: { sales_rep: string; total_below: Num }[];
   /** Spot sales of the week (sales_line channel 'spot'), any status. */
   spot?: { sales_rep: string; kg: Num }[];
