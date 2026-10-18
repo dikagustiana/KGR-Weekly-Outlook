@@ -245,6 +245,14 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
       if (e.error) throw new WriteError(`batch ${v(q, "batch_ref")}: ${e.error.message}`);
     }
     return { inserted: res.inserted, updated: res.updated, held: [], dates: [...new Set(ok(r).map((q) => v(q, "batch_date")).filter((d): d is string => !!d))], // K59 (R60): a tied invoice is the condition to post, not the final status — the cost turns final only once the allocation is posted
-      note: `${tiedRefs.length} faktur tie ke GL; ${ok(r).length - tiedRefs.length} masih sementara.${tiedRefs.length ? ` Biaya batch ${[...new Set(tiedRefs)].join(", ")} belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara.` : ""}` };
+      note: tieNote(tiedRefs, ok(r).length) };
   },
 };
+
+/**
+ * Message after a supplier invoice upload (R60, K59): a tied invoice is the condition to post the allocation, not the final
+ * status of the batch cost; the next step is named, and until it is done the cost stays sementara.
+ */
+export function tieNote(tiedRefs: string[], rows: number): string {
+  return `${tiedRefs.length} faktur tie ke GL; ${rows - tiedRefs.length} masih sementara.${tiedRefs.length ? ` Biaya batch ${[...new Set(tiedRefs)].join(", ")} belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara.` : ""}`;
+}
