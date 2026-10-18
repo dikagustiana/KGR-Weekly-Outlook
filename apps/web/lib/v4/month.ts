@@ -123,7 +123,7 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   let forecastCost: ForecastCostLabel | null = forecastCosts ? { plan: 0, ma: 0, maKeys: [], noPlan: [], notes: [] } : null;
   const costingMode = await costingModeFor(sb, settings);
   for (const w of weeks) {
-    const c = await computeForWeek(w.week_start);
+    const c = await computeForWeek(sb, w.week_start);
     if (!c) continue;
     const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "month.parameter") as Row | null;

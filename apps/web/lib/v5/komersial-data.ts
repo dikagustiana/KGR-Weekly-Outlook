@@ -114,7 +114,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
 
   // PPIC: surplus and by-product shortfall of the week (not for Sales: planning detail)
   const ppic: KomersialV5Input["ppic"] = sales || !week ? null : fail(failed, ["t-ppic"], await tileData("commercial: dari PPIC", async () => {
-    const cw = await computeForWeek(week.week_start);
+    const cw = await computeForWeek(sb, week.week_start);
     if (!cw) return null;
     const src = await loadPlanning(sb, week);
     const x = await loadPpicV5(sb, { src, result: cw.result, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(week.week_start, -1)) });

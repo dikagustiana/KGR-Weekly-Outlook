@@ -1,6 +1,5 @@
 import "server-only";
-import { cache } from "react";
-import { supabaseServer, type Supa } from "./supabase";
+import type { Supa } from "./supabase";
 import { isSchemaError } from "./loader";
 import { WriteError } from "./write";
 
@@ -34,13 +33,11 @@ export function classifySchemaError(err: { code?: string; message?: string; deta
 }
 
 /**
- * R44 (K57, K65): the database's schema version against EXPECTED_SCHEMA; the banner message when it is behind or has no
- * `schema_version()` (once per request, cached). Any other error is logged and the check stays silent (tiles still fail
- * per tile with their own message).
+ * R44 (K57, K65): the database's schema version against EXPECTED_SCHEMA, read with the client the caller gives (the
+ * rebuild and the cron run with the service client; the header's banner with the page's session client, see
+ * schema-session.ts). The banner message when it is behind or has no `schema_version()`. Any other error is logged and
+ * the check stays silent (tiles still fail per tile with their own message).
  */
-export const schemaStatus = cache(async (): Promise<string | null> => schemaStatusOf(await supabaseServer()));
-
-/** The check with a given client (the rebuild and the cron run with the service client). */
 export async function schemaStatusOf(sb: Supa): Promise<string | null> {
   const { data, error } = await sb.rpc("schema_version");
   if (error) {
@@ -56,7 +53,7 @@ export async function schemaStatusOf(sb: Supa): Promise<string | null> {
 export const schemaMessage = (object: string) => `Skema database belum diperbarui ke v${EXPECTED_SCHEMA}; hubungi Admin (${object})`;
 
 /** K57 (R44): rebuild, release and write actions stop early, with the banner's message, while the schema is behind. */
-export async function assertSchemaCurrent(sb?: Supa): Promise<void> {
-  const msg = sb ? await schemaStatusOf(sb) : await schemaStatus();
+export async function assertSchemaCurrent(sb: Supa): Promise<void> {
+  const msg = await schemaStatusOf(sb);
   if (msg) throw new WriteError(msg);
 }

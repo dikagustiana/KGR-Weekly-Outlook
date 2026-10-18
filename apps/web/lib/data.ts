@@ -1,7 +1,6 @@
 import "server-only";
-import { cache } from "react";
 import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
-import { supabaseServer, type Supa } from "./supabase";
+import type { Supa } from "./supabase";
 import { LoaderError, isSchemaError, must, mustRows } from "./loader";
 
 export interface WeekRow {
@@ -208,14 +207,32 @@ export interface Computed {
   computeMs: number;
 }
 
-/** Load and compute one week once per request. */
-export const computeForWeek = cache(async (weekStart: string): Promise<Computed | null> => {
-  const sb = await supabaseServer();
+/**
+ * Q-v5.2-51 (A1d): a week is loaded and computed with the client the caller gives — the signed-in user's client in the
+ * app (RLS applies), the service client in the rebuild and the cron. Never the session client behind the caller's back:
+ * a cron has no session (anon reads an empty week) and the same builder must write the same mart whoever runs it.
+ * Memoised per client: a request loads a week once because the app edge shares one client per request
+ * (`supabaseServer` is cached); a rebuild run holds one service client, so it loads a week once per run.
+ */
+const weekMemo = new WeakMap<object, Map<string, Promise<Computed | null>>>();
+
+async function loadAndCompute(sb: Supa, weekStart: string): Promise<Computed | null> {
   const loaded = await loadWeek(sb, weekStart);
   if (!loaded) return null;
   const t0 = performance.now();
   const result = computeWeek(loaded.inputs);
   return { loaded, result, computeMs: Math.round(performance.now() - t0) };
-});
+}
 
-export const weeksCached = cache(async () => listWeeks(await supabaseServer()));
+export function computeForWeek(sb: Supa, weekStart: string): Promise<Computed | null> {
+  let byWeek = weekMemo.get(sb);
+  if (!byWeek) weekMemo.set(sb, (byWeek = new Map()));
+  let p = byWeek.get(weekStart);
+  if (!p) {
+    const own = byWeek;
+    // a failure is not remembered (the next caller, e.g. the next date of a rebuild run, reads again) and still reaches the caller
+    p = loadAndCompute(sb, weekStart).catch((e: unknown) => { own.delete(weekStart); throw e; });
+    own.set(weekStart, p);
+  }
+  return p;
+}
