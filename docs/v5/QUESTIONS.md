@@ -487,3 +487,21 @@ Q-v5.2-83. Preview Deployment Vercel dimatikan untuk cabang kerja (`v*/**`, `ops
 `git.deploymentEnabled` di `apps/web/vercel.json` (PR #55). Alasan: kuota deploy harian habis oleh preview, sehingga
 merge #53 tidak sampai ke production ("Deployment rate limited — retry in 24 hours"). Preview tidak dipakai di Definisi
 Selesai (T19 memakai staging). Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+**Q-v5.2-84 … 86 (dari B7, `docs/v5.2/b7.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-84. Mart dan tabel turunan rencana/demand ditutup untuk Sales di B7 bersama `plan_day` (Q-v5.2-72):
+`plan_variance_daily`, `demand_shortfall`, `plan_check_reason`; keempatnya masuk `audit_log_sales_redact`. Tidak ada
+jalur kode Sales yang membacanya (Rencana: PPIC; Minggu ini: manajemen dan Finance, K48; `demand_shortfall` hanya ditulis
+builder). Satu migrasi, versi 5.2.6.
+
+Q-v5.2-85. `release.snapshot` (blok demand, rencana, kas, solvabilitas, CCC, costing) terbaca semua app user lewat API;
+`lib/page.ts` membaca `release` untuk setiap role. **Tidak diubah di v5.2**: sama kelasnya dengan Q-v5.2-86. Usulan
+v5.3: view `release` tanpa `snapshot` untuk Sales, kode Sales pindah ke view, lalu `release_read` tanpa Sales. Pemilik:
+pemilik produk.
+
+Q-v5.2-86. `batch` terbaca semua app user, termasuk baris `Rencana` (salinan `plan_day`) dan kolom biaya (`lb_price`,
+`freight`, `maklon`): mesin outlook v1 menghitung dengan sesi pengguna untuk setiap role (`lib/data.ts` `loadWeek`),
+jadi menyembunyikannya dari Sales mengubah angka outlook Sales. **Tidak diubah di v5.2** (batas arsitektur sejak v1, di
+luar Q-v5.2-15). Usulan v5.3: outlook untuk Sales dihitung di server dengan klien servis (seperti rebuild A1d) dan
+ditampilkan tanpa kolom biaya, lalu baca mentah `batch`/`release` ditutup untuk Sales. Pemilik: pemilik produk.
