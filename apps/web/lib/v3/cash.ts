@@ -215,7 +215,7 @@ registerV3Kind({
     const n = new Map<string, number>();
     const plans = okP.map((r) => {
       const base = `${r.values.date}|${r.values.account_no ?? ""}|${r.values.cf_category ?? ""}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris per kunci baris (indeks)
       n.set(base, i);
       return { target: "plan", data: { ...r.values, line_key: `${base}|${i}` } as Row };
     });

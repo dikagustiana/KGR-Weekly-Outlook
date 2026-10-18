@@ -18,7 +18,7 @@ export interface RencanaInput {
   proposal: WeekPlanProposal;
   days: { rows: DailyPlanRow[]; unplaced: number };
   cls: { code: string; avg_kg: string; note?: string | null } | null;
-  supplyHeads: number;
+  supplyHeads: number | null;
   saved: { id: string; version: number; head_count: number; yield_provisional: boolean; needs_approval: boolean; approved: boolean; copied: boolean; output: Record<string, string>; surplus: Record<string, string>; rp_downgrade: string } | null;
   savedDays: { date: string; head_count: number; weight_class: string | null; cut_pattern: string | null; supplier: string | null; target_kg_by_key: Record<string, string>; limited_by: string | null }[];
   capacity: (date: string) => number | null;

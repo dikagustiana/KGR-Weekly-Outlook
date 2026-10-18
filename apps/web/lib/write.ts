@@ -159,7 +159,7 @@ export async function loadWeekInputs(
     const old = await fetchAll<{ id: string }>((f, t) => sb.from("gl_line").select("id").is("deleted_at", null).gte("date", from).lte("date", to).order("id").range(f, t));
     const seen = new Map<string, number>();
     const rows = inputs.gl_lines.filter((g) => g.date).map((g, i) => {
-      const n = (seen.get(g.voucher_no ?? "") ?? 0) + 1;
+      const n = (seen.get(g.voucher_no ?? "") ?? 0) + 1; // missing-ok: penghitung baris per voucher (indeks)
       seen.set(g.voucher_no ?? "", n);
       return {
         seq: i + 1, date: g.date, voucher_no: g.voucher_no, voucher_type: g.voucher_type ?? null, account: g.account, account_name: g.account_name ?? null,

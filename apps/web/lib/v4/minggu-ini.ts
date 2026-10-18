@@ -157,7 +157,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   });
   const c = r.controls;
   const counts = x.release?.counts ?? c.counts;
-  const total = Object.values(counts).reduce<number>((a, b) => a + (b ?? 0), 0);
+  const total = Object.values(counts).reduce<number>((a, b) => a + (b ?? 0), 0); // missing-ok: jumlah kontrol per status (hitungan)
   const relText = x.release?.releasedAt
     ? `Rilis ${tgl(x.release.releasedAt.slice(0, 10))} · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`
     : `Belum dirilis, angka draft · ${counts.LULUS ?? 0}/${total} kontrol lulus${counts["BELUM DIISI"] ? ` · ${counts["BELUM DIISI"]} belum diisi` : ""}`;

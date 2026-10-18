@@ -91,9 +91,9 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
     const rows = fail(failed, ["c-kas", "kas"], await tileData("minggu ini: kas (cash_position_daily)", async () =>
       mustRows<Row>(await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date"), "cash_position_daily")), []);
     // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
-    if (rows.some((c) => Number(c.accounts ?? 0) > 0)) {
+    if (rows.some((c) => Number(c.accounts ?? 0) > 0)) { // missing-ok: jumlah rekening (hitungan); 0 rekening = tidak ada posisi kas
       // a day before the first upload stays without a balance (null, never 0) even when later days have one
-      const has = (c: Row) => Number(c.accounts ?? 0) > 0;
+      const has = (c: Row) => Number(c.accounts ?? 0) > 0; // missing-ok: jumlah rekening (hitungan); 0 rekening = tidak ada posisi kas
       cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null, without: has(c) ? s(c.closing_without_affiliate) : null }));
       noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }

@@ -442,7 +442,7 @@ registerV3Kind({
       const date = s(v.date)!;
       const comp = (s(v.component) && ["LB", "freight", "maklon", "labour", "overhead", "blast", "other"].includes(s(v.component)!))
         ? (s(v.component) as CostComponent) : costComponentOf(`${s(v.description) ?? ""} ${s(v.supplier) ?? ""}`);
-      const n = (seen.get(doc) ?? 0) + 1;
+      const n = (seen.get(doc) ?? 0) + 1; // missing-ok: penghitung baris per dokumen untuk kunci baris (indeks)
       seen.set(doc, n);
       const ex = mustRows(await sb.from("cost_pool_line").select("id, cost_pool_id, batch_id, source, line_key").eq("document_ref", doc).is("deleted_at", null), "costing.cost_pool_line_doc") as Row[];
       const hit = ex.find((e) => e.source === "Accurate" && e.line_key === `PI|${doc}|${n}`) ?? ex.find((e) => e.source !== "Accurate") ?? null;

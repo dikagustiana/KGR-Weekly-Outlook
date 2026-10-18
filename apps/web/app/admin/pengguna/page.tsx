@@ -48,7 +48,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           <p className="muted" style={{ fontSize: 11 }}>Tidak ada e-mail yang dikirim. Pengguna mengganti kata sandi sendiri di menu Akun setelah masuk.</p>
         </Card>
       </div>
-      <Card title={`Daftar pengguna (${data?.length ?? 0})`}>
+      <Card title={`Daftar pengguna (${data.length})`}>
         <table className="t">
           <thead><tr><th>E-mail</th><th>Nama</th><th>Peran</th><th>Hak tulis</th><th>Status</th><th /></tr></thead>
           <tbody>

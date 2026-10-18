@@ -34,7 +34,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   const failed: Failed = {};
   const ppic = fail(failed, ["sim-lb"], await tileData("manajemen: basis simulasi (PPIC v5)", async () =>
     loadPpicV5(sb, { src: await loadPlanning(sb, w), result: r, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(w.week_start, -1)) })), null);
-  const todayPrice = D(r.block2.lbPriceToday ?? 0).gt(0) ? D(r.block2.lbPriceToday) : null;
+  const lbToday = r.block2.lbPriceToday;
+  const todayPrice = lbToday !== null && lbToday !== undefined && D(lbToday).gt(0) ? D(lbToday) : null;
   const dec = fail(failed, ["sim-lb", "keputusan"], await tileData("manajemen: keputusan harga LB", async () =>
     must(await sb.from("lb_price_decision").select("date, price, decided_by, decided_at").eq("date", cutDate).order("decided_at", { ascending: false }).limit(1).maybeSingle(), "lb_price_decision") as Row | null), null);
   const decided = dec ? { date: cutDate, price: D(String(dec.price)), by: s(dec.decided_by) } : null;
@@ -74,7 +75,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   const decisions = decisionLines({
     lb: { cutDate, decided: !!decided, today: todayPrice, breakevenNeed: need?.breakeven ?? null },
     batch: ppic?.batch && bases.need ? { kgLb: ppic.batch.kgLb, needKgLb: bases.need.kgLb, surplusKg: ppic.batch.surplusKg, downgrade: ppic.batch.downgrade, threshold: ppic.batch.threshold } : null,
-    belowFloor: { count: ap.length, top: ap[0] ? { key: String(ap[0].key), kg: D(String(ap[0].kg)), price: D(String(ap[0].requested_price)), floor: D(String(ap[0].floor_price)), totalBelow: D(String(ap[0].total_below ?? 0)) } : null },
+    belowFloor: { count: ap.length, top: ap[0] ? { key: String(ap[0].key), kg: D(String(ap[0].kg)), price: D(String(ap[0].requested_price)), floor: D(String(ap[0].floor_price)), totalBelow: D(String(ap[0].total_below)) } : null },
     cash: low ? { min: D(low.closing!), date: low.date } : null,
   });
 
@@ -104,8 +105,8 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
     const mart = await commercialMart(sb, today, false, isModuleOn(await v5CostingSetting(sb), role));
     if (!mart.rows.length) return null;
     const sum = stockSummary(stockSellRows(mart.rows.map((m) => ({
-      key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days),
-      over_age_kg: "0", urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
+      key: String(m.key), form: s(m.form), free_kg: D(s(m.free_fresh_kg) ?? "0").plus(D(s(m.free_frozen_kg) ?? "0")).toFixed(2), oldest_age_days: m.oldest_age_days === null || m.oldest_age_days === undefined ? null : Number(m.oldest_age_days), // missing-ok: kolom commercial_daily.free_fresh_kg dan free_frozen_kg NOT NULL di DB; 0 = SKU bukan bentuk itu
+      over_age_kg: null, urgency: s(m.urgency), cost_per_kg: s(m.cost_per_kg) ?? s(m.cost_per_kg_ma), cost_status: s(m.cost_status), price_ref: s(m.price_list),
     })), null));
     return { kg: sum.kg, value: sum.value };
   });

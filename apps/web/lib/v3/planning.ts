@@ -248,7 +248,8 @@ export interface PlanProposal {
   proposal: WeekPlanProposal;
   days: { rows: DailyPlanRow[]; unplaced: number };
   cls: PlanningSources["weightClasses"][number] | null;
-  supplyHeads: number;
+  /** Confirmed supply (ekor) from the rows that fill head_count; null = no row does (unknown, never 0). */
+  supplyHeads: number | null;
   capacityHeads: number | null;
 }
 
@@ -256,18 +257,21 @@ export interface PlanProposal {
 export function proposePlan(src: PlanningSources, opts: { classCode?: string | null; supplyCommittedHeads?: number | null } = {}): PlanProposal {
   const { demand, cls, yields } = computeDemand(src, opts.classCode);
   const confirmed = src.lbSupply.filter((r) => r.status === "confirmed" || r.status === "received");
-  const supplyHeads = opts.supplyCommittedHeads ?? confirmed.reduce((a, r) => a + Number(r.head_count ?? 0), 0);
+  // ekor pasokan yang dikonfirmasi: hanya baris yang mengisi head_count berkomitmen; tanpa satu pun = tidak diketahui (bukan 0 ekor)
+  const withHeads = confirmed.filter((r) => r.head_count !== null && r.head_count !== undefined);
+  const supplyHeads = opts.supplyCommittedHeads ?? (withHeads.length ? withHeads.reduce((a, r) => a + Number(r.head_count), 0) : null);
   const days = Array.from({ length: 7 }, (_, i) => addDays(src.week.week_start, i));
   const caps = days.map((d) => src.capacity.get(d)?.cut_capacity_head ?? null);
-  const capacityHeads = caps.every((c) => c === null) ? null : caps.reduce<number>((a, c) => a + (c ?? 0), 0);
+  const capacityHeads = caps.every((c) => c === null) ? null : caps.reduce<number>((a, c) => a + (c ?? 0), 0); // missing-ok: jumlah kapasitas hari yang terisi; hari tanpa kapasitas ditandai C47 (BELUM DIISI)
   const proposal = proposeWeekPlan({
     heads: demand.heads, unitNet: demand.unitNet, yields, avgLbKg: cls?.avg_kg ?? "2", prices: unitPrices(src),
-    supplyCommittedHeads: supplyHeads, capacityHeads, threshold: src.threshold, patternOrder: patternOrder(src),
+    supplyCommittedHeads: supplyHeads ?? undefined, capacityHeads, threshold: src.threshold, patternOrder: patternOrder(src),
   });
   const byDay = demandByDay({ orders: src.orders, forecasts: src.forecasts, weights: src.weights, weekStart: src.week.week_start, isCut: (k) => unitOf(src, k) !== null });
   const needs = splitHeadsByDay({ weekHeads: proposal.plan.head_count, weekStart: src.week.week_start, ...byDay });
   const lbByDay = new Map<string, number>();
-  for (const r of confirmed) lbByDay.set(String(r.date), (lbByDay.get(String(r.date)) ?? 0) + Number(r.head_count ?? 0));
+  // a day's supply is known only from rows that fill head_count: without one the day has no figure (null below), never 0 ekor
+  for (const r of withHeads) lbByDay.set(String(r.date), (lbByDay.get(String(r.date)) ?? 0) + Number(r.head_count)); // missing-ok: penghitung ekor per tanggal (akumulator), hanya dari baris yang berisi
   const planDays = dailyPlan({
     weekHeads: proposal.plan.head_count, needs, leadTimeDays: src.leadTimeDays, weekStart: src.week.week_start,
     limits: days.map((d) => ({ date: d, cut_capacity_head: src.capacity.get(d)?.cut_capacity_head ?? null, lb_supply_heads: lbByDay.has(d) ? lbByDay.get(d)! : null })),
@@ -446,7 +450,7 @@ registerV3Kind({
       if (!w) { issues.push(`Baris ${r.rowNo}: minggu tanggal kirim ${v.delivery_date} belum ada`); continue; }
       if (w.status === "closed") { issues.push(`Baris ${r.rowNo}: minggu ${w.week_start} sudah ditutup`); continue; }
       const base = `${v.po_ref}|${v.item_code ?? v.key_manual ?? ""}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris untuk kunci baris (indeks)
       n.set(base, i);
       ok.push({ target: "po", data: { ...v, demand_status: st, week_id: w.id, week_start: w.week_start, key: keyOf(v.key_manual, v.item_code), line_key: `${base}|${i}` } });
     }
@@ -512,7 +516,7 @@ registerV3Kind({
       ok.push({ target: "forecast", data: { ...v, week_start: mondayOf(String(v.week_start)), key } });
     }
     const n = new Map<string, number>();
-    for (const r of ok) { const b = `${r.data.week_start}|${r.data.item_code ?? r.data.key}|${r.data.sales_rep ?? ""}|${r.data.customer ?? ""}`; const i = (n.get(b) ?? 0) + 1; n.set(b, i); r.data.line_key = `${b}|${i}`; }
+    for (const r of ok) { const b = `${r.data.week_start}|${r.data.item_code ?? r.data.key}|${r.data.sales_rep ?? ""}|${r.data.customer ?? ""}`; const i = (n.get(b) ?? 0) + 1; n.set(b, i); r.data.line_key = `${b}|${i}`; } // missing-ok: penghitung baris untuk kunci baris (indeks)
     const p = plan0("forecast_line", "Forecast sales", [...new Set(ok.map((r) => `minggu ${r.data.week_start}`))]);
     p.inserts = ok.length;
     const ws = ok.map((r) => String(r.data.week_start)).sort();
@@ -527,7 +531,7 @@ registerV3Kind({
       q = rep ? q.eq("sales_rep", rep) : q.is("sales_rep", null);
       const e = await q;
       if (e.error) throw new WriteError(`forecast_line: ${e.error.message}`);
-      deleted += e.count ?? 0;
+      deleted += e.count ?? 0; // missing-ok: jumlah baris yang dihapus (hitungan)
     }
     const data = rows.map((r) => ({
       week_start: r.data.week_start, key: r.data.key, item_code: s(r.data.item_code), sales_rep: s(r.data.sales_rep), customer: s(r.data.customer), kg: D(s(r.data.kg)).toFixed(2),

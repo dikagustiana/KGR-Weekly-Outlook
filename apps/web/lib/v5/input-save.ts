@@ -102,7 +102,7 @@ const COMMIT: Record<UploadKindV5, (c: Ctx) => Promise<Committed>> = {
     const n = new Map<string, number>();
     const keyOf = (q: UploadRecord) => {
       const base = `${v(q, "po_ref")}|${v(q, "item_code")}`;
-      const i = (n.get(base) ?? 0) + 1;
+      const i = (n.get(base) ?? 0) + 1; // missing-ok: penghitung baris per PO dan item untuk kunci baris (indeks)
       n.set(base, i);
       return `${base}|${i}`;
     };

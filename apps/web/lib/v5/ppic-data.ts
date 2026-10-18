@@ -98,7 +98,7 @@ export async function loadClassDemand(sb: Supa, src: PlanningSources): Promise<C
     ...src.lbSupply.filter((l) => s(l.weight_class)).map((l) => ({ source: "supply LB", weight_class: String(l.weight_class) })),
     ...inForce.map((m) => ({ source: "peta ukuran", weight_class: String(m.weight_class) })),
   ];
-  const supply = src.lbSupply.filter((l) => l.status === "confirmed" || l.status === "received").map((l) => ({ date: String(l.date), weight_class: s(l.weight_class), kg_lb: s(l.kg) ?? "0" }));
+  const supply = src.lbSupply.filter((l) => l.status === "confirmed" || l.status === "received").map((l) => ({ date: String(l.date), weight_class: s(l.weight_class), kg_lb: String(l.kg) }));
   const ships = [...new Set(lines.map((l) => l.ship_date))].sort();
   return {
     demand, daily, yieldOf, ship: ships.length ? { from: ships[0], to: ships[ships.length - 1] } : null,
@@ -214,7 +214,7 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
     },
     lbPrice: { price: lbPrice ? D(lbPrice) : null, source: lbDecided ? "keputusan Direktur Operasional" : "harga hari ini (parameter)" },
     batch: D(b2.lbPlannedInHorizon).gt(0) && wp ? {
-      kgLb: D(b2.lbPlannedInHorizon), batches: result.block6.rows.find((r) => r.status === "Rencana")?.batches ?? 0, margin: D(b2.expectedMarginOfPlan), surplusKg: wp.surplus_kg, downgrade: wp.downgrade,
+      kgLb: D(b2.lbPlannedInHorizon), batches: result.block6.rows.find((r) => r.status === "Rencana")?.batches ?? 0, margin: D(b2.expectedMarginOfPlan), surplusKg: wp.surplus_kg, downgrade: wp.downgrade, // missing-ok: jumlah batch rencana (hitungan): tanpa baris Rencana = 0 batch
       threshold: D(src.threshold), priceFresh: price("RPA|Karkas|Fresh") ? D(price("RPA|Karkas|Fresh")!) : null, priceFrozen: price("RPA|Karkas|Frozen") ? D(price("RPA|Karkas|Frozen")!) : null,
     } : null,
     fromCommercial: {
@@ -224,9 +224,9 @@ export async function loadPpicV5(sb: Supa, x: { src: PlanningSources; result: We
       spotFreshKg: null,
     },
     capacity: new Map([...src.capacity].map(([k, v]) => [k, v.cut_capacity_head])),
-    supply: src.lbSupply.filter((l) => l.status === "confirmed" || l.status === "received").map((l) => ({ date: String(l.date), weight_class: s(l.weight_class), kg_lb: D(s(l.kg) ?? "0") })),
+    supply: src.lbSupply.filter((l) => (l.status === "confirmed" || l.status === "received") && s(l.kg) !== null).map((l) => ({ date: String(l.date), weight_class: s(l.weight_class), kg_lb: D(String(l.kg)) })),
     controls,
-    today: { poKg: sumKg(todayRows), poValue: todayRows.reduce((a, o) => a.plus(D(o.kg).times(D(o.price ?? 0))), D(0)), cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."), allocHref: `/hari/${w.update_date}/alokasi` },
+    today: { poKg: sumKg(todayRows), poValue: todayRows.some((o) => s(o.price) === null) ? null : todayRows.reduce((a, o) => a.plus(D(o.kg).times(D(String(o.price)))), D(0)), cutOffTime: String(p.cut_off_time ?? "14:00").slice(0, 5).replace(":", "."), allocHref: `/hari/${w.update_date}/alokasi` },
     block6: result.block6, canPlan: x.canPlan,
     saveBlockers: block(ppicBlockers(controls, "save")),
     copyBlockers: gate?.blockers ?? [],

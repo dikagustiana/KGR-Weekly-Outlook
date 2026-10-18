@@ -61,7 +61,7 @@ export async function saveSkuKey(form: FormData) {
   if (!seg || !sku || !formv || !group) go(path, "err", "Semua kolom wajib");
   const sb = await supabaseServer();
   const last = must(await sb.from("sku_key").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle(), "master.sku_key") as { sort_order: number | null } | null;
-  const { error } = await sb.from("sku_key").upsert({ key: `${seg}|${sku}|${formv}`, segment: seg, sku, form: formv, decision_group: group, sort_order: Number(last?.sort_order ?? 0) + 1, active: true }, { onConflict: "key" });
+  const { error } = await sb.from("sku_key").upsert({ key: `${seg}|${sku}|${formv}`, segment: seg, sku, form: formv, decision_group: group, sort_order: Number(last?.sort_order ?? 0) + 1, active: true }, { onConflict: "key" }); // missing-ok: urutan tampil berikutnya (indeks): tanpa baris mulai dari 1
   if (error) go(path, "err", error.message);
   revalidatePath("/", "layout");
   go(path, "ok", `Key ${seg}|${sku}|${formv} disimpan — isi harga acuan di Input → Harga`);

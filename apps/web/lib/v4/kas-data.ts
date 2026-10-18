@@ -26,7 +26,7 @@ export async function loadKas(sb: Supa, x: { today: string; sp: Record<string, s
   const p = pos;
   // a day built without any bank balance (no template kas harian uploaded yet) has no cash position: the balances and
   // what is projected from them are "belum diisi", never Rp 0 (K12); the planned flows and the missing days stay
-  const noBalance = p !== null && Number(p.accounts ?? 0) === 0;
+  const noBalance = p !== null && Number(p.accounts ?? 0) === 0; // missing-ok: jumlah rekening yang punya saldo (hitungan); 0 rekening = tidak ada posisi kas (K12)
   const hz = (p?.horizon ?? null) as KasHorizon | null;
   const row: KasInput["row"] = p ? {
     date: String(p.date), totalClosing: noBalance ? null : s(p.total_closing), lowest: noBalance ? null : s(p.lowest_next_13w), lowestDate: noBalance ? null : s(p.lowest_date),
