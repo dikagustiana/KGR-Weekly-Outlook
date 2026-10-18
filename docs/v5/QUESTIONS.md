@@ -505,3 +505,33 @@ Q-v5.2-86. `batch` terbaca semua app user, termasuk baris `Rencana` (salinan `pl
 jadi menyembunyikannya dari Sales mengubah angka outlook Sales. **Tidak diubah di v5.2** (batas arsitektur sejak v1, di
 luar Q-v5.2-15). Usulan v5.3: outlook untuk Sales dihitung di server dengan klien servis (seperti rebuild A1d) dan
 ditampilkan tanpa kolom biaya, lalu baca mentah `batch`/`release` ditutup untuk Sales. Pemilik: pemilik produk.
+
+**Q-v5.2-90 … 100 (dari A6, `docs/v5.2/a6.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-90. `apps/web` tetap `xlsx` 0.18.5 (parse di browser, berkas milik pengguna sendiri) sampai `pnpm install` bisa
+menjangkau `cdn.sheetjs.com` (D3); `packages/parsers` 0.20.3. Diterima untuk v5.2; naikkan bersama D3.
+
+Q-v5.2-91. Pembacaan label sumber R76 (simulasi = PO + yield + harga LB; rencana biaya = yield + harga LB; biaya
+Komersial = WP/faktur minggu itu; alur per minggu, keadaan sampai tanggal update). Diterima.
+
+Q-v5.2-92. "Lewat tenggat" tetap tampil untuk tugas minggu lampau yang tidak pernah masuk. Diterima (jujur terhadap data).
+
+Q-v5.2-93. Upload tetap di nav Finance hanya saat panel Input tidak aktif untuk Finance. Diterima.
+
+Q-v5.2-94. `upNum` membaca "1,234.5" sebagai 1234,5; hanya "1,234" yang ditahan "format ribuan ambigu". Diterima.
+
+Q-v5.2-95. Rilis membangun ulang grid kelengkapan dengan klien servis; tanpa kunci servis grid tersimpan yang dinilai
+(`release_week` juga menilai sel tersimpan) dan celahnya dicatat. Diterima: grid basi hanya bisa lebih merah, bukan lebih
+hijau, jadi arah kegagalannya tetap menahan.
+
+Q-v5.2-96. Tombol bangun ulang PPIC: ≤ 60 tanggal / 40 detik per tekan, tanggal `failed` tetap ke Admin → Modul. Diterima.
+
+Q-v5.2-97. "Pola yang dipakai rencana" = kunci `patternMix`, kosong = karkas (O33 b). Diterima.
+
+Q-v5.2-98. Catatan kapasitas idle hanya di layar costing mingguan, tanpa kontrol baru. Diterima.
+
+Q-v5.2-99. O16, O17, O19 **dikerjakan di A6**: keputusan v5.2 (tabel di atas) adalah keputusan pemilik yang ditunggu
+Larangan PRD A untuk O17. Agen A6 diminta melanjutkan di cabang yang sama.
+
+Q-v5.2-100. Galat hidrasi #418 sekali di `/komersial` (Kepala Sales), tidak terulang. Diamati; bila muncul di CI, dicari
+sebabnya (tanpa percobaan ulang otomatis).
