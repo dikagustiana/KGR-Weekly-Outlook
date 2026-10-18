@@ -98,6 +98,9 @@ export const REBUILD_INLINE_MAX = 7;
  * queue is left alone: a v1 upload then works on a database without the v3 migrations (no rebuild_queue table yet).
  * Without the server key the queue is left alone too, with a note saying why. K61 (R45): stuck `running` rows are
  * reset, out-of-window dates are marked done, and inline processing is capped; the rest is left for the cron.
+ * V8 (review v5.3): a date is claimed with one conditional update (`status = 'queued'` → `running`, returning the ids);
+ * two runs that read the same queue (the cron and the "Bangun ulang" button, or two uploads) cannot both build it — the
+ * one whose update returns no row leaves the date to the other and says so in its notes (lib/rebuild-claim.test.ts).
  * `opts.client` is the client the run uses (the cron passes the service client it already holds); without it the
  * service client is built here. It is never a session client: `mart_replace` is granted to the service role only.
  */
@@ -138,12 +141,24 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
     }
     return null;
   };
+  // V8: the claim — only rows still `queued` become `running`, and only those come back; a row another run took between
+  // the read above and this update is not ours (PostgREST runs one update as one statement: no row is claimed twice)
+  const claim = async (ids: string[]): Promise<string[]> => {
+    const mine: string[] = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      // K41: a failing claim is an error, never "nothing claimed"
+      const rows = mustRows<{ id: string }>(await sb.from("rebuild_queue").update({ status: "running", started_at: new Date().toISOString() }).eq("status", "queued").in("id", ids.slice(i, i + 200)).select("id"), "rebuild_queue klaim running");
+      const asked = new Set(ids.slice(i, i + 200));
+      for (const row of rows) if (asked.has(String(row.id))) mine.push(String(row.id));
+    }
+    return mine;
+  };
   const startedAt = Date.now();
-  let processed = 0;
-  for (const [date, ids] of [...byDate.entries()].slice(0, limit)) {
+  let processed = 0, taken = 0;
+  for (const [date, queuedIds] of [...byDate.entries()].slice(0, limit)) {
     if (budgetMs && Date.now() - startedAt > budgetMs) break;
-    const fail = await mark(ids, { status: "running", started_at: new Date().toISOString() });
-    if (fail) throw new WriteError(`rebuild_queue running: ${fail}`);
+    const ids = await claim(queuedIds);
+    if (!ids.length) { taken += 1; processed += 1; continue; }
     try {
       const msg = await rebuildDay(sb, date, settings);
       const finFail = await mark(ids, { status: "done", finished_at: new Date().toISOString(), error: msg.length ? msg.join("; ").slice(0, 2000) : "tidak ada modul aktif" });
@@ -159,6 +174,7 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
       notes.push(`${date}: GAGAL ${(e as Error).message}`);
     }
   }
+  if (taken) notes.push(`${taken} tanggal sedang dibangun proses lain (cron atau tombol); tidak dibangun dua kali`);
   if (byDate.size > processed) notes.push(`${byDate.size - processed} tanggal tersisa di antrean; dilanjutkan otomatis`);
   return { done, failed, notes };
 }
