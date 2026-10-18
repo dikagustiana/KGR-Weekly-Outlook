@@ -1,0 +1,55 @@
+# journey P — rilis minggu: release_week langsung ke PostgREST dengan JWT Finance, tiga keadaan grid K35 (v5.1 P8)
+# lingkungan: PG16 lokal + PostgREST 12 + mock auth · app http://127.0.0.1:3100 · jam dinding mesin 2026-10-18T10:54:51.324Z
+
+0 - — SETUP: jam uji Jum 28 Agu 16.55; login Finance dan PPIC; snapshot rilis T7 sebagai badan permintaan   [jam uji 2026-08-28T17:06:25+07:00]
+JAM UJI → jam uji: 2026-08-28 16:55:00 WIB (offset -4409992s)
+    finance    GET /login → HTTP 200
+    finance    POST /login (server action) → HTTP 303
+    ppic       GET /login → HTTP 200
+    ppic       POST /login (server action) → HTTP 303
+    CEK lulus: DB: minggu 24/08 sudah dirilis oleh T7 dan snapshot rilis ada — status released, snapshot 98582 karakter
+    DB snapshot rilis T7: 98582 karakter, controls.controls 20 kontrol, controls_v3 C21 LULUS, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C48 LULUS, C53 LULUS, C54 LULUS, C57 LULUS, C25 PERIKSA, C26 GAGAL, C27 GAGAL, C28 LULUS, C30 LULUS, C29 LULUS, C31 LULUS, C33 LULUS, C34 LULUS, C43 LULUS, C32 BELUM DIISI, C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C39 PERIKSA, C40 LULUS, C38 GAGAL
+    CEK lulus: snapshot memuat kontrol v1 dan controls_v3 dengan C53 (syarat release_week saat v5_costing hidup, K68)
+    badan permintaan: p_week_id 7adf8d39-f808-5a99-a74b-b9ed3efa9417, p_sha 30c15ea6880e9157… (SHA-256 dari p_json yang dikirim), 1 rilis minggu ini, grid: not_due 4, noted 2, passed 31
+    CEK lulus: DB: grid K35 minggu ini terisi dan tanpa sel merah (keadaan akhir T7) — not_due 4, noted 2, passed 31
+    CEK lulus: v4_release, v5_costing dan v5_input hidup
+    Supabase (mock origin) selama langkah: 12× auth 200, 105× rest 200
+
+P8a finance — release_week tanpa satu pun baris grid minggu itu → 400 'K35: grid kelengkapan belum dibangun' (K45); tidak ada rilis baru   [jam uji 2026-08-28T16:55:03+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — grid K35 minggu 2026-08-24 dihapus seluruhnya (tidak ada baris untuk minggu itu)
+    finance (langsung ke PostgREST)  POST /rest/v1/rpc/release_week → HTTP 400 {"code":"P0001","details":null,"hint":"Perbaiki kontrol, atau minta override per kontrol dengan alasan dan bukti.","message":"Rilis ditolak: K35: grid kelengkapan belum dibangun; Admin → Modul → Perbarui status tugas"}
+    CEK lulus: HTTP 400 dengan kode P0001 — HTTP 400 P0001
+    CEK lulus: pesan: 'Rilis ditolak: K35: grid kelengkapan belum dibangun' — Rilis ditolak: K35: grid kelengkapan belum dibangun; Admin → Modul → Perbarui status tugas
+    CEK lulus: DB: tidak ada rilis baru — 1 → 1
+    diharapkan: rest (finance@e2e.test) POST rpc/release_week → HTTP 400 (penolakan yang diharapkan: release_week menolak di transaksi database (K35/K45))
+    Supabase (mock origin) selama langkah: 1× rest 400
+
+P8b finance — grid dikembalikan dengan satu sel plan_week 24/08 merah → 400 'K35 kelengkapan data merah: plan_week 24/08'; tidak ada rilis baru   [jam uji 2026-08-28T16:55:03+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — grid K35 dikembalikan persis seperti keadaan akhir T7, lalu satu sel plan_week 2026-08-24 dibuat late
+    DB grid: late 1, not_due 4, noted 2, passed 30; sel merah: plan_week 24/08
+    finance (langsung ke PostgREST)  POST /rest/v1/rpc/release_week → HTTP 400 {"code":"P0001","details":null,"hint":"Perbaiki kontrol, atau minta override per kontrol dengan alasan dan bukti.","message":"Rilis ditolak: K35 kelengkapan data merah: plan_week 24/08"}
+    CEK lulus: HTTP 400 dengan kode P0001 — HTTP 400 P0001
+    CEK lulus: pesan: 'Rilis ditolak: K35 kelengkapan data merah: plan_week 24/08' (satu sel, disebut namanya) — Rilis ditolak: K35 kelengkapan data merah: plan_week 24/08
+    CEK lulus: DB: tidak ada rilis baru — 1 → 1
+    diharapkan: rest (finance@e2e.test) POST rpc/release_week → HTTP 400 (penolakan yang diharapkan: release_week menolak di transaksi database (K35/K45))
+    Supabase (mock origin) selama langkah: 1× rest 400
+
+P8c finance — semua sel lolos dan sel release_week lama late → 200: rilis baru oleh Finance (K44: tugas rilis bukan sel yang menahan)   [jam uji 2026-08-28T16:55:03+07:00]
+SETUP (postgres, langsung ke tabel; bukan alur) — grid K35 dikembalikan persis seperti keadaan akhir T7 (semua sel lolos), ditambah sel release_week 2026-08-24 yang late
+    DB grid: late 1, not_due 4, noted 2, passed 31; sel release_week: late
+    finance (langsung ke PostgREST)  POST /rest/v1/rpc/release_week → HTTP 200 "8fc581bf-584d-420d-8bab-43e1825adf7a"
+    CEK lulus: HTTP 200 (id rilis baru) — HTTP 200 "8fc581bf-584d-420d-8bab-43e1825adf7a"
+    DB rilis minggu ini: finance@e2e.test · dd9eb4fc2757 · PERIKSA · -; finance@e2e.test · 30c15ea6880e · PERIKSA · -
+    CEK lulus: DB: satu rilis baru oleh Finance dengan SHA-256 yang dikirim — 1 → 2
+    CEK lulus: DB: minggu tetap 'released'
+    Supabase (mock origin) selama langkah: 1× rest 200
+
+P8d ppic — PPIC memanggil release_week yang sama → 403 (hanya Admin atau Finance), tidak ada rilis baru   [jam uji 2026-08-28T16:55:04+07:00]
+    ppic (langsung ke PostgREST)  POST /rest/v1/rpc/release_week → HTTP 403 {"code":"42501","details":null,"hint":null,"message":"Rilis mingguan hanya oleh Admin atau Finance"}
+    CEK lulus: HTTP 403 dengan kode 42501 — HTTP 403 42501
+    CEK lulus: pesan: 'Rilis mingguan hanya oleh Admin atau Finance' — Rilis mingguan hanya oleh Admin atau Finance
+    CEK lulus: DB: tidak ada rilis baru — 2 → 2
+    diharapkan: rest (ppic@e2e.test) POST rpc/release_week → HTTP 403 (penolakan yang diharapkan: release_week hanya untuk Admin atau Finance)
+    Supabase (mock origin) selama langkah: 1× rest 403
+
+RINGKASAN P: 16 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 6 (4× 200, 2× 303); respons tak terduga 0; SETUP 3
