@@ -1,3 +1,5 @@
+> **USANG (18 Okt 2026).** Dokumen ini ditulis di tengah pengerjaan dan tidak lagi benar untuk irisan A3: klaim "A3 9/9 … R64 lint=0 (whitelist bernama)" tidak berlaku (whitelist substring menyembunyikan ±130 hit dan keluar 0 walau ada hit; `docs/v5.2/audit-handover.md`). Status A3 yang berlaku: `docs/v5.2/a3.md`.
+
 # v5.2-A (kode) — status pengerjaan
 
 Dokumen handoff untuk review Opus. Semua cabang ter-push bersih; gate hijau di tiap commit.

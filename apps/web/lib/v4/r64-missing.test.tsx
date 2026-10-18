@@ -115,6 +115,18 @@ describe("kas (kas-data, cash.ts lines 108, 147-153)", () => {
   });
 });
 
+describe("kas-data.ts (line 41): the related-party payable that is not there", () => {
+  it("affiliate null: the card says 'belum ada', and no 'naik / turun dari bulan lalu' against a payable read as 0", () => {
+    const base = kasFixtureProjection();
+    const m = kasModel({ ...base, solvency: { ...base.solvency!, affiliate: null, prevAffiliate: "1500000000" } });
+    const v = text(m.tiles.find((t) => t.id === "c-afiliasi"));
+    expect(v).toContain("belum ada");
+    expect(v).not.toMatch(/dari bulan lalu/);
+    const known = text(kasModel({ ...base, solvency: { ...base.solvency!, affiliate: "1700000000", prevAffiliate: "1500000000" } }).tiles.find((t) => t.id === "c-afiliasi"));
+    expect(known).toContain("naik dari bulan lalu");
+  });
+});
+
 describe("allocation (allocation.ts lines 81, 100): an order line without kg", () => {
   it("is reported by C29 as BELUM DIISI naming the line, not allocated as 0 kg", () => {
     const d = { date: "2026-08-27", orders: [], allocations: [], cutoffDone: [], led: { lots: [] }, noKg: [{ id: "L9", po_ref: "PO-9", key: "RPA|Karkas|Fresh" }] };

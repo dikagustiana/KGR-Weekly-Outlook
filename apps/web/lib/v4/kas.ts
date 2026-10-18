@@ -140,7 +140,7 @@ export function kasModel(x: KasInput): KasModel {
       content: {
         type: "card", value: sv.affiliate === null ? null : jtV4(aff), unit: "Rp jt", missing: sv.affiliate === null ? "belum ada" : undefined,
         compare: [
-          ...(prev ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
+          ...(prev && sv.affiliate !== null ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
           { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: interest === null ? "belum diisi" : `${jtV4(interest)} jt` },
         ],
       },
