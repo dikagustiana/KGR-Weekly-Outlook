@@ -1,0 +1,132 @@
+# v5.2 B7 — blok baru 'v5.2 B7 Q-v5.2-72' dijalankan di migrasi B6 saja (tanpa 20261025000700) lawan di cabang
+# tanggal: 2026-10-18 · PostgreSQL 16.15 + shim · DB uji: shim + 38 migrasi s.d. 20261025000600 + seed; schema_version() = 5.2.5
+# perintah (B6 saja): sed -n '/^-- Q-v5.2-72 and Q-v5.2-84: plan_day, and the three tables/,$p' supabase/tests/rls_roles.sql | psql -d <db> -q
+
+## di migrasi B6 saja: 20 baris dengan (!), 21 tanda (!) (setiap temuan = sesuatu yang ditambah atau diubah oleh migrasi ini; baris peran lain, sisi tulis dan baris tanpa perubahan tidak bertanda)
+RLS-RESULTS v5.2 B7 Q-v5.2-72 (rolled back): setup: audit rows of plan_day=3 and of the three others=3;
+  b7-sales reads plan_day rows=2(!);
+  b7-sales plan_day of the plan rows=2(!);
+  b7-sales plan_day by id rows=1(!);
+  b7-sales reads plan_variance_daily rows=1 of the week=1(!);
+  b7-sales reads demand_shortfall rows=1 of the week=1(!);
+  b7-sales reads plan_check_reason rows=1 of the week=1(!);
+  b7-sales audit_log rows of plan_day=3 and of the three others=3(!);
+  b7-sales audit_log rows of app_user (not redacted)=11;
+  b7-sales2 reads plan_day rows=2(!);
+  b7-sales2 plan_day of the plan rows=2(!);
+  b7-sales2 plan_day by id rows=1(!);
+  b7-sales2 reads plan_variance_daily rows=1 of the week=1(!);
+  b7-sales2 reads demand_shortfall rows=1 of the week=1(!);
+  b7-sales2 reads plan_check_reason rows=1 of the week=1(!);
+  b7-sales2 audit_log rows of plan_day=3 and of the three others=3(!);
+  b7-sales2 audit_log rows of app_user (not redacted)=11;
+  b7-lead plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ppic plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-mgmt plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ops plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-fin plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-adm plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ia plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-pur plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-cost plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  not an app user: plan_day=0 plan_variance_daily=0 demand_shortfall=0 plan_check_reason=0 audit rows=0;
+  anon plan_day=0 plan_variance_daily=0 demand_shortfall=0 plan_check_reason=0;
+  sales insert plan_day: denied;
+  sales update plan_day rows=0;
+  sales insert plan_check_reason: denied;
+  sales update plan_check_reason rows=0;
+  sales insert plan_variance_daily: denied;
+  sales insert demand_shortfall: denied;
+  b7-ppic insert plan_day: OK;
+  b7-ppic update plan_day rows=1;
+  b7-ppic insert plan_check_reason: OK;
+  b7-ppic reads the reason it wrote rows=1;
+  b7-ppic insert plan_variance_daily: denied;
+  b7-ppic insert demand_shortfall: denied;
+  b7-adm insert plan_day: OK;
+  b7-adm update plan_day rows=1;
+  b7-adm insert plan_check_reason: OK;
+  b7-adm reads the reason it wrote rows=1;
+  b7-adm insert plan_variance_daily: denied;
+  b7-adm insert demand_shortfall: denied;
+  finance insert plan_day: denied;
+  finance insert plan_check_reason: denied;
+  plan_day_read without Sales=0(!), policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  plan_variance_daily_read without Sales=0(!), policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  demand_shortfall_read without Sales=0(!), policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  plan_check_reason_read without Sales=0(!), policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  write policies kept (admin, ppic)=4, write policies of the two marts=0;
+  audit_log_sales_redact is restrictive and names the four tables and the 26 older tables, missing=[plan_day plan_variance_daily demand_shortfall plan_check_reason](!);
+  audit_log keeps its three policies=3;
+  anon: plan_day select privilege=true (platform default, closed by RLS: no policy names anon);
+  version 5.2.6 registered=false(!) schema_version()=5.2.5(!);
+  
+
+## di cabang (dengan 20261025000700): 0 temuan; keluaran penuh di docs/v5.2/bukti/b7-rls.txt (blok terakhir)
+RLS-RESULTS v5.2 B7 Q-v5.2-72 (rolled back): setup: audit rows of plan_day=3 and of the three others=3;
+  b7-sales reads plan_day rows=0;
+  b7-sales plan_day of the plan rows=0;
+  b7-sales plan_day by id rows=0;
+  b7-sales reads plan_variance_daily rows=0 of the week=0;
+  b7-sales reads demand_shortfall rows=0 of the week=0;
+  b7-sales reads plan_check_reason rows=0 of the week=0;
+  b7-sales audit_log rows of plan_day=0 and of the three others=0;
+  b7-sales audit_log rows of app_user (not redacted)=11;
+  b7-sales2 reads plan_day rows=0;
+  b7-sales2 plan_day of the plan rows=0;
+  b7-sales2 plan_day by id rows=0;
+  b7-sales2 reads plan_variance_daily rows=0 of the week=0;
+  b7-sales2 reads demand_shortfall rows=0 of the week=0;
+  b7-sales2 reads plan_check_reason rows=0 of the week=0;
+  b7-sales2 audit_log rows of plan_day=0 and of the three others=0;
+  b7-sales2 audit_log rows of app_user (not redacted)=11;
+  b7-lead plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ppic plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-mgmt plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ops plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-fin plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-adm plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-ia plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-pur plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  b7-cost plan_day=2 plan_variance_daily=1 demand_shortfall=1 plan_check_reason=1 audit rows=6;
+  not an app user: plan_day=0 plan_variance_daily=0 demand_shortfall=0 plan_check_reason=0 audit rows=0;
+  anon plan_day=0 plan_variance_daily=0 demand_shortfall=0 plan_check_reason=0;
+  sales insert plan_day: denied;
+  sales update plan_day rows=0;
+  sales insert plan_check_reason: denied;
+  sales update plan_check_reason rows=0;
+  sales insert plan_variance_daily: denied;
+  sales insert demand_shortfall: denied;
+  b7-ppic insert plan_day: OK;
+  b7-ppic update plan_day rows=1;
+  b7-ppic insert plan_check_reason: OK;
+  b7-ppic reads the reason it wrote rows=1;
+  b7-ppic insert plan_variance_daily: denied;
+  b7-ppic insert demand_shortfall: denied;
+  b7-adm insert plan_day: OK;
+  b7-adm update plan_day rows=1;
+  b7-adm insert plan_check_reason: OK;
+  b7-adm reads the reason it wrote rows=1;
+  b7-adm insert plan_variance_daily: denied;
+  b7-adm insert demand_shortfall: denied;
+  finance insert plan_day: denied;
+  finance insert plan_check_reason: denied;
+  plan_day_read without Sales=1, policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  plan_variance_daily_read without Sales=1, policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  demand_shortfall_read without Sales=1, policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  plan_check_reason_read without Sales=1, policies that open it to SELECT=1 (no second door), policies for a role other than authenticated=0;
+  write policies kept (admin, ppic)=4, write policies of the two marts=0;
+  audit_log_sales_redact is restrictive and names the four tables and the 26 older tables, missing=[];
+  audit_log keeps its three policies=3;
+  anon: plan_day select privilege=true (platform default, closed by RLS: no policy names anon);
+  version 5.2.6 registered=true schema_version()=5.2.6;
+  
+
+## blok B6 'v5.2 B6 Q-v5.2-15' di cabang B7: tidak ada (!); satu-satunya baris yang berubah nilainya adalah observasi tanpa tanda
+## di B6 (b6-rls.txt):  observation: sales plan_day rows=1 and its audit rows=1 (not closed here, b6.md Q-v5.2-72);
+## di cabang B7:
+  observation: sales plan_day rows=0 and its audit rows=0 (not closed here, b6.md Q-v5.2-72);
+## baris (!) di blok B6 di cabang B7: 0
+
+## blok lama yang menyentuh plan_check_reason, demand_shortfall dan plan_variance_daily (v4: alasan C41 dan mart; B5 A2: alasan terikat versi): tetap lulus tanpa diubah
+## jumlah baris (!) di seluruh keluaran cabang: 0

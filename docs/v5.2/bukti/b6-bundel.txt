@@ -1,0 +1,126 @@
+# v5.2 B6 — bundel docs/v5.2/kgr-os-migrasi-v52-b6.sql di DB uji (PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1), bukan Supabase)
+# tanggal: 2026-10-18 07:14 UTC · sha256 bundel: 227c51076e1d0cf6131835a07e9a82e3274f551f26796a594ccd1c834eb57426
+# sha256 file sumber 20261025000600_v52_sales_plan.sql: b8e5af9f2401e5cdb0674e007f1c9e935b356f673cf9bb4b2851e221357fdd65
+# isi berkas migrasi di dalam bundel identik dengan berkasnya (byte per byte): True
+
+## 1. DB baru: shim + migrasi s.d. B5 (20261025000500) + seed; schema_version() sebelum:
+5.2.4
+
+## putaran 1: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b6.sql
+  DO
+  ALTER POLICY
+  ALTER POLICY
+  DO
+  CREATE FUNCTION
+  REVOKE
+  CREATE VIEW
+  REVOKE
+  GRANT
+  INSERT 0 1
+  UPDATE 1
+  NOTIFY
+   no |                                                                    cek                                                                     | ada 
+  ----+--------------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0600 plan_week_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-15)                                                                 | t
+    2 | 0600 demand_weekly_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-15)                                                             | t
+    3 | 0600 policy tulis plan_week dan demand_weekly tidak berubah (7 policy)                                                                     | t
+    4 | 0600 tidak ada policy lain yang membuka plan_week atau demand_weekly untuk SELECT                                                          | t
+    5 | 0600 audit_log_sales_redact: restriktif, memuat plan_week, plan_week_class, demand_weekly, demand_class_weekly dan daftar lama (Q-v5.2-74) | t
+    6 | 0600 view surplus_for_sales_v52: 11 kolom, nama, urutan dan tipe seperti B2                                                                | t
+    7 | 0600 view surplus_for_sales_v52: unit produksi bernama kunci SKU RPA (Q-v5.2-71)                                                           | t
+    8 | 0600 view surplus_for_sales_v52: security_barrier, SELECT untuk authenticated, tanpa hak anon                                              | t
+    9 | 0600 tg_plan_check_reason_scope: SECURITY DEFINER, search_path kosong, tanpa execute untuk klien, trigger masih terpasang (Q-v5.2-73)      | t
+   10 | semua SECURITY DEFINER di public: search_path tetap                                                                                        | t
+   11 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                      | t
+   12 | satu fungsi per nama untuk yang diganti (tanpa overload baru)                                                                              | t
+   13 | 0600 versi 5.2.5 tercatat dan schema_version() = 5.2.5 atau lebih                                                                          | t
+   14 | bundle_sha256 terisi untuk 5.2.5                                                                                                           | t
+   15 | versi sebelumnya tetap tercatat (5.2.0 sampai 5.2.4)                                                                                       | t
+  (15 rows)
+  
+  exit: 0
+
+## putaran 2: psql -v ON_ERROR_STOP=1 --single-transaction -f docs/v5.2/kgr-os-migrasi-v52-b6.sql
+  DO
+  ALTER POLICY
+  ALTER POLICY
+  DO
+  CREATE FUNCTION
+  REVOKE
+  CREATE VIEW
+  REVOKE
+  GRANT
+  INSERT 0 0
+  UPDATE 1
+  NOTIFY
+   no |                                                                    cek                                                                     | ada 
+  ----+--------------------------------------------------------------------------------------------------------------------------------------------+-----
+    1 | 0600 plan_week_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-15)                                                                 | t
+    2 | 0600 demand_weekly_read: SELECT untuk semua app user kecuali Sales (Q-v5.2-15)                                                             | t
+    3 | 0600 policy tulis plan_week dan demand_weekly tidak berubah (7 policy)                                                                     | t
+    4 | 0600 tidak ada policy lain yang membuka plan_week atau demand_weekly untuk SELECT                                                          | t
+    5 | 0600 audit_log_sales_redact: restriktif, memuat plan_week, plan_week_class, demand_weekly, demand_class_weekly dan daftar lama (Q-v5.2-74) | t
+    6 | 0600 view surplus_for_sales_v52: 11 kolom, nama, urutan dan tipe seperti B2                                                                | t
+    7 | 0600 view surplus_for_sales_v52: unit produksi bernama kunci SKU RPA (Q-v5.2-71)                                                           | t
+    8 | 0600 view surplus_for_sales_v52: security_barrier, SELECT untuk authenticated, tanpa hak anon                                              | t
+    9 | 0600 tg_plan_check_reason_scope: SECURITY DEFINER, search_path kosong, tanpa execute untuk klien, trigger masih terpasang (Q-v5.2-73)      | t
+   10 | semua SECURITY DEFINER di public: search_path tetap                                                                                        | t
+   11 | tidak ada fungsi SECURITY DEFINER di public yang bisa dieksekusi anon                                                                      | t
+   12 | satu fungsi per nama untuk yang diganti (tanpa overload baru)                                                                              | t
+   13 | 0600 versi 5.2.5 tercatat dan schema_version() = 5.2.5 atau lebih                                                                          | t
+   14 | bundle_sha256 terisi untuk 5.2.5                                                                                                           | t
+   15 | versi sebelumnya tetap tercatat (5.2.0 sampai 5.2.4)                                                                                       | t
+  (15 rows)
+  
+  exit: 0
+
+## schema_version() sesudah:
+5.2.5
+## bundle_sha256 di registry:
+5.2.4 -
+5.2.5 b8e5af9f2401e5cdb0674e007f1c9e935b356f673cf9bb4b2851e221357fdd65
+
+## 2. hasil yang sama dengan migrasi satu per satu: sidik definisi dan ACL (docs/v5.2/bukti/b6-migrasi-rerun.txt memakai berkas yang sama)
+bundel:
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+migrasi satu per satu (b6_rerun):
+policies plan_week, demand_weekly (md5): b0c20905fe20b3067478eba53f961e8d
+policy audit_log_sales_redact (md5): e9f1d2f478eae537005d043cc3e522ab restrictive=true
+view definition (md5): 42e05914ec7f6d4bf309e1ac2c98c1b9 options={security_barrier=true}
+function tg_plan_check_reason_scope (md5 + definer + config): 4c8f8f68de4b860d03707e5c35b9b150 true {"search_path=\"\""}
+acl (view, function, plan_week, demand_weekly) md5: 5ed80093ed147e54f388e23d0578261a
+all public functions (md5 of definitions, 68 functions): 01391f35a8be14cc82459bef0e9ec612
+
+## 3. ditolak di DB tanpa B5 (shim + migrasi s.d. B2 20261025000300, schema_version() 5.2.2), tanpa efek sisa
+schema_version() = 5.2.2
+sebelum:
+  registry:5.1.0 ; 5.2.0 ; 5.2.1 ; 5.2.2
+  policies plan_week, demand_weekly (md5): adac277bf7f061ac2f4e1aabfef46ae5
+  view surplus_for_sales_v52 (md5): 1129717e430a1b4df21474d5a9c3604d
+  policy audit_log_sales_redact (md5): 77f4682e1d7ab046dcca782a82fc1c6e
+  psql:docs/v5.2/kgr-os-migrasi-v52-b6.sql:47: ERROR:  schema_version() = 5.2.2, B6 butuh 5.2.4 atau lebih (bundel B5); v5.2 B6 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 7 at RAISE
+  exit: 3
+sesudah:
+  registry:5.1.0 ; 5.2.0 ; 5.2.1 ; 5.2.2
+  policies plan_week, demand_weekly (md5): adac277bf7f061ac2f4e1aabfef46ae5
+  view surplus_for_sales_v52 (md5): 1129717e430a1b4df21474d5a9c3604d
+  policy audit_log_sales_redact (md5): 77f4682e1d7ab046dcca782a82fc1c6e
+
+## 4. ditolak di DB v5.1 saja (tanpa B2): schema_registry tidak ada
+  psql:docs/v5.2/kgr-os-migrasi-v52-b6.sql:47: ERROR:  Bundel B2 dan B5 belum terpasang di database ini (docs/v5.2/kgr-os-migrasi-v52-b2.sql, lalu docs/v5.2/kgr-os-migrasi-v52-b5.sql); v5.2 B6 tidak dijalankan
+  CONTEXT:  PL/pgSQL function inline_code_block line 4 at RAISE
+  exit: 3
+
+## 5. rantai lengkap di DB baru: v5.1 -> bundel B2 -> bundel B5 -> bundel B6 (dua kali), tabel cek B6 tiap putaran
+  kgr-os-migrasi-v52-b2.sql: exit 0; schema_version() = 5.2.2
+  kgr-os-migrasi-v52-b5.sql: exit 0; schema_version() = 5.2.4
+  bundel B6 putaran 1:
+    baris cek: 15, true: 15
+  bundel B6 putaran 2:
+    baris cek: 15, true: 15
