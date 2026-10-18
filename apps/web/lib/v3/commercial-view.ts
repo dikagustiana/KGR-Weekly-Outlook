@@ -3,6 +3,7 @@
  * DOM never carries the specific cost per lot, cost pools or batch references; with `sales_sees_cost = false` the MA cost
  * per kg is dropped too (floor and margins stay).
  */
+import { assignmentCovers } from "@kgr/engine";
 import type { Role } from "../roles";
 
 export type Raw = Record<string, unknown>;
@@ -43,6 +44,8 @@ export const URGENCY_LABEL: Record<string, string> = { di_atas_umur: "di atas ba
 /**
  * Keys a viewer may see (PRD v4 §8 S2): every key for roles other than sales; for sales only the assigned keys, all of
  * them when an assignment row has no key. No assignment = no key (default deny; the database view applies the same rule).
+ * The keys are as the assignments name them: `commercialView` reads them as the database does (O21(b), `assignmentCovers`),
+ * so a key without a form suffix ("RPA|Karkas") covers every form and one with a suffix ("RPA|Karkas|Fresh") only itself.
  */
 export function assignedKeysFor(role: Role, own: { key: string | null }[]): Set<string> | "all" {
   if (role !== "sales") return "all";
@@ -54,7 +57,8 @@ export function commercialView(rows: Raw[], opts: { role: Role; salesSeesCost: b
   const sales = opts.role === "sales";
   const showMa = !sales || opts.salesSeesCost;
   return rows
-    .filter((r) => !sales || opts.assignedKeys === "all" || opts.assignedKeys.has(String(r.key)))
+    // A7: O21(b) as the database cover (`assignment_covers`): an assigned base key shows every form, a key with a form only itself
+    .filter((r) => !sales || opts.assignedKeys === "all" || [...opts.assignedKeys].some((a) => assignmentCovers(a, String(r.key))))
     .map((r) => ({
       date: str(r.date), key: String(r.key), group_code: str(r.group_code), form: str(r.form), free_fresh_kg: String(r.free_fresh_kg), free_frozen_kg: String(r.free_frozen_kg), // commercial_daily.free_*_kg NOT NULL
       oldest_age_days: int(r.oldest_age_days), hours_to_cutoff: int(r.hours_to_cutoff),
