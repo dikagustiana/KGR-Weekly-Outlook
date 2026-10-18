@@ -68,7 +68,7 @@ describe("R54 — the lock queues the Friday before the week and the queue is pr
   });
   it("saving commitments queues the same Friday; answering a surplus queues the date of the plan", async () => {
     sb = memSb({ week: [WEEK], input_task_rule: rules, sales_commitment: [] });
-    await saveCommitmentsAction({}, form({ week_start: NEXT, n: "1", key_0: "RPA|Karkas", fresh_0: "100" }));
+    await saveCommitmentsAction({}, form({ week_start: NEXT, n: "1", key_0: "RPA|Karkas", fresh_0: "100", frozen_0: "0" })); // R64: a commitment names both kg (0 typed on purpose)
     expect(queued()).toEqual(["2026-08-28"]);
     sb = memSb({ week: [WEEK], input_task_rule: rules, plan_week: [{ id: "P1", week_start: "2026-08-24", version: 1, deleted_at: null, surplus_kg_by_key: { Karkas: "6332.00" } }] });
     await answerSurplusAction({}, form({ week_start: "2026-08-24", response: "absorb", key: "RPA|Karkas" }));
@@ -159,5 +159,21 @@ describe("R56 — the surplus answer carries the SKU of the surplus row", () => 
     expect((await answer({})).error).toBe("Pilih SKU surplus yang dijawab");
     expect((await answer({ key: "RPA|Karkas|Fresh" })).error).toContain("tidak ada di daftar surplus");
     expect(sb.tables.surplus_response ?? []).toHaveLength(0);
+  });
+});
+
+describe("R64 — a blank kg is not a commitment of 0", () => {
+  it("fresh filled and frozen blank: nothing is written, the message names the SKU and says to type 0 when there is none", async () => {
+    sb = memSb({ week: [WEEK], input_task_rule: rules, sales_commitment: [] });
+    const r = await saveCommitmentsAction({}, form({ week_start: NEXT, n: "2", key_0: "RPA|Karkas", fresh_0: "100", frozen_0: "", key_1: "RPA|Usus", fresh_1: "50", frozen_1: "0" }));
+    expect(r.error).toBe("Isi kg fresh dan kg frozen (tulis 0 bila memang tidak ada komitmen): RPA|Karkas");
+    expect(sb.calls("sales_commitment:upsert")).toHaveLength(0);
+    expect(sb.calls("rebuild_queue:insert")).toHaveLength(0);
+  });
+  it("0 typed on purpose is a commitment of 0", async () => {
+    sb = memSb({ week: [WEEK], input_task_rule: rules, sales_commitment: [] });
+    const r = await saveCommitmentsAction({}, form({ week_start: NEXT, n: "1", key_0: "RPA|Usus", fresh_0: "50", frozen_0: "0" }));
+    expect(r.error).toBeUndefined();
+    expect((sb.calls("sales_commitment:upsert")[0].payload as MemRow[])[0]).toMatchObject({ key: "RPA|Usus", fresh_kg: "50", frozen_kg: "0" });
   });
 });
