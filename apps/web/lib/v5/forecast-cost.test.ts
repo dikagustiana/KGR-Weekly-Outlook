@@ -93,9 +93,10 @@ describe("forecastCostsOf: the plan cost of the cut date", () => {
 });
 
 describe("applyForecastCosts: the Order lines of the weekly engine re-costed, the rest left alone and labelled", () => {
-  const line = (over: Partial<{ status: string; date: string | null; key: string; kg: string; hpp: string }> = {}) => ({
-    status: "Order", date: "2026-08-27", key: "RPA|Karkas|Fresh", kg: D(over.kg ?? "1000"), hpp: D(over.hpp ?? "30000000"), value: D(38000000), segment: "RPA", group: "Karkas", src: { id: "x" }, ...over,
-  }) as ReturnType<typeof line> & { status: string; date: string | null; key: string; kg: ReturnType<typeof D>; hpp: ReturnType<typeof D> };
+  interface Line { status: string; date: string | null; key: string; kg: ReturnType<typeof D>; hpp: ReturnType<typeof D>; value: ReturnType<typeof D>; segment: string; group: string; src: { id: string } }
+  const line = (over: Partial<{ status: string; date: string | null; key: string }> = {}): Line => ({
+    status: "Order", date: "2026-08-27", key: "RPA|Karkas|Fresh", kg: D("1000"), hpp: D("30000000"), value: D(38000000), segment: "RPA", group: "Karkas", src: { id: "x" }, ...over,
+  });
   const range = { from: "2026-08-27", to: "2026-08-31" };
   it("the key of the weekly engine (original case) is found; hpp = cost per kg × kg; the orders then carry that cost", async () => {
     const c = await costs(rows());
@@ -104,9 +105,9 @@ describe("applyForecastCosts: the Order lines of the weekly engine re-costed, th
     expect(r.sales[0].hpp.minus(D(golden.cost_per_kg_base["RPA|Karkas|Fresh"]).times(1000)).abs().lt(10)).toBe(true);
     expect(r.label).toMatchObject({ plan: 1, ma: 0 });
     const orders = ordersV4FromWeek(r.sales as never, "2026-08-27", "2026-08-31", () => 1);
-    expect(orders[0].cost.toFixed(2)).toBe(r.sales[0].hpp.toFixed(2));
+    expect(D(orders[0].cost).toFixed(2)).toBe(r.sales[0].hpp.toFixed(2));
     // and a tentative weight scales it as for any order (the weight is applied after the cost)
-    expect(ordersV4FromWeek(r.sales as never, "2026-08-27", "2026-08-31", () => "0.5")[0].cost.toFixed(2)).toBe(r.sales[0].hpp.times("0.5").toFixed(2));
+    expect(D(ordersV4FromWeek(r.sales as never, "2026-08-27", "2026-08-31", () => "0.5")[0].cost).toFixed(2)).toBe(r.sales[0].hpp.times("0.5").toFixed(2));
   });
   it("a delivered line, a line outside the range and a trading SKU keep their MA cost; the label counts and names why", async () => {
     const c = await costs(rows());
