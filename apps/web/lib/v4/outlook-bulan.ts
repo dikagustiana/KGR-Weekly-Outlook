@@ -15,6 +15,8 @@ import type { Col, TRow } from "@/components/v4/Table";
 import { monthsToNegative, type TileModel } from "./minggu-ini";
 import type { TilePos } from "@/components/v4/Tile";
 import { outlookBulanV5, type OutlookBulanV5 } from "../v5/pl-tiles";
+import type { FsReconTile } from "../v5/fs-recon";
+export type { FsReconTile };
 
 const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 export const monthName = (first: string) => `${MONTHS[Number(first.slice(5, 7)) - 1]} ${first.slice(0, 4)}`;
@@ -40,6 +42,16 @@ export interface AccuracyInput {
   runrateDays: { n: number; diff: string | null } | null;
   /** PRD v5.1 R38 (§6.5): the fixed-cost estimate the version carried (P&L sign); null = the version had none. */
   fixedOfVersion?: string | null;
+  /** PRD v5.2-A R69: C59 of that month (app lawan FS). null = not judged (before August 2026); `error` = the read failed. */
+  fsRecon?: FsReconTile | { error: string } | null;
+}
+
+/** The C59 row of the accuracy tile, in words: a missing FS is "FS belum diimpor", never LULUS. */
+export function fsReconText(t: FsReconTile | { error: string }): string {
+  if ("error" in t) return `tidak bisa dimuat: ${t.error}`;
+  if (!t.hasFs) return "FS belum diimpor";
+  if (!t.hasMap) return "pemetaan FS belum disetujui Finance";
+  return t.status === "GAGAL" ? `GAGAL: ${t.beda} dari ${t.mapped} baris beda` : t.status === "BELUM DIISI" ? `BELUM DIISI: ${t.missing} dari ${t.mapped} baris belum ada angka` : t.status;
 }
 
 export interface OutlookBulanInput {
@@ -368,11 +380,13 @@ export function outlookBulanModel(x: OutlookBulanInput): OutlookBulanModel {
       ...(rev ? [{ id: "mape", cells: { k: "MAPE revenue", v: "", f: "", d: rev.mape ? pctV4(rev.mape) : "tidak berlaku" } }] : []),
       ...(rev ? [{ id: "pre", cells: { k: "Selisih revenue sebelum penyesuaian", v: "", f: "", d: rev.absErrorPre === null ? "belum ada" : jtV4(rev.absErrorPre) } }] : []),
       ...(a.poDays || a.runrateDays ? [{ id: "kind", cells: { k: "Hari PO / hari run-rate", v: "", f: "", d: `${a.poDays ? (a.poDays.diff === null ? "belum lengkap" : jtV4(a.poDays.diff)) : "belum ada"} / ${a.runrateDays ? (a.runrateDays.diff === null ? "belum lengkap" : jtV4(a.runrateDays.diff)) : "belum ada"}` } }] : []),
+      // R69: the app's FINAL against the FS (C59); the first cell links to the Rekonsiliasi page
+      ...(a.fsRecon ? [{ id: "c59", href: "error" in a.fsRecon ? undefined : a.fsRecon.href, cells: { k: "Rekonsiliasi ke FS (C59)", v: "", f: "", d: fsReconText(a.fsRecon) } }] : []),
     ];
     tiles.push({
       id: "akurasi", pos: P(0, 16, 6, 3), title: "Akurasi bulan terakhir yang FINAL",
       note: `${monthName(a.month)}, ${a.version} terhadap FINAL; persen di kolom selisih terhadap ${a.version}.`,
-      cara: { title: "Akurasi", fn: "accuracyV4", rule: "Selisih mutlak versi terhadap FINAL; MAPE = |selisih| ÷ FINAL (hanya revenue); sebelum penyesuaian = FINAL dikurangi penyesuaian tutup buku. Persen di kolom selisih terhadap versi.", period: monthName(a.month), basis: "snapshot versi, FINAL", status: "locked", sources: [{ label: "Tabel", value: "month_outlook_version, closing_adjustment" }] },
+      cara: { title: "Akurasi", fn: "accuracyV4", rule: "Selisih mutlak versi terhadap FINAL; MAPE = |selisih| ÷ FINAL (hanya revenue); sebelum penyesuaian = FINAL dikurangi penyesuaian tutup buku. Persen di kolom selisih terhadap versi.", period: monthName(a.month), basis: "snapshot versi, FINAL", status: "locked", sources: [{ label: "Tabel", value: `month_outlook_version, closing_adjustment${a.fsRecon ? ", fs_statement_line, fs_line_map" : ""}` }] },
       content: { type: "table", cols: aCols, rows: aRows },
     });
   } else {
