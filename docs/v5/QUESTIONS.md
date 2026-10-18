@@ -394,3 +394,5 @@ Q-v5.2-67. Q-v5.2-15 (cabut baca `plan_week`/`demand_weekly` untuk Sales) tetap 
 Q-v5.2-68. Penanda "jurnal bulan lengkap" tidak dibuat (sama dengan Q-v5.2-42). Diterima.
 
 Q-v5.2-69. Prasyarat bundel B5 = `schema_version() >= 5.2.2` (bundel bisa dijalankan ulang). Diterima.
+
+**Keputusan Dika 18 Okt 2026 (chat): "langsung aja merge di database utama gak usah staging".** Rem "staging dulu" (brief Bab 4, K67, Q-v5.2-4) dilepas untuk bundel v5.1, B2, B5: ketiganya diterapkan langsung di KGR-OS 18 Okt (rincian dan bukti: `docs/v5.2/kgr-os-log.md` § 18 Okt). Rem lain dipertahankan agen: backup `bak_20261018t0612` sebelum perubahan, tiap berkas atomik, tabel cek semua true (12/12, 24/24, 26/26), dan sidik skema KGR-OS = DB lokal dengan bundel yang sama (9/9 kategori sesudah tiap bundel). Akibat: T19, T21 (test:rls di Supabase sungguhan) dan T23 (uji pulih ke staging) belum punya bukti di Supabase; tetap terbuka sampai staging ada atau Dika menutupnya.
