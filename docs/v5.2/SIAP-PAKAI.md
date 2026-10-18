@@ -29,7 +29,8 @@ Inventory Accounting, Purchasing / Ops, Management, Admin.
 ## 3. Assignment Sales
 
 Sales hanya melihat dan mengisi SKU/pelanggan yang ditugaskan kepadanya. Kepala Sales atau Admin menugaskan key per Sales
-di layar assignment Komersial (irisan A7; `RPA|Karkas` = semua bentuk, `RPA|Karkas|Fresh` = bentuk itu saja).
+di **Komersial → Penugasan Sales** (`/komersial/assignment`, irisan A7; `RPA|Karkas` = semua bentuk, `RPA|Karkas|Fresh` =
+bentuk itu saja). Kepala Sales butuh kunci servis (langkah 1) untuk melihat daftar Sales; Admin selalu bisa.
 
 ## 4. Minggu berjalan
 

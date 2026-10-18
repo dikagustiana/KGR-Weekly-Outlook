@@ -5,7 +5,7 @@ database utama gak usah staging", 18 Okt). Dokumen rinci: status per requirement
 `docs/v5.2/PROGRESS.md`, semua perubahan di KGR-OS `docs/v5.2/kgr-os-log.md`, keputusan `docs/v5/QUESTIONS.md` (Q-v5.2-1…102),
 kebutuhan dari Dika `docs/v5.2/BUTUH-DIKA.md`.
 
-**Status: draf — A5b (celah e2e R48/R69/R70) masih berjalan; bagian 1 dan 5 diperbarui saat A5b merge.**
+**Status: penutupan sesi 18 Okt.** Langkah Dika untuk mulai memakai app 19 Okt: `docs/v5.2/SIAP-PAKAI.md`.
 
 ## 1. Definisi Selesai (brief Bab 2)
 
@@ -16,10 +16,10 @@ kebutuhan dari Dika `docs/v5.2/BUTUH-DIKA.md`.
 | 3 | Mart production 24 Agu–30 Sep | **belum** | butuh 2, dan data Sep (D2, D3/D4, D5) |
 | 4 | FINAL Agu & Sep, C12/C49 LULUS | **belum** | butuh 3 dan jurnal 27–31 Agu, 1–30 Sep lewat app (B-R90) |
 | 5 | FS v2 diimpor, C59 Agu/Sep | **sebagian** | FS Agu–Sep diimpor ke KGR-OS (B-R91, cek 11/11, angka PRD cocok); penilaian C59 butuh mart (3) dan `fs_line_map` disetujui Finance; D9 (ekuitas Rp 2,71, sebab tertulis) |
-| 6 | CI `main` engine/lint/rls/e2e hijau; T7 di CI dan staging; matriks R72 | **sebagian** | CI `main` 4 job hijau (T7 51, matriks 120, A6 82, F19 16, volume 13, 0 XFAIL; PG16 + PostgREST 12 + mock auth). T19 di staging belum (D1, D4) |
+| 6 | CI `main` engine/lint/rls/e2e hijau; T7 di CI dan staging; matriks R72 | **sebagian** | CI `main` 4 job hijau: matriks 120, O 15, T7 58, A6 82, L 34, P 16, R69 65, F19 16, volume 13, 0 XFAIL (PG16 + PostgREST 12 + mock auth). Smoke production dari runner GitHub (`ops/smoke`) lulus. T19 di staging belum (D1, D4) |
 | 7 | Parity 17.161/17.161, snapshot byte-identik | **lulus** | `pnpm parity` 17161/17161, `snapshot:diff` EMPTY (container cloud, gate tiap irisan; terakhir A6 `b3982bb`) |
-| 8 | Flag v5 untuk semua role sesudah T19 | **belum** | flag `v5_*` masih `roles: ["admin"]` (O29 b) menunggu T19 |
-| 9 | R41–R79, B-R80–B-R94 berstatus | **lulus** (dokumen ada) | `docs/v5.2/status-r.md`: 40 lulus, 11 sebagian, 3 belum, 0 di luar cakupan |
+| 8 | Flag v5 untuk semua role sesudah T19 | **sebagian** | 6 flag `v5_*` dibuka untuk semua role 18 Okt ±10.10 UTC atas arahan "siap dipakai besok" (Q-v5.2-103, menunggu konfirmasi Dika), **tanpa** T19 |
+| 9 | R41–R79, B-R80–B-R94 berstatus | **lulus** (dokumen ada) | `docs/v5.2/status-r.md`: 43 lulus (semua R41–R79), 8 sebagian, 3 belum (B-R87, B-R90, B-R92) |
 
 ## 2. Yang diterapkan di KGR-OS (`pczjhmzpkknzkziipvit`)
 
@@ -59,6 +59,8 @@ keputusan Dika; T19/T21/T23 tetap butuh staging.
 | #57, #58 | B6, B7 (sudah di KGR-OS sebelum merge) |
 | #59 | `EXPECTED_SCHEMA` 5.2.6 |
 | #60 | A6 R75–R79, O16/O17/O19, Q-v5.2-36/50/52, layar 1366/899/390 |
+| #61 | A5b bukti e2e R48, R69 (impor FS → C59 → FINAL), R70 (journey O, L, P) |
+| #62 | A7 layar Penugasan Sales (Admin, Kepala Sales); key dasar di `commercialView` |
 
 ## 4. Batas yang diputuskan (bukan lupa)
 
