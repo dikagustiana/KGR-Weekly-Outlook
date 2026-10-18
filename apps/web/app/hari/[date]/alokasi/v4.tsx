@@ -12,7 +12,7 @@ import { stockMartControl } from "@/lib/v3/stale";
 import { minus, num, tgl, tglShort } from "@/lib/fmt";
 import type { Viewer } from "@/lib/session";
 import type { WeekRow } from "@/lib/data";
-import { allocateAction, cutoffAction, deliverAction } from "./actions";
+import { allocateAction, cutoffAction, deliverAction, rebuildQueueAction } from "./actions";
 
 const kg = (v: unknown) => (v === null || v === undefined ? "" : minus(num(String(v), 0)));
 
@@ -92,6 +92,7 @@ export async function AlokasiV4({ date, viewer, weeks, week, ledgerOn }: { date:
           <div className="actionbar">
             {canAlloc ? <ActionForm v4="primary" action={allocateAction} submit="Alokasikan hari ini" disabled={stale}><input type="hidden" name="date" value={date} /></ActionForm> : null}
             {canCut && !d.cutoffDone.length ? <ActionForm v4 action={cutoffAction} submit="Cut-off" disabled={!cut.ok} confirm="Blast sisa fresh ke frozen sekarang?"><input type="hidden" name="date" value={date} /></ActionForm> : null}
+            {stale && (role === "admin" || role === "ppic") ? <ActionForm v4 action={rebuildQueueAction} submit="Bangun ulang antrean (sampai hari ini)"><input type="hidden" name="date" value={date} /></ActionForm> : null}
             <span className="reason">{stale ? "C45 STALE: bangun ulang ledger dulu" : !cut.ok ? `cut-off setelah ${d.cutOffTime.slice(0, 5)} WIB` : d.cutoffDone.length ? "cut-off sudah dicatat" : ""}</span>
           </div>
         </Tile>
