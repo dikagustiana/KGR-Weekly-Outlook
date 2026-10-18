@@ -396,3 +396,15 @@ Q-v5.2-68. Penanda "jurnal bulan lengkap" tidak dibuat (sama dengan Q-v5.2-42). 
 Q-v5.2-69. Prasyarat bundel B5 = `schema_version() >= 5.2.2` (bundel bisa dijalankan ulang). Diterima.
 
 **Keputusan Dika 18 Okt 2026 (chat): "langsung aja merge di database utama gak usah staging".** Rem "staging dulu" (brief Bab 4, K67, Q-v5.2-4) dilepas untuk bundel v5.1, B2, B5: ketiganya diterapkan langsung di KGR-OS 18 Okt (rincian dan bukti: `docs/v5.2/kgr-os-log.md` § 18 Okt). Rem lain dipertahankan agen: backup `bak_20261018t0612` sebelum perubahan, tiap berkas atomik, tabel cek semua true (12/12, 24/24, 26/26), dan sidik skema KGR-OS = DB lokal dengan bundel yang sama (9/9 kategori sesudah tiap bundel). Akibat: T19, T21 (test:rls di Supabase sungguhan) dan T23 (uji pulih ke staging) belum punya bukti di Supabase; tetap terbuka sampai staging ada atau Dika menutupnya.
+
+**Q-v5.2-50 … 54 (dari A5, `docs/v5.2/a5.md`).** Diputuskan agen atas delegasi Dika, 18 Okt 2026.
+
+Q-v5.2-50. C42 hanya menilai baris yield yang berlaku (tanggal berlaku terbaru per kelas × pola × key) dan hanya pola yang dipakai rencana (karkas; O33(b)); baris placeholder `boneless` lama tidak menahan. Dikerjakan di irisan A6. Editor rentang kelas dan peta ukuran → kelas tetap di luar v5.2 (diisi lewat data master, BUTUH-DIKA D8).
+
+Q-v5.2-51. Route cron dan setiap builder memakai klien yang diberikan pemanggil (service client di cron, klien sesi di app); tidak ada `supabaseServer()` di dalam builder. Dikerjakan di cabang `v5.2/a1d-cron-client`. **Cron tidak boleh dinyalakan (`CRON_SECRET`, D2) sebelum perbaikan ini ada di production.**
+
+Q-v5.2-52. PPIC mendapat tombol bangun ulang antrean (sampai hari ini) di layar alokasi bila C45 STALE, sama dengan aksi Finance; tidak menunggu cron. Dikerjakan di irisan A6.
+
+Q-v5.2-53. Komitmen tetap per key dasar (`RPA|Karkas`). Aturan assignment Sales: Kepala Sales menugaskan key dasar bila Sales itu membuat komitmen (O21(b): key dasar mencakup semua bentuk); assignment berakhiran bentuk hanya untuk Sales yang tidak membuat komitmen. Dicatat juga di `docs/v5.2/users.md` saat user dibuat (B-R87).
+
+Q-v5.2-54. Data uji e2e ditangani di `week-complete.sql` tanpa melonggarkan kontrol. Diterima.
