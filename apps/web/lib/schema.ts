@@ -12,10 +12,12 @@ import { WriteError } from "./write";
  *
  * 5.2.4 (v5.2 A1c): the code writes `plan_check_reason.plan_week_id`, `plan_week_class.detail` and `batch.lb_price_source`
  * and calls `post_allocation_override` (B5, 5.2.3); `fs_statement_line` / `fs_line_map` (B5, 5.2.4) are read by A4. KGR-OS
- * has been at 5.2.4 since 18 Okt 2026. B6 (5.2.5, a separate branch) closes the Sales read of `plan_week` and
- * `demand_weekly`: this code no longer reads them as Sales, so it does not need 5.2.5 and works before and after it.
+ * has been at 5.2.4 since 18 Okt 2026. B6 (5.2.5) closes the Sales read of `plan_week` and `demand_weekly`, B7 (5.2.6) of
+ * `plan_day` and the marts derived from the plan (Q-v5.2-15, -72, -84): this code no longer reads them as Sales and needs
+ * no new object, but v5.2 promises Sales cannot read the plan, so a database below 5.2.6 is behind too (banner). KGR-OS
+ * has been at 5.2.6 since 18 Okt 2026 (docs/v5.2/kgr-os-log.md).
  */
-export const EXPECTED_SCHEMA = "5.2.4";
+export const EXPECTED_SCHEMA = "5.2.6";
 
 /** Numeric comparison of dotted versions ("5.10.0" > "5.9.3"), as `schema_version()` orders them. */
 export function compareVersions(a: string, b: string): number {
