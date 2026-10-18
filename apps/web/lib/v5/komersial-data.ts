@@ -21,6 +21,8 @@ import { stockMartControl } from "../v3/stale";
 import { loadPlanning } from "../v3/planning";
 import { ROLE_LABEL } from "../roles";
 import { loadPpicV5 } from "./ppic-data";
+import { loadCommitmentCover } from "./free-stock-data";
+import { netFreeKg, reserveForCommitments } from "./free-stock";
 import { surplusKeys } from "./surplus";
 import { loadSurplusForSales } from "./surplus-view";
 import { v5CostingSetting } from "./costing";
@@ -72,6 +74,11 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   const scope = assigned === "all" ? "all" as const
     : new Set(st.mart.rows.map((r) => String(r.key)).filter((k) => [...assigned].some((a) => baseKey(a) === baseKey(k))));
   const view = commercialView(st.mart.rows, { role: viewer.role, salesSeesCost: p.sales_sees_cost !== false, assignedKeys: scope });
+  const allowed = (k: string) => assigned === "all" || [...assigned].some((a) => baseKey(a) === k);
+  // PRD v5.2 O16: the free stock is less the locked commitments of next week that no PO line covers yet; every stock tile depends on it
+  const cover = fail(failed, [...STOCK_TILES, "t-komitmen"], await tileData("commercial: komitmen terkunci minggu depan (O16)", () => loadCommitmentCover(sb, next)), null);
+  const freeKgOf = (r: { free_fresh_kg: string; free_frozen_kg: string }) => D(r.free_fresh_kg).plus(D(r.free_frozen_kg)); // commercial_daily.free_*_kg NOT NULL
+  const reservation = cover ? reserveForCommitments({ free: view.map((r) => ({ key: r.key, kg: freeKgOf(r) })), commitments: cover.commitments, orders: cover.orders, weekStart: next, inScope: allowed }) : null;
   const rate = sales ? null : fail(failed, ["c-simpan"], await tileData("commercial: tarif simpan", () => storageRate(sb, today)), null);
   const approvals = fail(failed, ["c-approval"], await tileData("commercial: approval diskon", async () => {
     const r = await sb.from("discount_approval").select("id", { count: "exact", head: true }).eq("status", "pending");
@@ -79,7 +86,7 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
     return r.count ?? 0; // missing-ok: jumlah baris dari head count; tanpa baris = 0
   }), 0);
   const all = stockSellRows(view.map((r) => ({
-    key: r.key, form: r.form, free_kg: D(r.free_fresh_kg).plus(D(r.free_frozen_kg)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? null,
+    key: r.key, form: r.form, free_kg: netFreeKg(reservation, r.key, freeKgOf(r)).toFixed(2), oldest_age_days: r.oldest_age_days, over_age_kg: st.overAge.get(r.key) ?? null,
     urgency: r.urgency, cost_per_kg: r.cost_per_kg ?? r.cost_per_kg_ma, cost_status: r.cost_status, price_ref: r.price_list, cost_check: r.cost_check,
   })), rate);
   const priceOf = new Map(view.map((r) => [r.key, r.price_list]));
@@ -97,7 +104,6 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
   }), { commits: [] as Row[], lists: [] as Row[], orders: [] as Row[], items: [] as Row[] });
   const keyOf = new Map(cm.items.map((i) => [String(i.item_code), String(i.key)]));
   const weekKg = kgByBaseKey(cm.orders.filter((o) => s(o.kg) !== null).map((o) => ({ key: s(o.key_manual) ?? keyOf.get(String(o.item_code)) ?? "?", kg: String(o.kg) })).filter((o) => o.key.startsWith("RPA|")));
-  const allowed = (k: string) => assigned === "all" || [...assigned].some((a) => baseKey(a) === k);
   const keys = [...new Set([...weekKg.keys(), ...cm.commits.map((x) => String(x.key))])].filter((k) => k.startsWith("RPA|") && allowed(k))
     .sort((a, b) => (weekKg.get(b)?.cmp(weekKg.get(a) ?? D(0)) ?? 0)); // missing-ok: pengurutan: SKU tanpa kg minggu ini diurutkan terakhir; bukan nilai yang ditampilkan
   const rows: CommitmentRow[] = keys.map((k) => {
@@ -142,6 +148,6 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
       weekStart: next, weekEnd: addDays(next, 6), deadline: `${DAYS[new Date(`${dlDate}T00:00:00Z`).getUTCDay()]} ${Number(dlDate.slice(8, 10))}/${dlDate.slice(5, 7)} ${time.replace(":", ".")}`,
       rows, canEdit: ["admin", "sales", "commercial_lead"].includes(viewer.role), canLock: ["admin", "commercial_lead"].includes(viewer.role), priceListLocked: cm.lists.length > 0 && cm.lists.every((l) => l.locked_at),
     },
-    ppic, surplusForSales, spot: spotRows(all, frozen), controls, failed,
+    ppic, surplusForSales, spot: spotRows(all, frozen), controls, failed, freeStock: reservation,
   };
 }

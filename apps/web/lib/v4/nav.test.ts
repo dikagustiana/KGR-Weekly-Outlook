@@ -39,9 +39,15 @@ describe("v5/5: Input (flag v5_input)", () => {
     expect(v4Nav("inventory_accounting", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
     expect(v4Nav("sales", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
     expect(v4Nav("ppic", v5, ctx).map((n) => n.id)).toEqual(expect.arrayContaining(["input", "upload"]));
-    // Finance has eight items with both: the v4 §5.4 limit of 7 leaves Upload out of the row (Q-v5.1-25, owner)
+    // R77 (A-UI-19, Q-v5.1-25, O23 (b)): with Input on, the v4 wizard leaves the Finance nav — 7 items, the link is in the Input panel
     expect(v4Nav("finance", v5, ctx).map((n) => n.label)).toEqual(["Outlook bulan", "Biaya tetap & driver", "Tutup buku", "Kas", "Rilis", "Kontrol", "Input"]);
-    expect(v4Nav("finance", allOn, ctx).map((n) => n.label).pop()).toBe("Upload");
+    expect(v4Nav("finance", v5, ctx).map((n) => n.id)).not.toContain("upload");
+    expect(v4Nav("finance", v5, ctx).length).toBe(NAV_MAX);
+    // with v5_input off (or not for Finance) there is no Input panel: Upload stays so the wizard is not unreachable, still 7 items
+    const noInput = { ...allOn, v5_input: { enabled: false } };
+    expect(v4Nav("finance", noInput, ctx).map((n) => n.label)).toEqual(["Outlook bulan", "Biaya tetap & driver", "Tutup buku", "Kas", "Rilis", "Kontrol", "Upload"]);
+    expect(v4Nav("finance", { ...allOn, v5_input: { enabled: true, roles: ["admin"] } }, ctx).map((n) => n.id).pop()).toBe("upload");
+    expect(v4Nav("finance", allOn, ctx).map((n) => n.id).pop()).toBe("upload");
     expect(v4Nav("management", v5, ctx).map((n) => n.label).pop()).toBe("Input");
     expect(v4Nav("operations_director", v5, ctx).map((n) => n.label).pop()).toBe("Input");
   });

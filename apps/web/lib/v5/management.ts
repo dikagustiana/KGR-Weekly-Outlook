@@ -102,7 +102,8 @@ export interface LoopFacts {
   costing: { sementara: number; final: number; wpLate: string[] };
   lb: { cutDate: string; price: Decimal | null };
   /** null = no Commercial mart yet; error = the mart could not be read (K41). */
-  freeStock: { kg: Decimal; value: Decimal } | { error: string } | null;
+  /** `reservedKg` (PRD v5.2 O16): kg already taken off for the locked commitments of next week that no PO line covers. */
+  freeStock: { kg: Decimal; value: Decimal; reservedKg?: Decimal } | { error: string } | null;
   /** PRD v5.1 R28: rows whose module is off (flag not enabled): "modul belum aktif", never late. */
   off?: Partial<Record<LoopRow, boolean>>;
 }
@@ -121,7 +122,7 @@ export function loopLines(f: LoopFacts): LoopLine[] {
     { row: "planNext", label: "Rencana PPIC minggu depan", value: f.planNext.version !== null ? `versi ${f.planNext.version} tersimpan` : f.commitment.locked ? "belum disusun" : "menunggu komitmen", late: false },
     { label: `Harga LB potong ${dm(f.lb.cutDate)}`, value: f.lb.price ? `Rp ${rp(f.lb.price)} · Direktur Operasional` : "belum diputuskan", late: false },
     { row: "costing", label: "Costing batch minggu ini", value: `${f.costing.sementara} sementara, ${f.costing.final} final${f.costing.wpLate.length ? ` · WP ${f.costing.wpLate.join(", ")} terlambat` : ""}`, late: f.costing.wpLate.length > 0 },
-    { row: "freeStock", label: "Stok bebas belum ke PO", value: !f.freeStock ? "belum ada mart Commercial" : "error" in f.freeStock ? `gagal dimuat (${f.freeStock.error})` : `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt`, late: !!f.freeStock && "error" in f.freeStock },
+    { row: "freeStock", label: "Stok bebas belum ke PO", value: !f.freeStock ? "belum ada mart Commercial" : "error" in f.freeStock ? `gagal dimuat (${f.freeStock.error})` : `${kg(f.freeStock.kg)} kg · Rp ${jtV4(f.freeStock.value)} jt${f.freeStock.reservedKg?.gt(0) ? ` · setelah komitmen terkunci ${kg(f.freeStock.reservedKg)} kg` : ""}`, late: !!f.freeStock && "error" in f.freeStock },
   ];
   return lines.map(({ row, ...l }) => (row && f.off?.[row] ? { label: l.label, value: OFF, late: false } : l));
 }

@@ -2,6 +2,29 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v5.2-a6] UI: urutan tile, label sumber per periode, nav Finance, .xls, ribuan ambigu, PPIC membangun ulang antrean (docs/PRD-v5.2-A-kode.md irisan A6, R75–R79; Q-v5.2-36, -50, -52; docs/v5.2/a6.md)
+
+### Added
+- Source labels are read for the period of the screen (R76): `periodOf` / `loadSources(sb, clock, period)` in `lib/v5/management-data.ts`; the simulation is "PO + yield + harga LB", the PPIC cost plan "yield + harga LB", the Commercial cost "WP / faktur"; "late" comes from the `input_task` rows of that source inside the period.
+- `.xls` in the Input panel (R78): the SheetJS core build is loaded only for a legacy file (by name or by the compound-document magic), `isLegacyXls` in `lib/v5/upload-grid.ts`; the mini build still reads `.xlsx`.
+- `upNumAmbiguous` / `AMBIGUOUS_THOUSANDS` (engine, R79): "1,234" is held with "format ribuan ambigu" in every upload kind.
+- "Bangun ulang antrean (sampai hari ini)" on the allocation screen for PPIC and Admin while C45 is STALE (Q-v5.2-52): `rebuildQueueAction`, `lib/rebuild-until.ts`.
+- Costing screen: "kapasitas idle belum dihitung: batch tanpa kg LB" for a tariff period that holds a batch without kg LB (Q-v5.2-36); `idleSkipped` in `lib/v5/costing-pl.ts`.
+- Link to the v4 upload wizard in the Finance panel of Input (R77, O23 (b)).
+- e2e: journey A6 (`tests/e2e/journey-A6.cjs`: R75–R79 and Q-v5.2-52 on the database T7 leaves) and, with `E2E_SCREENS=1`, the screenshots of the six main screens at 1366x768, 899 and 390 px.
+- O16 (decided, Q-v5.2-99): `lib/v5/free-stock.ts` (`reserveForCommitments`, `netFreeKg`, `freeStockNote`) and `lib/v5/free-stock-data.ts` (`loadCommitmentCover`): the free stock of Commercial is the stock less the locked commitments of next week that no Confirmed PO line covers (per SKU key with its form, capped at the stock, the rest is shown as production need); the tile note "Stok bebas belum ke PO" shows both numbers; an unreadable commitment is "belum ada" (R64) and a K41 error on the stock tiles. Tests `free-stock` (16).
+- O17 (decided, Q-v5.2-99): the Manajemen P&L tile of Minggu ini is collapsed by default at <= 768 px (checkbox + `v4.css`, no layout change above 768 px; `Tile` prop `collapse`, `TileModel.collapse`, `plTableTile` option `collapseMobile`). Tests `pl-mobile` (5) and e2e A6 step 1c at 390 px ("Perlu keputusan" visible without opening the P&L; screenshot).
+- O19 (decided, Q-v5.2-99): `FIXED_POSITIVE_NOTE` / `fixedPositiveNote` in `lib/v5/pl-tiles.ts`: when "Beban tetap belum dijurnal" is positive in an amount column the tile note says why (cumulative per month, correct by month). Tests `pl-mobile` (3).
+- Tests: engine `upload-validate` (R79); parsers `xls`; web `source-labels`, `upload-grid`, `release-rebuild`, `c42-yield`, `rebuild-until`, `alokasi-rebuild-action`, `idle-skipped`, R75 in `management-screens`.
+
+### Changed
+- Tiles are rendered in (y, x) order (R75): below 900 px the P&L of the month is above the simulation, the decisions and the charts.
+- Finance nav has seven items without Upload while `v5_input` is on for Finance; with it off Upload stays (R77).
+- `releaseWeek` rebuilds the seven days of the completeness grid (service client) before the K35 pre-check (R79); the Minggu ini page checks the role before `weekContext` (R79).
+- C42 judges the yield rows in effect, of the patterns the plan uses (karkas), so the `boneless` placeholders no longer hold "Salin ke batch" (Q-v5.2-50).
+- `upNum`: when both separators are present the last one is the decimal point ("1,234.5" = 1234,5; it was read as 1,2345).
+- The free stock on Commercial (cards, ranking, Rp value) and on the Manajemen status line is net of the locked commitments of next week not covered by a PO (O16); before it was the lot balance less the allocation reservations only.
+
 ## [v5.2-a3] Biaya final hanya dari alokasi, beban tetap per bulan, missing ≠ 0 (docs/PRD-v5.2-A-kode.md irisan A3, R59–R67; docs/v5.2/a3.md)
 
 ### Added
