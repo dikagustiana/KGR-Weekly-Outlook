@@ -2,7 +2,9 @@
  * PRD v5 §4.2–4.4 (K27, K28): demand of karkas per size → weight class of the live bird → kg LB, per ship date and per
  * cut date. Pure functions, decimal.js.
  *
- *   net_kg[size]   = PO kg × the key's net share (v4 netting per key: stock carries no size)
+ *   open_kg[line]  = (kg − fulfilled − cancelled, never below 0) × the weight of its status (R49); forecasts enter as
+ *                    STD lines per date. The weighting is the caller's (kg of a SizedLine is already weighted)
+ *   net_kg[size]   = weighted kg × the key's net share (v4 netting per key, AFTER the weighting: stock carries no size)
  *   class[size]    = size_class_map(size); no size, or a size not mapped → class STD (C50)
  *   kg_LB[class]   = Σ net_kg ÷ yield_karkas[class] (no yield for the class → the STD yield, C42)
  *   heads[size]    = net_kg ÷ (size + 0,05): the midpoint of "Uk x.x" (O3); no size: kg LB ÷ average LB kg of STD
@@ -12,6 +14,8 @@
 import { D, Decimal, ZERO, div, max, sum, type Num } from "./decimal";
 import { addDays, type ISODate } from "./dates";
 import type { ControlV3 } from "./controls-v3";
+import { effectiveForecasts, type DemandWeights, type ForecastLine } from "./demand";
+import { outstandingKg, type OrderQty } from "./delivery";
 
 /** "Karkas Uk 1.3 Fresh Grade A" → 1,30 kg per head of karkas; null without "Uk x.x". */
 export function sizeKgOf(name: string | null | undefined): Decimal | null {
@@ -26,7 +30,47 @@ export const NO_SIZE = "tanpa";
  */
 export const sizeCode = (size: Num | null | undefined) => (size === null || size === undefined || size === "" ? NO_SIZE : `Uk ${D(size).toFixed(2).replace(/(\.\d)0$/, "$1")}`);
 
-export interface SizedLine { ship_date: ISODate; key: string; size_kg: Num | null; kg: Num }
+/**
+ * One line of the class demand. `kg` is the open kg already weighted by its status (R49). `forecast`: a forecast line has no
+ * size by nature — it is STD need, not a PO line missing its size, so C50 does not count it.
+ */
+export interface SizedLine { ship_date: ISODate; key: string; size_kg: Num | null; kg: Num; forecast?: boolean }
+
+/**
+ * R49 (A-UI-9): the open kg of a PO line × the weight of its status — (kg − fulfilled − cancelled, never below 0) × 100 %
+ * Confirmed / `tentative_weight` / `forecast_weight`. A Tentative 100 kg line is 70 kg; a Confirmed 100 kg with 60 kg
+ * delivered is 40 kg. The stock netting comes after (toClassLB `netShare`).
+ */
+export function weightedOpenKg(o: OrderQty & { demand_status: string | null }, weights: DemandWeights): Decimal {
+  const w = o.demand_status === "Tentative" ? D(weights.tentative) : o.demand_status === "Forecast" ? D(weights.forecast) : D(1);
+  return outstandingKg(o).times(w);
+}
+
+/**
+ * R49: the forecast of the week as STD lines per date, never at the week start alone. The K2 rule (a key with a Sales
+ * forecast ignores the statistical one) and `forecast_weight` apply; the weekly kg is spread over the seven days of the
+ * week like the heads of the v4 plan (splitHeadsByDay), the last day taking the rounding so the days add up exactly.
+ */
+export function forecastLinesByDate(x: { forecasts: ForecastLine[]; weekStart: ISODate; weight: Num; keys: (key: string) => boolean }): SizedLine[] {
+  const perKey = new Map<string, Decimal>();
+  for (const f of effectiveForecasts(x.forecasts, x.weekStart)) {
+    if (!x.keys(f.key)) continue;
+    perKey.set(f.key, (perKey.get(f.key) ?? ZERO).plus(D(f.kg)));
+  }
+  const out: SizedLine[] = [];
+  for (const [key, kg] of [...perKey].sort(([a], [b]) => a.localeCompare(b))) {
+    const total = kg.times(D(x.weight));
+    if (!total.gt(0)) continue;
+    const each = total.div(7).toDecimalPlaces(6, Decimal.ROUND_HALF_UP);
+    let left = total;
+    for (let i = 0; i < 7; i++) {
+      const part = i === 6 ? left : each;
+      left = left.minus(part);
+      if (part.gt(0)) out.push({ ship_date: addDays(x.weekStart, i), key, size_kg: null, kg: part.toFixed(6), forecast: true });
+    }
+  }
+  return out;
+}
 
 export interface ClassSetup {
   /** size_class_map in force: class of a karkas size; null = not mapped. */
@@ -50,8 +94,11 @@ export interface ClassDemandRow {
   mapped: boolean;
   /** true = the class has no karkas yield of its own; the fallback class's yield was used (C42). */
   yieldFallback: boolean;
+  /** Open kg × status weight, before the stock netting. */
   po_kg: Decimal;
   net_kg: Decimal;
+  /** R50: the kg of PO lines (not forecasts) of this row without a size or with a size not mapped — the C50 quality flag, apart from the need. */
+  unsized_kg: Decimal;
   /** kg LB per head (midpoint ÷ yield, or the class average). */
   lb_per_head: Decimal | null;
   kg_lb: Decimal;
@@ -71,7 +118,10 @@ export interface ClassDemand {
   unsized: { ship_date: ISODate; kg: Decimal }[];
 }
 
-/** K28: karkas demand per ship date × size → class → kg LB and heads. */
+/**
+ * K28: karkas demand per ship date × size → class → kg LB and heads. The kg of a line is the open weighted kg (R49);
+ * `netShare` is the stock netting of its key (net ÷ weighted, v4), applied after the weighting.
+ */
 export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => Num; setup: ClassSetup }): ClassDemand {
   const s = x.setup;
   const fbYield = s.yieldKarkas(s.fallback);
@@ -82,13 +132,14 @@ export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => N
     const cls = mappedCls ?? s.fallback;
     // R31: accumulate per size as stored (two decimals); the code is what the screen and the mart key show
     const k = `${l.ship_date}|${size === null ? NO_SIZE : size.toFixed(2)}`;
-    const share = x.netShare ? D(x.netShare(l.key)) : D(1);
     const o = acc.get(k) ?? {
       ship_date: l.ship_date, size_code: sizeCode(size), size_kg: size, weight_class: cls, mapped: mappedCls !== null, yieldFallback: false,
-      po_kg: ZERO, net_kg: ZERO, lb_per_head: null, kg_lb: ZERO, heads: ZERO,
+      po_kg: ZERO, net_kg: ZERO, unsized_kg: ZERO, lb_per_head: null, kg_lb: ZERO, heads: ZERO,
     };
+    const share = x.netShare ? D(x.netShare(l.key)) : D(1);
     o.po_kg = o.po_kg.plus(D(l.kg));
     o.net_kg = o.net_kg.plus(D(l.kg).times(share));
+    if (mappedCls === null && !l.forecast) o.unsized_kg = o.unsized_kg.plus(D(l.kg));
     acc.set(k, o);
   }
   const rows = [...acc.values()].map((r) => {
@@ -123,7 +174,7 @@ export function toClassLB(x: { lines: SizedLine[]; netShare?: (key: string) => N
   const byClass = [...classes.values()].map((c) => ({ ...c, lb_per_head: c.heads.isZero() ? null : c.kg_lb.div(c.heads) }));
   const t = { po_kg: sum(bySize.map((r) => r.po_kg)), net_kg: sum(bySize.map((r) => r.net_kg)), kg_lb: sum(bySize.map((r) => r.kg_lb)), heads: sum(bySize.map((r) => r.heads)) };
   const unsizedMap = new Map<string, Decimal>();
-  for (const r of rows) if (!r.mapped) unsizedMap.set(r.ship_date, (unsizedMap.get(r.ship_date) ?? ZERO).plus(r.po_kg));
+  for (const r of rows) if (r.unsized_kg.gt(0)) unsizedMap.set(r.ship_date, (unsizedMap.get(r.ship_date) ?? ZERO).plus(r.unsized_kg));
   return {
     rows, bySize, byClass, total: { ...t, lb_per_head: t.heads.isZero() ? null : t.kg_lb.div(t.heads) },
     unsized: [...unsizedMap].sort(([a], [b]) => a.localeCompare(b)).map(([ship_date, kg]) => ({ ship_date, kg })),
@@ -157,7 +208,8 @@ export function dailyClassPlan(x: { demand: ClassDemand; leadTimeDays: number })
   return dates.map((ship) => {
     const rs = x.demand.rows.filter((r) => r.ship_date === ship);
     const cls = new Map<string, { kg_lb: Decimal; heads: Decimal }>();
-    for (const r of rs.filter((q) => q.mapped)) {
+    // R50: the unmapped (STD) lines are a class of their own for C58 — their kg LB needs supply too
+    for (const r of rs) {
       const o = cls.get(r.weight_class) ?? { kg_lb: ZERO, heads: ZERO };
       cls.set(r.weight_class, { kg_lb: o.kg_lb.plus(r.kg_lb), heads: o.heads.plus(r.heads) });
     }
@@ -166,6 +218,41 @@ export function dailyClassPlan(x: { demand: ClassDemand; leadTimeDays: number })
       byClass: [...cls].map(([weight_class, v]) => ({ weight_class, ...v })), unsizedHeads: sum(rs.filter((r) => !r.mapped).map((r) => r.heads)),
     };
   });
+}
+
+export interface SavedClassRow { weight_class: string; kg_lb: Num | null; heads: number | null }
+export interface ClassCut { cut_date: ISODate; weight_class: string; heads: number; kg_lb: Decimal }
+
+/**
+ * R52 (stage 1): the batches of "Salin ke batch rencana" per cut date × class, from the SAVED plan_week_class of the plan
+ * version. A saved row holds the kg LB and the heads of a class for the whole week; the profile (the daily class need of
+ * the same demand, `dailyClassPlan`) only says how the week divides over the cut dates. The batches add up exactly to the
+ * saved rows: heads by largest remainder on the profile, kg LB = heads × the saved kg per head (the last date takes the
+ * rounding). A class saved without any profile (its need is gone) is returned in `unplaced`: nothing is invented for it.
+ * Stage 2 (the date split itself saved, K27 in full) waits for B-R85.
+ */
+export function splitClassPlan(x: { saved: SavedClassRow[]; profile: { cut_date: ISODate; weight_class: string; kg_lb: Num }[] }): { cuts: ClassCut[]; unplaced: string[] } {
+  const cuts: ClassCut[] = [], unplaced: string[] = [];
+  for (const sv of x.saved) {
+    const heads = sv.heads ?? 0, kg = D(sv.kg_lb ?? 0);
+    if (heads <= 0 && !kg.gt(0)) continue;
+    const prof = x.profile.filter((p) => p.weight_class === sv.weight_class && D(p.kg_lb).gt(0)).sort((a, b) => a.cut_date.localeCompare(b.cut_date));
+    const total = sum(prof.map((p) => D(p.kg_lb)));
+    if (!prof.length || !total.gt(0) || heads <= 0) { unplaced.push(sv.weight_class); continue; }
+    const raw = prof.map((p) => D(p.kg_lb).div(total).times(heads));
+    const base = raw.map((v) => v.floor().toNumber());
+    let left = heads - base.reduce((a, b) => a + b, 0);
+    for (const o of raw.map((v, i) => ({ i, r: v.minus(v.floor()) })).sort((a, b) => b.r.cmp(a.r) || a.i - b.i)) { if (left <= 0) break; base[o.i] += 1; left -= 1; }
+    const lastWith = base.reduce((acc, h, i) => (h > 0 ? i : acc), -1);
+    let kgLeft = kg;
+    prof.forEach((p, i) => {
+      if (base[i] <= 0) return;
+      const part = i === lastWith ? kgLeft : kg.times(base[i]).div(heads).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      kgLeft = kgLeft.minus(part);
+      cuts.push({ cut_date: p.cut_date, weight_class: sv.weight_class, heads: base[i], kg_lb: part });
+    });
+  }
+  return { cuts: cuts.sort((a, b) => a.cut_date.localeCompare(b.cut_date) || a.weight_class.localeCompare(b.weight_class)), unplaced };
 }
 
 /** §4.3 for a plan of kg LB: karkas output, surplus over the demand, frozen planned and the downgrade (Rp, positive). */
@@ -199,21 +286,32 @@ export function c51(x: { registered: string[]; used: { source: string; weight_cl
   };
 }
 
-/** C58: LB supply per class and cut date below the need of that class. PERIKSA (copy to batch only with a reason). */
-export function c58(x: { need: { cut_date: ISODate; weight_class: string; kg_lb: Num }[]; supply: { date: ISODate; weight_class: string | null; kg_lb: Num }[] }): ControlV3 {
+/**
+ * C58: LB supply per class and cut date below the need of that class. PERIKSA (copy to batch only with a reason).
+ * R50: STD (the PO lines without a size) is a class of its own; a supply without a class is ignored (O20) and the
+ * message says how many kg that is. Nothing entered at all = BELUM DIISI; a cut date with supply but none of the class
+ * (or STD with any supply entered, since no class supply covers lines without a size) = supply 0 < need = PERIKSA.
+ */
+export function c58(x: { need: { cut_date: ISODate; weight_class: string; kg_lb: Num }[]; supply: { date: ISODate; weight_class: string | null; kg_lb: Num }[]; fallback?: string }): ControlV3 {
+  const fb = x.fallback ?? "STD";
   const short: string[] = [];
   let missing = 0;
   for (const n of x.need) {
     const s = x.supply.filter((q) => q.date === n.cut_date && q.weight_class === n.weight_class);
-    if (!s.length) { missing++; continue; }
+    if (!s.length) {
+      if (x.supply.some((q) => q.date === n.cut_date) || (n.weight_class === fb && x.supply.length > 0)) short.push(`${n.cut_date} ${n.weight_class}: supply 0 < kebutuhan ${D(n.kg_lb).toFixed(0)} kg LB`);
+      else missing++;
+      continue;
+    }
     const got = sum(s.map((q) => D(q.kg_lb)));
     if (got.lt(D(n.kg_lb))) short.push(`${n.cut_date} ${n.weight_class}: supply ${got.toFixed(0)} < kebutuhan ${D(n.kg_lb).toFixed(0)} kg LB`);
   }
+  const noClassKg = sum(x.supply.filter((q) => q.weight_class === null).map((q) => D(q.kg_lb)));
   const status = short.length ? "PERIKSA" : missing && x.need.length ? "BELUM DIISI" : "LULUS";
   return {
     code: "C58", module: "M3", name: "Supply LB per kelas menutup kebutuhan kelas", value: D(short.length), comparator: ZERO, difference: D(short.length), status,
     action: status === "LULUS" ? "" : status === "BELUM DIISI" ? "Purchasing mengisi supply LB per kelas per tanggal potong" : "Tambah supply kelas itu atau tulis alasan sebelum salin ke batch",
-    detail: [...short, ...(missing ? [`${missing} kombinasi tanggal × kelas belum punya supply`] : [])],
+    detail: [...short, ...(missing ? [`${missing} kombinasi tanggal × kelas belum punya supply`] : []), ...(noClassKg.gt(0) ? [`${noClassKg.toFixed(0)} kg tanpa kelas (supply tanpa kelas diabaikan, O20)`] : [])],
   };
 }
 

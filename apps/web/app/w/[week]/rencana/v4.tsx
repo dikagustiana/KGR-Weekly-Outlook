@@ -8,6 +8,7 @@ import { fetchAll } from "@/lib/data";
 import { stockMartControl } from "@/lib/v3/stale";
 import { loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, unitBuyPrice } from "@/lib/v3/planning";
 import { rencanaModel } from "@/lib/v4/rencana";
+import { copyGate } from "@/lib/v5/copy-plan";
 import { k25Enabled } from "@/lib/modules";
 import { num, tglShort } from "@/lib/fmt";
 import { approvePlanAction, copyPlanAction, reasonAction, savePlanAction, setCapacityAction } from "./actions";
@@ -29,7 +30,10 @@ export async function RencanaV4({ ctx, kelas }: { ctx: WeekCtx; kelas: string | 
   const variance = await fetchAll<Row>((a, b) => sb.from("plan_variance_daily").select("*").gte("date", week).lte("date", addDays(week, 6)).order("date").order("key").range(a, b));
   const lb = new Map<string, number>();
   for (const r of src.lbSupply.filter((x) => x.status === "confirmed" || x.status === "received")) lb.set(String(r.date), (lb.get(String(r.date)) ?? 0) + Number(r.head_count ?? 0));
-  const bl = (a: "save" | "approve" | "copy") => ppicBlockers(controls, a).map((b) => `${b.code} ${b.status}`);
+  const bl = (a: "save" | "approve") => ppicBlockers(controls, a).map((b) => `${b.code} ${b.status}`);
+  // PRD v5.2 R51 (K58): the copy blockers are the copyGate that copyPlanAction runs — C57 per cut date × class while v5_costing
+  // is on, the downgrade approval, and C58 only for a role whose v5_ppic_class is on (this screen is the one without it)
+  const gate = await copyGate({ sb, week: ctx.week, planId: latest ? String(latest.id) : null, classOn: false, src, c45 });
   const role = ctx.viewer.role;
   const canPlan = role === "admin" || role === "ppic", canApprove = role === "admin" || role === "finance";
   const model = rencanaModel({
@@ -43,7 +47,7 @@ export async function RencanaV4({ ctx, kelas }: { ctx: WeekCtx; kelas: string | 
     capacity: (d) => src.capacity.get(d)?.cut_capacity_head ?? null, lbSupply: (d) => lb.get(d) ?? null,
     controls, gates, reasons: src.reasons, block2: ctx.computed.result.block2, k25: await k25Enabled(ctx.viewer),
     variance: variance.map((v) => ({ date: String(v.date), key: String(v.key), planned_kg: s(v.planned_kg), actual_kg: s(v.actual_kg), variance_kg: s(v.variance_kg), planned_heads: v.planned_heads === null ? null : Number(v.planned_heads), actual_heads: v.actual_heads === null ? null : Number(v.actual_heads) })),
-    blockers: { save: bl("save"), approve: bl("approve"), copy: bl("copy") }, alokasiHref: `/hari/${ctx.week.update_date}/alokasi`, buyPrice: (u) => unitBuyPrice(src, u),
+    blockers: { save: bl("save"), approve: bl("approve"), copy: gate.blockers }, alokasiHref: `/hari/${ctx.week.update_date}/alokasi`, buyPrice: (u) => unitBuyPrice(src, u),
   });
   const reasonOf = (tile: string, action: string) => model.actions.find((a) => a.tile === tile && a.action === action)?.disabledReason ?? null;
   const has = (tile: string, action: string) => model.actions.some((a) => a.tile === tile && a.action === action);

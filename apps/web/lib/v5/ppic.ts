@@ -48,6 +48,8 @@ export interface PpicV5Input {
   copyBlockers: string[];
   /** PRD v5.1 R29: the written reason that lets C58 (supply short of the class need) open the copy; null = none. */
   c58Reason?: string | null;
+  /** R53: the downgrade approval of the saved plan version (null = no plan saved yet). */
+  approval?: { planId: string; version: number; needs: boolean; approvedBy: string | null } | null;
   /** R39 (K20): cost status of this week's actual batches (estimasi / sementara / final / campur); null = v5_costing off or none. */
   batchStatus?: string | null;
 }
@@ -232,5 +234,14 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
       { id: "t", cells: { k: "Target", lb: "", sh: b6 ? pctV4(b6.target.shrink) : "", y: b6 ? pctV4(b6.target.karkasYield) : "", c: "" } },
     ] },
   });
+  // ---------------------------------------------------------------- rows 19–20: the approval of a plan with a downgrade above the limit (R53)
+  if (x.approval?.needs) {
+    const a = x.approval;
+    tiles.push({
+      id: "t-approval", pos: P(0, 19, 12, 2), title: "Persetujuan downgrade rencana",
+      note: "Downgrade di atas batas approval disetujui Finance; rencana yang belum disetujui tidak bisa disalin ke batch.",
+      content: { type: "list", items: [a.approvedBy ? `Rencana v${a.version} disetujui oleh ${a.approvedBy}.` : `Rencana v${a.version} menunggu persetujuan Finance: downgrade di atas batas approval.`] },
+    });
+  }
   return { title: "PPIC · Rencana", tiles: withFailures(tiles, x.failed) };
 }
