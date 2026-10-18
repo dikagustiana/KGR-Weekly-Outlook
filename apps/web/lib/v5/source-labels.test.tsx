@@ -2,11 +2,11 @@
  * PRD v5.2 R76 (A-UI-14, F26): the source labels (K36) are read for the period of the screen — the week opened — and per
  * source actually behind the number. A week of August opened in October, with uploads of October in the database, is
  * labelled with August. The simulation is PO + yield + harga LB (never WP); cost is WP / faktur; "late" comes from the
- * input_task rows of that source inside the period. Fake database that applies the filters (lib/mem-sb.ts).
+ * input_task rows of that source inside the period. Fake database that applies the filters (test-support/mem-sb.ts).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { memSb } from "../mem-sb";
+import { memSb } from "../../test-support/mem-sb";
 
 vi.mock("server-only", () => ({}));
 vi.mock("../v3/planning", () => ({ loadPlanning: async () => ({}) }));

@@ -4,7 +4,7 @@
  * are mocked; the order of the calls is the evidence.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { memSb } from "./mem-sb";
+import { memSb } from "../test-support/mem-sb";
 
 const calls: string[] = [];
 let inputOn = true;
