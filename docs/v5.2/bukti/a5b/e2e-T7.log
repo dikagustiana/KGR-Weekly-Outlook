@@ -1,0 +1,297 @@
+# journey T7 — satu putaran mingguan utuh (minggu 24–30 Agu 2026, jam uji maju Kam 27 Agu → Jum 28 Agu)
+# lingkungan: PG16 lokal + PostgREST 12 + mock auth · app http://127.0.0.1:3100 · jam dinding mesin 2026-10-18T10:51:28.338Z
+
+0 - — SETUP: jam uji Kamis 27 Agu 09.00, week-complete.sql (riwayat Sen–Rab dan master tanpa editor), antrean rebuild   [jam uji 2026-08-24T08:02:12+07:00]
+JAM UJI → jam uji: 2026-08-27 09:00:00 WIB (offset -4524689s)
+SETUP (postgres, langsung ke tabel; bukan alur) — week-complete.sql: master kelas berat dan peta ukuran, mart minggu sebelumnya, riwayat keputusan LB 25–27/08, kartu stok 24–28, jurnal 27–28, PO dan alokasi 24–26 [tests/e2e/sql/week-complete.sql]
+    sales      GET /login → HTTP 200
+    sales      POST /login (server action) → HTTP 303
+    commercial_lead GET /login → HTTP 200
+    commercial_lead POST /login (server action) → HTTP 303
+    ppic       GET /login → HTTP 200
+    ppic       POST /login (server action) → HTTP 303
+    operations_director GET /login → HTTP 200
+    operations_director POST /login (server action) → HTTP 303
+    cost_accounting GET /login → HTTP 200
+    cost_accounting POST /login (server action) → HTTP 303
+    inventory_accounting GET /login → HTTP 200
+    inventory_accounting POST /login (server action) → HTTP 303
+    purchasing GET /login → HTTP 200
+    purchasing POST /login (server action) → HTTP 303
+    finance    GET /login → HTTP 200
+    finance    POST /login (server action) → HTTP 303
+    management GET /login → HTTP 200
+    management POST /login (server action) → HTTP 303
+    antrean rebuild: 4 tanggal (setelah SETUP); Finance: Input → Perbarui status tugas, putaran 1
+    finance    GET /input?panel=grid → HTTP 200
+    finance    POST /input?panel=grid (server action) → HTTP 200
+    antrean rebuild kosong (setelah SETUP)
+    DB flag v4_release: true (ketat, seperti KGR-OS)
+    CEK lulus: sembilan role non-admin masuk — sales, commercial_lead, ppic, operations_director, cost_accounting, inventory_accounting, purchasing, finance, management
+    Supabase (mock origin) selama langkah: 50× auth 200, 1063× rest 200, 5× rest 201, 24× rest 204
+
+1 sales — Sales: draft komitmen minggu depan (31 Agu), hanya SKU yang ditugaskan   [jam uji 2026-08-27T09:00:11+07:00]
+JAM UJI → jam uji: 2026-08-27 09:30:00 WIB (offset -4522900s)
+    sales      GET /komersial → HTTP 200
+    CEK lulus: Komersial terbuka untuk Sales — HTTP 200
+    CEK lulus: Sales hanya melihat satu baris komitmen (assignment RPA|Karkas) — 1 baris
+    sales      POST /komersial (server action) → HTTP 200
+    sales  1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+    CEK lulus: draft komitmen tersimpan — 1 SKU komitmen disimpan sebagai draft (0 draft diperbarui, 1 versi baru); 0 SKU tidak berubah.
+    DB komitmen 2026-08-31: RPA|Karkas 1 draft 15000.00 2000.00 sales@e2e.test
+    CEK lulus: DB: komitmen draft oleh sales
+    CEK lulus: Sales tidak punya tombol kunci
+    sales  tangkapan layar: screens/T7-1-sales-draft.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 421× rest 200, 1× rest 201, 8× rest 204
+
+1b sales — Sales: harga acuan Lemak Fresh (layar Harga, jalur app)   [jam uji 2026-08-27T09:30:05+07:00]
+JAM UJI → jam uji: 2026-08-27 09:35:00 WIB (offset -4522605s)
+    sales      GET /w/2026-08-24/input/harga → HTTP 200
+    CEK lulus: layar Harga terbuka untuk Sales — HTTP 200
+    sales      POST /w/2026-08-24/input/harga (server action) → HTTP 303
+    DB sku_price Lemak Fresh: 26000.0000
+    CEK lulus: harga acuan Lemak Fresh tersimpan (C46, K50) — harga 26000.0000
+    Supabase (mock origin) selama langkah: 8× auth 200, 48× rest 200
+
+1c sales — Sales: upload PO (tempel): baris sah tersimpan; pelanggan lain, tanggal lewat dan kode tak dikenal ditahan   [jam uji 2026-08-27T09:35:03+07:00]
+JAM UJI → jam uji: 2026-08-27 09:38:00 WIB (offset -4522428s)
+    sales      GET /input?panel=po_lines → HTTP 200
+    sales  cek po_lines: Kolom wajib lengkap lolos | ditahan: Kode item terpetakan 5 dari 6 1 baris · C56 | catatan: Ukuran karkas RPA terisi 4 dari 5 baris karkas 1 baris → STD · C50 | ditahan: Tanggal kirim ≥ hari ini 5 dari 6 1 baris | kg dan harga terisi 6 dari 6 lolos | Harga ≥ lantai (biaya) 6 dari 6 lolos · C38 | ditahan: Pelanggan dan SKU sesuai assignment 4 dari 6 2 baris · K32
+    sales      POST /input?panel=po_lines (server action) → HTTP 200
+    sales  simpan po_lines: 3 dari 6 baris lolos cek; 2 baru, 0 diubah; 1 ditahan (KGR26.E2E06: minggu 2026-09-01 belum ada). Demand PPIC diperbarui. Rebuild: 3 selesai.
+    CEK lulus: PO tersimpan: 3 dari 6 baris lolos cek, 2 disimpan, PO minggu depan ditahan karena minggunya belum ada — 3 dari 6 baris lolos cek; 2 baru, 0 diubah; 1 ditahan (KGR26.E2E06: minggu 2026-09-01 belum ada). Demand PPIC diperbarui. Rebuild: 3 selesai.
+    DB sales_line PO uji: KGR26.E2E01 250.00 60000.0000 sales@e2e.test; KGR26.E2E02 300.00 60000.0000 sales@e2e.test
+    CEK lulus: DB: tepat dua baris PO tersimpan (E2E01 dan E2E02), oleh Sales; E2E06 (minggu depan) belum — KGR26.E2E01 250.00 60000.0000 sales@e2e.test; KGR26.E2E02 300.00 60000.0000 sales@e2e.test
+    CEK lulus: baris pelanggan lain, tanggal lewat dan kode tak dikenal tidak tersimpan
+    sales  tangkapan layar: screens/T7-1c-sales-po.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 541× rest 200, 23× rest 201, 10× rest 204
+
+3a purchasing — Purchasing: supply LB per kelas untuk tanggal potong 25–28/08 (upload)   [jam uji 2026-08-27T09:38:06+07:00]
+JAM UJI → jam uji: 2026-08-27 09:45:00 WIB (offset -4522014s)
+    DB kebutuhan kg LB per tanggal potong dan kelas: 08-26 B 4582; 08-26 S 1744; 08-26 STD 1135; 08-27 B 3715; 08-27 S 949; 08-28 B 4983; 08-28 K 81; 08-28 S 1518; 08-28 STD 420
+    purchasing GET /input?panel=lb_supply → HTTP 200
+    purchasing  cek lb_supply: Kolom wajib lengkap lolos | Kelas terdaftar 10 dari 10 lolos · C51 | Tanggal terbaca 10 dari 10 lolos | kg LB terisi 10 dari 10 lolos | Supply vs kebutuhan kelas cukup untuk semua kelas di file lolos · C58
+    purchasing POST /input?panel=lb_supply (server action) → HTTP 200
+    purchasing  simpan lb_supply: 10 dari 10 baris lolos cek; 10 baru, 0 diubah. Supply per kelas tersimpan (confirmed); C58 dicek ulang di layar PPIC. Rebuild: 4 selesai.
+    CEK lulus: supply LB tersimpan — 10 dari 10 baris lolos cek; 10 baru, 0 diubah. Supply per kelas tersimpan (confirmed); C58 dicek ulang di layar PPIC. Rebuild: 4 selesai.
+    purchasing  tangkapan layar: screens/T7-3a-purchasing-supply.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 462× rest 200, 2× rest 201, 11× rest 204
+
+3b ppic — PPIC: yield per kelas (upload), kapasitas, simpan rencana per kelas; salin ke batch ditahan C57   [jam uji 2026-08-27T09:45:05+07:00]
+JAM UJI → jam uji: 2026-08-27 10:00:00 WIB (offset -4521120s)
+    ppic       GET /input?panel=yield_matrix → HTTP 200
+    ppic  cek yield_matrix: Kolom wajib lengkap lolos | Kelas terdaftar semua terdaftar lolos · C51 | Σ yield per kelas ≤ 100% K 89,2% · S 89,9% · B 90,4% · STD 89,9% per kelas | Yield karkas di 68–76% K 70,2% · S 71,5% · B 72,4% · STD 71,5% per kelas
+    ppic       POST /input?panel=yield_matrix (server action) → HTTP 200
+    ppic  simpan yield_matrix: 24 dari 24 baris lolos cek; 24 baru, 0 diubah. Yield per kelas menggantikan placeholder C42; kg LB per kelas dihitung ulang.
+    CEK lulus: yield per kelas tersimpan (C42) — 24 dari 24 baris lolos cek; 24 baru, 0 diubah. Yield per kelas menggantikan placeholder C42; kg LB per kelas dihitung ulang.
+    ppic       GET /w/2026-08-24/rencana → HTTP 200
+    ppic       POST /w/2026-08-24/rencana (server action) → HTTP 200
+    CEK lulus: kapasitas potong tersimpan (C47) — Kapasitas disimpan — simpan rencana ulang untuk memakai kapasitas baru
+    ppic       GET /w/2026-08-24/rencana → HTTP 200
+    ppic       POST /w/2026-08-24/rencana (server action) → HTTP 200
+    ppic  Rencana v1: 12515 ekor; 4 kelas
+    CEK lulus: rencana per kelas tersimpan — Rencana v1: 12515 ekor; 4 kelas
+    DB plan_week: 1 12515 f ppic@e2e.test
+    DB plan_week_class: B 13108 6739; K 83 61; S 4208 2676; STD 1554 777
+    ppic       GET /w/2026-08-24/rencana → HTTP 200
+    CEK lulus: salin ke batch ditahan C57 (harga LB potong 28/08 belum diputuskan) — Belum bisa: C57 BELUM DIISI (2026-08-28 B, 2026-08-28 K, 2026-08-28 S, 2026-08-28 STD) (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian) Belum…
+    ppic  rencana harian: 3 · Rencana harian: potong H−1 dari tanggal kirim Potong Kirim kg LB Ekor Ekor per kelas K / S / B Target karkas Kapasitas Supply LB Status Rab 26 Kam 27 7.400 3.869 0 / 997 / 2.305 · 567 tanpa ukuran 5.332 20.000 18.380 lewat: dibandingkan WP Kam 27 Jum 28 4.615 2.536 0 / 646 / 1.891 3.333 20.000 5.131 hari ini Jum 28 Sab 29 6.938 3.847 61 / 1.033 / 2.543 · 210 tanpa ukuran 5.004 20.000 7.705 rencana Salin ke batch rencana Belum bisa: C57 BELUM DIISI (2026-08-28 B, 2026-08-28 K, 2026-08-28 S, 2026-08-28 STD) (C57: keputusan harga LB Direktur Operasional, tanpa pengecualian) Belum bisa salin ke batch rencana: C57 BELUM DIISI (2026-08-28 B, 2026-08-28 K, 2026-08-28 S, 2026-08-28 STD). Kebutu
+    CEK lulus: tombol Salin nonaktif
+    ppic  tangkapan layar: screens/T7-3b-ppic-rencana-tertahan.png
+    Supabase (mock origin) selama langkah: 18× auth 200, 470× rest 200, 6× rest 201, 3× rest 204
+
+4 operations_director — Direktur Operasional: putuskan harga LB potong Jum 28/08   [jam uji 2026-08-27T10:00:09+07:00]
+JAM UJI → jam uji: 2026-08-27 10:30:00 WIB (offset -4519329s)
+    operations_director GET /minggu-ini/2026-08-24?lb=25000 → HTTP 200
+    CEK lulus: Minggu ini terbuka untuk Direktur Operasional — HTTP 200
+    operations_director  dialog "Simpan keputusan harga LB? Keputusan tidak diubah; keputusan baru menggantikann…" → ok
+    operations_director POST /minggu-ini/2026-08-24?lb=25000 (server action) → HTTP 200
+    opsdir  Harga LB potong 2026-08-28 diputuskan Rp 25.000/kg; batch hari itu memakainya sebagai biaya sementara.
+    CEK lulus: keputusan harga LB tersimpan — Harga LB potong 2026-08-28 diputuskan Rp 25.000/kg; batch hari itu memakainya sebagai biaya sementara.
+    DB lb_price_decision 28/08: 25000.0000 ·  · opsdir@e2e.test
+    CEK lulus: DB: keputusan 28/08 oleh opsdir
+    operations_director  tangkapan layar: screens/T7-4-opsdir-keputusan.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 767× rest 200, 1× rest 201, 16× rest 204
+
+3c ppic — PPIC: salin rencana per kelas ke batch rencana (C57 sudah lulus)   [jam uji 2026-08-27T10:30:08+07:00]
+JAM UJI → jam uji: 2026-08-27 10:50:00 WIB (offset -4518137s)
+    ppic       GET /w/2026-08-24/rencana → HTTP 200
+    ppic  penahan salin: (tidak ada)
+    ppic  rencana harian: 3 · Rencana harian: potong H−1 dari tanggal kirim Potong Kirim kg LB Ekor Ekor per kelas K / S / B Target karkas Kapasitas Supply LB Status Rab 26 Kam 27 7.400 3.869 0 / 997 / 2.305 · 567 tanpa ukuran 5.332 20.000 18.380 lewat: dibandingkan WP Kam 27 Jum 28 4.615 2.536 0 / 646 / 1.891 3.333 20.000 5.131 hari ini Jum 28 Sab 29 6.938 3.847 61 / 1.033 / 2.543 · 210 tanpa ukuran 5.004 20.000 7.705 rencana Salin ke batch rencana Kebutuhan per hari dihitung dari ukuran karkas di PO per tanggal kirim. 4 · Hari ini, Kam 27 Agu: alokasi ke PO dan cut-off PO kirim hari ini 13.776 kg Rp 584,8 jt Alokasi FEFO buka Alokasi hari ini Cut-off 14.00 blast sisa downgrade dicatat per SKU Lot dari potong h
+    ppic  dialog "Batch rencana minggu ini (salinan sebelumnya) diganti. Lanjut?" → ok
+    ppic       POST /w/2026-08-24/rencana (server action) → HTTP 200
+    ppic  9 batch rencana ditulis (STD / K / S / B; 18953 kg LB, 10253 ekor); harga LB: keputusan semua kelas 9
+    CEK lulus: salin ke batch rencana berhasil — 9 batch rencana ditulis (STD / K / S / B; 18953 kg LB, 10253 ekor); harga LB: keputusan semua kelas 9
+    DB batch hasil salin: 08-26 4522.45 kg LB 2325 ekor; 08-26 1742.28 kg LB 1108 ekor; 08-26 1134.18 kg LB 567 ekor; 08-27 3666.59 kg LB 1885 ekor; 08-27 948.19 kg LB 603 ekor; 08-28 4919.25 kg LB 2529 ekor; 08-28 82.76 kg LB 61 ekor; 08-28 1517.43 kg LB 965 ekor; 08-28 420.07 kg LB 210 ekor
+    DB rencana kelas tersimpan: 18953 kg LB, 10253 ekor; salinan batch: 18953 kg LB, 10253 ekor
+    CEK lulus: angka batch hasil salin = rencana kelas tersimpan, kg LB dan ekor (R52) — salinan 18953 kg LB / 10253 ekor vs tersimpan 18953 / 10253
+    ppic  tangkapan layar: screens/T7-3c-ppic-disalin.png
+    Supabase (mock origin) selama langkah: 6× auth 200, 188× rest 200, 1× rest 201, 1× rest 204
+
+5 cost_accounting — Cost Accounting: upload WP batch 126/PO/KGR/08/2026 (H+1, Kam 27 Agu 11.00)   [jam uji 2026-08-27T10:50:04+07:00]
+JAM UJI → jam uji: 2026-08-27 11:00:00 WIB (offset -4517541s)
+    DB commercial_daily 27/08 Karkas fresh sebelum WP: Rp 39039.3607/kg, status estimasi
+    cost_accounting GET /input?panel=costing_wp → HTTP 200
+    cost_accounting  cek costing_wp: Kolom wajib lengkap lolos | Kode SKU terpetakan 9 dari 9 baris lolos · C56 | kg LB sesuai batch 12.090 di WP vs 12.090 di batch (+0,0%) lolos | Batch 126/PO/KGR/08/2026 · rata-rata LB 12.089,6 kg / 6.300 ekor = 1,92 kg/ekor kelas STD | Σ SKU vs hasil potong 11.720,0 vs 11.726,9 kg (LB − susut 3%), selisih 0,1% (batas 2%) lolos · C22 | Yield karkas 75,9% (batas 68–76%) lolos
+    cost_accounting POST /input?panel=costing_wp (server action) → HTTP 200
+    cost_accounting  simpan costing_wp: 9 dari 9 baris lolos cek; 9 baru, 0 diubah. Lot batch 126/PO/KGR/08/2026 → sementara; PPIC dan Commercial membaca biaya baru setelah rebuild. Rebuild: 3 selesai.
+    CEK lulus: WP tersimpan — 9 dari 9 baris lolos cek; 9 baru, 0 diubah. Lot batch 126/PO/KGR/08/2026 → sementara; PPIC dan Commercial membaca biaya baru setelah rebuild. Rebuild: 3 selesa…
+    DB WP batch 126/PO/KGR/08/2026: WP 9 11720
+    cost_accounting  tangkapan layar: screens/T7-5-costacc-wp.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 422× rest 200, 2× rest 201, 11× rest 204
+
+6 cost_accounting — Cost Accounting: faktur pemasok PI26080085 (tie ke GL), alokasi dan posting batch 126/PO/KGR/08/2026   [jam uji 2026-08-27T11:00:05+07:00]
+JAM UJI → jam uji: 2026-08-27 13:00:00 WIB (offset -4510346s)
+    cost_accounting GET /input?panel=supplier_invoice → HTTP 200
+    cost_accounting  cek supplier_invoice: Kolom wajib lengkap lolos | Batch ada 1 dari 1 lolos | Nilai terisi 1 dari 1 lolos | Tie ke GL 1 dari 1 lolos · C23
+    cost_accounting POST /input?panel=supplier_invoice (server action) → HTTP 200
+    cost_accounting  simpan supplier_invoice: 1 dari 1 baris lolos cek; 1 baru, 0 diubah. 1 faktur tie ke GL; 0 masih sementara. Biaya batch 126/PO/KGR/08/2026 belum final: langkah berikutnya Posting alokasi (Input costing → Alokasikan → Posting); sampai itu biaya tetap sementara. Rebuild: 2 selesai.
+    CEK lulus: faktur tersimpan dan tie ke GL — 1 dari 1 baris lolos cek; 1 baru, 0 diubah. 1 faktur tie ke GL; 0 masih sementara. Biaya batch 126/PO/KGR/08/2026 belum final: langkah berikutnya Posting aloka…
+    DB batch 126/PO/KGR/08/2026: invoice_status tied, costing_status uploaded
+    cost_accounting GET /w/2026-08-24/costing → HTTP 200
+    cost_accounting  status biaya sesudah faktur tie, sebelum posting: 26 Agu 2026 126/PO/KGR/08/2026 sementara · faktur tie, alokasi belum diposting keputusan 12.089,60 24.148 327.203.433 336.230.490 0,9732 24.895 747 harga acuan…
+    CEK lulus: faktur tie belum membuat biaya final: status tetap sementara sampai posting (R60, K59) — 26 Agu 2026 126/PO/KGR/08/2026 sementara · faktur tie, alokasi belum diposting keputusan 12.089,60 24.148 327.203.433 336.230.490 0,9732 24…
+    cost_accounting GET /w/2026-08-24/input/costing → HTTP 200
+    cost_accounting POST /w/2026-08-24/input/costing (server action) → HTTP 200
+    cost_accounting  Dialokasikan 1 batch (draft): 126/PO/KGR/08/2026: OK
+    CEK lulus: alokasi batch (draft) berhasil — Dialokasikan 1 batch (draft): 126/PO/KGR/08/2026: OK
+    cost_accounting GET /w/2026-08-24/input/costing → HTTP 200
+    cost_accounting  dialog "Posting alokasi draft minggu ini?" → ok
+    cost_accounting POST /w/2026-08-24/input/costing (server action) → HTTP 200
+    cost_accounting  Diposting: 1 batch
+    CEK lulus: posting batch berhasil — Diposting: 1 batch
+    DB allocation_run batch 126/PO/KGR/08/2026: posted costacc@e2e.test
+    cost_accounting GET /w/2026-08-24/costing → HTTP 200
+    cost_accounting  status biaya sesudah posting: 26 Agu 2026 126/PO/KGR/08/2026 final
+    CEK lulus: sesudah posting biaya batch final — 26 Agu 2026 126/PO/KGR/08/2026 final
+    cost_accounting  tangkapan layar: screens/T7-6-costacc-posting.png
+    Supabase (mock origin) selama langkah: 19× auth 200, 623× rest 200, 6× rest 201, 12× rest 204
+
+6b ppic — PPIC: alokasi FEFO hari ini, Kam 27 Agu (sebelum cut-off 14.00)   [jam uji 2026-08-27T13:00:13+07:00]
+JAM UJI → jam uji: 2026-08-27 13:45:00 WIB (offset -4507659s)
+    ppic       GET /hari/2026-08-27/alokasi → HTTP 200
+    ppic  C45 STALE di layar alokasi 2026-08-27: ya, tombol bangun ulang antrean ada
+    ppic       POST /hari/2026-08-27/alokasi (server action) → HTTP 200
+    ppic  (layar menyegarkan dirinya: C45 tidak lagi STALE)
+    CEK lulus: PPIC membangun ulang antrean dari layar alokasi 2026-08-27 (Q-v5.2-52) — tanpa galat
+    CEK lulus: antrean sampai 2026-08-27 kosong (C45 tidak STALE) — 0 tanggal tersisa
+    ppic       GET /hari/2026-08-27/alokasi → HTTP 200
+    ppic  halaman alokasi: Alokasi hari ini 27 Agu 2026 Kirim Rab 26 Agu Kam 27 Agu Jum 28 Agu Alokasikan hari ini Cut-off cut-off setelah 14:00 WIB PO kirim hari ini 28 masih terbuka 28 sisa kg 13.776 Belum tertutup stok 1 baris kg 811 Sisa fresh untuk spot 32.348 kg lot 42 Cut-off 14:00 WIB belum usulan blast kg 32.348 PO kirim 27 Agu 2026 PO Pelanggan SKU Status kg Terkirim Sisa Lot Belum tertutup KGR26.00329 NATALIA PRIHATI Trading|Karkas|n/a Confirmed 1.015 0 1.015 KGR26.00331 ERWIN ALAMSYAH RPA|Karkas|Frozen Confir…
+    ppic       POST /hari/2026-08-27/alokasi (server action) → HTTP 200
+    ppic  36 alokasi FEFO ditulis — 1 baris PO belum tertutup stok
+    CEK lulus: alokasi 27/08 ditulis — 36 alokasi FEFO ditulis — 1 baris PO belum tertutup stok
+    Supabase (mock origin) selama langkah: 10× auth 200, 456× rest 200, 1× rest 201, 4× rest 204
+
+7 commercial_lead — Komersial: biaya baru tampil (WP dan posting batch sudah masuk)   [jam uji 2026-08-27T13:45:07+07:00]
+JAM UJI → jam uji: 2026-08-27 14:30:00 WIB (offset -4504966s)
+    antrean rebuild: 1 tanggal (sebelum layar Komersial); Finance: Input → Perbarui status tugas, putaran 1
+    finance    GET /input?panel=grid → HTTP 200
+    finance    POST /input?panel=grid (server action) → HTTP 200
+    antrean rebuild kosong (sebelum layar Komersial)
+    DB commercial_daily 27/08 Karkas fresh sesudah: Rp 37433.5024/kg, status estimasi (sebelum: 39039.3607/kg, estimasi)
+    CEK lulus: DB: biaya/kg Karkas fresh berubah sesudah WP dan posting — 39039.3607 → 37433.5024
+    commercial_lead GET /komersial → HTTP 200
+    CEK lulus: Komersial terbuka untuk Kepala Sales — HTTP 200
+    commercial_lead  baris Karkas di layar: 6 Karkas · RPA di atas batas umur 102 57,0 hr 402 final 27.098 30.000 +2.902
+    CEK lulus: layar Komersial memuat biaya baru Karkas fresh — Rp 37.434/kg
+    commercial_lead  tangkapan layar: screens/T7-7-komersial-biaya-baru.png
+    Supabase (mock origin) selama langkah: 7× auth 200, 652× rest 200, 1× rest 201, 16× rest 204
+
+7b ppic — PPIC: alokasi FEFO hari ini, Jum 28 Agu (sebelum cut-off 14.00)   [jam uji 2026-08-27T14:30:08+07:00]
+JAM UJI → jam uji: 2026-08-28 13:00:00 WIB (offset -4423974s)
+    ppic       GET /hari/2026-08-28/alokasi → HTTP 200
+    ppic  C45 STALE di layar alokasi 2026-08-28: tidak (antrean kosong sampai hari itu)
+    ppic       GET /hari/2026-08-28/alokasi → HTTP 200
+    ppic  halaman alokasi: Alokasi hari ini 28 Agu 2026 Kirim Kam 27 Agu Jum 28 Agu Sab 29 Agu Alokasikan hari ini Cut-off cut-off setelah 14:00 WIB PO kirim hari ini 8 masih terbuka 8 sisa kg 10.768 Belum tertutup stok 1 baris kg 300 Sisa fresh untuk spot 35.680 kg lot 44 Cut-off 14:00 WIB belum usulan blast kg 35.680 PO kirim 28 Agu 2026 PO Pelanggan SKU Status kg Terkirim Sisa Lot Belum tertutup KGR26.00334 ERWIN ALAMSYAH Trading|Kulit|Frozen Confirmed 105 0 105 KGR26.00332 MUHAMAD HARISUDDIN RPA|Karkas|Fresh Confirme…
+    ppic       POST /hari/2026-08-28/alokasi (server action) → HTTP 200
+    ppic  10 alokasi FEFO ditulis — 1 baris PO belum tertutup stok
+    CEK lulus: alokasi 28/08 ditulis — 10 alokasi FEFO ditulis — 1 baris PO belum tertutup stok
+    Supabase (mock origin) selama langkah: 7× auth 200, 142× rest 200, 1× rest 201
+
+2 commercial_lead — Kepala Sales: kunci komitmen dan price list minggu depan (Jum 28 Agu 16.00, tenggat 17.00)   [jam uji 2026-08-28T13:00:04+07:00]
+JAM UJI → jam uji: 2026-08-28 16:00:00 WIB (offset -4413178s)
+    commercial_lead GET /komersial → HTTP 200
+    commercial_lead  dialog "Kunci komitmen dan price list minggu depan? Perubahan sesudahnya menjadi versi …" → ok
+    commercial_lead POST /komersial (server action) → HTTP 200
+    commercial_lead  1 draft komitmen dikunci bersama price list minggu depan; harga frozen dari form untuk 1 SKU
+    CEK lulus: komitmen dan price list terkunci — 1 draft komitmen dikunci bersama price list minggu depan; harga frozen dari form untuk 1 SKU
+    DB komitmen 2026-08-31: RPA|Karkas 1 locked lead@e2e.test
+    CEK lulus: DB: komitmen terkunci oleh Kepala Sales
+    CEK lulus: DB: price list minggu depan terkunci
+    CEK lulus: sel K35 commitment_lock 28/08 lolos tanpa 'Perbarui status tugas' (R54) — status tersimpan: passed
+    commercial_lead  tangkapan layar: screens/T7-2-lead-kunci.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 500× rest 200, 6× rest 204
+
+8a inventory_accounting — Inventory Accounting: total Accurate minggu ini (C8 kg penjualan, C9 nilai stok awal) lewat layar Parameter   [jam uji 2026-08-28T16:00:06+07:00]
+JAM UJI → jam uji: 2026-08-28 16:10:00 WIB (offset -4412584s)
+    inventory_accounting GET /w/2026-08-24/kontrol → HTTP 200
+    CEK lulus: nilai C8 dan C9 terbaca di layar Kontrol — C8 23.887,97 · C9 3.954.932.012
+    inventory_accounting GET /w/2026-08-24/input/parameter → HTTP 200
+    inventory_accounting POST /w/2026-08-24/input/parameter (server action) → HTTP 303
+    inventory_accounting  simpan parameter → /w/2026-08-24/input/parameter?ok=Parameter%20disimpan (sebelum /w/2026-08-24/input/parameter)
+    DB parameter: accurate_sales_kg 23887.97 · accurate_opening_stock_value 3954932012.00
+    CEK lulus: DB: total Accurate tersimpan
+    Supabase (mock origin) selama langkah: 10× auth 200, 190× rest 200, 1× rest 204
+
+8 finance — Finance: grid kelengkapan K35 minggu 24–30 Agu hijau (Input → Perbarui status tugas)   [jam uji 2026-08-28T16:10:05+07:00]
+JAM UJI → jam uji: 2026-08-28 16:30:00 WIB (offset -4411389s)
+    finance    GET /input?panel=grid → HTTP 200
+    CEK lulus: Input terbuka untuk Finance — HTTP 200
+    finance    POST /input?panel=grid (server action) → HTTP 200
+    finance  Tugas diperbarui: 7 hari. 2026-08-22: ledger: sebelum stok awal; scorecard: scorecard 2026-08-17: 0 sales (0 ditulis); demand: minggu 2026-08-17 belum ada; monthly: bulan 2026-08: cut-off 2026-08-26,…
+    CEK lulus: status tugas diperbarui — Tugas diperbarui: 7 hari. 2026-08-22: ledger: sebelum stok awal; scorecard: scorecard 2026-08-17: 0 sales (0 ditulis); demand: minggu 2026-08-17 belum ada; mon…
+    DB sel merah minggu 2026-08-24 (late, atau not_due lewat tenggat): tidak ada
+    DB sel per status: not_due 4, noted 2, passed 31
+    CEK lulus: K35: tidak ada sel merah untuk minggu yang dirilis
+    finance    GET /input?panel=grid → HTTP 200
+    finance  tangkapan layar: screens/T7-8-finance-grid-k35.png
+    Supabase (mock origin) selama langkah: 7× auth 200, 592× rest 200, 1× rest 201, 16× rest 204
+
+9 finance — Finance: rilis outlook minggu 24–30 Agu tanpa override, v4_release hidup   [jam uji 2026-08-28T16:30:07+07:00]
+JAM UJI → jam uji: 2026-08-28 16:40:00 WIB (offset -4410796s)
+    CEK lulus: v4_release hidup (ketat)
+    finance    GET /w/2026-08-24/kontrol → HTTP 200
+    CEK lulus: Kontrol terbuka untuk Finance — HTTP 200
+    finance  kartu Rilis: Rilis outlook Rilis diizinkan dengan peringatan (1 PERIKSA, 0 BELUM DIISI). Rilis outlook (simpan snapshot JSON + PDF) Riwayat rilis →
+    finance  dialog "Rilis outlook minggu ini sekarang?" → ok
+    finance    POST /w/2026-08-24/kontrol (server action) → HTTP 200
+    finance  Outlook dirilis (PERIKSA); snapshot SHA-256 dd9eb4fc2757…; 2 baris masih bersumber Ops.
+    CEK lulus: rilis berhasil tanpa override — Outlook dirilis (PERIKSA); snapshot SHA-256 dd9eb4fc2757…; 2 baris masih bersumber Ops.
+    DB rilis: finance@e2e.test · dd9eb4fc2757 · PERIKSA; override minggu ini: 0
+    CEK lulus: DB: satu rilis oleh finance, nol override
+    finance  tangkapan layar: screens/T7-9-finance-rilis.png
+    Supabase (mock origin) selama langkah: 5× auth 200, 516× rest 200, 2× storage 200
+
+10 management — Manajemen: Minggu ini, tile Status putaran sesudah rilis (hanya baca)   [jam uji 2026-08-28T16:40:07+07:00]
+JAM UJI → jam uji: 2026-08-28 16:50:00 WIB (offset -4410203s)
+    management GET /minggu-ini/2026-08-24 → HTTP 200
+    CEK lulus: Minggu ini terbuka untuk Manajemen — HTTP 200
+    management  Status putaran: Status putaran Komitmen Commercial minggu depan: dikunci Rencana PPIC minggu depan: belum disusun Harga LB potong Sab 29/08: belum diputuskan Costing batch minggu ini: 1 sementara, 1 final Stok bebas belum ke PO: 129.860 kg · Rp 3.204,4 jt · setelah komitmen terkunci 13.402 kg Revenue dan GP P&L per hari Sen–Min aktual (jurnal) PO / run-rate GP P&L 226,7 Sen 24 0,0 Sel 25 362,3 Rab 26 584,8 Kam 27 295,7 Jum 28 549,0 Sab 29 0,0 Min 30 7,7 −30,4 23,1 131,9 63,9 97,4 −3,8 Selasa 25 Agu tanpa jurnal penjualan; dibaca sebagai data hilang, bukan nol, sampai Sales dan Finance memastikan. Dari GP produk ke GP P&L cara hitung 298,8 GP produk 4,3 Timing faktur 23,5 COGS vs HPP −28,8 Ekspedisi −8,1 B
+    CEK lulus: tile Status putaran tampil
+    CEK lulus: Manajemen tidak punya tombol tulis di halaman — 0 tombol
+    management  tangkapan layar: screens/T7-10-manajemen-status-putaran.png
+    Supabase (mock origin) selama langkah: 2× auth 200, 100× rest 200
+
+11 ppic — PPIC: Rencana minggu komitmen (31 Agu): demand kelas = PO + kg komitmen di atas PO (R48)   [jam uji 2026-08-28T16:50:03+07:00]
+JAM UJI → jam uji: 2026-08-28 17:05:00 WIB (offset -4409306s)
+SETUP (postgres, langsung ke tabel; bukan alur) — next-week.sql: baris minggu 2026-08-31 seperti rollover Senin (rollover = langkah Admin, dilarang di journey; tanpa baris minggu /w/2026-08-31/rencana 404) dan PO KGR26.E2E06 4000 kg untuk 2026-09-01 (unggahan Sales ditahan di 1c dan akan membangun ulang mart yang tak bisa ditarik kembali) [tests/e2e/sql/next-week.sql]
+    DB komitmen terkunci 2026-08-31 Karkas fresh 15.000 kg; PO Confirmed Karkas fresh minggu itu 4.000 kg (KGR26.E2E06); kg komitmen di atas PO = max(0, 15.000 − 4.000) = 11.000 kg
+    CEK lulus: DB: komitmen terkunci lebih besar dari PO minggu itu (kasus R48) — komitmen 15000 kg, PO 4000 kg
+    ppic       GET /w/2026-08-31/rencana → HTTP 200
+    ppic  demand kelas minggu 2026-08-31 (komitmen dihitung): Uk 1.4 fresh 4.000 0 4.000 | Tanpa ukuran 11.000 0 11.000 | Total 15.000 0 15.000
+    CEK lulus: Rencana minggu komitmen terbuka untuk PPIC (HTTP 200, bukan 404/500) — HTTP 200
+    CEK lulus: demand kelas (kolom PO kg, total) = PO + kg komitmen di atas PO (= komitmen terkunci), angka dari database — halaman 15000 kg; DB 4000 + 11000 = 15000 kg
+    ppic  tangkapan layar: screens/T7-11-ppic-rencana-minggu-komitmen.png
+SETUP (postgres, langsung ke tabel; bukan alur) — flag v5_commercial mati sementara (komitmen tidak dihitung di demand)
+    ppic       GET /w/2026-08-31/rencana → HTTP 200
+    ppic  demand kelas minggu 2026-08-31 (tanpa komitmen): Uk 1.4 fresh 4.000 0 4.000 | Total 4.000 0 4.000
+    CEK lulus: tanpa komitmen demand kelas = PO saja — HTTP 200, halaman 4000 kg; DB PO 4000 kg
+    CEK lulus: selisih dengan dan tanpa komitmen = kg komitmen di atas PO (angka dari database) — 15000 − 4000 = 11000 kg; DB 11.000 kg
+SETUP (postgres, langsung ke tabel; bukan alur) — flag v5_commercial hidup lagi
+SETUP (postgres, langsung ke tabel; bukan alur) — next-week-undo.sql: PO minggu depan, baris minggu 2026-08-31 dan antrean pemicu dihapus lagi (journey sesudah T7 mulai dari minggu 24–30 Agu saja) [tests/e2e/sql/next-week-undo.sql]
+    DB jumlah baris 92 tabel (kecuali audit_log) sebelum dan sesudah langkah: sama
+    CEK lulus: keadaan database sesudah pembersihan = sebelum langkah ini di 92 tabel (journey sesudah T7 tidak melihat minggu 31/08 maupun PO-nya)
+    CEK lulus: flag v5_commercial hidup lagi
+    Supabase (mock origin) selama langkah: 4× auth 200, 131× rest 200
+
+RINGKASAN T7: 58 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 83 (72× 200, 11× 303); respons tak terduga 0; SETUP 5
