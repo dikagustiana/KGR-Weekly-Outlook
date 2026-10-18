@@ -18,6 +18,8 @@ interface Def {
   module?: ModuleKey;
   /** Module that, when on, replaces the href by `alt`. */
   alt?: { module: ModuleKey; href: (c: V4NavCtx) => string | null };
+  /** Module that, when on for the role, takes this item's place (R77: Input carries the Finance upload link). */
+  unlessModule?: ModuleKey;
 }
 
 const w = (p: string) => (c: V4NavCtx) => (c.week ? `/w/${c.week}/${p}` : null);
@@ -64,8 +66,9 @@ export const WORKSPACE: Record<Role, Def[]> = {
   purchasing: [D.supplyLb, D.harga, D.input, D.upload],
   inventory_accounting: [D.stokSku, D.rekon, D.input, D.upload, D.kontrol],
   cost_accounting: [D.costing, D.kontrolCosting, D.input, D.upload],
-  // R77 (A-UI-19, Q-v5.1-25): the v4 wizard link leaves the Finance nav (7 items); it lives in the Input Finance panel
-  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.input],
+  // R77 (A-UI-19, Q-v5.1-25, O23 (b)): with Input on, the v4 wizard link leaves the Finance nav (7 items) and lives in the
+  // Input Finance panel; with v5_input off there is no such panel, so Upload stays (still 7 items)
+  finance: [D.outlookBulan, D.biaya, D.tutupBuku, D.kas, D.rilis, D.kontrol, D.input, { ...D.upload, unlessModule: "v5_input" }],
   admin: [D.mingguIni, D.outlookBulan, D.rencana, D.komersial, D.stok, D.rilis, D.admin],
 };
 
@@ -82,6 +85,7 @@ export function v4Nav(role: Role, settings: ModuleSettings, ctx: V4NavCtx): V4Na
   const out: V4NavItem[] = [];
   for (const d of WORKSPACE[role] ?? []) {
     if (d.module && !isModuleOn(settings[d.module], role)) continue;
+    if (d.unlessModule && isModuleOn(settings[d.unlessModule], role)) continue;
     const href = d.alt && isModuleOn(settings[d.alt.module], role) ? d.alt.href(ctx) : d.href(ctx);
     if (href && !out.some((x) => x.id === d.id)) out.push({ id: d.id, label: d.label, href });
   }
