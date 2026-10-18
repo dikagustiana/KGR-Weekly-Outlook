@@ -1,7 +1,10 @@
 # Siap pakai mulai Senin 19 Okt 2026 — langkah Dika
 
-Keadaan 18 Okt sore (UTC): production `https://kgr-weekly-outlook.vercel.app` menjalankan v5.2 (`main` `85f7684`, deploy
-7152837375); database KGR-OS skema 5.2.6 (sama dengan kode). Smoke dari runner GitHub (`ops/smoke`): halaman login 200,
+Keadaan 18 Okt malam (UTC): production `https://kgr-weekly-outlook.vercel.app` menjalankan `main` terbaru — setiap merge ke
+`main` di-deploy otomatis; per 18 Okt 14.57 UTC itu `9d10f83` (PR #65; GitHub Deployments 7156264852 "success", kode aplikasi
+sama dengan `7d83173`/`6f9757f`, hanya dokumen yang bertambah). Commit yang benar-benar aktif selalu dibaca dari GitHub →
+Deployments → Production (atau dashboard Vercel), bukan dari dokumen ini (review v5.3 V12). Database KGR-OS skema 5.2.6 (sama
+dengan kode). Smoke dari runner GitHub (`ops/smoke`): halaman login 200,
 halaman terlindung mengarah ke login, cron menolak tanpa rahasia, login alamat tak terdaftar dijawab Supabase Auth ("E-mail
 atau kata sandi salah") — app tersambung ke database. Flag v5 terbuka untuk semua role (Q-v5.2-103, lihat langkah 5).
 
