@@ -58,7 +58,9 @@ const W: Record<Area, Role[]> = {
   master: ["admin"],
   users: ["admin"],
   week: ["admin"],
-  update_date: ["admin", "inventory_accounting", "finance", "ppic", "sales", "purchasing", "commercial_lead", "cost_accounting"],
+  // K69 (v5.2 A-REL-1, Q-v5.2-12): set by hand only by Admin and Finance, only while the week is open; the uploads of
+  // Inventory/Cost Accounting move it forward through advance_update_date (K39), not through this area
+  update_date: ["admin", "finance"],
   release: ["admin", "finance"],
   costing_upload: ["admin", "cost_accounting"],
   cost_pool: ["admin", "cost_accounting"],
