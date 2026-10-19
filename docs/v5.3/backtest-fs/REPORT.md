@@ -184,7 +184,9 @@ Backup diambil sebelum perubahan, di skema `backup_20261018`.
 Belum dikerjakan, karena butuh orang atau keputusan:
 
 - **Bangun ulang**: Admin → Modul → "Bangun ulang" sampai antrean habis. Sebelum itu, mart dan C59 belum memakai jurnal baru.
-- **Override C59 dan Kunci FINAL** Agustus dan September: hanya peran Finance yang bisa, dan KGR-OS baru punya 1 akun (Admin).
-  Alasan override: sisi neraca DI belum dijurnal (BT-FS-3), 1102008 (F-4), dan D9.
+- **Override kontrol FINAL dan Kunci FINAL** Agustus dan September: hanya peran Finance yang bisa, dan KGR-OS baru punya 1 akun
+  (Admin). Bukan hanya C59: pada data ini gladi juga harus meng-override C35, C36, C49 (kedua bulan) dan C21–C24 (Agustus, COGS
+  LB belum ada) sebelum tombol aktif (§5, `rehearsal.log` langkah 5). Alasan C59: sisi neraca DI belum dijurnal (BT-FS-3), 1102008
+  (F-4), dan D9.
 - **F-1, F-2, F-3, F-5** tetap pertanyaan Finance.
 - **COGS LB** (Pot_*) belum dimuat: menunggu keputusan di `docs/v5.3/backtest-cogs`.

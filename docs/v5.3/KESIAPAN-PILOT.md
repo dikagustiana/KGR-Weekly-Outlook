@@ -172,16 +172,24 @@ connector 19 Okt. Backup sebelum menulis ada di skema `backup_20261018`.
 |---|---|---|
 | Admin dan uji pengguna | **GO terbatas** | Tidak ada syarat tambahan |
 | Pelatihan Finance, Sales, PPIC dengan skenario terkontrol | **GO sesudah akun dan minggu 19 Okt** | Akun per peran (KGR-OS baru punya 1 Admin); minggu 19 Okt dibuat; penugasan Sales; keputusan V6 bila harga beli LB rahasia bagi Sales |
-| Tutup buku Agustus–September (C59, FINAL) | **GO sesudah Bangun ulang dan akun Finance** | Bangun ulang 59 tanggal; Finance melakukan override C59 dengan alasan (DI sisi neraca, 1102008, D9), lalu Kunci FINAL |
+| Tutup buku Agustus–September (FINAL) | **GO sesudah Bangun ulang dan akun Finance**; Agustus sebaiknya sesudah keputusan COGS LB | Bangun ulang 59 tanggal; Finance memperbaiki atau meng-override (dengan alasan) setiap kontrol yang menolak di panel FINAL, lalu Kunci FINAL. Di gladi: Agustus C21–C24, C35, C36, C49, C59; September C35, C36, C49, C59 |
 | Dashboard sebagai angka resmi operasional | **NO-GO** | V4/V5 (angka contoh), V9 (status mart), COGS LB belum dimuat |
 | Output sebagai laporan manajemen final | **NO-GO** | FINAL Agustus–September terkunci; F-1…F-5 dijawab Finance; DI dijurnal di Accurate |
 
 ### 7.3 Daftar untuk Dika, berurutan (menggantikan §6)
 
 1. **Admin → Modul → "Bangun ulang"**, ulangi sampai antrean kosong. Saat ini ada 59 tanggal `queued` (1 Agu–30 Sep).
-2. **Admin → Pengguna**: buat akun Finance (dan peran pilot lain). Override C59 dan Kunci FINAL hanya bisa oleh Finance.
-3. **Finance → `/m/2026-08/tutup-buku`, lalu `/m/2026-09/tutup-buku`**: override C59 dengan alasan "DI belum dijurnal di Accurate
-   (sisi neraca); 1102008 dana pinjaman ke pihak berelasi; pembulatan FS D9", lalu Kunci FINAL. Kunci FINAL tidak bisa dibatalkan.
+2. **Admin → Pengguna**: buat akun Finance (dan peran pilot lain). Override kontrol FINAL dan Kunci FINAL hanya bisa oleh Finance
+   (C21–C24 juga oleh Cost Accounting).
+3. **Finance → `/m/2026-09/tutup-buku`, lalu `/m/2026-08/tutup-buku`**: tombol Kunci FINAL baru aktif bila **semua** kontrol
+   wajib di panel FINAL lulus atau di-override dengan alasan. Pada data ini gladi menemukan (`backtest-fs/rehearsal.log` langkah 5):
+   - September: C35 dan C36 (kas: saldo rekening dan upload kas harian belum ada), C49 (`pl_daily`), C59.
+   - Agustus: yang sama, ditambah C21–C24 (alokasi biaya batch, yield, cost pool, posting alokasi), karena COGS LB belum dimuat.
+     Override C21–C24 juga bisa oleh Cost Accounting.
+   - Alasan C59: "DI belum dijurnal di Accurate (sisi neraca); 1102008 dana pinjaman ke pihak berelasi; pembulatan FS D9".
+     Alasan kontrol lain: sebutkan data yang belum ada (kas harian, COGS LB) atau perbaiki datanya dulu.
+   - Kunci FINAL tidak bisa dibatalkan. Untuk Agustus, sebaiknya putuskan dan muat COGS LB dulu (langkah 6), supaya C21–C24
+     dinilai, bukan di-override.
 4. **Admin → Minggu → "Buat minggu kosong"**: minggu 19 Okt 2026.
 5. **Komersial → Penugasan Sales**, lalu langkah data simulator K25 (§6 langkah 8).
 6. **Putuskan**: V6, V11 (§6 langkah 1); pemetaan 1102008 di `coa_map` (F-4); COGS LB (`backtest-cogs/REPORT.md` §8: Pot_ISA01,
