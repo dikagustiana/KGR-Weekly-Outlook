@@ -46,6 +46,7 @@ const ALIAS = {
 const emailOf = (role) => process.env[`E2E_EMAIL_${role.toUpperCase()}`] || `${ALIAS[role]}@${cfg.domain}`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let actSeq = 0; // Actor.act: marks the form of each clicked button (K93 in-form confirm)
 
 function playwright() {
   for (const m of ["playwright", process.env.E2E_PLAYWRIGHT_MODULE].filter(Boolean)) {
@@ -312,8 +313,11 @@ class Actor {
     await btn.first().waitFor({ state: "visible", timeout: 15_000 });
     if (await btn.first().isDisabled()) throw new Error(`tombol "${label}" nonaktif`);
     const answered = p.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: opts.timeout || 90_000 });
-    // K93: a form with a `confirm` text asks in the form itself ("Ya, lanjutkan" / "Batal") instead of window.confirm
-    const yes = btn.first().locator("xpath=ancestor::form[1]").getByRole("button", { name: "Ya, lanjutkan", exact: true });
+    // K93: a form with a `confirm` text asks in the form itself ("Ya, lanjutkan" / "Batal") instead of window.confirm. The
+    // clicked button is replaced by the question, so the form is marked first (button.form: also a `form=` attribute)
+    const mark = `act-${++actSeq}`;
+    await btn.first().evaluate((b, m) => b.form && b.form.setAttribute("data-e2e-act", m), mark);
+    const yes = p.locator(`form[data-e2e-act="${mark}"]`).getByRole("button", { name: "Ya, lanjutkan", exact: true });
     await btn.first().click();
     const asked = await Promise.race([answered.then(() => false, () => false), yes.waitFor({ state: "visible", timeout: opts.timeout || 90_000 }).then(() => true, () => false)]);
     if (asked) {
