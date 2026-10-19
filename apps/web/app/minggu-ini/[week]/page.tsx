@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { weekContext, type PageProps } from "@/lib/page";
 import { Shell } from "@/components/Shell";
+import { ActionForm } from "@/components/ActionForm";
 import { DecisionDialog } from "@/components/v6/DecisionDialog";
 import { NumberInput } from "@/components/v6/NumberInput";
 import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
@@ -41,7 +42,19 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   // PRD v5 journey M (flag v5_management): the operations director decides the price tried in the simulation (K25)
   const extras: Record<string, ReactNode> = {};
   const m = input.v5Mgmt;
-  if (m && ["admin", "operations_director"].includes(ctx.viewer.role)) {
+  const v6 = await v6ShellOn();
+  if (m && !v6 && ["admin", "operations_director"].includes(ctx.viewer.role)) {
+    extras["sim-lb"] = (
+      <ActionForm v4="primary" action={decideLbPriceV5Action} submit={`Putuskan Rp ${num(m.sim.price, 0)} untuk potong ${Number(m.sim.cutDate.slice(8, 10))}/${m.sim.cutDate.slice(5, 7)}`} className="tile-form"
+        confirm="Simpan keputusan harga LB? Keputusan tidak diubah; keputusan baru menggantikannya.">
+        <input type="hidden" name="date" value={m.sim.cutDate} />
+        <input type="hidden" name="price" value={m.sim.price.toFixed(0)} />
+        <label>Volume kg LB <input name="volume" size={8} /></label>
+        <input name="note" size={18} placeholder="catatan" aria-label="Catatan keputusan" />
+      </ActionForm>
+    );
+  }
+  if (m && v6 && ["admin", "operations_director"].includes(ctx.viewer.role)) {
     // PRD v6 K93 / R143: the decision is taken in a dialog that shows what is decided and its effect (T40)
     const cut = `${Number(m.sim.cutDate.slice(8, 10))}/${m.sim.cutDate.slice(5, 7)}`;
     const row = m.sim.result?.rows.find((x) => x.price.eq(m.sim.price)) ?? null;
@@ -63,7 +76,6 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
       </DecisionDialog>
     );
   }
-  const v6 = await v6ShellOn();
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="minggu-ini">
       {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">Minggu ini</h1>}

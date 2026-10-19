@@ -81,15 +81,13 @@ export async function writeSnapshot(svc: Supa, weekId: string, result: WeekResul
     week_id: weekId, version: next, engine_version: result.engineVersion, inputs_hash: meta.inputsHash,
     result: encodeResult(result), built_by: meta.builtBy,
   };
-  const { data, error } = await svc.from("week_snapshot").insert(row).select(META_COLS).single();
-  if (error) {
-    if (error.code === "23505") {
-      const won = await latestSnapshotMeta(svc, weekId);
-      if (won) return { status: won.inputsHash === meta.inputsHash ? "unchanged" : "written", meta: won };
-    }
-    throw new WriteError(`week_snapshot: ${error.message}`);
-  }
-  return { status: "written", meta: metaOf(data as MetaRow) };
+  // on conflict do nothing: the race is an empty answer, not an HTTP 409 (an e2e run counts every 4xx as unexpected)
+  const { data, error } = await svc.from("week_snapshot").upsert(row, { onConflict: "week_id,version", ignoreDuplicates: true }).select(META_COLS).maybeSingle();
+  if (error && error.code !== "23505") throw new WriteError(`week_snapshot: ${error.message}`);
+  if (data) return { status: "written", meta: metaOf(data as MetaRow) };
+  const won = await latestSnapshotMeta(svc, weekId);
+  if (won) return { status: won.inputsHash === meta.inputsHash ? "unchanged" : "written", meta: won };
+  throw new WriteError("week_snapshot: versi bentrok, tetapi tidak ada snapshot yang terbaca");
 }
 
 /**

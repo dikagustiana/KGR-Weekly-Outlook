@@ -15,7 +15,7 @@ tampilan tidak berubah, kecuali perbaikan aksesibilitas yang tidak mengubah tamp
 | R140 / K90 | `Status.tsx`, `lib/v6/status-map.ts` | ikon + kata + warna; kosakata DB dipetakan ke lolos/catatan/terlambat/belum |
 | R141 | `Table.tsx` (`Table6`) | caption tersembunyi, `scope`, kolom angka nowrap, teks wrap, HP: kolom pertama sticky, ≤ 4 kolom jadi kartu |
 | R132 / R142 / K94 | `TileState.tsx`, `Reload.tsx` | kosong satu baris (+ tautan), gagal `role=alert` + "Muat ulang" (`router.refresh`) |
-| R130 | `TileSkeleton.tsx`, `LoadingPage.tsx`, `loading.tsx` di 8 segmen | shell + kerangka tile tanpa animasi, `data-tile-skeleton` |
+| R130 | `TileSkeleton.tsx`, `LoadingPage.tsx` (`loading.tsx` dicabut 19 Okt, lihat di bawah) | shell + kerangka tile tanpa animasi, `data-tile-skeleton` |
 | R143 / K93 | `DecisionDialog.tsx` | `<dialog>` + `showModal()`; ringkasan ikut sebagai `payload` → disimpan di catatan keputusan (audit, T40) |
 | R144 / K92 | `NumberInput.tsx` | `inputMode=decimal`, "dibaca: …"/"tidak terbaca: …" saat blur, `aria-invalid` + `aria-describedby` |
 | R145 / R169 | `Drawer.tsx`, `focus-trap.ts` | focus trap, `inert` di luar panel, kunci scroll, Esc, fokus kembali |
@@ -38,7 +38,9 @@ baris 76 px, tile gagal → `TileError`, stepper → `Stepper6`; chip minggu dan
 - `parseNumber` (K92): "0.725", "1.500" (titik + tepat tiga digit, bacaan desimal < 10) ditolak dengan kalimat cara menulisnya.
   Berlaku juga untuk upload; "24.600" tetap 24600.
 - `loadMingguIni`: tujuh blok baca berurutan jadi satu putaran paralel (bagian R131; angka sama, tes v4/v5 hijau).
-- `loading.tsx` di 8 segmen: kerangka tampil saat navigasi (dulu layar diam).
+- `loading.tsx` di 8 segmen: **dicabut lagi** (19 Okt, matriks e2e). `loading.tsx` membuat respons mengalir dengan status 200
+  sebelum halaman menjalankan pemeriksaan role/flag, sehingga `notFound()`/`redirect()` tiba sebagai halaman 200 dan matriks
+  role (404 per role) gagal. `LoadingPage` tetap ada; dipasang lagi setelah pemeriksaan pindah ke `layout` segmen.
 
 ## Bukti (stack lokal, data fixture minggu 2026-08-24; bukan production)
 

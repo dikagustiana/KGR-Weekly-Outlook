@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
     login.search = path === "/" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
     return NextResponse.redirect(login);
   }
-  // R127: "/" goes straight to the home page remembered for this week (cookie written by app/page.tsx), without a render
+  // R127: "/" goes straight to the home page remembered for this week (cookie written by app/route.ts), without a render
   if (signedIn && path === "/") {
     const home = homeFromCookie(request.cookies.get(HOME_COOKIE)?.value, jakartaMonday());
     if (home) {

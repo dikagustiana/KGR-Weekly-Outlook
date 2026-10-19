@@ -14,7 +14,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const ctx = await getRequestContext();
   const go = (path: string, remember: boolean) => {
-    const r = NextResponse.redirect(new URL(path, req.url), 307);
+    // a relative Location: req.url carries the server's own host (localhost behind a proxy or a 127.0.0.1 bind), and a
+    // redirect to another origin drops the session cookies right after login
+    const r = new NextResponse(null, { status: 307, headers: { Location: path } });
     if (remember) r.cookies.set(HOME_COOKIE, homeCookieValue(mondayOf(ctx.today), path), { path: "/", maxAge: HOME_MAX_AGE, httpOnly: true, sameSite: "lax", secure: req.nextUrl.protocol === "https:" });
     return r;
   };
