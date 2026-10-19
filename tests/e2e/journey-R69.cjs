@@ -251,8 +251,8 @@ async function readClose(actor) {
     J.check("FINAL ditahan C59 saja: satu penolakan 'C59 GAGAL', bisa di-override oleh finance", c.rejections.length === 1 && /^C59 GAGAL/.test(c.rejections[0]) && /override oleh finance/.test(c.rejections[0]), c.rejections.join(" | "));
     J.check("tombol 'Kunci FINAL' nonaktif dengan alasan 'ditolak: C59 GAGAL'", c.buttonDisabled === true && c.reason === "ditolak: C59 GAGAL", `${c.buttonDisabled} "${c.reason}"`);
     await fin.shot("R69-R6-tutup-buku-ditahan");
-    // the rule is on the server: force the disabled button, the action itself refuses (finalizeMonthV4)
-    await fin.page.evaluate(() => { for (const b of document.querySelectorAll("button")) if (/^Kunci FINAL$/.test((b.textContent || "").trim())) b.disabled = false; });
+    // the rule is on the server: force the disabled button (disabled and, R146, aria-disabled), the action itself refuses (finalizeMonthV4)
+    await fin.page.evaluate(() => { for (const b of document.querySelectorAll("button")) if (/^Kunci FINAL$/.test((b.textContent || "").trim())) { b.disabled = false; b.removeAttribute("aria-disabled"); } });
     const m = await fin.act("Kunci FINAL", { exact: true });
     J.log(`    finance  tombol dipaksa aktif: ${short(m.error || m.ok || "", 220)}`);
     J.check("aksi server menolak: 'FINAL ditolak: C59 GAGAL'", !!m.error && /^FINAL ditolak: C59 GAGAL$/.test(m.error), m.error || m.ok || "");
