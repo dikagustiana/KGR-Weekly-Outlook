@@ -23,7 +23,7 @@ export default async function UploadPage({ params }: PageProps) {
     <WeekShell ctx={ctx} active="upload">
       <h1>Upload — export Accurate dan dokumen operasional</h1>
       <p className="muted">Alur: file → pratinjau (deteksi kolom, kode belum dipetakan, rencana perubahan) → simpan. Upload ulang rentang tanggal / dokumen yang sama mengganti baris sebelumnya (idempotent, tidak dobel); perubahan tercatat di audit. Baris Accurate menggantikan baris Ops untuk dokumen yang sama (kontrol 20).</p>
-      {kinds.length ? <UploadWizard week={week} kinds={kinds} keys={ctx.computed.loaded.inputs.sku_keys.map((k) => k.key)} isAdmin={ctx.viewer.role === "admin"} /> : <p>Peran Anda tidak mengunggah data.</p>}
+      {kinds.length ? <UploadWizard week={week} kinds={kinds} keys={ctx.computed.result.prepared.master.map((k) => k.key)} isAdmin={ctx.viewer.role === "admin"} /> : <p>Peran Anda tidak mengunggah data.</p>}
       <Card title="Riwayat upload minggu ini">
         <table className="t compact">
           <thead><tr><th>Waktu</th><th>Jenis</th><th>File</th><th>SHA-256</th><th>Rentang</th><th className="n">Baris</th><th className="n">Baru</th><th className="n">Diubah</th><th className="n">Dihapus</th><th>Oleh</th><th>Status</th></tr></thead>

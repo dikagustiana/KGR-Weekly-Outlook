@@ -3,7 +3,8 @@ import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, Msg } from "@/components/ui";
 import { supabaseServer } from "@/lib/supabase";
-import { computeForWeek, fetchAll } from "@/lib/data";
+import { fetchAll } from "@/lib/data";
+import { weekResultOf } from "@/lib/week-source";
 import { MasterTabs } from "../MasterTabs";
 import { saveAccount } from "../actions";
 
@@ -19,11 +20,11 @@ export default async function CoaMaster({ searchParams }: { searchParams: Promis
   const coa = await fetchAll<Record<string, unknown>>((f, t) => sb.from("coa_map").select("*").is("deleted_at", null).order("account").range(f, t));
   const admin = viewer.role === "admin";
   const known = new Set(coa.map((c) => String(c.account)));
-  const c = week ? await computeForWeek(sb, week.week_start) : null;
+  const r = week ? await weekResultOf(sb, week.week_start) : null;
   const missing = new Map<string, string | null>();
-  if (c) {
-    for (const g of c.loaded.inputs.gl_lines) if (g.account && !known.has(g.account)) missing.set(g.account, g.account_name ?? null);
-    for (const t of c.loaded.inputs.tb_opening) if (!known.has(t.account)) missing.set(t.account, t.name ?? null);
+  if (r) {
+    for (const { src: g } of r.prepared.gl) if (g.account && !known.has(g.account)) missing.set(g.account, g.account_name ?? null);
+    for (const { src: t } of r.prepared.tb) if (!known.has(t.account)) missing.set(t.account, t.name ?? null);
   }
   const path = `/master/coa${week ? `?week=${week.week_start}` : ""}`;
   const edit = sp.edit ? coa.find((x) => String(x.account) === sp.edit) : undefined;

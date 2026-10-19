@@ -1,4 +1,6 @@
 import { weekContext, type PageProps } from "@/lib/page";
+import { weekParameter } from "@/lib/week-rows";
+import { supabaseServer } from "@/lib/supabase";
 import { WeekShell } from "@/components/WeekShell";
 import { Card, Msg, N } from "@/components/ui";
 import { guardInputs } from "@/lib/inputPage";
@@ -29,7 +31,7 @@ export default async function ParameterPage({ params, searchParams }: PageProps)
   const sp = await searchParams;
   const ctx = await weekContext(week);
   guardInputs(ctx);
-  const p = ctx.computed.loaded.db.parameter as Record<string, unknown>;
+  const p = await weekParameter(await supabaseServer(), ctx.week.id);
   const w = ctx.week;
   const r = ctx.computed.result;
   const role = ctx.viewer.role;

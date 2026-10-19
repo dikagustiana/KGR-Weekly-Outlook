@@ -16,7 +16,8 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
+import { dataToday, fetchAll, listWeeks } from "../data";
+import { salesDemandStatus, weekResultOf } from "../week-source";
 import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
@@ -124,9 +125,10 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   let forecastCost: ForecastCostLabel | null = forecastCosts ? { plan: 0, ma: 0, maKeys: [], noPlan: [], notes: [] } : null;
   const costingMode = await costingModeFor(sb, settings);
   for (const w of weeks) {
-    const c = await computeForWeek(sb, w.week_start);
-    if (!c) continue;
-    const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
+    const result = await weekResultOf(sb, w.week_start);
+    if (!result) continue;
+    const c = { result };
+    const status = await salesDemandStatus(sb, w.week_start);
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "month.parameter") as Row | null;
     const pr = (p ?? {}) as Row;
     tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; lockWeek = Number(pr.v1_lock_week ?? lockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);

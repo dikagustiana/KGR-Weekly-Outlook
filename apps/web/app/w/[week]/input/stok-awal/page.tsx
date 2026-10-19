@@ -1,4 +1,6 @@
 import { weekContext, type PageProps } from "@/lib/page";
+import { weekInputRows } from "@/lib/week-rows";
+import { supabaseServer } from "@/lib/supabase";
 import { WeekShell } from "@/components/WeekShell";
 import { InputTable } from "@/components/InputTable";
 import { Msg } from "@/components/ui";
@@ -13,7 +15,7 @@ export default async function StokAwalPage({ params, searchParams }: PageProps) 
   const ctx = await weekContext(week);
   guardInputs(ctx);
   const byId = new Map(ctx.computed.result.prepared.opening.map((x) => [x.src.id, x]));
-  const rows = ctx.computed.loaded.db.opening;
+  const rows = await weekInputRows(await supabaseServer(), "opening_stock", ctx.week.id);
   const total = ctx.computed.result.controls.controls.find((c) => c.no === 9)!;
   return (
     <WeekShell ctx={ctx} active="input/stok-awal">

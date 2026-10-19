@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { toFixedString } from "@kgr/engine";
 import { getViewer } from "@/lib/session";
-import { computeForWeek } from "@/lib/data";
-import { supabaseServer } from "@/lib/supabase";
+import { requestWeekResult } from "@/lib/week-result";
 
 export const dynamic = "force-dynamic";
 
@@ -10,9 +9,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ week: stri
   const { week } = await params;
   const { viewer } = await getViewer();
   if (!viewer) return new NextResponse("Tidak berwenang", { status: 401 });
-  const c = await computeForWeek(await supabaseServer(), week);
+  const c = await requestWeekResult(week);
   if (!c) return new NextResponse("Minggu tidak ada", { status: 404 });
-  const r = c.result;
+  const r = c.computed.result;
   const q = (v: unknown) => (v === null || v === undefined ? "" : /[",;\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
   const d = (x: Parameters<typeof toFixedString>[0], dp = 2) => toFixedString(x, dp) ?? "";
   const head = ["key", "kelompok", "segmen", "stok_awal_kg", "nilai_stok_awal", "umur_rata_rata", "kg_di_atas_batas_umur",

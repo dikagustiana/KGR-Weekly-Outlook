@@ -4,10 +4,11 @@ import { seesInputs } from "./roles";
 import type { WeekCtx } from "./page";
 
 export function lists(ctx: WeekCtx) {
-  const i = ctx.computed.loaded.inputs;
+  // PRD v6 R120: from the result (prepared.items / prepared.master are the item_map and sku_key rows, one to one)
+  const p = ctx.computed.result.prepared;
   return {
-    items: i.item_map.map((x) => ({ code: x.item_code, name: x.item_name ?? null })),
-    keys: i.sku_keys.map((k) => k.key),
+    items: p.items.map((x) => ({ code: x.item_code, name: x.item_name ?? null })),
+    keys: p.master.map((k) => k.key),
   };
 }
 

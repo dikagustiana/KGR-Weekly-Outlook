@@ -14,7 +14,8 @@ import { moduleSettingsOf } from "./modules-read";
 import { weeksOf } from "./request-memo";
 import { schemaStatusOf } from "./schema";
 import { VIEW_COOKIE, viewModeFor, type ViewMode } from "./view";
-import type { ModuleSettings } from "./modules-core";
+import { isModuleOn, type ModuleSettings } from "./modules-core";
+import { readSnapshotsWith } from "./week-source";
 import type { Role } from "./roles";
 import type { WeekRow } from "./data";
 
@@ -68,6 +69,8 @@ export const getRequestContext = cache(async (): Promise<RequestContext> => {
     cookies(),
   ]);
   const viewer: Viewer | null = row && row.active ? { email, role: row.role, fullName: row.full_name } : null;
+  // PRD v6 R120 (flag v6_snapshot_read): the loaders this request runs with its client read week_snapshot
+  if (viewer && isModuleOn(settings.v6_snapshot_read, viewer.role)) readSnapshotsWith(sb);
   const viewCookie = store.get(VIEW_COOKIE)?.value ?? null;
   const view = viewer ? viewModeFor(viewer.role, viewCookie) : "preparer";
   return { email, viewer, settings, weeks, schema, view, viewCookie, today, ms: Math.round(performance.now() - t0) };

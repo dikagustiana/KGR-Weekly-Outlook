@@ -7,8 +7,9 @@ import { tgl } from "@/lib/fmt";
 
 export function WeekShell({ ctx, active, children }: { ctx: WeekCtx; active: string; children: ReactNode }) {
   const c = ctx.computed.result.controls;
-  const i = ctx.computed.loaded.inputs;
-  const ops = [...i.sales_lines, ...i.receipt_lines, ...i.batches, ...i.opening_stock].filter((r) => r.source === "Ops").length;
+  // PRD v6 R120: the input rows the result was computed from (prepared rows keep their source row in `src`)
+  const p = ctx.computed.result.prepared;
+  const ops = [...p.sales, ...p.receipts, ...p.batches, ...p.opening].filter((r) => r.src.source === "Ops").length;
   const cls = c.overall === "ADA GAGAL" ? "GAGAL" : c.overall;
   const w = ctx.week;
   if (ctx.view === "management") {

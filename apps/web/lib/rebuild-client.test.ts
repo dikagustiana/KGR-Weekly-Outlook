@@ -84,6 +84,7 @@ describe("A1d static: no builder and no cron reaches the session client", () => 
     expect(bad).toEqual([]);
     expect(code(join(WEB, "app/api/cron/rebuild/route.ts"))).toMatch(/processRebuildQueue\(settings,\s*\{[^}]*client:\s*svc/);
   });
+  // PRD v6 R120: weekResultOf / salesDemandStatus (lib/week-source.ts) wrap computeForWeek and are held to the same rule
   it("every call of computeForWeek passes a client first (sb in lib, the page's own client at the app edge)", () => {
     const files: string[] = [];
     const walk = (dir: string) => {
@@ -95,7 +96,7 @@ describe("A1d static: no builder and no cron reaches the session client", () => 
       }
     };
     for (const d of ["lib", "app", "components"]) walk(join(WEB, d));
-    const calls = files.flatMap((f) => [...code(f).matchAll(/(?<!function\s)\bcomputeForWeek\(([^\n]{0,40})/g)].map((m) => ({ file: relative(WEB, f), call: m[1] })));
+    const calls = files.flatMap((f) => [...code(f).matchAll(/(?<!function\s)\b(?:computeForWeek|weekResultOf|salesDemandStatus)\(([^\n]{0,40})/g)].map((m) => ({ file: relative(WEB, f), call: m[1] })));
     expect(calls.length).toBeGreaterThan(8);
     const bad = calls.filter((c) => !/^\s*(sb,|await supabaseServer\(\),)/.test(c.call));
     expect(bad).toEqual([]);

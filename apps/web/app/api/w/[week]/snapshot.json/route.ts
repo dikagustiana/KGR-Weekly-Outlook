@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { snapshotJsonV3 } from "@kgr/engine";
 import { getViewer } from "@/lib/session";
-import { computeForWeek } from "@/lib/data";
+import { requestWeekResult } from "@/lib/week-result";
 import { supabaseServer } from "@/lib/supabase";
 import { moduleSettings } from "@/lib/modules";
 import { moduleSettingsGlobal } from "@/lib/rebuild";
@@ -14,8 +14,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ week: stri
   const { viewer } = await getViewer();
   if (!viewer) return new NextResponse("Tidak berwenang", { status: 401 });
   const sb = await supabaseServer();
-  const c = await computeForWeek(sb, week);
+  const c = await requestWeekResult(week);
   if (!c) return new NextResponse("Minggu tidak ada", { status: 404 });
-  const v3 = await v3ForWeek(sb, c.loaded.week, moduleSettingsGlobal(await moduleSettings()), c.result, viewer.role);
-  return new NextResponse(snapshotJsonV3(c.result, v3.snapshot), { headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
+  const v3 = await v3ForWeek(sb, c.week, moduleSettingsGlobal(await moduleSettings()), c.computed.result, viewer.role);
+  return new NextResponse(snapshotJsonV3(c.computed.result, v3.snapshot), { headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
 }

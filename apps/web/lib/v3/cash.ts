@@ -11,7 +11,8 @@ import {
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
-import { computeForWeek, fetchAll, listWeeks, type WeekRow } from "../data";
+import { fetchAll, listWeeks, type WeekRow } from "../data";
+import { weekResultOf } from "../week-source";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -74,8 +75,7 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   const cashDay = Object.fromEntries(sched.map((r) => [String(r.id), r.cash_day_of_month === null ? null : Number(r.cash_day_of_month)]));
   const scheduled = scheduledPayments(schedule, planRows, cashDay, addDays(date, 1), horizon);
   const projection = cashProjection({ start: date, balances, plans: [...planRows, ...scheduled] });
-  const c = week ? await computeForWeek(sb, week.week_start) : null;
-  const r = c?.result ?? null;
+  const r = week ? await weekResultOf(sb, week.week_start) : null;
   const affLine = r?.statements.cf.lines.find((l) => l.category === "Pinjaman afiliasi (net)");
   const affiliateReceived = affLine ? affLine.values.actual : D(0);
   const split = cashProjectionSplit({ start: date, balances, plans: [...planRows, ...scheduled], affiliateReceived });
