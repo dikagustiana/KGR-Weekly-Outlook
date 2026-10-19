@@ -6,6 +6,8 @@ import { WriteError } from "./write";
 
 export interface Builder {
   module: ModuleKey;
+  /** PRD v6 K77: runs whatever the module flags (the week snapshot is written for every week, irisan 1 "tulis saja"). */
+  always?: boolean;
   /** Skipped while this other module is on (it writes the same mart scope with more information, e.g. the month builder over the week builder). */
   unless?: ModuleKey;
   /** K60 (R45): these builders (by name, or every builder of a module key) run before this one, whatever the import order. */
@@ -23,6 +25,10 @@ export const BUILDERS: Builder[] = [];
 export function registerBuilder(b: Builder): void {
   if (!BUILDERS.some((x) => x.module === b.module && x.name === b.name)) BUILDERS.push(b);
 }
+
+/** A builder runs in this run: always-on, or its module is on and the module that supersedes it is off. */
+export const builderOn = (b: Builder, settings: Partial<Record<ModuleKey, { enabled: boolean } | undefined>>): boolean =>
+  b.always === true || (settings[b.module]?.enabled === true && !(b.unless && settings[b.unless]?.enabled));
 
 /** K60 (R45): the builders in topological order (by `after`), independent of import order; a cycle errors at startup. */
 export function orderedBuilders(): Builder[] {

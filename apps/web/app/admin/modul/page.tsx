@@ -7,7 +7,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { MODULE_KEYS, MODULE_LABEL, moduleSettings } from "@/lib/modules";
 import { ROLES, ROLE_LABEL } from "@/lib/roles";
 import { supabaseServer } from "@/lib/supabase";
-import { processQueue, queueDates, setFlag } from "./actions";
+import { processQueue, snapshotAll, queueDates, setFlag } from "./actions";
 import { must, mustRows } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
 import { costingModeOf } from "@/lib/modules-core";
@@ -83,6 +83,10 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
         </Card>
         <Card title={`Antrian rebuild (${queued} menunggu)`}>
           <ActionForm action={processQueue} submit="Proses antrian sekarang" />
+        </Card>
+        <Card title="Hasil hitung tersimpan per minggu">
+          <p className="muted">Menghitung setiap minggu sekali dan menyimpannya; minggu yang sudah dirilis ditautkan ke rilisnya. Aman diulang: minggu yang inputnya tidak berubah tidak ditulis.</p>
+          <ActionForm action={snapshotAll} submit="Hitung semua minggu" />
         </Card>
       </div>
       <Card title="Riwayat antrian (60 terakhir)">

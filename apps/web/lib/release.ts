@@ -2,7 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { addDays, computeWeek, k35, releaseVerdict, snapshotJsonV3, v1Codes, type CellStatus } from "@kgr/engine";
 import type { Supa } from "./supabase";
-import { loadWeek } from "./data";
+import { loadWeek, WORKER_PAGES } from "./data";
+import { inputsHash, writeSnapshot } from "./snapshot";
 import { outlookPdf } from "./pdf";
 import { WriteError } from "./write";
 import { must, mustRows } from "./loader";
@@ -64,7 +65,7 @@ export const k35Message = (k: NonNullable<Awaited<ReturnType<typeof k35State>>>)
 /** `k25`: the PDF writes the live-bird block as a simulation (K25 for the releasing role, K54). */
 export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: string, opts: { k25?: boolean } = {}) {
   await assertSchemaCurrent(sb);
-  const loaded = await loadWeek(sb, weekStart);
+  const loaded = await loadWeek(sb, weekStart, WORKER_PAGES);
   if (!loaded) throw new WriteError("Minggu tidak ada");
   const result = computeWeek(loaded.inputs);
   const rc = await releaseContext(sb, "week", weekStart, weekStart, addDays(weekStart, 6));
@@ -118,10 +119,31 @@ export async function releaseWeek(sb: Supa, weekStart: string, releasedBy: strin
     // PRD v4 §7.2: the release row is written only by public.release_week, which checks again in the transaction
     const { data, error } = await sb.rpc("release_week", { p_week_id: loaded.week.id, p_json: json, p_sha: sha, p_pdf_path: `${base}.pdf`, p_ops: ops });
     if (error) throw new WriteError(error.message);
-    return { id: String(data), sha, overall: result.controls.overall, ops: ops.length };
+    const snapshotId = await freezeSnapshot(String(data), loaded.week.id, result, inputsHash(loaded.inputs), releasedBy);
+    return { id: String(data), sha, overall: result.controls.overall, ops: ops.length, snapshotId };
   } catch (e) {
     await removeReleaseFiles(sb, stored, `${base}.pdf`);
     throw e;
+  }
+}
+
+/**
+ * PRD v6 R124 (B-R120): the release names the snapshot it froze. The result released is the one computed from the inputs
+ * just read; the latest snapshot with the same inputs_hash is that same result (deterministic engine, T29), so it is
+ * linked as is, else the result is written as a new version first. Best effort after the release row exists: without the
+ * server key or the v6 bundle the release stands and the gap is logged (a missing link is filled by the next rebuild).
+ */
+async function freezeSnapshot(releaseId: string, weekId: string, result: Awaited<ReturnType<typeof computeWeek>>, hash: string, by: string): Promise<string | null> {
+  const svc = supabaseService();
+  if (!svc) { console.error("[release] SUPABASE_SERVICE_ROLE_KEY tidak ada: release.snapshot_id tidak diisi"); return null; }
+  try {
+    const snap = await writeSnapshot(svc, weekId, result, { inputsHash: hash, builtBy: `rilis ${by}` });
+    const { error } = await svc.from("release").update({ snapshot_id: snap.meta.id }).eq("id", releaseId);
+    if (error) throw new Error(error.message);
+    return snap.meta.id;
+  } catch (e) {
+    console.error(`[release] snapshot rilis ${releaseId} tidak tercatat: ${(e as Error).message}`);
+    return null;
   }
 }
 

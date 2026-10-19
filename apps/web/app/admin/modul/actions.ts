@@ -9,6 +9,8 @@ import { processRebuildQueue, queueRebuild } from "@/lib/rebuild";
 import { addDays, isISODate } from "@kgr/engine";
 import { must } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
+import { backfillSnapshots } from "@/lib/snapshot";
+import { supabaseService } from "@/lib/supabase-service";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -76,6 +78,20 @@ export async function processQueue(_: ActionState): Promise<ActionState> {
     const r = await processRebuildQueue(await moduleSettings());
     revalidatePath("/", "layout");
     return { ok: `Antrian diproses: ${r.done} selesai, ${r.failed} gagal. ${r.notes.slice(0, 1).join("")}`.trim() };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** PRD v6 B-R120: build the snapshot of every week once and link the releases (irisan 1 gate). */
+export async function snapshotAll(_: ActionState): Promise<ActionState> {
+  try {
+    await admin();
+    const svc = supabaseService();
+    if (!svc) return { error: "Server belum punya SUPABASE_SERVICE_ROLE_KEY: hasil hitung tersimpan tidak bisa ditulis" };
+    const notes = await backfillSnapshots(svc);
+    revalidatePath("/", "layout");
+    return { ok: `${notes.length} minggu: ${notes.slice(0, 6).join(" · ")}${notes.length > 6 ? " …" : ""}` };
   } catch (e) {
     return { error: (e as Error).message };
   }

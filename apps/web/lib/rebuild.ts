@@ -17,7 +17,7 @@ import { addDays } from "@kgr/engine";
 import { throughDates } from "./rebuild-dates";
 import { REBUILD_NO_KEY, rebuildMode, type ModuleSettings } from "./modules-core";
 import { supabaseService } from "./supabase-service";
-import { orderedBuilders } from "./rebuild-registry";
+import { builderOn, orderedBuilders } from "./rebuild-registry";
 import { schemaStatusOf } from "./schema";
 // builders register themselves on import (no cycle: they import the registry, not this file)
 import "./v3/ledger";
@@ -33,6 +33,7 @@ import "./v4/uploads-ppic";
 import "./v4/close";
 import "./v5/ppic-data";
 import "./v5/input-data";
+import "./snapshot-builder";
 
 // K60 (R45): every builder is registered once the imports above ran; a dependency cycle stops the server here, at start
 orderedBuilders();
@@ -50,7 +51,7 @@ export function moduleSettingsGlobal(s: ModuleSettings): ModuleSettings {
 export async function rebuildDay(sb: Supa, date: string, settings: ModuleSettings): Promise<string[]> {
   const out: string[] = [];
   for (const b of orderedBuilders()) {
-    if (!settings[b.module]?.enabled || (b.unless && settings[b.unless]?.enabled)) continue;
+    if (!builderOn(b, settings)) continue;
     out.push(`${b.name}: ${await b.build(sb, date)}`);
   }
   return out;
@@ -132,7 +133,7 @@ export async function processRebuildQueue(settings: ModuleSettings, opts: { limi
   for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r.id]);
   let done = 0, failed = 0;
   const notes: string[] = [];
-  if (byDate.size) for (const b of orderedBuilders()) if (settings[b.module]?.enabled && !(b.unless && settings[b.unless]?.enabled) && b.begin) await b.begin(sb);
+  if (byDate.size) for (const b of orderedBuilders()) if (builderOn(b, settings) && b.begin) await b.begin(sb);
   // K42: the ids of one date in chunks of 200 (URL length); the first error message, or null
   const mark = async (ids: string[], patch: Record<string, string>): Promise<string | null> => {
     for (let i = 0; i < ids.length; i += 200) {

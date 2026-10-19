@@ -8,12 +8,14 @@ import type { Role } from "./roles";
 export type ModuleKey =
   | "m1_costing" | "m2_ledger" | "m3_planning" | "m4_monthly" | "m5_drivers" | "m6_cash" | "m7_commercial" | "m7_approval"
   | "v4_design" | "v4_release"
-  | "v5_costing" | "v5_pl" | "v5_ppic_class" | "v5_commercial" | "v5_input" | "v5_management";
+  | "v5_costing" | "v5_pl" | "v5_ppic_class" | "v5_commercial" | "v5_input" | "v5_management"
+  | "v6_snapshot_read" | "v6_shell" | "v6_pages";
 
 export const MODULE_KEYS: ModuleKey[] = [
   "m1_costing", "m2_ledger", "m3_planning", "m4_monthly", "m5_drivers", "m6_cash", "m7_commercial", "m7_approval",
   "v4_design", "v4_release",
   "v5_costing", "v5_pl", "v5_ppic_class", "v5_commercial", "v5_input", "v5_management",
+  "v6_snapshot_read", "v6_shell", "v6_pages",
 ];
 
 export const MODULE_LABEL: Record<ModuleKey, string> = {
@@ -33,6 +35,9 @@ export const MODULE_LABEL: Record<ModuleKey, string> = {
   v5_commercial: "v5 Komitmen, price list mingguan, jawaban surplus, layar Commercial",
   v5_input: "v5 Layar Input per role, upload tervalidasi, grid kelengkapan",
   v5_management: "v5 Layar Manajemen, Lihat sebagai",
+  v6_snapshot_read: "v6 Halaman membaca hasil hitung tersimpan (lebih cepat); angka sama",
+  v6_shell: "v6 Kepala halaman baru, komponen dan aksesibilitas",
+  v6_pages: "v6 Isi layar baru: kartu, status, kosakata",
 };
 
 export interface ModuleSetting {
