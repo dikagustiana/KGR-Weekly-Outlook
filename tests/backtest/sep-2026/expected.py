@@ -5,13 +5,14 @@ import hashlib, json, os
 import openpyxl
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-SRC = os.path.join(ROOT, "reference", "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx")
-OUT = os.path.join(ROOT, "docs", "v5.2", "backtest-sep", "expected.json")
+# BACKTEST_FS / BACKTEST_OUT: another copy of the FS workbook (e.g. the 18 Okt version in BACKTEST_DIR, not committed) and its output
+SRC = os.environ.get("BACKTEST_FS") or os.path.join(ROOT, "reference", "09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx")
+OUT = os.environ.get("BACKTEST_OUT") or os.path.join(ROOT, "docs", "v5.2", "backtest-sep", "expected.json")
 COLS = {"2026-08": ("K", 11), "2026-09": ("L", 12)}
 
 wb = openpyxl.load_workbook(SRC, read_only=True, data_only=True)
 sha = hashlib.sha256(open(SRC, "rb").read()).hexdigest()
-out = {"source": {"file": "reference/09._Laporan_Keuangan_Per_Sep_2026_PT_KGR_v2.xlsx", "sha256": sha,
+out = {"source": {"file": os.path.relpath(SRC, ROOT) if SRC.startswith(ROOT) else os.path.basename(SRC), "sha256": sha,
                   "sheets": ["PL - Management Report", "BS - Management Report"]}, "months": {}}
 for month, (letter, col) in COLS.items():
     m = {"pl": {}, "bs": {}}

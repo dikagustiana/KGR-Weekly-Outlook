@@ -1,0 +1,255 @@
+# journey BT-FS — gladi Agustus–September 2026: jurnal asli lewat upload app, bangun ulang, rekonsiliasi FS (C59), FINAL
+# lingkungan: PG16 lokal + PostgREST 12 + mock auth · app http://127.0.0.1:3500 · jam dinding mesin 2026-10-18T17:48:02.869Z
+
+0 - — SETUP: jam uji Sen 19 Okt 08.00 WIB; FS acuan v1 (= KGR-OS) + koreksi v2; pemetaan FS disetujui   [jam uji 2026-08-24T08:00:13+07:00]
+JAM UJI → jam uji: 2026-10-19 08:00:00 WIB (offset 25917s)
+SETUP (postgres, langsung ke tabel; bukan alur) — FS acuan versi 1 (B-R91, sama dengan KGR-OS) [docs/v5.2/kgr-os-data-fs.sql]
+SETUP (postgres, langsung ke tabel; bukan alur) — koreksi FS versi 2 (berkas 18 Okt; akrual Commission + Storage 43.845.013) [docs/v5.3/kgr-os-data-fs-v2.sql]
+SETUP (postgres, langsung ke tabel; bukan alur) — fs_line_map: 15 baris agreed (Finance menyetujui pemetaan; tidak ada layarnya di app)
+SETUP (postgres, langsung ke tabel; bukan alur) — coa_map B-R89 (sama dengan KGR-OS: 213 akun, kolom Q FS) [docs/v5.2/kgr-os-coa-fix.sql]
+SETUP (postgres, langsung ke tabel; bukan alur) — antrean bangun ulang 1 Agu–30 Sep (coa_map berubah)
+    DB awal: gl_line 1840 (2026-08-01..2026-08-26); tb_opening 208 baris; minggu 2026-08-24:2026-08-27
+    admin      GET /login → HTTP 200
+    admin      POST /login (server action) → HTTP 303
+    finance    GET /login → HTTP 200
+    finance    POST /login (server action) → HTTP 303
+    CEK lulus: FS acuan Agustus dan September ada, September dengan versi 2
+    Supabase (mock origin) selama langkah: 8× auth 200, 100× rest 200
+
+1-2026-08 admin — Admin: upload jurnal 2026-08 lewat wizard (Accurate — General Ledger / Journal)   [jam uji 2026-10-19T08:00:03+07:00]
+    admin      GET /w/2026-08-24/upload → HTTP 200
+    admin      POST /w/2026-08-24/upload (server action) → HTTP 200
+    admin  pratinjau GL-Accurate-Agustus-2026.xlsx: 2. Pratinjau — GL-Accurate-Agustus-2026.xlsx SHA-256 2921019412a048ca… · Sheet "GL", judul kolom baris 1, 2431 baris terbaca, tanggal 2026-08-01 s.d. 2026-08-31 Pemetaan kolom Tanggal * (tidak ada) Tanggal Jurnal No Jurnal Kode Perkiraan Nama Perkiraan Keterangan Debet Kredit Customers/Vendors Name Source Type No. sumber * (tidak ada) Tanggal Jurnal No Jurnal Kode Perkiraan Nama Perkiraan Keterangan Debet Kredit Customers/Vendors Name Source Type Tipe (tidak ada) Tanggal Jurnal No Jurnal Kode Perkiraan Nama Perkiraan Keterangan Debet Kredit Customers/Vendors Name Source Type Akun * (tidak ada) Tanggal Jurnal No Jurnal Kode Perkiraan Nama Perkiraan Keterangan Debet Kredit Customers/Vendors Na
+    admin  dialog "Simpan perubahan ini ke database?" → ok
+    admin      POST /w/2026-08-24/upload (server action) → HTTP 200
+    admin  simpan: Disimpan: 2429 baris baru, 2 diubah, 1838 dihapus (soft), 0 baris Ops diganti. tanggal update minggu 2026-08-24: 2026-08-27 → 2026-08-31. Data harian dibangun ulang: 7 selesai.
+    CEK lulus: jurnal 2026-08 tersimpan — Disimpan: 2429 baris baru, 2 diubah, 1838 dihapus (soft), 0 baris Ops diganti. tanggal update minggu 2026-08-24: 2026-08-27 → 2026-08-31. Data harian dibangun …
+    DB gl_line 2026-08: 2431 baris, Σ debit 83091306014.63, Σ kredit 83091306014.61
+    CEK lulus: DB: gl_line 2026-08 = berkas (2431 baris) — 2431 83091306014.63 83091306014.61
+    Supabase (mock origin) selama langkah: 9× auth 200, 525× rest 200, 9× rest 201, 19× rest 204, 2× storage 200
+
+1-2026-09 admin — Admin: upload jurnal 2026-09 lewat wizard (Accurate — General Ledger / Journal)   [jam uji 2026-10-19T08:00:09+07:00]
+    admin      GET /w/2026-08-24/upload → HTTP 200
+    admin      POST /w/2026-08-24/upload (server action) → HTTP 200
+    admin  pratinjau GL-Accurate-September-2026.xlsx: 2. Pratinjau — GL-Accurate-September-2026.xlsx SHA-256 0a3421c9d1ff083d… · Sheet "GL", judul kolom baris 1, 1942 baris terbaca, tanggal 2026-09-01 s.d. 2026-09-30 Pemetaan kolom Tanggal * (tidak ada) Tanggal No. Sumber No. Akun Nama Akun Keterangan Nilai Debit Nilai Kredit Nama Pelanggan/Pemasok Tipe Sumber No. sumber * (tidak ada) Tanggal No. Sumber No. Akun Nama Akun Keterangan Nilai Debit Nilai Kredit Nama Pelanggan/Pemasok Tipe Sumber Tipe (tidak ada) Tanggal No. Sumber No. Akun Nama Akun Keterangan Nilai Debit Nilai Kredit Nama Pelanggan/Pemasok Tipe Sumber Akun * (tidak ada) Tanggal No. Sumber No. Akun Nama Akun Keterangan Nilai Debit Nilai Kredit Nama Pelanggan/Pemasok Tipe Sumber Nam
+    admin  dialog "Simpan perubahan ini ke database?" → ok
+    admin      POST /w/2026-08-24/upload (server action) → HTTP 200
+    admin  simpan: Disimpan: 1942 baris baru, 0 diubah, 0 dihapus (soft), 0 baris Ops diganti. Data harian dibangun ulang: 7 selesai.
+    CEK lulus: jurnal 2026-09 tersimpan — Disimpan: 1942 baris baru, 0 diubah, 0 dihapus (soft), 0 baris Ops diganti. Data harian dibangun ulang: 7 selesai.
+    DB gl_line 2026-09: 1942 baris, Σ debit 81056649013.29, Σ kredit 81056649013.25
+    CEK lulus: DB: gl_line 2026-09 = berkas (1942 baris) — 1942 81056649013.29 81056649013.25
+    Supabase (mock origin) selama langkah: 7× auth 200, 498× rest 200, 3× rest 201, 10× rest 204, 2× storage 200
+
+3 - — bangun ulang lewat cron sampai antrean habis   [jam uji 2026-10-19T08:00:15+07:00]
+    antrean sebelum: done 87 2026-08-01 2026-11-29; queued 47 2026-08-15 2026-09-30
+    cron #1: HTTP 200 drained {"done":30,"failed":0}; antrean tersisa 17
+    cron #2: HTTP 200 drained {"done":17,"failed":0}; antrean tersisa 0
+    antrean sesudah: done 134 2026-08-01 2026-11-29
+    data_status: cash_position_daily 61 2026-08-01 2026-09-30; ccc_daily 38 2026-08-24 2026-09-30; commercial_daily 61 2026-08-01 2026-09-30; demand_class_weekly 1 2026-08-24 2026-08-24; demand_shortfall 1 2026-08-24 2026-08-24; demand_weekly 1 2026-08-24 2026-08-24; input_completeness_daily 62 2026-08-01 2026-10-19; input_task 62 2026-08-01 2026-10-19; lot 38 2026-08-24 2026-09-30; lot_balance_daily 38 2026-08-24 2026-09-30; lot_movement 38 2026-08-24 2026-09-30; lot_revaluation 38 2026-08-24 2026-09-30; month_lock 2 2026-08-01 2026-09-01; pl_daily 61 2026-08-01 2026-09-30; pl_daily_v4 61 2026-08-01 2026-09-30; plan_variance_daily 7 2026-08-24 2026-08-30; sales_scorecard_weekly 10 2026-07-27 2026-09-28; sku_balance_daily 38 2026-08-24 2026-09-30; solvency_monthly 2 2026-08-01 2026-09-01
+    CEK lulus: tidak ada tanggal gagal dibangun — done 134 2026-08-01 2026-11-29
+    Supabase (mock origin) selama langkah: 2643× rest 200, 16× rest 201, 51× rest 204
+
+4-2026-08 finance — Finance: Rekonsiliasi 2026-08 (C59) — angka app vs FS per baris   [jam uji 2026-10-19T08:00:26+07:00]
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  HTTP 200; C59 GAGAL · 6 sama, 9 beda, 0 belum ada angka dari 15 baris yang dipetakan
+      PL b.12 · Revenue | Revenue (jurnal) | Rp 8.249.635.303,00 | Rp 8.361.760.903,00 | Rp −112.125.600,00 | beda | selisih
+      PL b.13 · Cost of Sales | COGS (jurnal) | Rp −7.937.537.428,79 | Rp −8.055.051.145,97 | Rp 117.513.717,18 | beda | selisih
+      PL b.15 · GROSS PROFIT | Gross profit (jurnal) | Rp 312.097.874,21 | Rp 306.709.757,03 | Rp 5.388.117,18 | beda | selisih
+      PL b.37 · TOTAL OPERATING EXPENSES | Beban operasi (jurnal) | Rp −303.421.921,02 | Rp −302.908.802,02 | Rp −513.119,00 | beda | selisih
+      PL b.49 · TOTAL OTHER INCOME (EXPENSE) | Pendapatan dan beban lain (jurnal) | Rp −30.317.630,52 | Rp −30.318.815,52 | Rp 1.185,00 | beda | selisih
+      PL b.51 · INCOME (LOSS) BEFORE TAX | NIBT (jurnal) | Rp −21.641.677,33 | Rp −26.517.860,51 | Rp 4.876.183,18 | beda | selisih
+      BS b.14 · Cash and cash equivalents | Kas dan setara kas | Rp 495.363.149,68 | Rp 495.363.150,28 | Rp −0,60 | sama | 
+      BS b.17 · Trade Receivables - Third Parties | Piutang usaha pihak ketiga | Rp 1.370.205.344,00 | Rp 511.953.961,00 | Rp 858.251.383,00 | beda | selisih
+      BS b.18 · Trade Receivables - Related Parties | Piutang usaha pihak berelasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.23 · Inventory - Product | Persediaan produk | Rp 1.610.411.761,23 | Rp 1.492.898.044,05 | Rp 117.513.717,18 | beda | selisih
+      BS b.24 · Inventory - Trading | Persediaan trading | Rp 2.039.660.533,52 | Rp 2.039.660.533,52 | Rp 0,00 | sama | 
+      BS b.47 · Trade Payables - Third Parties | Utang dagang pihak ketiga | Rp 56.032.690,40 | Rp 56.032.690,40 | Rp 0,00 | sama | 
+      BS b.48 · Trade Payables - Affiliates | Utang dagang afiliasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.51 · Other Payable - Related Parties | Utang lain pihak berelasi | Rp 5.627.124.444,35 | Rp 5.627.124.444,35 | Rp 0,00 | sama | 
+      BS b.77 · TOTAL EQUITY | Total ekuitas | Rp 1.617.488.195,10 | Rp 1.612.612.014,63 | Rp 4.876.180,47 | beda | selisih
+    CEK lulus: halaman Rekonsiliasi 2026-08 terbuka — HTTP 200
+    finance  tangkapan layar: screens/BT-FS-rekon-2026-08.png
+    Supabase (mock origin) selama langkah: 2× auth 200, 55× rest 200
+
+4-2026-09 finance — Finance: Rekonsiliasi 2026-09 (C59) — angka app vs FS per baris   [jam uji 2026-10-19T08:00:28+07:00]
+    finance    GET /m/2026-09/rekonsiliasi → HTTP 200
+    finance  HTTP 200; C59 GAGAL · 6 sama, 9 beda, 0 belum ada angka dari 15 baris yang dipetakan
+      PL b.12 · Revenue | Revenue (jurnal) | Rp 5.039.854.191,00 | Rp 5.039.854.191,00 | Rp 0,00 | sama | 
+      PL b.13 · Cost of Sales | COGS (jurnal) | Rp −5.575.641.068,26 | Rp −5.515.286.606,26 | Rp −60.354.462,00 | beda | selisih
+      PL b.15 · GROSS PROFIT | Gross profit (jurnal) | Rp −535.786.877,26 | Rp −475.432.415,26 | Rp −60.354.462,00 | beda | selisih
+      PL b.37 · TOTAL OPERATING EXPENSES | Beban operasi (jurnal) | Rp −399.987.803,39 | Rp −356.010.180,06 | Rp −43.977.623,33 | beda | selisih
+      PL b.49 · TOTAL OTHER INCOME (EXPENSE) | Pendapatan dan beban lain (jurnal) | Rp −122.560.957,41 | Rp −122.460.957,41 | Rp −100.000,00 | beda | selisih
+      PL b.51 · INCOME (LOSS) BEFORE TAX | NIBT (jurnal) | Rp −1.058.335.638,06 | Rp −953.903.552,73 | Rp −104.432.085,33 | beda | selisih
+      BS b.14 · Cash and cash equivalents | Kas dan setara kas | Rp 260.996.959,26 | Rp 102.996.959,86 | Rp 157.999.999,40 | beda | selisih
+      BS b.17 · Trade Receivables - Third Parties | Piutang usaha pihak ketiga | Rp 800.198.009,00 | Rp 800.198.009,00 | Rp 0,00 | sama | 
+      BS b.18 · Trade Receivables - Related Parties | Piutang usaha pihak berelasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.23 · Inventory - Product | Persediaan produk | Rp 4.675.858.041,35 | Rp 4.724.212.503,35 | Rp −48.354.462,00 | beda | selisih
+      BS b.24 · Inventory - Trading | Persediaan trading | Rp 1.933.069.895,73 | Rp 1.928.193.717,73 | Rp 4.876.178,00 | beda | selisih
+      BS b.47 · Trade Payables - Third Parties | Utang dagang pihak ketiga | Rp 139.076.516,40 | Rp 139.076.516,40 | Rp 0,00 | sama | 
+      BS b.48 · Trade Payables - Affiliates | Utang dagang afiliasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.51 · Other Payable - Related Parties | Utang lain pihak berelasi | Rp 9.845.918.888,89 | Rp 9.845.918.888,89 | Rp 0,00 | sama | 
+      BS b.77 · TOTAL EQUITY | Total ekuitas | Rp 559.152.557,04 | Rp 658.708.461,90 | Rp −99.555.904,86 | beda | selisih
+    CEK lulus: halaman Rekonsiliasi 2026-09 terbuka — HTTP 200
+    finance  tangkapan layar: screens/BT-FS-rekon-2026-09.png
+    Supabase (mock origin) selama langkah: 2× auth 200, 38× rest 200
+
+4b-2026-08 finance — Finance: penyesuaian tutup buku 2026-08 = jurnal DI di FS (belum dijurnal di Accurate), lalu Tandai diposting   [jam uji 2026-10-19T08:00:29+07:00]
+    DB sebelum: 0 penyesuaian
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-05 Revenue - LB Main Product 111.496.000: Penyesuaian disimpan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-06 Revenue - LB By Product 629.600: Penyesuaian disimpan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-05 COGS - Live Bird -117.513.717,18: Penyesuaian disimpan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-06 Other Expense -1.185: Penyesuaian disimpan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tambah PPh22 Tax expenses 513.119: Penyesuaian disimpan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-05 Revenue - LB Main Product 111.496.000
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-06 Revenue - LB By Product 629.600
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-05 COGS - Live Bird -117.513.717,18
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-06 Other Expense -1.185
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting PPh22 Tax expenses 513.119
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    DB closing_adjustment 2026-08: 5 baris, 5 diposting, Σ posted -4876183.18 (DI FS: 5 baris, Σ -4876183.18)
+    CEK lulus: DB: 5 penyesuaian DI 2026-08 diposting, Σ posted = -4876183.18 — 5 5 -4876183.18
+    Supabase (mock origin) selama langkah: 52× auth 200, 1736× rest 200, 5× rest 201, 5× rest 204
+
+4b-2026-09 finance — Finance: penyesuaian tutup buku 2026-09 = jurnal DI di FS (belum dijurnal di Accurate), lalu Tandai diposting   [jam uji 2026-10-19T08:00:52+07:00]
+    DB sebelum: 6 penyesuaian (DI-04 COGS - Live Bird -69661617.00; DI-01 COGS - Live Bird 48354462.00; DI-04 Storage Expenses -62450000.00; DI-05 Revenue - LB Main Product 20989500.00; DI-03 Other COGS - Expedition -12000000.00; DI-02 COGS - Live Bird -48084680.00)
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance  DI-01 COGS - Live Bird 48.354.462 sudah tercatat (migrasi M4): dipakai
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-03 Other COGS - Expedition 12.000.000: Penyesuaian disimpan
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-02 Maintenance Expenses 43.977.623,33: Penyesuaian disimpan
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tambah DI-02 Other Expense 100.000: Penyesuaian disimpan
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-01 COGS - Live Bird 48.354.462
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-03 Other COGS - Expedition 12.000.000
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-02 Maintenance Expenses 43.977.623,33
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  tandai diposting DI-02 Other Expense 100.000
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance  tidak diposting (bukan DI di FS v2): DI-04 COGS - Live Bird -69661617.00; DI-04 Storage Expenses -62450000.00; DI-05 Revenue - LB Main Product 20989500.00; DI-03 Other COGS - Expedition -12000000.00; DI-02 COGS - Live Bird -48084680.00
+    DB closing_adjustment 2026-09: 9 baris, 4 diposting, Σ posted 104432085.33 (DI FS: 4 baris, Σ 104432085.33)
+    CEK lulus: DB: 4 penyesuaian DI 2026-09 diposting, Σ posted = 104432085.33 — 9 4 104432085.33
+    Supabase (mock origin) selama langkah: 37× auth 200, 1119× rest 200, 3× rest 201, 4× rest 204
+
+5-2026-08 finance — Finance: Tutup buku 2026-08: kontrol FINAL, override (alasan backtest) untuk penolakan di luar C59, Kunci FINAL   [jam uji 2026-10-19T08:01:09+07:00]
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  kontrol FINAL: C21 BELUM DIISI, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C48 LULUS, C49 BELUM DIISI, C59 GAGAL
+    finance  penolakan: C21 BELUM DIISI: Alokasi biaya batch: Σ teralokasi = total biaya batch (± Rp 1) · override oleh cost_accounting, finance || C22 GAGAL: Hasil SKU vs hasil potong per batch (toleransi parameter.yield_gap_tolerance) · override oleh cost_accounting, finance || C23 BELUM DIISI: Cost pool: Σ PI pemasok = Σ GL akun biaya RPA periode (± Rp 1) · override oleh cost_accounting, finance || C24 GAGAL: Setiap batch Aktual punya alokasi berstatus posted (syarat rilis bulanan) · override oleh cost_accounting, finance || C35 BELUM DIISI: Σ saldo rekening = kas neraca · override oleh finance || C36 BELUM DIISI: Hari kerja tanpa upload kas · override oleh finance || C49 BELUM DIISI: Σ pl_daily actual = P&L bulan berjalan (± Rp 1) · override oleh finance || C59 GAGAL: Rekonsiliasi angka app vs FS (Management Report) · override oleh finance; tombol nonaktif; ditolak: C21 BELUM DIISI, C22 GAGAL, C23 BELUM DIISI, C24 GAGAL, C35 BELUM DIISI, C36 BELUM DIISI, C49 BELUM DIISI, C59 GAGAL
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C21: Override C21 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C22: Override C22 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C23: Override C23 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C24: Override C24 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C35: Override C35 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C36: Override C36 dicatat
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C49: Override C49 dicatat
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  C59 sebelum override (jurnal + DI terposting): C59 GAGAL · 12 sama, 3 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  override C59: ; DB: 1 baris
+    finance    GET /m/2026-08/tutup-buku → HTTP 200
+    finance  sesudah override: penolakan -; tombol aktif
+    finance  dialog "Kunci FINAL? Versi yang dikunci tidak bisa diubah; akurasi dan kalibrasi bulan …" → ok
+    finance    POST /m/2026-08/tutup-buku (server action) → HTTP 200
+    finance  FINAL dikunci (SHA a7add81ddae2…); 3 asumsi kalibrasi untuk 2026-09; 2026-08-01: ledger: sebelum stok awal; scorecard: scorecard 2026-07-27: 0 sales (0 ditulis); demand: minggu 2026-07-27 belum ada; monthly: bulan 2026-08: cut-off 2026-08-30, 215 baris (0 ditulis, 0 dihapus); monthly v4: pl_daily_v…
+    CEK lulus: FINAL 2026-08 dikunci — FINAL dikunci (SHA a7add81ddae2…); 3 asumsi kalibrasi untuk 2026-09; 2026-08-01: ledger: sebelum stok awal; scorecard: scorecard 2026-07-27: 0 sales (0 ditulis…
+    finance    GET /m/2026-08/rekonsiliasi → HTTP 200
+    finance  Rekonsiliasi dari FINAL: C59 GAGAL · 12 sama, 3 beda, 0 belum ada angka dari 15 baris yang dipetakan
+      PL b.12 · Revenue | Revenue (jurnal) | Rp 8.361.760.903,00 | Rp 8.361.760.903,00 | Rp 0,00 | sama | 
+      PL b.13 · Cost of Sales | COGS (jurnal) | Rp −8.055.051.145,97 | Rp −8.055.051.145,97 | Rp 0,00 | sama | 
+      PL b.15 · GROSS PROFIT | Gross profit (jurnal) | Rp 306.709.757,03 | Rp 306.709.757,03 | Rp 0,00 | sama | 
+      PL b.37 · TOTAL OPERATING EXPENSES | Beban operasi (jurnal) | Rp −302.908.802,02 | Rp −302.908.802,02 | Rp 0,00 | sama | 
+      PL b.49 · TOTAL OTHER INCOME (EXPENSE) | Pendapatan dan beban lain (jurnal) | Rp −30.318.815,52 | Rp −30.318.815,52 | Rp 0,00 | sama | 
+      PL b.51 · INCOME (LOSS) BEFORE TAX | NIBT (jurnal) | Rp −26.517.860,51 | Rp −26.517.860,51 | Rp 0,00 | sama | 
+      BS b.14 · Cash and cash equivalents | Kas dan setara kas | Rp 495.363.149,68 | Rp 495.363.150,28 | Rp −0,60 | sama | 
+      BS b.17 · Trade Receivables - Third Parties | Piutang usaha pihak ketiga | Rp 1.370.205.344,00 | Rp 511.953.961,00 | Rp 858.251.383,00 | beda | selisih
+      BS b.18 · Trade Receivables - Related Parties | Piutang usaha pihak berelasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.23 · Inventory - Product | Persediaan produk | Rp 1.610.411.761,23 | Rp 1.492.898.044,05 | Rp 117.513.717,18 | beda | selisih
+      BS b.24 · Inventory - Trading | Persediaan trading | Rp 2.039.660.533,52 | Rp 2.039.660.533,52 | Rp 0,00 | sama | 
+      BS b.47 · Trade Payables - Third Parties | Utang dagang pihak ketiga | Rp 56.032.690,40 | Rp 56.032.690,40 | Rp 0,00 | sama | 
+      BS b.48 · Trade Payables - Affiliates | Utang dagang afiliasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.51 · Other Payable - Related Parties | Utang lain pihak berelasi | Rp 5.627.124.444,35 | Rp 5.627.124.444,35 | Rp 0,00 | sama | 
+      BS b.77 · TOTAL EQUITY | Total ekuitas | Rp 1.617.488.195,10 | Rp 1.612.612.014,63 | Rp 4.876.180,47 | beda | selisih
+    CEK lulus: C59 laba rugi 2026-08 dari FINAL (jurnal + DI) = FS di semua baris — 6 baris sama
+    Supabase (mock origin) selama langkah: 39× auth 200, 1411× rest 200, 10× rest 201, 3× rest 204
+
+5-2026-09 finance — Finance: Tutup buku 2026-09: kontrol FINAL, override (alasan backtest) untuk penolakan di luar C59, Kunci FINAL   [jam uji 2026-10-19T08:01:26+07:00]
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance  kontrol FINAL: C35 BELUM DIISI, C36 BELUM DIISI, C37 PERIKSA, C48 LULUS, C49 BELUM DIISI, C59 GAGAL
+    finance  penolakan: C35 BELUM DIISI: Σ saldo rekening = kas neraca · override oleh finance || C36 BELUM DIISI: Hari kerja tanpa upload kas · override oleh finance || C49 BELUM DIISI: Σ pl_daily actual = P&L bulan berjalan (± Rp 1) · override oleh finance || C59 GAGAL: Rekonsiliasi angka app vs FS (Management Report) · override oleh finance; tombol nonaktif; ditolak: C35 BELUM DIISI, C36 BELUM DIISI, C49 BELUM DIISI, C59 GAGAL
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  override C35: Override C35 dicatat
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  override C36: Override C36 dicatat
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  override C49: Override C49 dicatat
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    GET /m/2026-09/rekonsiliasi → HTTP 200
+    finance  C59 sebelum override (jurnal + DI terposting): C59 GAGAL · 11 sama, 4 beda, 0 belum ada angka dari 15 baris yang dipetakan
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  override C59: ; DB: 1 baris
+    finance    GET /m/2026-09/tutup-buku → HTTP 200
+    finance  sesudah override: penolakan -; tombol aktif
+    finance  dialog "Kunci FINAL? Versi yang dikunci tidak bisa diubah; akurasi dan kalibrasi bulan …" → ok
+    finance    POST /m/2026-09/tutup-buku (server action) → HTTP 200
+    finance  FINAL dikunci (SHA fce834edfe2b…); 3 asumsi kalibrasi untuk 2026-10; 2026-09-01: ledger: 34 key, 163 lot, 0 mutasi, 0 revaluasi (0 ditulis, 0 dihapus); scorecard: scorecard 2026-08-31: 0 sales (0 ditulis); demand: minggu 2026-08-31 belum ada; monthly: bulan 2026-09: cut-off 2026-08-31, 0 baris (0 d…
+    CEK lulus: FINAL 2026-09 dikunci — FINAL dikunci (SHA fce834edfe2b…); 3 asumsi kalibrasi untuk 2026-10; 2026-09-01: ledger: 34 key, 163 lot, 0 mutasi, 0 revaluasi (0 ditulis, 0 dihapus); scoreca…
+    finance    GET /m/2026-09/rekonsiliasi → HTTP 200
+    finance  Rekonsiliasi dari FINAL: C59 GAGAL · 11 sama, 4 beda, 0 belum ada angka dari 15 baris yang dipetakan
+      PL b.12 · Revenue | Revenue (jurnal) | Rp 5.039.854.191,00 | Rp 5.039.854.191,00 | Rp 0,00 | sama | 
+      PL b.13 · Cost of Sales | COGS (jurnal) | Rp −5.515.286.606,26 | Rp −5.515.286.606,26 | Rp 0,00 | sama | 
+      PL b.15 · GROSS PROFIT | Gross profit (jurnal) | Rp −475.432.415,26 | Rp −475.432.415,26 | Rp 0,00 | sama | 
+      PL b.37 · TOTAL OPERATING EXPENSES | Beban operasi (jurnal) | Rp −356.010.180,06 | Rp −356.010.180,06 | Rp 0,00 | sama | 
+      PL b.49 · TOTAL OTHER INCOME (EXPENSE) | Pendapatan dan beban lain (jurnal) | Rp −122.460.957,41 | Rp −122.460.957,41 | Rp 0,00 | sama | 
+      PL b.51 · INCOME (LOSS) BEFORE TAX | NIBT (jurnal) | Rp −953.903.552,73 | Rp −953.903.552,73 | Rp 0,00 | sama | 
+      BS b.14 · Cash and cash equivalents | Kas dan setara kas | Rp 260.996.959,26 | Rp 102.996.959,86 | Rp 157.999.999,40 | beda | selisih
+      BS b.17 · Trade Receivables - Third Parties | Piutang usaha pihak ketiga | Rp 800.198.009,00 | Rp 800.198.009,00 | Rp 0,00 | sama | 
+      BS b.18 · Trade Receivables - Related Parties | Piutang usaha pihak berelasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.23 · Inventory - Product | Persediaan produk | Rp 4.675.858.041,35 | Rp 4.724.212.503,35 | Rp −48.354.462,00 | beda | selisih
+      BS b.24 · Inventory - Trading | Persediaan trading | Rp 1.933.069.895,73 | Rp 1.928.193.717,73 | Rp 4.876.178,00 | beda | selisih
+      BS b.47 · Trade Payables - Third Parties | Utang dagang pihak ketiga | Rp 139.076.516,40 | Rp 139.076.516,40 | Rp 0,00 | sama | 
+      BS b.48 · Trade Payables - Affiliates | Utang dagang afiliasi | Rp 0,00 | Rp 0,00 | Rp 0,00 | sama | 
+      BS b.51 · Other Payable - Related Parties | Utang lain pihak berelasi | Rp 9.845.918.888,89 | Rp 9.845.918.888,89 | Rp 0,00 | sama | 
+      BS b.77 · TOTAL EQUITY | Total ekuitas | Rp 559.152.557,04 | Rp 658.708.461,90 | Rp −99.555.904,86 | beda | selisih
+    CEK lulus: C59 laba rugi 2026-09 dari FINAL (jurnal + DI) = FS di semua baris — 6 baris sama
+    Supabase (mock origin) selama langkah: 27× auth 200, 1020× rest 200, 7× rest 201, 3× rest 204
+
+RINGKASAN BT-FS: 14 cek lulus, 0 gagal, 0 xfail (diharapkan), 0 xpass; respons app 76 (74× 200, 2× 303); respons tak terduga 0; SETUP 5
