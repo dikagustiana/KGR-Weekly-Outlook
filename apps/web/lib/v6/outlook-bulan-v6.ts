@@ -28,7 +28,7 @@ export function outlookBulanV6(tiles: TileModel[]): TileModel[] {
         continue;
       }
     }
-    if (c.type === "combo" && t.id.startsWith("ch-")) { out.push({ ...t, content: { ...c, labelMax: Math.max(c.labelMax ?? 0, c.points.length) } }); continue; }
+    if (c.type === "combo" && t.id.startsWith("ch-")) { out.push({ ...t, content: { ...c, labelMax: Math.max(c.labelMax ?? 0, c.points.length) } }); continue; } // missing-ok: batas label (hitungan batang), bukan nilai
     out.push(t);
   }
   return out;
