@@ -12,6 +12,7 @@ import { must } from "@/lib/loader";
 import { supabaseServer } from "@/lib/supabase";
 import { groupsOfWeek, loadCostingWeek, unpricedLines, weekCostingControls } from "@/lib/v3/costing";
 import { tgl } from "@/lib/fmt";
+import { settingValue } from "@/lib/request-memo";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function CostingPage({ params }: PageProps) {
   const v5 = (await moduleEnabled("v5_costing", viewer))
     ? await (async () => {
       const all = await loadV5BatchCosts(sb, ctx.week.week_start, ctx.week.update_date);
-      const flag = must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null;
+      const flag = ({ value: await settingValue(sb, "v5_costing") }) as { value?: unknown } | null;
       return { batches: all.filter((b) => b.date && b.date <= ctx.week.week_end), controls: await v5CostingControls(sb, ctx.week, ctx.week.update_date, new Date().toISOString(), all), sinceMissing: sinceOf(flag?.value) === null };
     })()
     : null;

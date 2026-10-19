@@ -22,7 +22,7 @@ Repo: `dikagustiana/KGR-Weekly-Outlook`. Spesifikasi: `docs/PRD.md`; Excel acuan
 | Project | `kgr-weekly-outlook` (`prj_ecSeflSq6gbm3fHMsQleU1MocXyc`) di tim `dikagirawan-4804s-projects` |
 | Repo | `dikagustiana/KGR-Weekly-Outlook`, production branch `main`, **Root Directory `apps/web`** |
 | Build | Next.js, pnpm (dari `pnpm-lock.yaml` + `packageManager`), Node 22.x |
-| Fungsi | region `hnd1` (Tokyo, dekat Supabase `ap-northeast-1`), diatur di `apps/web/vercel.json` |
+| Fungsi | region `icn1` (Seoul, satu lokasi dengan KGR-OS `ap-northeast-2`; PRD v6 K84 / R129, sebelumnya `hnd1`), diatur di `apps/web/vercel.json`. Migrasi keduanya ke Singapura = Q-v6-3, keputusan terpisah |
 | Env vars | tidak wajib — default di `apps/web/lib/env.ts` menunjuk ke project Supabase pilot. Isi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` hanya bila pindah project; `NEXT_PUBLIC_AUTH_GOOGLE=1` menampilkan tombol Google |
 | Proteksi | domain production publik (aplikasi punya login sendiri); deployment preview memakai Vercel Authentication |
 

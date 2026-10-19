@@ -20,6 +20,7 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { ModuleSettings } from "../modules-core";
 import { loadMonthDrivers, type MonthDrivers } from "./drivers";
 import type { Row } from "./uploads";
+import { settingValue } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: Decimal | null) => (x === null ? null : toFixedString(x, 2));
@@ -162,7 +163,7 @@ registerBuilder({
   begin: async (sb) => {
     builtMonths = new Set();
     builderToday = await dataToday(sb);
-    const data = must(await sb.from("app_setting").select("key, value").eq("key", "m5_drivers").maybeSingle(), "monthly.m5_drivers") as Row | null;
+    const data = ({ value: await settingValue(sb, "m5_drivers") }) as Row | null;
     builderSettings = { m5_drivers: { enabled: ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true } };
   },
   build: async (sb, date) => {

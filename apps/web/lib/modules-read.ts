@@ -1,20 +1,16 @@
 import "server-only";
 import type { Supa } from "./supabase";
-import { LoaderError } from "./loader";
-import { MODULE_KEYS, parseSetting, type ModuleKey, type ModuleSettings } from "./modules-core";
+import { MODULE_KEYS, parseSetting, type ModuleSettings } from "./modules-core";
+import { appSettingsOf } from "./request-memo";
 
-/** The module flags read with a given client (the cron reads them with the service client: no session there). */
+/**
+ * The module flags read with a given client (the cron reads them with the service client: no session there). PRD v6
+ * R126: from the one read of app_setting per client (request-memo). K56 (R41): a failing read never makes the modules
+ * look off; only a missing table (42P01) is "no modules yet".
+ */
 export async function moduleSettingsOf(sb: Supa): Promise<ModuleSettings> {
-  const { data, error } = await sb.from("app_setting").select("key, value").in("key", MODULE_KEYS);
-  // K56 (R41): a failing read never makes the modules look off; only a missing table (42P01) is "no modules yet".
-  if (error) {
-    if (error.code === "42P01") {
-      console.error(`[modules] app_setting belum ada (42P01): ${error.message}`);
-      return {};
-    }
-    throw new LoaderError("moduleSettings", error.message);
-  }
+  const all = await appSettingsOf(sb);
   const out: ModuleSettings = {};
-  for (const r of (data as { key: string; value: unknown }[])) out[r.key as ModuleKey] = parseSetting(r.value);
+  for (const k of MODULE_KEYS) if (k in all) out[k] = parseSetting(all[k]);
   return out;
 }

@@ -3,6 +3,7 @@ import type { WeekInputs } from "@kgr/engine";
 import { addDays } from "@kgr/engine";
 import type { Supa } from "./supabase";
 import { fetchAll } from "./data";
+import { forget } from "./request-memo";
 
 type Row = Record<string, unknown>;
 
@@ -107,9 +108,11 @@ export async function loadWeekInputs(
   if (existing) {
     weekId = (existing as { id: string }).id;
     await must(sb.from("week").update(weekRow).eq("id", weekId), "week");
+    forget(sb, "weeks");
   } else {
     const ins = await must(sb.from("week").insert(weekRow).select("id").single(), "week");
     weekId = (ins as { id: string }).id;
+    forget(sb, "weeks");
   }
   const yd = p.yield_default;
   await must(sb.from("parameter").upsert({

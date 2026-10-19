@@ -11,6 +11,7 @@ import { processQueue, snapshotAll, queueDates, setFlag } from "./actions";
 import { must, mustRows } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
 import { costingModeOf } from "@/lib/modules-core";
+import { settingValue } from "@/lib/request-memo";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,9 @@ export default async function ModulesAdmin({ searchParams }: { searchParams: Pro
   const queued = queue.filter((r) => r.status === "queued").length;
   const today = (await clock(sb)).data;
   // PRD v5.1 R40: the start date of v5 costing (value.since) is set here; without it the lot revaluation does not run
-  const since = sinceOf((must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing") as { value?: unknown } | null)?.value);
+  const since = sinceOf((({ value: await settingValue(sb, "v5_costing") }) as { value?: unknown } | null)?.value);
   // R66 (K63): how the two v5 costing rows count in the journal columns of the P&L ('cogs' until Admin picks 'memo')
-  const costingMode = costingModeOf((must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as { value?: unknown } | null)?.value);
+  const costingMode = costingModeOf((({ value: await settingValue(sb, "v5_pl") }) as { value?: unknown } | null)?.value);
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="admin/modul">
       <h1>Modul v3</h1>

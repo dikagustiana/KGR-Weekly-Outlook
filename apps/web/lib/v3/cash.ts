@@ -19,10 +19,11 @@ import { plDaily, isWorkingDay } from "./monthly";
 import { kasHorizon, type CashRecon } from "../v4/kas";
 import { must } from "../loader";
 import type { FixedSource } from "../v5/pl-tiles";
+import { settingValue } from "../request-memo";
 
 /** v5_pl on (global flag): the solvency takes NIBT after fixed costs (K52). */
 async function v5PlOn(sb: Supa): Promise<boolean> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  const data = ({ value: await settingValue(sb, "v5_pl") }) as Row | null;
   return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
 }
 
@@ -211,7 +212,7 @@ registerBuilder({
   // K60 (R45, F19): the solvency basis reads pl_daily_v4 and the month lock note written by these two
   after: ["monthly v4", "accuracy v4"],
   begin: async (sb) => {
-    const data = must(await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle(), "cash.m4_monthly");
+    const data = ({ value: await settingValue(sb, "m4_monthly") });
     m4On = ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
   },
   build: (sb, date) => buildCashDay(sb, date, m4On),

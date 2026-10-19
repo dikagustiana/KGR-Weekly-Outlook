@@ -7,6 +7,7 @@ import "server-only";
  */
 import type { Supa } from "./supabase";
 import type { WeekRow } from "./data";
+import { forget } from "./request-memo";
 
 export async function advanceUpdateDate(sb: Supa, weeks: WeekRow[], dates: (string | null | undefined)[]): Promise<string> {
   const notes: string[] = [];
@@ -15,6 +16,7 @@ export async function advanceUpdateDate(sb: Supa, weeks: WeekRow[], dates: (stri
     if (!inWeek.length) continue;
     const d = inWeek[inWeek.length - 1];
     const { data, error } = await sb.rpc("advance_update_date", { p_week_id: w.id, p_date: d });
+    forget(sb, "weeks");
     if (error) {
       console.error(`[advanceUpdateDate] minggu ${w.week_start}, ${d}: ${error.message}`);
       notes.push(`tanggal update minggu ${w.week_start} TIDAK dimajukan (${error.message})`);

@@ -1,7 +1,8 @@
 import "server-only";
 import { computeWeek, isISODate, type WeekInputs, type WeekResult } from "@kgr/engine";
 import type { Supa } from "./supabase";
-import { LoaderError, isSchemaError, must, mustRows } from "./loader";
+import { LoaderError, isSchemaError, must } from "./loader";
+import { weeksOf } from "./request-memo";
 
 export interface WeekRow {
   id: string;
@@ -83,8 +84,9 @@ export async function fetchAllOrMissing<T = Row>(page: FetchPage<T>, where: stri
   }
 }
 
+/** Every week, newest first; once per client (PRD v6 R126, request-memo). */
 export async function listWeeks(sb: Supa): Promise<WeekRow[]> {
-  return mustRows(await sb.from("week").select("*").order("week_start", { ascending: false }), "listWeeks.week") as WeekRow[];
+  return weeksOf(sb);
 }
 
 // PRD v5.1 K38: the data date lives in clock.ts with the wall clock; re-exported for the builders that read it

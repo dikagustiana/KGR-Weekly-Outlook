@@ -28,6 +28,7 @@ import { v5CostingPlRows } from "../v5/costing-pl";
 import { applyForecastCosts, forecastCostsOf, type ForecastCostLabel } from "../v5/forecast-cost";
 import { costingModeFor, fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
 import { resetLedgerRun } from "../v3/ledger";
+import { appSettingsOf } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: { toFixed(n: number): string } | null) => (x === null ? null : x.toFixed(2));
@@ -247,7 +248,8 @@ registerBuilder({
     builtMonths = new Set();
     builderToday = await dataToday(sb);
     // R67: v5_costing too — the forecast cost of the rebuilt month needs both flags
-    const flags = mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl", "v5_costing"]), "app_setting");
+    const all = await appSettingsOf(sb);
+    const flags = (["m5_drivers", "v5_pl", "v5_costing"] as const).filter((k) => k in all).map((key) => ({ key, value: all[key] }) as Row);
     builderSettings = {};
     for (const r of flags) builderSettings[r.key as "m5_drivers" | "v5_pl" | "v5_costing"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
   },

@@ -11,6 +11,7 @@ import { must } from "@/lib/loader";
 import { sinceOf } from "@/lib/v5/costing";
 import { backfillSnapshots } from "@/lib/snapshot";
 import { supabaseService } from "@/lib/supabase-service";
+import { forget } from "@/lib/request-memo";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -47,6 +48,7 @@ export async function setFlag(_: ActionState, form: FormData): Promise<ActionSta
     }
     const value = mergeFlagValue(prev?.value, { key, enabled, roles, allRoles: ROLES.length, since, costingRowsMode: mode });
     const { error } = await sb.from("app_setting").upsert({ key, value }, { onConflict: "key" });
+    forget(sb, "app_setting");
     if (error) return { error: error.message };
     revalidatePath("/", "layout");
     return { ok: `${key}: ${enabled ? "aktif" : "nonaktif"}${Array.isArray(value.roles) ? ` untuk ${(value.roles as string[]).join(", ")}` : enabled ? " untuk semua peran" : ""}${value.since ? `; mulai ${String(value.since)}` : key === "v5_costing" ? "; tanggal mulai belum diisi (revaluasi lot tidak berjalan)" : ""}${key === "v5_pl" ? `; baris costing di laba rugi: ${String(value.costing_rows_mode ?? "cogs")}` : ""}` };

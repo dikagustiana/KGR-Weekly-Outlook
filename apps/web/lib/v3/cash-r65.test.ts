@@ -20,7 +20,7 @@ const note = (fixed: unknown) => JSON.stringify({ cutOff: "2026-08-26", ...(fixe
 const rows = (over: { app?: unknown; fixed?: unknown; mart?: Record<string, unknown>[] } = {}) => ({
   week: [], bank_account: [], cash_daily: [], cash_daily_plan: [], fixed_cost_schedule: schedule, pl_daily: [],
   pl_daily_v4: over.mart ?? plRowsToMart(v5.rows),
-  app_setting: [{ value: over.app ?? { enabled: true } }], data_status: [{ note: note("fixed" in over ? over.fixed : v5.fixed) }],
+  app_setting: [{ key: "v5_pl", value: over.app ?? { enabled: true } }], data_status: [{ note: note("fixed" in over ? over.fixed : v5.fixed) }],
 });
 const jt = (v: { div(n: number): { toFixed(n: number): string } }) => v.div(1e6).toFixed(1);
 

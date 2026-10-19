@@ -20,6 +20,7 @@ import { martReplace, registerBuilder } from "../rebuild-registry";
 import type { Row } from "../v3/uploads";
 import { computeDemand, loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, statForecast, type PlanningSources } from "../v3/planning";
 import type { PpicClassInfo, PpicV5Input } from "./ppic";
+import { settingValue } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 /** O3: midpoint of "Uk x.x" = x.x + 0,05 (PRD §11 default). */
@@ -28,7 +29,7 @@ const FALLBACK = "STD";
 const BY_PRODUCTS = ["HJA (Hati/Jantung/Ampela)", "Usus", "Kepala", "Ceker", "Lemak"];
 
 export async function v5PpicOn(sb: Supa): Promise<boolean> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_ppic_class").maybeSingle(), "app_setting v5_ppic_class") as Row | null;
+  const data = ({ value: await settingValue(sb, "v5_ppic_class") }) as Row | null;
   return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
 }
 

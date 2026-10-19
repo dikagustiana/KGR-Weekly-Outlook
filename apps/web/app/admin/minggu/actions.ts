@@ -8,6 +8,7 @@ import { supabaseServer } from "@/lib/supabase";
 import { loadWeekInputs } from "@/lib/write";
 import { rolloverWeek } from "@/lib/rollover";
 import { listWeeks } from "@/lib/data";
+import { forget } from "@/lib/request-memo";
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -37,6 +38,7 @@ export async function createEmptyWeek(_: ActionState, form: FormData): Promise<A
     if (!tb) return { error: "Isi tanggal saldo awal (TB)" };
     const sb = await supabaseServer();
     const { data, error } = await sb.from("week").insert({ week_start: start, update_date: start, tb_opening_date: tb }).select("id").single();
+    forget(sb, "weeks");
     if (error) return { error: error.message };
     const e2 = await sb.from("parameter").insert({
       week_id: (data as { id: string }).id,
@@ -71,6 +73,7 @@ export async function setWeekStatus(form: FormData) {
   const status = String(form.get("status"));
   if (!["open", "released", "closed"].includes(status)) throw new Error("status");
   const { error } = await sb.from("week").update({ status }).eq("id", id);
+  forget(sb, "weeks");
   if (error) throw new Error(error.message);
   revalidatePath("/", "layout");
   redirect("/admin/minggu");

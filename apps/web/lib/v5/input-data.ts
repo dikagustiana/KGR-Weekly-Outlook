@@ -21,6 +21,7 @@ import { fixedSchedule } from "./pl";
 import type { GridRow, HistoryLine, InputCard, InputTaskLine, InputV5Input, ParamLine } from "./input";
 import { ROLE_KINDS, rulesOfRole } from "./input";
 import { jtV4, num } from "../fmt";
+import { settingValue } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 /** Sum of the kg that are filled and the number of rows without one: a blank is "belum ada", never 0 kg (R64). */
@@ -31,7 +32,7 @@ export function knownKg(rows: Row[], key: string): { kg: ReturnType<typeof D>; b
 const isOn = (v: unknown) => ((v as { enabled?: boolean } | null | undefined)?.enabled) === true;
 
 export async function v5InputOn(sb: Supa): Promise<boolean> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_input").maybeSingle(), "app_setting v5_input") as Row | null;
+  const data = ({ value: await settingValue(sb, "v5_input") }) as Row | null;
   return isOn(data?.value);
 }
 

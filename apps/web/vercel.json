@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["hnd1"],
+  "regions": ["icn1"],
   "git": { "deploymentEnabled": { "v*/**": false, "ops/**": false, "docs/**": false, "claude/**": false } },
   "crons": [{ "path": "/api/cron/rebuild", "schedule": "0 22 * * *" }]
 }
