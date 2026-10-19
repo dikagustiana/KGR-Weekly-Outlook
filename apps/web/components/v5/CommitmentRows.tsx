@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { num } from "@/lib/fmt";
+import { numInput } from "@/lib/fmt";
 import type { KomersialV5Input } from "@/lib/v5/komersial";
 
 /** The lock form; the "harga frozen" inputs of the commitment rows belong to it (sent with the lock, K46). */
@@ -35,10 +35,10 @@ export function CommitmentRows({ c }: { c: KomersialV5Input["commitment"] }) {
             }}
           >
             {!live || dirty[i] ? <input type="hidden" name={`key_${i}`} value={r.key} /> : null}
-            <label>{r.key.split("|")[1]} fresh <input data-cm="" name={`fresh_${i}`} size={6} defaultValue={r.fresh ? num(r.fresh, 0) : ""} disabled={off} /></label>
-            <label> frozen <input data-cm="" name={`frozen_${i}`} size={6} defaultValue={r.frozen ? num(r.frozen, 0) : ""} disabled={off} /></label>
-            <label> harga <input data-cm="" name={`price_${i}`} size={7} defaultValue={r.price ? num(r.price, 0) : ""} disabled={off} /></label>
-            <label> harga frozen <input form={LOCK_FORM} name={`price_frozen|${r.key}`} size={7} defaultValue={r.priceFrozen && r.priceFrozenSource === "form" ? num(r.priceFrozen, 0) : ""} placeholder="acuan" disabled={off || !c.canLock || !!r.listLocked} /></label>
+            <label>{r.key.split("|")[1]} fresh <input data-cm="" name={`fresh_${i}`} size={6} defaultValue={r.fresh ? numInput(r.fresh, 0) : ""} disabled={off} /></label>
+            <label> frozen <input data-cm="" name={`frozen_${i}`} size={6} defaultValue={r.frozen ? numInput(r.frozen, 0) : ""} disabled={off} /></label>
+            <label> harga <input data-cm="" name={`price_${i}`} size={7} defaultValue={r.price ? numInput(r.price, 0) : ""} disabled={off} /></label>
+            <label> harga frozen <input form={LOCK_FORM} name={`price_frozen|${r.key}`} size={7} defaultValue={r.priceFrozen && r.priceFrozenSource === "form" ? numInput(r.priceFrozen, 0) : ""} placeholder="acuan" disabled={off || !c.canLock || !!r.listLocked} /></label>
           </span>
         );
       })}

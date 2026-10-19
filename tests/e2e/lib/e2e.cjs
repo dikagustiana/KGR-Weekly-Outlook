@@ -312,7 +312,14 @@ class Actor {
     await btn.first().waitFor({ state: "visible", timeout: 15_000 });
     if (await btn.first().isDisabled()) throw new Error(`tombol "${label}" nonaktif`);
     const answered = p.waitForResponse((r) => r.request().method() === "POST" && !!r.request().headers()["next-action"], { timeout: opts.timeout || 90_000 });
+    // K93: a form with a `confirm` text asks in the form itself ("Ya, lanjutkan" / "Batal") instead of window.confirm
+    const yes = btn.first().locator("xpath=ancestor::form[1]").getByRole("button", { name: "Ya, lanjutkan", exact: true });
     await btn.first().click();
+    const asked = await Promise.race([answered.then(() => false, () => false), yes.waitFor({ state: "visible", timeout: opts.timeout || 90_000 }).then(() => true, () => false)]);
+    if (asked) {
+      this.J.log(`    ${this.role}  konfirmasi di form → Ya, lanjutkan`);
+      await yes.click();
+    }
     await answered;
     await p.waitForFunction(() => !document.querySelector("button[disabled]") || [...document.querySelectorAll("button[disabled]")].every((b) => !/Memproses|Mem…/.test(b.textContent || "")), null, { timeout: opts.timeout || 90_000 }).catch(() => {});
     await sleep(opts.settleMs ?? 400);

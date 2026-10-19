@@ -5,7 +5,7 @@ import { WeekShell } from "@/components/WeekShell";
 import { Card, Msg, N } from "@/components/ui";
 import { guardInputs } from "@/lib/inputPage";
 import { can } from "@/lib/roles";
-import { num } from "@/lib/fmt";
+import { num, numInput } from "@/lib/fmt";
 import { saveParameters } from "./actions";
 import { PARAM_AREA } from "@/lib/params";
 
@@ -101,7 +101,7 @@ export default async function ParameterPage({ params, searchParams }: PageProps)
                     <tr key={sgm}><td>{sgm === "rpa" ? "RPA" : "Trading"}</td>
                       {(["kg", "revenue", "gp"] as const).map((m) => {
                         const col = `lw_${sgm}_${m}` as keyof typeof w;
-                        return <td key={m} className="n">{can(role, "parameter_all") ? <input className="in n" name={col} defaultValue={num(String(w[col]), m === "kg" ? 2 : 0).replace(/\./g, "")} style={{ width: 130 }} /> : num(String(w[col]))}</td>;
+                        return <td key={m} className="n">{can(role, "parameter_all") ? <input className="in n" name={col} defaultValue={numInput(String(w[col]), m === "kg" ? 2 : 0)} style={{ width: 130 }} /> : num(String(w[col]))}</td>;
                       })}
                     </tr>
                   ))}

@@ -11,7 +11,7 @@ import { loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, unitBuyPrice
 import { rencanaModel } from "@/lib/v4/rencana";
 import { copyGate } from "@/lib/v5/copy-plan";
 import { k25Enabled } from "@/lib/modules";
-import { num, tglShort } from "@/lib/fmt";
+import { numInput, tglShort } from "@/lib/fmt";
 import { approvePlanAction, copyPlanAction, reasonAction, savePlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
 
@@ -81,7 +81,7 @@ export async function RencanaV4({ ctx, kelas }: { ctx: WeekCtx; kelas: string | 
           <h2>Kapasitas potong minggu ini (ekor per hari)</h2>
           <ActionForm v4 action={setCapacityAction} submit="Simpan kapasitas">
             <input type="hidden" name="week" value={week} />
-            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : num(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
+            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : numInput(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
           </ActionForm>
         </section>
       ) : null}

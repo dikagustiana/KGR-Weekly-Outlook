@@ -12,7 +12,7 @@ import { stockMartControl } from "@/lib/v3/stale";
 import { loadPlanning } from "@/lib/v3/planning";
 import { loadPpicV5 } from "@/lib/v5/ppic-data";
 import { ppicV5Model } from "@/lib/v5/ppic";
-import { num, tglShort } from "@/lib/fmt";
+import { numInput, tglShort } from "@/lib/fmt";
 import { copyGate } from "@/lib/v5/copy-plan";
 import { tileData } from "@/lib/loader";
 import { setCapacityAction } from "./actions";
@@ -45,7 +45,7 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
           <h2>Kapasitas potong minggu ini (ekor per hari)</h2>
           <ActionForm v4 action={setCapacityAction} submit="Simpan kapasitas">
             <input type="hidden" name="week" value={week} />
-            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : num(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
+            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : numInput(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
           </ActionForm>
         </section>
       ) : null}
