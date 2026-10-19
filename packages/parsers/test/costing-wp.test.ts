@@ -4,23 +4,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { allocateBatch, D } from "@kgr/engine";
 import { loadV3Fixture, repoRoot } from "@kgr/engine/fixtures";
-import { parseCostingWorkbook, readWorkbook, wpToAllocateInput } from "../src";
+import { parseCostingWorkbook, parseWpSheet, readWorkbook, wpToAllocateInput } from "../src";
 
 const wb = readWorkbook(readFileSync(join(repoRoot(), "reference", "202609_Data_COGS_LB.xlsx")), "202609_Data_COGS_LB.xlsx");
 const res = parseCostingWorkbook(wb);
+// BT-COGS-1: hidden sheets are not batches of the upload; the golden still covers them, parsed sheet by sheet
+const all = [...res.batches, ...res.hidden.map((n) => parseWpSheet(wb.find((s) => s.name === n)!)!)];
 type Fx = { sheet: string; date: string | null; lb_kg: string | null; processed_kg: string | null; total_cost: string | null; cost_bl: string | null; costs: { label: string; amount: string }[]; rows: { row: number; item_code: string | null; kg: string | null; price: string | null }[] };
 const fx = loadV3Fixture<Fx[]>("costing-2026-09", "batches.json");
 const golden = loadV3Fixture<Record<string, string | null>>("costing-2026-09", "golden.json");
 
 describe("costing_wp parser", () => {
   it("finds every batch sheet the extractor found (and skips the scenario sheet)", () => {
-    expect(res.batches.map((b) => b.sheet)).toEqual(fx.map((b) => b.sheet));
+    expect(res.batches.map((b) => b.sheet)).toEqual(fx.filter((b) => !res.hidden.includes(b.sheet)).map((b) => b.sheet));
+    expect(res.hidden).toEqual(["Pot_ISA11+Blasting", "Pot_ISA10+Blasting", "Pot_ISA"]);
     expect(res.skipped).toContain("Pot_ISA (2)");
   });
 
   it("header and rows equal the openpyxl fixture", () => {
     for (const f of fx) {
-      const b = res.batches.find((x) => x.sheet === f.sheet)!;
+      const b = all.find((x) => x.sheet === f.sheet)!;
       expect(b.date, f.sheet).toBe(f.date);
       expect(D(b.lb_kg).toFixed(2), f.sheet).toBe(D(f.lb_kg).toFixed(2));
       expect(D(b.processed_kg).toFixed(2), f.sheet).toBe(D(f.processed_kg).toFixed(2));
@@ -34,7 +37,7 @@ describe("costing_wp parser", () => {
 
   it("upload → allocation reproduces column L of every Pot_ISA / Pot_AGRO sheet ± Rp 1", () => {
     let n = 0;
-    for (const b of res.batches) {
+    for (const b of all) {
       const r = allocateBatch(wpToAllocateInput(b));
       for (const row of b.rows) {
         const l = r.lines.find((x) => x.ref === `${b.sheet}!${row.row}`)!;
