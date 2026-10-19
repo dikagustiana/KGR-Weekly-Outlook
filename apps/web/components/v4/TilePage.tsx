@@ -12,6 +12,7 @@ import { TileEmpty, TileError } from "../v6/TileState";
 import { Stepper6 } from "../v6/Stepper";
 import type { StatusKind } from "@/lib/v6/status-map";
 import { plainTiles } from "@/lib/v6/plain-model";
+import { NumberInput } from "../v6/NumberInput";
 
 /**
  * Inner size of a tile at 1366 px (12 columns, gap 12, rows of 76): the SVG viewBox of a chart. `chrome` is what the
@@ -120,6 +121,19 @@ function body6(t: TileModel): ReactNode {
   }
   const empty = emptyText(t);
   if (empty) return <TileEmpty what={empty} />;
+  if (c.type === "table" && c.form) {
+    // R159 / R144: a what-if form of numbers uses NumberInput with a visible label
+    const f = c.form;
+    return (
+      <>
+        <form className="tile-form" method={f.method} action={f.action}>
+          {f.fields.map((x) => <label key={x.name}>{x.label} <NumberInput name={x.name} label={`${x.label} (${t.title ?? ""})`} defaultValue={x.value} size={x.size ?? 4} /></label>)}
+          <button className="v4b">{f.submit}</button>
+        </form>
+        <V4Table cols={c.cols} rows={c.rows} label={t.title} limit={c.limit} />
+      </>
+    );
+  }
   return body(t);
 }
 

@@ -82,6 +82,8 @@ export interface KasInput {
   /** What-if from the query string: termin LB, termin trading, porsi LB, target hari stok. */
   sim: { lb: string; tr: string; share: string; stock: string };
   base: string;
+  /** PRD v6 R159 (flag v6_pages): empty states in one line, the interest rate of the related-party debt, chart from 2 points. */
+  v6?: boolean;
 }
 
 export interface KasModel { title: string; tiles: TileModel[]; hidden: string[] }
@@ -113,7 +115,8 @@ export function kasModel(x: KasInput): KasModel {
   tiles.push({
     id: "c-saldo", pos: P(0, 1, 2, 2), kind: "card", title: `Saldo kas ${tglShort(asOf)}`,
     cara: { title: "Saldo kas", fn: "balancesOn (cash_position_daily.total_closing)", rule: "Jumlah saldo akhir semua rekening pada tanggal itu; rekening tanpa baris hari itu memakai saldo terakhirnya (ditandai).", period: tgl(asOf), basis: "template kas harian", status: "draft", sources: [{ label: "Tabel", value: "cash_position_daily" }] },
-    content: closing ? { type: "card", value: jtV4(closing), unit: "Rp jt", negative: closing.lt(0), compare: h ? [{ label: "rekening", value: String(h.accounts.length) }] : [] } : { type: "card", value: null, missing: "belum diisi", compare: [] },
+    content: closing ? { type: "card", value: jtV4(closing), unit: "Rp jt", negative: closing.lt(0), compare: h ? [{ label: "rekening", value: String(h.accounts.length) }] : [] } : { type: "card", value: null, missing: "belum diisi", compare: [], ...(x.v6 ? { href: "/input" } : {}) },
+    ...(x.v6 && !closing ? { note: "isi di Sheet kas (Input Keuangan)" } : {}),
   });
   tiles.push({
     id: "c-terendah", pos: P(2, 1, 3, 2), kind: "card", title: "Terendah 13 minggu",
@@ -127,6 +130,7 @@ export function kasModel(x: KasInput): KasModel {
           ],
         }
       : { type: "card", value: null, missing: "tidak tersedia", compare: [] },
+    ...(x.v6 && !(lowest && row?.lowestDate) ? { note: "isi di Sheet kas (Input Keuangan)" } : {}),
   });
   if (sv) {
     const aff = D(sv.affiliate), prev = dn(sv.prevAffiliate);
@@ -142,8 +146,11 @@ export function kasModel(x: KasInput): KasModel {
         compare: [
           ...(prev && sv.affiliate !== null ? [{ label: aff.gte(prev) ? "naik dari bulan lalu" : "turun dari bulan lalu", value: `${jtV4(aff.minus(prev).abs())} jt`, tone: aff.gt(prev) ? "worse" : aff.lt(prev) ? "better" : undefined } as const] : []),
           { label: `bunga ${MONTHS[Number(sv.month.slice(5, 7)) - 1]}`, value: interest === null ? "belum diisi" : `${jtV4(interest)} jt` },
+          // R159: the yearly rate (interest of the month ÷ balance × 12); the maturity is not in any table yet (Q-v6-5)
+          ...(x.v6 ? [{ label: "bunga per tahun", value: interest !== null && sv.affiliate !== null && !aff.isZero() ? pctV4(interest.div(aff).times(12), 1) : "belum diisi" }] : []),
         ],
       },
+      ...(x.v6 ? { note: "jatuh tempo belum diisi" } : {}),
     });
     tiles.push({
       id: "c-ekuitas", pos: P(8, 1, 2, 2), kind: "card", title: "Ekuitas",
@@ -158,7 +165,7 @@ export function kasModel(x: KasInput): KasModel {
   } else hidden.push("c-afiliasi", "c-ekuitas", "c-bulan-negatif");
 
   // ---------------------------------------------------------------- 13 weeks
-  if (h && h.weeks.length) {
+  if (h && h.weeks.length >= (x.v6 ? 2 : 1)) {
     const pts: ChartPoint[] = h.weeks.map((w) => {
       const c = dn(w.closing), cw = dn(w.closing_without);
       return {
@@ -173,7 +180,7 @@ export function kasModel(x: KasInput): KasModel {
       cara: { title: "Saldo akhir per minggu", fn: "cashProjectionSplit (cash_position_daily.horizon)", rule: "Batang = saldo akhir minggu dengan rencana kas; garis = skenario tanpa fasilitas afiliasi.", period: `${tgl(asOf)} + 13 minggu`, basis: "saldo aktual, rencana kas", status: "assumption", sources: [{ label: "Tabel", value: "cash_position_daily (horizon)" }] },
       content: { type: "combo", points: pts, labelMax: 13, legend: [{ tone: "s1", label: "dengan pendanaan afiliasi" }, { tone: "ln", label: "tanpa fasilitas afiliasi" }] },
     });
-  } else tiles.push({ id: "ch-13minggu", pos: P(0, 3, 7, 4), kind: "tall", title: "Saldo akhir per minggu, 13 minggu", content: { type: "list", items: ["tidak ada data untuk periode ini"] } });
+  } else tiles.push({ id: "ch-13minggu", pos: P(0, 3, 7, 4), kind: "tall", title: "Saldo akhir per minggu, 13 minggu", content: x.v6 ? { type: "list", items: [], empty: "Saldo 13 minggu belum ada · isi rencana kas di Input Keuangan" } : { type: "list", items: ["tidak ada data untuk periode ini"] } });
 
   // ---------------------------------------------------------------- accounts
   {
@@ -251,7 +258,7 @@ export function kasModel(x: KasInput): KasModel {
       note: drivers.length && row?.lowestWithoutDate ? `Terendah tanpa fasilitas ${tglShort(row.lowestWithoutDate)}; pembayaran terbesar hari itu: ${drivers.map((d) => `${short(d.description)} ${jtV4(d.amount)} jt`).join("; ")}.` : undefined,
       content: { type: "table", cols, rows, limit: 8 },
     });
-  } else tiles.push({ id: "t-arus", pos: P(0, 11, 12, 4), kind: "tall", title: "Arus kas operasi vs pendanaan afiliasi per minggu (Rp jt)", content: { type: "list", items: ["tidak ada data untuk periode ini"] } });
+  } else tiles.push({ id: "t-arus", pos: P(0, 11, 12, 4), kind: "tall", title: "Arus kas operasi vs pendanaan afiliasi per minggu (Rp jt)", content: x.v6 ? { type: "list", items: [], empty: "Arus kas per minggu belum ada" } : { type: "list", items: ["tidak ada data untuk periode ini"] } });
 
   return { title: "Kas & solvabilitas", tiles, hidden };
 }

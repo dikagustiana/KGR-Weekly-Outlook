@@ -16,6 +16,8 @@ import { withFailures, type Failed } from "../v4/tile-errors";
 export interface PpicClassInfo { code: string; min_kg: string | null; max_kg: string | null; avg_kg: string | null }
 
 export interface PpicV5Input {
+  /** PRD v6 R161 (flag v6_pages): per-class rows, a surplus in the warn tone, long notes in the drawer. */
+  v6?: boolean;
   /** PRD v5.1 K41: tile id → message of the read that failed. */
   failed?: Failed;
   week: { start: string; end: string; update: string };
@@ -101,8 +103,14 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
   const fc = x.needCost?.lines.find((l) => l.key === "RPA|Karkas|Fresh") ?? null;
   tiles.push({ id: "c-po", pos: P(0, 2, 3, 2), kind: "card", title: `PO kirim ${shipRange}`, content: { type: "card", value: kg(x.po.kg), unit: "kg", compare: [{ label: "kg RPA", value: kg(x.po.rpaKg) }, { label: "kg Trading", value: kg(x.po.tradingKg) }, { label: "tentatif", value: kg(x.po.tentativeKg) }] } });
   tiles.push({ id: "c-karkas", pos: P(3, 2, 2, 2), kind: "card", title: "Kebutuhan karkas", content: { type: "card", value: kg(d.total.net_kg), unit: "kg", compare: [{ label: `fresh di ${d.bySize.filter((s) => s.mapped).length} ukuran`, value: kg(d.total.net_kg.minus(unsizedKg)) }, { label: "tanpa ukuran", value: kg(unsizedKg), tone: unsizedKg.gt(0) ? "worse" : undefined }] } });
-  tiles.push({ id: "c-rencana", pos: P(5, 2, 2, 2), kind: "card", title: "Rencana kebutuhan", content: { type: "card", value: kg(d.total.kg_lb), unit: "kg LB", compare: [{ label: "per kelas", value: d.byClass.map((c) => `${c.weight_class} ${kg(c.kg_lb)}`).join(" · ") }, { label: "ekor", value: `± ${kg(d.total.heads)}` }] } });
-  tiles.push({ id: "c-batch", pos: P(7, 2, 2, 2), kind: "card", title: "Batch rencana di input", content: x.batch ? { type: "card", value: kg(x.batch.kgLb), unit: "kg LB", compare: over ? [{ label: over.gte(0) ? "di atas kebutuhan" : "di bawah kebutuhan", value: `${over.gte(0) ? "+" : "−"}${num(over.abs(), 0)} kg LB`, tone: over.gt(0) ? "worse" : undefined }] : [] } : { type: "card", value: null, missing: "belum ada batch rencana", compare: [] } });
+  tiles.push({ id: "c-rencana", pos: P(5, 2, 2, 2), kind: "card", title: "Rencana kebutuhan", content: { type: "card", value: kg(d.total.kg_lb), unit: "kg LB", compare: x.v6
+    // R161: one row per class (K 83 · S 4.208 · B 13.108), not one string that wraps
+    ? d.byClass.slice(0, 3).map((c) => ({ label: `kelas ${c.weight_class}`, value: `${kg(c.kg_lb)} kg` }))
+    : [{ label: "per kelas", value: d.byClass.map((c) => `${c.weight_class} ${kg(c.kg_lb)}`).join(" · ") }, { label: "ekor", value: `± ${kg(d.total.heads)}` }] },
+    ...(x.v6 ? { note: `± ${kg(d.total.heads)} ekor${d.byClass.length > 3 ? `; ${d.byClass.length - 3} kelas lain di tabel` : ""}` } : {}) });
+  tiles.push({ id: "c-batch", pos: P(7, 2, 2, 2), kind: "card", title: "Batch rencana di input", content: x.batch ? { type: "card", value: kg(x.batch.kgLb), unit: "kg LB", compare: over ? [{ label: over.gte(0) ? "di atas kebutuhan" : "di bawah kebutuhan", value: `${over.gte(0) ? "+" : "−"}${num(over.abs(), 0)} kg LB`, tone: over.gt(0) && !x.v6 ? "worse" : undefined }] : [] } : { type: "card", value: null, missing: "belum ada batch rencana", compare: [] },
+    // R161: a batch above the need is a warning (the + stays), not red
+    ...(x.v6 && x.batch && over && over.gt(0) ? { note: "di atas kebutuhan: periksa surplus karkas" } : {}) });
   tiles.push({
     id: "c-biaya", pos: P(9, 2, 3, 2), kind: "card", title: "Biaya rencana karkas fresh",
     content: fc?.costPerKg ? { type: "card", value: rp(fc.costPerKg), unit: "Rp/kg", compare: [{ label: `harga list · LB ${rp(x.lbPrice.price)}`, value: rp(fc.priceRef) }, { label: "breakeven LB rencana kebutuhan", value: rp(x.needCost?.breakeven ?? null) }] } : { type: "card", value: null, missing: x.lbPrice.price ? "harga acuan belum diisi" : "harga LB belum diputuskan", compare: [] },
@@ -118,13 +126,13 @@ export function ppicV5Model(x: PpicV5Input): { title: string; tiles: TileModel[]
   dRows.push({ id: "total", kind: "total", cells: { u: "Total", po: kg(d.total.po_kg), s: kg(d.total.po_kg.minus(d.total.net_kg)), net: kg(d.total.net_kg), c: "", lbe: d2(d.total.lb_per_head), lb: kg(d.total.kg_lb), h: kg(d.total.heads) } });
   tiles.push({
     id: "t-demand", pos: P(0, 4, 7, 4), kind: "tall", title: `1 · Demand karkas per ukuran → kelas berat → kg LB, kirim ${shipRange}`,
-    note: [
+    note: x.v6 ? (unsizedKg.gt(0) ? `${kg(unsizedKg)} kg karkas di PO tanpa ukuran memakai ukuran standar sampai Commercial melengkapinya.` : undefined) : [
       "Ukuran dibaca dari kode item PO (Uk 1.3 = karkas 1,30–1,39 kg/ekor, dihitung di titik tengah). kg LB = net karkas ÷ yield karkas kelas.",
       unsizedKg.gt(0) ? `${kg(unsizedKg)} kg karkas di PO tanpa ukuran memakai STD ${num(std?.lb_per_head ?? null, 1)} kg sampai Commercial melengkapinya.` : null,
       "By-product tidak menambah kg LB; kekurangannya tampil di kanan.",
       x.karkas.frozenOrderKg.gt(0) ? `Karkas frozen ${kg(x.karkas.frozenOrderKg)} kg ${x.karkas.frozenCovered ? "tertutup stok frozen" : "belum tertutup stok"}.` : null,
     ].filter(Boolean).join(" "),
-    cara: { title: "Demand per kelas", fn: "toClassLB (K28)", rule: "net kg = PO × porsi net key (netting stok per key, kelayakan pada tanggal kirim); kelas = peta ukuran → kelas; kg LB = net ÷ yield karkas kelas; ekor = net ÷ (ukuran + 0,05); tanpa ukuran = kelas STD (C50).", period: shipRange, basis: "PO, stok ledger, size_class_map, yield_matrix", status: "draft", sources: [{ label: "Tabel", value: "sales_line, item_map, size_class_map, yield_matrix, lot_balance_daily" }] },
+    cara: { title: "Demand per kelas", fn: "toClassLB (K28)", rule: (x.v6 ? "Ukuran dibaca dari kode item PO (Uk 1.3 = karkas 1,30–1,39 kg/ekor, titik tengah). By-product tidak menambah kg LB. " : "") + "net kg = PO × porsi net key (netting stok per key, kelayakan pada tanggal kirim); kelas = peta ukuran → kelas; kg LB = net ÷ yield karkas kelas; ekor = net ÷ (ukuran + 0,05); tanpa ukuran = kelas STD (C50).", period: shipRange, basis: "PO, stok ledger, size_class_map, yield_matrix", status: "draft", sources: [{ label: "Tabel", value: "sales_line, item_map, size_class_map, yield_matrix, lot_balance_daily" }] },
     content: { type: "table", cols: dCols, rows: dRows },
   });
   const fRows: TRow[] = [

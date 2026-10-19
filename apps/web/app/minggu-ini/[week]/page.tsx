@@ -26,8 +26,18 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   if (!mingguIniAllowed(viewer.role) || !v4On(await moduleSettings(), viewer.role)) notFound();
   const ctx = await weekContext(week);
   const input = await loadMingguIni(ctx, sp);
-  // PRD v6 irisan 5 (flag v6_pages): the cards carry the decided metric
-  const model = mingguIniModel({ ...input, v6: await v6PagesOn() });
+  // PRD v6 irisan 5 (flag v6_pages): the cards carry the decided metric; the P&L tile gets the segment toggle (R157) and,
+  // in the management view, the accrual that nets to zero as a memo (K98)
+  const pages = await v6PagesOn();
+  const segOf = (v: string | undefined): "RPA" | "Trading" | null => (v === "RPA" || v === "Trading" ? v : null);
+  const segHref = (seg: "RPA" | "Trading" | null) => {
+    const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string" && e[0] !== "plseg"));
+    if (seg) q.set("plseg", seg);
+    const t = q.toString();
+    return `/minggu-ini/${week}${t ? `?${t}` : ""}`;
+  };
+  const v5Pl = pages && input.v5Pl ? { ...input.v5Pl, segment: segOf(sp.plseg), segHref, memoZeroAccrual: ctx.view === "management" } : input.v5Pl;
+  const model = mingguIniModel({ ...input, v5Pl, v6: pages });
   // PRD v5 journey M (flag v5_management): the operations director decides the price tried in the simulation (K25)
   const extras: Record<string, ReactNode> = {};
   const m = input.v5Mgmt;

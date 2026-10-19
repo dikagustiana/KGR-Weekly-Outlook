@@ -15,6 +15,7 @@ import { agreeV4Action, budgetV4Action, cutOffV4Action, lockV4Action, overrideMo
 import { OverridePanel } from "@/components/v4/OverridePanel";
 import { releaseContext } from "@/lib/release";
 import type { Viewer } from "@/lib/session";
+import { outlookBulanV6 } from "@/lib/v6/outlook-bulan-v6";
 
 /** PRD v4 §6.2 Manajemen · Outlook bulan (flag v4_design): tiles for everyone, the Finance panel only for Finance and Admin. */
 export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = null }: { first: string; viewer: Viewer; versi: string | null; pl?: string | null; cm?: string | null }) {
@@ -24,14 +25,17 @@ export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = nul
   const today = (await clock(sb)).data;
   const view = await currentView(viewer);
   const { input, extra } = await loadOutlookBulan(sb, { first, today, role: viewer.role, settings, selected: versi, pl, cm });
-  const model = outlookBulanModel(input);
+  const pages = await v6PagesOn();
+  const m0 = outlookBulanModel(input);
+  // PRD v6 R158 (flag v6_pages): GP as the number on every card, no "vs Budget" without a budget
+  const model = pages ? { ...m0, tiles: outlookBulanV6(m0.tiles) } : m0;
   const canAct = (viewer.role === "admin" || viewer.role === "finance") && view !== "management";
   const rc = canAct ? await releaseContext(sb, "month", `${first}:V1`, first, monthEnd(first)) : null;
   const v6 = await v6ShellOn();
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/m">
       {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
-      <TilePage tiles={model.tiles} label={model.title} v6={v6} plainText={v6 && (await v6PagesOn())} />
+      <TilePage tiles={model.tiles} label={model.title} v6={v6} plainText={v6 && pages} />
       {canAct && rc ? <FinancePanel first={first} extra={extra} cutOff={input.cutOff} hasRows={!!input.rows} rc={rc} role={viewer.role} /> : null}
     </Shell>
   );
