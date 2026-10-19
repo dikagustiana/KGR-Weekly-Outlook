@@ -25,8 +25,12 @@ export async function savePrices(form: FormData) {
   try {
     for (const k of keys) {
       const old = byKey.get(k) ?? { ref_sell_price: null, replacement_buy_price: null };
-      const s = sell ? parseNumber(String(form.get(`sell:${k}`) ?? "")) : old.ref_sell_price;
-      const b = buy ? parseNumber(String(form.get(`buy:${k}`) ?? "")) : old.replacement_buy_price;
+      // PRD v6 R167: an unreadable cell is named (row and column) in a sentence that says what to do
+      const read = (field: string, what: string) => {
+        try { return parseNumber(String(form.get(field) ?? "")); } catch (e) { throw new Error(`${what} ${k} tidak terbaca: ${(e as Error).message.replace(/^Bukan angka: /, "")}`); }
+      };
+      const s = sell ? read(`sell:${k}`, "Harga jual") : old.ref_sell_price;
+      const b = buy ? read(`buy:${k}`, "Harga beli pengganti") : old.replacement_buy_price;
       const same = (a: unknown, c: unknown) => (a === null || a === undefined ? null : Number(a)) === (c === null || c === undefined ? null : Number(c));
       if (byKey.has(k) && same(s, old.ref_sell_price) && same(b, old.replacement_buy_price)) continue;
       rows.push({ week_id: weekId, key: k, ref_sell_price: s, replacement_buy_price: b });

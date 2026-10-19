@@ -33,7 +33,7 @@ export function Tile({
     <section
       className={`tile${kind ? ` ${kind}` : ""}${collapse ? " has-collapse" : ""}`}
       id={`tile-${id}`} data-tile={id} data-x={pos.x} data-y={pos.y} data-w={pos.w} data-h={pos.h}
-      style={{ gridColumn: `${pos.x + 1} / span ${pos.w}`, gridRow: `${pos.y + 1} / span ${pos.h}` }}
+      style={{ gridColumn: `${pos.x + 1} / span ${pos.w}`, gridRow: `${pos.y + 1} / span ${pos.h}`, ["--rows" as string]: pos.h }}
       aria-label={typeof title === "string" ? title : undefined}
     >
       {title || extra ? (

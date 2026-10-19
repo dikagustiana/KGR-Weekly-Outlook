@@ -164,7 +164,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     content: { type: "slicer", label: "Minggu", current: x.week.start, options: x.weeks.slice(0, 6).map((w) => ({ value: w.start, label: weekLabel(w.start, w.end), href: x.base.replace(x.week.start, w.start) })) },
   });
   tiles.push({
-    id: "mode", pos: P(6, 0, 3, 1), kind: "bare",
+    // R138 (v6): the Aktual / Proyeksi chip sits under the headline (the week chips and the release line are in the shell)
+    id: "mode", pos: x.v6 ? P(0, 1, 6, 1) : P(6, 0, 3, 1), kind: "bare",
     content: { type: "mode", label: "Tampilan", current: x.mode, options: [{ value: "aktual", label: "Aktual s.d. kemarin", href: q({ mode: "aktual" }) }, { value: "proyeksi", label: "Proyeksi minggu", href: q({ mode: null }) }] },
   });
   const c = r.controls;
@@ -191,10 +192,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     outlook: wo, segments: r.block1.map((s) => ({ segment: s.segment, gpProjection: s.gpProjection })),
     stockOverAge: stockValue, cash: cashLowest ? { lowest: cashLowest.balance, lowestDate: cashLowest.date, average: cashLowest.average } : null,
   });
-  if (headline) tiles.push({ id: "headline", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: headline } });
+  if (headline) tiles.push({ id: "headline", pos: x.v6 ? P(0, 0, 12, 1) : P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: headline } });
   else {
     hidden.push("headline");
-    tiles.push({ id: "headline-pending", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: "Angka minggu ini menunggu data mart. Admin membangun ulang di halaman Modul (Bangun ulang data mart)." } });
+    tiles.push({ id: "headline-pending", pos: x.v6 ? P(0, 0, 12, 1) : P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: "Angka minggu ini menunggu data mart. Admin membangun ulang di halaman Modul (Bangun ulang data mart)." } });
   }
 
   // ---------------------------------------------------------------- row 2–3: five cards

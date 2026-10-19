@@ -44,3 +44,19 @@ describe("Minggu ini v6 cards", () => {
     expect(jtV4(shownDelta(D("10060000"), D("5040000")))).toBe("5,1");
   });
 });
+
+// M7 on screen: with v6_pages the rendered text of Minggu ini names no specification code outside the drawer
+import { renderToStaticMarkup } from "react-dom/server";
+import { TilePage } from "@/components/v4/TilePage";
+import { hasCode } from "./glossary";
+describe("M7: no codes in the rendered v6 screen", () => {
+  it("Minggu ini (fixture) — text outside 'cara hitung'", () => {
+    const { base } = fixtureInput();
+    const tiles = mingguIniModel({ ...base, v6: true }).tiles.map((t) => ({ ...t, cara: undefined }));
+    const html = renderToStaticMarkup(<TilePage tiles={tiles} label="Minggu ini" v6 plainText />);
+    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const found = text.match(/\b(?:C\d{2}|K\d{2,3}|O\d{1,2}|R\d{2,3})\b/g) ?? [];
+    expect(found).toEqual([]);
+    expect(hasCode(text)).toBe(false);
+  });
+});

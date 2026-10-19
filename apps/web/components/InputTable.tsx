@@ -5,6 +5,8 @@ import type { Role } from "@/lib/roles";
 import { num, tgl } from "@/lib/fmt";
 import { Chip, Msg } from "./ui";
 import { deleteRow, markDelivered, pasteRows, saveRow } from "@/app/w/[week]/input/actions";
+import { NumberInput } from "./v6/NumberInput";
+import { v6PagesOn } from "@/lib/v6/flags";
 
 type Row = Record<string, unknown>;
 
@@ -15,30 +17,36 @@ function display(c: ColDef, v: unknown): ReactNode {
   return String(v);
 }
 
-function inputFor(c: ColDef, v: unknown, formId: string, prefix = ""): ReactNode {
+/**
+ * PRD v6 R166 (every cell has a name: column and row, "Harga Rp/kg baris 3") and, with v6_pages, R144 NumberInput for the
+ * number columns.
+ */
+function inputFor(c: ColDef, v: unknown, formId: string, prefix = "", row = "baru", v6 = false): ReactNode {
   const val = v === null || v === undefined ? "" : String(v);
   const style = { width: c.width ?? 110 };
+  const name = `${c.label} ${row === "baru" ? "baris baru" : `baris ${row}`}`;
   if (c.type === "select") {
     return (
-      <select className="in" name={prefix + c.name} form={formId} defaultValue={val} style={style} required={c.required}>
+      <select className="in" name={prefix + c.name} form={formId} defaultValue={val} style={style} required={c.required} aria-label={name}>
         {!c.required ? <option value="">—</option> : null}
         {c.options!.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
   }
-  if (c.type === "date") return <input className="in" type="date" name={prefix + c.name} form={formId} defaultValue={val} style={style} required={c.required} />;
+  if (c.type === "date") return <input className="in" type="date" name={prefix + c.name} form={formId} defaultValue={val} style={style} required={c.required} aria-label={name} />;
   if (c.type === "number") {
     const shown = val === "" ? "" : num(val, c.dp ?? 2).replace(/\./g, "");
-    return <input className="in n" inputMode="decimal" name={prefix + c.name} form={formId} defaultValue={shown} style={style} required={c.required} />;
+    if (v6) return <NumberInput name={prefix + c.name} form={formId} defaultValue={shown} label={name} />;
+    return <input className="in n" inputMode="decimal" name={prefix + c.name} form={formId} defaultValue={shown} style={style} required={c.required} aria-label={name} />;
   }
-  return <input className="in" name={prefix + c.name} form={formId} defaultValue={val} style={style} list={c.type === "item" ? "dl-items" : c.type === "key" ? "dl-keys" : undefined} />;
+  return <input className="in" name={prefix + c.name} form={formId} defaultValue={val} style={style} list={c.type === "item" ? "dl-items" : c.type === "key" ? "dl-keys" : undefined} aria-label={name} />;
 }
 
 /**
  * Editable input table: read-only rows with computed columns, inline edit (?edit=id), soft delete, add row and CSV paste.
  * Inputs are blue on cream (Excel convention); computed columns are plain with "Cara hitung" tooltips.
  */
-export function InputTable({
+export async function InputTable({
   table, week, path, rows, role, editId, computed, computedHead, items, keys, msg, readOnly, extraActions, defaults,
 }: {
   table: TableDef["table"]; week: string; path: string; rows: Row[]; role: Role; editId?: string;
@@ -46,6 +54,7 @@ export function InputTable({
   msg?: { ok?: string; err?: string }; readOnly?: boolean; extraActions?: (r: Row) => ReactNode; defaults?: Row;
 }) {
   const def = TABLES[table];
+  const v6 = await v6PagesOn();
   const addable = !readOnly && canAdd(role, def);
   const hidden = (
     <>
@@ -74,7 +83,7 @@ export function InputTable({
             {addable ? (
               <tr className="noprint">
                 <td><form id="f-new" action={saveRow}>{hidden}</form>+</td>
-                {def.cols.map((c) => <td key={c.name}>{inputFor(c, (defaults ?? def.defaults ?? {})[c.name], "f-new")}</td>)}
+                {def.cols.map((c) => <td key={c.name}>{inputFor(c, (defaults ?? def.defaults ?? {})[c.name], "f-new", "", "baru", v6)}</td>)}
                 {(computedHead ?? []).map((h) => <td key={h} />)}
                 <td><span className="chip Manual">Manual</span></td>
                 <td><button className="b small" form="f-new">Tambah</button></td>
@@ -88,7 +97,7 @@ export function InputTable({
                 <tr key={id} className={editing ? "sub" : ""}>
                   <td className="muted">{i + 1}</td>
                   {def.cols.map((c) => (
-                    <td key={c.name} className={c.type === "number" && !editing ? "n" : ""}>{editing ? inputFor(c, r[c.name], fid) : display(c, r[c.name])}</td>
+                    <td key={c.name} className={c.type === "number" && !editing ? "n" : ""}>{editing ? inputFor(c, r[c.name], fid, "", String(i + 1), v6) : display(c, r[c.name])}</td>
                   ))}
                   {(computed?.(r) ?? []).map((x, j) => <td key={j} className="n">{x}</td>)}
                   <td><Chip source={String(r.source ?? "")} />{r.superseded_at ? <span className="chip">superseded</span> : null}</td>
@@ -118,7 +127,7 @@ export function InputTable({
           <summary><b>Tempel dari Excel / CSV</b> <span className="muted">— salin baris beserta judul kolom (mis. Tanggal, Pelanggan, Kode item, kg, Harga Rp/kg) lalu tempel</span></summary>
           <form action={pasteRows} style={{ marginTop: 8 }}>
             {hidden}
-            <textarea className="in" name="text" rows={6} placeholder={"Tanggal\tPelanggan\tKode item\tkg\tHarga Rp/kg\n28/08/2026\tErwin\tTRD0024\t1.250,5\t31.277"} />
+            <textarea className="in" name="text" rows={6} aria-label="Tempel baris dari Excel" placeholder={"Tanggal\tPelanggan\tKode item\tkg\tHarga Rp/kg\n28/08/2026\tErwin\tTRD0024\t1.250,5\t31.277"} />
             <button className="b small" style={{ marginTop: 6 }}>Tambahkan baris</button>
           </form>
         </details>

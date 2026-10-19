@@ -26,7 +26,7 @@ it("v6 harness", async () => {
   const html = renderToStaticMarkup(
     <Shell6 viewer={{ email: "lenny@x.id", role: "management", fullName: "Bu Lenny" }} weeks={weeks} week={weeks[1]} tabs={tabs} active="minggu-ini" view="management"
       viewAs={[]} viewAsActive={null} release={{ date: "28 Agu 2026", passed: 19, total: 20, pdfHref: "#" }} canToggle={false} longDates>
-      <TilePage tiles={model.tiles} label="Minggu ini" v6 />
+      <TilePage tiles={model.tiles} label="Minggu ini" v6 plainText />
     </Shell6>,
   );
   const css = ["globals.css", "v4.css", "v6.css"].map((f) => readFileSync(join(__dirname, "../app", f), "utf8")).join("\n");

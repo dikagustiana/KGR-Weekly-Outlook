@@ -187,3 +187,38 @@
 @media print {
   .v6-top, .navp, .skip { display: none !important; }
 }
+
+/* ---------------------------------------------------------------- v1 pages inside the v6 shell (R163 interim, R164, R165, R171)
+ * Neraca, Laba Rugi, Arus Kas, Stok, Kontrol, Rilis, Batch and the input grids still render v1 markup (.card, table.t, .b,
+ * .in); inside .v6 they take the v4/v6 tokens: muted text 4,98:1 instead of --ink-3 3,55:1, input borders 3:1, the tile's
+ * radius and type. The markup itself moves to Table6 / Tile in irisan 6 (K101); until then this keeps one look. */
+.v6 .muted, .v6 small { color: var(--muted); }
+.v6 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3); }
+.v6 .card > h2, .v6 .v6-main > h2 { font-size: var(--fs-md); font-weight: 600; color: var(--text); margin: 0 0 var(--space-2); }
+.v6 .v6-main > h1:not(.hl) { font-size: var(--fs-lg); font-weight: 600; margin: 0 0 var(--space-2); }
+.v6 table.t { font-size: var(--fs-sm); }
+.v6 table.t th { background: var(--surface); color: var(--muted); font-size: var(--fs-xs); border-bottom: 1px solid var(--line); white-space: normal; }
+.v6 table.t tr.total td { border-top: 1px solid var(--text); background: transparent; }
+.v6 table.t tr:hover td { background: transparent; }
+.v6 table.t td { white-space: normal; }
+.v6 table.t td.n, .v6 table.t th.n { white-space: nowrap; }
+.v6 .b { display: inline-flex; align-items: center; min-height: 32px; padding: var(--space-1) var(--space-3); border: 1px solid var(--accent); border-radius: var(--radius); background: var(--accent); color: var(--surface); font: inherit; font-size: var(--fs-sm); }
+.v6 .b.sec, .v6 .b.small.sec { background: var(--surface); color: var(--text); border-color: var(--line-input); }
+.v6 .b.danger { background: var(--surface); color: var(--bad); border-color: var(--bad); }
+.v6 .in, .v6 select.in, .v6 textarea.in { border: 1px solid var(--line-input); border-radius: var(--radius); background: var(--surface); color: var(--text); min-height: 32px; padding: 0 var(--space-2); font: inherit; font-size: var(--fs-sm); }
+.v6 .in.n { text-align: right; font-variant-numeric: tabular-nums; }
+.v6 .chip, .v6 .q { font-size: 11.5px; color: var(--text); border-color: var(--line-input); }
+.v6 .msg { border-radius: var(--radius); padding: var(--space-2) var(--space-3); font-size: var(--fs-sm); }
+.v6 .warn { color: var(--warn); }
+/* R171: no hover-only tooltip; the explanation of a number is in its drawer */
+.v6 .tip { border-bottom: 0; cursor: auto; }
+.v6 .tip:hover::after, .v6 .tip:focus::after { display: none; content: none; }
+@media (max-width: 899px) { .v6 .b, .v6 .in { min-height: 44px; } }
+.v6 .banner { padding: var(--space-2) var(--space-6); font-size: var(--fs-sm); }
+
+/* the headline row and the chip row are as tall as their text (bukti a6: ~60 px of air under the headline); other rows keep
+   the 76 px grid. Rows are auto in v6 and a tile keeps its height from the 76 px rows it spans as a minimum. */
+.v6 .tg { grid-auto-rows: auto; }
+.v6 .tg > .tile:not(.bare) { min-height: calc(var(--rows, 1) * 76px + (var(--rows, 1) - 1) * var(--space-3)); }
+.v6 .tg > .tile.empty6 { min-height: 76px; }
+@media (max-width: 899px) { .v6 .tg > .tile:not(.bare) { min-height: 76px; } }
