@@ -90,6 +90,7 @@
 .c6-v { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-1); }
 .c6-v .v { font-size: var(--fs-value); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--text); white-space: nowrap; }
 .c6-v .v.missing { font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
+.c6-v .v.st { font-size: var(--fs-lg); }
 .c6-v .u { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
 /* the unit wraps under the value inside the link too, never clipped (R139, 2-column card at 390 px) */
 .c6-v a.open { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-1); max-width: 100%; color: inherit; }

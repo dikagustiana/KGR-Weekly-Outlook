@@ -25,8 +25,10 @@ export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
   | { type: "mode"; label: string; options: [SlicerOption, SlicerOption]; current: string }
   | { type: "release"; text: string; pdfHref: string | null }
-  | { type: "headline"; text: string }
-  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string; maxCompare?: number }
+  | { type: "headline"; text: string; /** PRD v6 K87: the context line under the headline (cut-off, time). */ note?: string }
+  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string; maxCompare?: number;
+      /** PRD v6 R153: a state is shown as Status (icon + word), not as a word in the value's place. */
+      status?: { kind: "lolos" | "catatan" | "terlambat" | "belum"; text?: string } }
   | { type: "combo"; points: ChartPoint[]; labelMax?: number; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "line"; plot: LinePlot; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "waterfall"; steps: WaterfallStep[] }

@@ -9,11 +9,13 @@ type Kind = { kind: string; label: string; description: string; target: string; 
 const nf = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
 const show = (v: unknown) => (v === null || v === undefined ? "—" : typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v) ? nf.format(Number(v)) : String(v));
 
-export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kinds: Kind[]; keys: string[]; isAdmin: boolean }) {
+/** PRD v6 R163 (`v6`, flag v6_pages): the v6 grammar (tiles, Table6 classes, v4 buttons); no SHA-256 or raw table names on screen. */
+export function UploadWizard({ week, kinds, keys, isAdmin, v6 = false }: { week: string; kinds: Kind[]; keys: string[]; isAdmin: boolean; v6?: boolean }) {
   const [kind, setKind] = useState(kinds[0]?.kind ?? "");
   const [file, setFile] = useState<File | null>(null);
   // PRD v6 K93 (R156b): the question is asked in the page, not with window.confirm
   const [asking, setAsking] = useState(false);
+  const C = v6 ? { card: "tile", table: "t6", b: "v4b primary", sec: "v4b", field: "ni", input: "" } : { card: "card", table: "t compact", b: "b", sec: "b sec", field: "field", input: "in" };
   const [prod, setProd] = useState(true);
   const [res, setRes] = useState<StageResult | null>(null);
   const [path, setPath] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
   return (
     <div>
       {!res ? (
-        <div className="card">
+        <div className={C.card}>
           <h2>1. Pilih jenis dan file</h2>
           <div className="row">
             <div className="field">
@@ -84,20 +86,20 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
             {kind === "ops_batch" ? (
               <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={prod} onChange={(e) => setProd(e.target.checked)} /> buat penerimaan Produksi RPA dari output batch</label>
             ) : null}
-            <button className="b" onClick={preview} disabled={pending || !file}>{pending ? "Membaca…" : "Pratinjau"}</button>
+            <button className={C.b} onClick={preview} disabled={pending || !file}>{pending ? "Membaca…" : "Pratinjau"}</button>
           </div>
-          {def ? <p className="muted">{def.description} → <b>{def.target}</b> (sumber: {def.source})</p> : null}
+          {def ? <p className="muted">{def.description}{v6 ? null : <> → <b>{def.target}</b> (sumber: {def.source})</>}</p> : null}
         </div>
       ) : (
         <>
-          <div className="card">
+          <div className={C.card}>
             <h2>2. Pratinjau — {res.fileName}</h2>
-            <p className="muted">SHA-256 {res.sha.slice(0, 16)}… · {res.v3Note ? res.v3Note : res.workbookWeek ? `Minggu workbook: ${res.workbookWeek}` : `Sheet "${res.parse?.sheet}", judul kolom baris ${res.parse?.headerRow}, ${res.parse?.rowCount} baris terbaca, tanggal ${res.parse?.dateFrom ?? "—"} s.d. ${res.parse?.dateTo ?? "—"}`}</p>
+            <p className="muted">{v6 ? null : <>SHA-256 {res.sha.slice(0, 16)}… · </>}{res.v3Note ? res.v3Note : res.workbookWeek ? `Minggu workbook: ${res.workbookWeek}` : `Sheet "${res.parse?.sheet}", judul kolom baris ${res.parse?.headerRow}, ${res.parse?.rowCount} baris terbaca, tanggal ${res.parse?.dateFrom ?? "—"} s.d. ${res.parse?.dateTo ?? "—"}`}</p>
             {res.parse?.issues.length ? <ul className="alerts">{res.parse.issues.map((i) => <li key={i}>{i}</li>)}</ul> : null}
             {res.workbookWeek && res.workbookWeek !== week ? <div className="msg info">Workbook ini untuk minggu {res.workbookWeek}; data akan dimuat ke minggu itu (dibuat bila belum ada).</div> : null}
           </div>
           {res.fields && res.parse ? (
-            <div className="card">
+            <div className={C.card}>
               <h2>Pemetaan kolom</h2>
               <div className="row" style={{ alignItems: "flex-end" }}>
                 {res.fields.map((f) => (
@@ -109,15 +111,15 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
                     </select>
                   </div>
                 ))}
-                <button className="b sec" onClick={remap} disabled={pending}>Pratinjau ulang</button>
+                <button className={C.sec} onClick={remap} disabled={pending}>Pratinjau ulang</button>
               </div>
             </div>
           ) : null}
           {res.unmappedItems.length || res.unmappedAccounts.length ? (
-            <div className="card">
-              <h2 className="warn">Kode belum dipetakan (kontrol 1–3, 14 akan GAGAL sampai dipetakan)</h2>
+            <div className={C.card}>
+              <h2 className="warn">{v6 ? "Kode belum dipetakan: angka minggu ini belum lengkap sampai dipetakan" : "Kode belum dipetakan (kontrol 1–3, 14 akan GAGAL sampai dipetakan)"}</h2>
               {res.unmappedItems.length ? (
-                <table className="t compact">
+                <table className={C.table}>
                   <thead><tr><th>Kode item</th><th>Nama</th><th>Key usulan</th><th /></tr></thead>
                   <tbody>
                     {res.unmappedItems.map((u) => (
@@ -131,10 +133,10 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
               ) : null}
             </div>
           ) : null}
-          <div className="card">
+          <div className={C.card}>
             <h2>3. Perubahan yang akan disimpan</h2>
-            <table className="t compact">
-              <thead><tr><th>Tabel</th><th className="n">Baru</th><th className="n">Diubah</th><th className="n">Dihapus (soft)</th><th className="n">Ops diganti</th><th className="n">Sama</th><th>Catatan</th></tr></thead>
+            <table className={C.table}>
+              <thead><tr><th>{v6 ? "Data" : "Tabel"}</th><th className="n">Baru</th><th className="n">Diubah</th><th className="n">Dihapus (soft)</th><th className="n">Ops diganti</th><th className="n">Sama</th><th>Catatan</th></tr></thead>
               <tbody>
                 {res.plan.map((t, i) => (
                   <tr key={i}><td>{t.label}</td><td className="n">{t.inserts}</td><td className="n">{t.updates}</td><td className="n">{t.deletes}</td><td className="n">{t.supersede}</td><td className="n">{t.unchanged}</td><td className="muted">{t.notes.join(" · ")}</td></tr>
@@ -145,24 +147,24 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
               {asking ? (
                 <span className="af-confirm" role="group" aria-label="Konfirmasi">
                   <span>Simpan perubahan ini?</span>
-                  <button className="b" onClick={doCommit} disabled={pending} autoFocus>Ya, simpan</button>
-                  <button className="b sec" type="button" onClick={() => setAsking(false)}>Batal</button>
+                  <button className={C.b} onClick={doCommit} disabled={pending} autoFocus>Ya, simpan</button>
+                  <button className={C.sec} type="button" onClick={() => setAsking(false)}>Batal</button>
                 </span>
-              ) : <button className="b" onClick={() => setAsking(true)} disabled={pending || (totals && totals.i + totals.u + totals.d === 0 && !res.workbookWeek)}>{pending ? "Menyimpan…" : "Simpan ke database"}</button>}
-              <button className="b sec" onClick={cancel} disabled={pending}>Batalkan</button>
+              ) : <button className={C.b} onClick={() => setAsking(true)} disabled={pending || (totals && totals.i + totals.u + totals.d === 0 && !res.workbookWeek)}>{pending ? "Menyimpan…" : "Simpan ke database"}</button>}
+              <button className={C.sec} onClick={cancel} disabled={pending}>Batalkan</button>
             </div>
           </div>
           {res.parse?.sample.length ? (
-            <div className="card scroll">
+            <div className={`${C.card} scroll`}>
               <h2>Contoh baris (25 pertama)</h2>
-              <table className="t compact">
+              <table className={C.table}>
                 <thead><tr>{Object.keys(res.parse.sample[0]).map((k) => <th key={k}>{k}</th>)}</tr></thead>
                 <tbody>{res.parse.sample.map((r, i) => <tr key={i}>{Object.keys(res.parse!.sample[0]).map((k) => <td key={k}>{show(r[k])}</td>)}</tr>)}</tbody>
               </table>
             </div>
           ) : null}
           {res.parse?.badRows.length ? (
-            <div className="card">
+            <div className={C.card}>
               <h2 className="warn">Baris bermasalah (tidak disimpan)</h2>
               <ul>{res.parse.badRows.map((b) => <li key={b.rowNo}>Baris {b.rowNo}: {b.issues.join("; ")}</li>)}</ul>
             </div>

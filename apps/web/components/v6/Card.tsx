@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Drawer } from "./Drawer";
 import type { CaraHitungContent } from "../v4/CaraHitung";
+import { Status } from "./Status";
 
 export interface CardRow { label: string; value: string; tone?: "better" | "worse" | "neg" }
 
@@ -10,7 +11,7 @@ export interface CardRow { label: string; value: string; tone?: "better" | "wors
  * nominal equity) and keeps the text colour; only the finding carries the tone. K91: an openable card links the value and
  * a chevron ("Buka <metric>"), never the whole card.
  */
-export function Card6({ id, title, value, unit, missing, compare = [], finding, href, cara }: {
+export function Card6({ id, title, value, unit, missing, compare = [], finding, href, cara, status }: {
   id: string;
   title: string;
   value: string | null;
@@ -20,9 +21,11 @@ export function Card6({ id, title, value, unit, missing, compare = [], finding, 
   finding?: { text: string; tone?: "plain" | "good" | "warn" | "bad" } | null;
   href?: string;
   cara?: CaraHitungContent;
+  /** R153: a state in the value's place, as Status. */
+  status?: { kind: "lolos" | "catatan" | "terlambat" | "belum"; text?: string };
 }) {
   const hid = `c6-${id}`;
-  const v = value === null
+  const v = status ? <span className="v st" data-tile-value=""><Status kind={status.kind} label={status.text} /></span> : value === null
     ? <span className="v missing" data-tile-value="">{missing ?? "belum diisi"}</span>
     : <><span className="v" data-tile-value="">{value}</span>{unit ? <span className="u">{unit}</span> : null}</>;
   return (

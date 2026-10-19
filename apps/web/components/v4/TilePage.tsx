@@ -110,7 +110,7 @@ function emptyText(t: TileModel): string | null {
 /** v6 body of a tile (flag v6_shell): Card6 for cards, the visible <h1> for the headline, one line for an empty tile. */
 function body6(t: TileModel): ReactNode {
   const c = t.content;
-  if (c.type === "headline") return <Headline>{c.text}</Headline>;
+  if (c.type === "headline") return <Headline note={c.note}>{c.text}</Headline>;
   if (c.type === "card") return null; // rendered by Card6 in place of the tile header and body
   if (c.type === "stepper") {
     // R147: the step's status as Status (icon + word); the step's own text stays visible as its label
@@ -151,7 +151,7 @@ export function TilePage({ tiles: given, label, extras, v6, plainText }: {
             return (
               <Tile key={t.id} id={t.id} pos={pos} kind="card" source={t.source}>
                 <Card6 id={t.id} title={t.title ?? t.id} value={c.value} unit={c.unit} missing={c.missing} compare={c.compare.slice(0, c.maxCompare ?? 3)} href={c.href}
-                  finding={t.note ? { text: t.note } : null} cara={t.cara} />
+                  finding={t.note ? { text: t.note } : null} cara={t.cara} status={c.status} />
                 {extras?.[t.id] ?? null}
               </Tile>
             );

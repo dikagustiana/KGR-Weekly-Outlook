@@ -9,6 +9,7 @@
 import { useActionState, useMemo, useState, type ChangeEvent } from "react";
 import { UPLOAD_TEMPLATES, parseCsv, parseTsv, templateGrid, validateUpload, type Grid, type UploadContext, type UploadKindV5 } from "@kgr/engine/upload";
 import { isLegacyXls, workbookGrid, type SheetLib } from "@/lib/v5/upload-grid";
+import { Status } from "../v6/Status";
 
 export type ActionState = { ok?: string; error?: string };
 /** PRD v5.1 R36 (v4 §5.1 rule 3): the level of a check in words, no icon and no colour. */
@@ -26,12 +27,14 @@ async function legacyLib(): Promise<Lib> {
   return ((mod as { default?: unknown }).default ?? mod) as never;
 }
 
-export function UploadPanel({ kind, ctx, sample, canSave, action }: {
+export function UploadPanel({ kind, ctx, sample, canSave, action, v6 = false }: {
   kind: UploadKindV5;
   ctx: UploadContext;
   sample: Grid | null;
   canSave: boolean;
   action: (s: ActionState, f: FormData) => Promise<ActionState>;
+  /** PRD v6 R162 (flag v6_pages): a check's outcome as Status (not a link-coloured word), its rule code left out of the line. */
+  v6?: boolean;
 }) {
   const tpl = UPLOAD_TEMPLATES[kind];
   const [src, setSrc] = useState<{ name: string; grid: Grid; sample: boolean } | null>(null);
@@ -82,18 +85,20 @@ export function UploadPanel({ kind, ctx, sample, canSave, action }: {
       <label className="note upl-paste">Atau salin sel dari Excel lalu tempel di sini (baris pertama = judul kolom)
         <textarea rows={2} value={paste} onChange={(e) => setPaste(e.target.value)} />
       </label>
-      <button type="button" className="v4b" disabled={!paste.trim()} onClick={() => setSrc({ name: "tempelan", grid: parseTsv(paste), sample: false })}>Cek tempelan</button>
+      <button type="button" className="v4b" disabled={!paste.trim()} onClick={() => setSrc({ name: v6 ? "tempel dari Excel" : "tempelan", grid: parseTsv(paste), sample: false })}>{v6 ? "Cek yang ditempel" : "Cek tempelan"}</button>
       {status ? <p className="note" role="status">{status}</p> : null}
       {r && src ? (
         <>
           <p className="note">{src.sample ? "contoh" : src.name} · {r.total} baris dibaca</p>
           <ul className="upl-checks">
-            {r.checks.map((c, i) => <li key={i} data-level={c.level}>{CHECK_LEVEL[c.level] ? <span>{CHECK_LEVEL[c.level]} </span> : null}<b>{c.title}</b> {c.detail} <span className="note">{c.result}{c.code ? ` · ${c.code}` : ""}</span></li>)}
+            {r.checks.map((c, i) => v6
+              ? <li key={i} data-level={c.level}><Status kind={c.level === "fail" ? "terlambat" : c.level === "warn" ? "catatan" : "lolos"} label={c.level === "fail" ? "ditahan" : c.level === "warn" ? "catatan" : "lolos"} size="sm" /> <b>{c.title}</b> {c.detail} <span className="note">{c.result}</span></li>
+              : <li key={i} data-level={c.level}>{CHECK_LEVEL[c.level] ? <span>{CHECK_LEVEL[c.level]} </span> : null}<b>{c.title}</b> {c.detail} <span className="note">{c.result}{c.code ? ` · ${c.code}` : ""}</span></li>)}
           </ul>
           {r.rows.length ? (
             <table className="v4t" aria-label="Baris upload">
               <thead><tr><th scope="col">{kind === "yield_matrix" ? "Kelas" : kind === "costing_wp" ? "Kode" : "Ref"}</th><th scope="col">Isi</th><th scope="col" className="n">{kind === "yield_matrix" ? "Yield karkas" : kind === "fixed_cost" || kind === "supplier_invoice" ? "Rp jt" : "kg"}</th><th scope="col">Cek</th><th scope="col">Tindakan</th></tr></thead>
-              <tbody>{r.rows.slice(0, 50).map((x, i) => <tr key={i} data-level={x.level}><td>{x.ref}</td><td className="wrap">{x.name}</td><td className="n">{x.kg}</td><td>{LEVEL[x.level]}</td><td className="wrap">{x.action}</td></tr>)}</tbody>
+              <tbody>{r.rows.slice(0, 50).map((x, i) => <tr key={i} data-level={x.level}><td>{x.ref}</td><td className="wrap">{x.name}</td><td className="n">{x.kg}</td><td>{v6 ? <Status kind={x.level === "fail" ? "terlambat" : x.level === "warn" ? "catatan" : "lolos"} label={LEVEL[x.level] === "gagal" ? "ditahan" : LEVEL[x.level]} size="sm" /> : LEVEL[x.level]}</td><td className="wrap">{x.action}</td></tr>)}</tbody>
             </table>
           ) : null}
           {r.rows.length > 50 ? <p className="cut">menampilkan 50 dari {r.rows.length}</p> : null}

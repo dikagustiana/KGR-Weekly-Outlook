@@ -127,3 +127,35 @@ describe("upload panel (client) — first render", () => {
     expect(html).not.toMatch(/Simpan/);
   });
 });
+
+// ------------------------------------------------------------------------------------------------ PRD v6 (flag v6_pages)
+import { inputV6 } from "../v6/input-v6";
+import { releaseReadiness } from "../v6/readiness";
+import { hasCode } from "../v6/glossary";
+describe("Input v6 (R151–R153, R162)", () => {
+  const finance = input("finance", { cards: [{ title: "Siap rilis", value: "ya", sub: "grid tanpa sel terlambat", tone: "plain" }, { title: "Tugas terbuka", value: "2", sub: "", tone: "plain" }, { title: "Beban tetap bulan ini", value: "estimasi", sub: "2 baris tanpa jadwal (C55)", tone: "warn" }, { title: "Upload lain", value: "wizard v4", sub: "jurnal", tone: "plain" }] });
+  const v6 = inputV6(finance, inputV5Model(finance).tiles, () => undefined);
+  const r = releaseReadiness(finance);
+  it("one source: the 'Siap rilis' card and the headline say the same", () => {
+    const card = v6.tiles.find((t) => t.title === "Siap rilis")!;
+    const head = v6.tiles.find((t) => t.id === "headline")!;
+    expect(card.content.type === "card" && card.content.status?.kind).toBe(r.ready ? "lolos" : "terlambat");
+    expect(head.content.type === "headline" && head.content.text).toMatch(r.ready ? /siap dirilis/ : /tertahan/);
+  });
+  it("no word cards, no codes, no backlog notes; the time is the headline's note", () => {
+    expect(v6.tiles.some((t) => t.title === "Upload lain")).toBe(false);
+    const fixed = v6.tiles.find((t) => t.title === "Beban tetap bulan ini")!;
+    expect(fixed.content.type === "card" && fixed.content.value).toBe("2");
+    expect(v6.tiles.find((t) => t.id === "hari")).toBeUndefined();
+    const head = v6.tiles.find((t) => t.id === "headline")!;
+    expect(head.content.type === "headline" && head.content.note).toMatch(/Cut-off pembelian LB 12.00/);
+    expect(v6.tiles.find((t) => t.id === "parameter")!.note).toBeUndefined();
+    for (const t of v6.tiles) expect(hasCode(`${t.title ?? ""} ${t.note ?? ""}`)).toBe(false);
+  });
+  it("tasks: one line each, late first, status in the four words", () => {
+    const ca = input("cost_accounting");
+    const t = inputV6(ca, inputV5Model(ca).tiles, () => undefined);
+    expect(t.tasks.map((x) => x.status)).toContain("terlambat");
+    expect(t.impact).toBeTruthy();
+  });
+});
