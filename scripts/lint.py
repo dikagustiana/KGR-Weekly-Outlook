@@ -4,6 +4,9 @@
   python3 -I scripts/lint.py k41 [dir ...]      fail-closed reads
   python3 -I scripts/lint.py k42 [dir ...]      stable pagination and chunked .in()
   python3 -I scripts/lint.py missing [dir ...]  missing is not zero (R64): no `?? 0`, `?? "0"`, `|| 0`, `|| "0"`
+  python3 -I scripts/lint.py v6 [dir ...]       PRD v6 R156: (a) specification codes in user text, (b) window.confirm /
+                                                window.alert, (c) placeholder without a label, (d) role names outside the glossary
+  python3 -I scripts/lint.py v6 --baseline      rewrite scripts/lint-fixtures/v6/baseline.txt from the current code
 
 Default dir: apps/web (missing: apps/web/lib and apps/web/app). Test files (*.test.*, *.spec.*) are skipped. A line may opt out of one rule with a marker
 comment that names the reason, e.g. `// k41-ok: cookies() is read-only in a Server Component`. The marker without a
@@ -305,7 +308,102 @@ def missing(dirs):
     return rep.hits
 
 
+# ---------------------------------------------------------------- v6 (R156)
+# (a) a code in prose: a literal with a space in it that names C12 / K35 / O8 / R123 / B-R119 / Q-v6-1. A bare code literal ("C50",
+#     a key) is not prose. The "cara hitung" drawer is where codes belong: a literal on a line of a CaraHitungContent (fn:, rule:,
+#     a `sources` entry) is not user text in the screen.
+# (b) window.confirm / window.alert / bare confirm( / alert( — K93: decisions use DecisionDialog, questions are asked in the form.
+# (c) a JSX element with placeholder= and no aria-label= / aria-labelledby= / id= (a <label htmlFor> needs the id) on the same line.
+# (d) a role name written outside lib/roles.ts and lib/v6/glossary.ts (K96: the glossary names roles).
+# (a), (c) and (d) are ratchets over the code of before v6: scripts/lint-fixtures/v6/baseline.txt holds the count per file and rule;
+# a file above its count is a hit, a file below it is reported so the baseline is lowered (M7 is the sum of rule a). Explicit dirs
+# (the fixtures) are checked without a baseline. A line opts out with `// v6-ok: <reason>`.
+V6_CODE = re.compile(r"\b(?:C\d{2}|K\d{2,3}|O\d{1,2}|R\d{2,3}|B-R\d{2,3}|Q-v[\d.]+-\d+)\b")
+V6_LITERAL = re.compile(r"\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`")
+V6_DRAWER = re.compile(r"^\s*(?:fn|rule|sources|basis|status|period)\s*:|\{\s*label:\s*\"(?:Tabel|Fungsi|Aturan|Kode|Sumber)\"")
+V6_CONFIRM = re.compile(r"\bwindow\.(?:confirm|alert)\s*\(|(?<![\w.])(?:confirm|alert)\s*\(")
+V6_PLACEHOLDER = re.compile(r"\bplaceholder=")
+V6_LABELLED = re.compile(r"\baria-label(?:ledby)?=|\bid=")
+V6_ROLE_WORDS = re.compile(r"[\"'`](?:Inventory Accounting|Purchasing / Ops|Cost Accounting|Management|Finance)[\"'`]")
+V6_ROLE_HOME = ("apps/web/lib/roles.ts", "apps/web/lib/v6/glossary.ts")
+V6_BASELINE = os.path.join(ROOT, "scripts", "lint-fixtures", "v6", "baseline.txt")
+
+
+def v6_hits(dirs):
+    """(rule, path, lineno, text) for every finding."""
+    out = []
+    for path in source_files(dirs):
+        r = rel(path)
+        lines = open(path, encoding="utf-8").read().split("\n")
+        for i, line in enumerate(lines, 1):
+            code = code_part(line)
+            if code is None or marker(line, "v6") is True:
+                continue
+            if V6_CONFIRM.search(mask_strings(code)):
+                out.append(("b", r, i, line))
+            if V6_PLACEHOLDER.search(code) and not V6_LABELLED.search(code):
+                out.append(("c", r, i, line))
+            if r not in V6_ROLE_HOME and V6_ROLE_WORDS.search(code):
+                out.append(("d", r, i, line))
+            if V6_DRAWER.search(code):
+                continue
+            for m in V6_LITERAL.finditer(code):
+                lit = m.group(0)[1:-1]
+                if " " in lit and V6_CODE.search(lit):
+                    out.append(("a", r, i, line))
+                    break
+    return out
+
+
+def read_baseline():
+    base = {}
+    if os.path.exists(V6_BASELINE):
+        for row in open(V6_BASELINE, encoding="utf-8"):
+            row = row.strip()
+            if row and not row.startswith("#"):
+                rule, path, n = row.split()
+                base[(rule, path)] = int(n)
+    return base
+
+
+def v6(dirs, baseline=True, write=False):
+    hits = v6_hits(dirs)
+    counts = {}
+    for rule, path, _, _ in hits:
+        counts[(rule, path)] = counts.get((rule, path), 0) + 1
+    if write:
+        with open(V6_BASELINE, "w", encoding="utf-8") as f:
+            f.write("# PRD v6 R156 ratchet: rule (a codes in text, c placeholder without label, d role names) path count. Lower it, never raise it.\n")
+            for (rule, path), n in sorted(counts.items()):
+                if rule != "b":
+                    f.write("%s %s %d\n" % (rule, path, n))
+        print("baseline: %d entries, rule a (M7) = %d" % (sum(1 for k in counts if k[0] != "b"), sum(n for k, n in counts.items() if k[0] == "a")))
+    base = read_baseline() if baseline else {}
+    rep = Report("v6")
+    seen = {}
+    msg = {"a": "kode spesifikasi di teks tampilan (pindah ke cara hitung / glosarium)", "b": "window.confirm / alert (pakai DecisionDialog atau konfirmasi di form)",
+           "c": "placeholder tanpa label (aria-label atau <label>)", "d": "nama role di luar glosarium (lib/v6/glossary.ts ROLE_NAME)"}
+    for rule, path, i, line in hits:
+        seen[(rule, path)] = seen.get((rule, path), 0) + 1
+        if rule != "b" and seen[(rule, path)] <= base.get((rule, path), 0):
+            continue
+        rep.hit(os.path.join(ROOT, path), i, msg[rule], line)
+    if baseline:
+        for (rule, path), n in sorted(base.items()):
+            if counts.get((rule, path), 0) < n:
+                print("v6 baseline bisa diturunkan: %s %s %d → %d" % (rule, path, n, counts.get((rule, path), 0)))
+        print("M7 (aturan a, kode di teks tampilan): %d" % sum(n for k, n in counts.items() if k[0] == "a"))
+    return rep.hits
+
+
 def main(argv):
+    if len(argv) >= 2 and argv[1] == "v6":
+        args = [a for a in argv[2:] if not a.startswith("--")]
+        write = "--baseline" in argv
+        dirs = args or [os.path.join(ROOT, "apps", "web", d) for d in ("app", "components", "lib")]
+        hits = v6(dirs, baseline=not args, write=write)
+        print("V6: %d hit" % hits)
+        return 1 if hits and not write else 0
     if len(argv) < 2 or argv[1] not in ("k41", "k42", "missing"):
         print(__doc__)
         return 2

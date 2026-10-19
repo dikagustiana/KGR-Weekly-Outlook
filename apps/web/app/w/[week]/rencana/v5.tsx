@@ -5,7 +5,7 @@ import { periodOf, sourcesOf } from "@/lib/v5/management-data";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage, hasHeadline } from "@/components/v4/TilePage";
-import { v6ShellOn } from "@/lib/v6/flags";
+import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
 import type { WeekCtx } from "@/lib/page";
 import { supabaseServer } from "@/lib/supabase";
 import { stockMartControl } from "@/lib/v3/stale";
@@ -39,7 +39,7 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="rencana">
       {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
-      <TilePage tiles={model.tiles} label={model.title} extras={extras} v6={v6} />
+      <TilePage tiles={model.tiles} label={model.title} extras={extras} v6={v6} plainText={v6 && (await v6PagesOn())} />
       {canPlan ? (
         <section className="fin" aria-label="Kapasitas">
           <h2>Kapasitas potong minggu ini (ekor per hari)</h2>

@@ -12,6 +12,8 @@ const show = (v: unknown) => (v === null || v === undefined ? "—" : typeof v =
 export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kinds: Kind[]; keys: string[]; isAdmin: boolean }) {
   const [kind, setKind] = useState(kinds[0]?.kind ?? "");
   const [file, setFile] = useState<File | null>(null);
+  // PRD v6 K93 (R156b): the question is asked in the page, not with window.confirm
+  const [asking, setAsking] = useState(false);
   const [prod, setProd] = useState(true);
   const [res, setRes] = useState<StageResult | null>(null);
   const [path, setPath] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
 
   const doCommit = () => run(async () => {
     if (!res) return;
-    if (!window.confirm("Simpan perubahan ini ke database?")) return;
+    setAsking(false);
     const r = await commit(res.uploadId, week);
     setMsg(r);
     if (r.ok) { setRes(null); setFile(null); setPath(null); }
@@ -140,7 +142,13 @@ export function UploadWizard({ week, kinds, keys, isAdmin }: { week: string; kin
               </tbody>
             </table>
             <div className="row" style={{ marginTop: 8 }}>
-              <button className="b" onClick={doCommit} disabled={pending || (totals && totals.i + totals.u + totals.d === 0 && !res.workbookWeek)}>{pending ? "Menyimpan…" : "Simpan ke database"}</button>
+              {asking ? (
+                <span className="af-confirm" role="group" aria-label="Konfirmasi">
+                  <span>Simpan perubahan ini?</span>
+                  <button className="b" onClick={doCommit} disabled={pending} autoFocus>Ya, simpan</button>
+                  <button className="b sec" type="button" onClick={() => setAsking(false)}>Batal</button>
+                </span>
+              ) : <button className="b" onClick={() => setAsking(true)} disabled={pending || (totals && totals.i + totals.u + totals.d === 0 && !res.workbookWeek)}>{pending ? "Menyimpan…" : "Simpan ke database"}</button>}
               <button className="b sec" onClick={cancel} disabled={pending}>Batalkan</button>
             </div>
           </div>

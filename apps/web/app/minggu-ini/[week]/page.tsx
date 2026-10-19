@@ -4,7 +4,7 @@ import { weekContext, type PageProps } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { DecisionDialog } from "@/components/v6/DecisionDialog";
 import { NumberInput } from "@/components/v6/NumberInput";
-import { v6ShellOn } from "@/lib/v6/flags";
+import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
 import { wallNow } from "@/lib/clock";
 import { TilePage, hasHeadline } from "@/components/v4/TilePage";
 import { moduleSettings } from "@/lib/modules";
@@ -26,7 +26,8 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   if (!mingguIniAllowed(viewer.role) || !v4On(await moduleSettings(), viewer.role)) notFound();
   const ctx = await weekContext(week);
   const input = await loadMingguIni(ctx, sp);
-  const model = mingguIniModel(input);
+  // PRD v6 irisan 5 (flag v6_pages): the cards carry the decided metric
+  const model = mingguIniModel({ ...input, v6: await v6PagesOn() });
   // PRD v5 journey M (flag v5_management): the operations director decides the price tried in the simulation (K25)
   const extras: Record<string, ReactNode> = {};
   const m = input.v5Mgmt;
@@ -56,7 +57,7 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="minggu-ini">
       {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">Minggu ini</h1>}
-      <TilePage tiles={model.tiles} label="Minggu ini" extras={extras} v6={v6} />
+      <TilePage tiles={model.tiles} label="Minggu ini" extras={extras} v6={v6} plainText={v6 && (await v6PagesOn())} />
     </Shell>
   );
 }

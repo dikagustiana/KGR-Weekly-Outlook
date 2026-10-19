@@ -9,6 +9,7 @@ import { NavProgress } from "./NavProgress";
 import { ScrollFocus } from "./ScrollFocus";
 import { ViewToggle } from "../ViewToggle";
 import type { ViewMode } from "@/lib/view";
+import { ROLE_NAME } from "@/lib/v6/glossary";
 
 export interface ReleaseInfo {
   /** "28 Agu 2026" */
@@ -74,7 +75,7 @@ export function Shell6({ viewer, weeks, week, tabs, active, view, viewAs, viewAs
           {w ? <WeekPicker weeks={pick} current={w} long={longDates} /> : null}
           <p className="v6-rel" data-release-line="">{releaseLine(release)}</p>
           <div className="v6-acct">
-            <span>{who ? `${who} · ` : ""}{viewer.role ? ROLE_NAME[viewer.role] ?? viewer.role : ""}</span>
+            <span>{who ? `${who} · ` : ""}{ROLE_NAME[viewer.role]}</span>
             <details className="v6-more">
               <summary aria-label="Menu akun">Akun ▾</summary>
               <div className="v6-pop right">{acctLinks}</div>
@@ -94,7 +95,7 @@ export function Shell6({ viewer, weeks, week, tabs, active, view, viewAs, viewAs
           <Link href="/" className="v6-brand">KGR</Link>
           {w ? <WeekPicker weeks={pick} current={w} compact /> : null}
           <MobileMenu tabs={tabs} active={active} viewAs={viewAs} viewAsActive={viewAsActive} release={release ? <p className="note">{releaseLine(release)}</p> : null}
-            account={<div className="v6-pop" style={{ position: "static", boxShadow: "none" }}><span className="lbl">{who ? `${who} · ` : ""}{ROLE_NAME[viewer.role] ?? viewer.role}</span>{acctLinks}</div>} />
+            account={<div className="v6-pop" style={{ position: "static", boxShadow: "none" }}><span className="lbl">{who ? `${who} · ` : ""}{ROLE_NAME[viewer.role]}</span>{acctLinks}</div>} />
         </div>
       </header>
       {banner}
@@ -103,9 +104,3 @@ export function Shell6({ viewer, weeks, week, tabs, active, view, viewAs, viewAs
     </div>
   );
 }
-
-/** K96: role names in Indonesian (the glossary's; lib/roles.ts ROLE_LABEL keeps the stored labels until irisan 5). */
-const ROLE_NAME: Record<string, string> = {
-  management: "Manajemen", operations_director: "Direktur Operasional", finance: "Keuangan", cost_accounting: "Akuntansi Biaya",
-  inventory_accounting: "Akuntansi Persediaan", ppic: "PPIC", commercial_lead: "Kepala Sales", sales: "Sales", purchasing: "Pembelian", admin: "Admin",
-};

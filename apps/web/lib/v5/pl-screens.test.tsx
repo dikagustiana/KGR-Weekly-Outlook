@@ -54,7 +54,7 @@ describe("Outlook bulan with v5_pl (§6.2, K29–K31)", () => {
   });
   it("cards and headline carry NIBT according to the journal and after fixed costs (K29)", () => {
     const m = model();
-    expect(text(m.tiles.find((t) => t.id === "headline"))).toContain("NIBT Rp 79,2 jt menurut jurnal atau Rp −7,8 jt setelah gaji, penyusutan dan bunga");
+    expect(text(m.tiles.find((t) => t.id === "headline"))).toContain("NIBT Rp 79,2 jt menurut jurnal, Rp −7,8 jt setelah gaji, penyusutan dan bunga");
     const out = text(m.tiles.find((t) => t.id === "c-outlook"));
     expect(out).toContain("NIBT jurnal 79,2 jt");
     expect(out).toContain("NIBT setelah beban tetap −7,8 jt");
@@ -85,5 +85,16 @@ describe("Minggu ini with v5_pl (§6.1 tile Laba rugi, K30 default Per minggu)",
     const split = text(withV5("aktual").tiles.find((x) => x.id === "t-laba-rugi"));
     expect(split).toContain("24–26 Agu · jurnal");
     expect(split).toContain("27–30 Agu · PO");
+  });
+});
+
+// PRD v6 R149 (K97): the headline never prints the same NIBT twice, and names no rule code
+import { mingguIniV5 as headlineOf } from "./pl-tiles";
+describe("R149 headline NIBT", () => {
+  it("is in the source: the second NIBT only when it differs as shown, no (C55)", async () => {
+    const src = (await import("node:fs")).readFileSync(new URL("./pl-tiles.ts", import.meta.url), "utf8");
+    expect(src).toContain('jtV4(outlook.nibtAfter) === jtV4(outlook.nibt) ? ""');
+    expect(src).not.toContain("belum ada (C55)");
+    expect(typeof headlineOf).toBe("function");
   });
 });

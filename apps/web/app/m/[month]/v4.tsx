@@ -3,7 +3,7 @@ import { clock } from "@/lib/clock";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
 import { TilePage, hasHeadline } from "@/components/v4/TilePage";
-import { v6ShellOn } from "@/lib/v6/flags";
+import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
 import { plainContext } from "@/lib/page";
 import { moduleSettings } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
@@ -31,7 +31,7 @@ export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = nul
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/m">
       {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
-      <TilePage tiles={model.tiles} label={model.title} v6={v6} />
+      <TilePage tiles={model.tiles} label={model.title} v6={v6} plainText={v6 && (await v6PagesOn())} />
       {canAct && rc ? <FinancePanel first={first} extra={extra} cutOff={input.cutOff} hasRows={!!input.rows} rc={rc} role={viewer.role} /> : null}
     </Shell>
   );

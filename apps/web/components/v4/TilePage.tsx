@@ -11,6 +11,7 @@ import { Headline } from "../v6/Headline";
 import { TileEmpty, TileError } from "../v6/TileState";
 import { Stepper6 } from "../v6/Stepper";
 import type { StatusKind } from "@/lib/v6/status-map";
+import { plainTiles } from "@/lib/v6/plain-model";
 
 /**
  * Inner size of a tile at 1366 px (12 columns, gap 12, rows of 76): the SVG viewBox of a chart. `chrome` is what the
@@ -127,7 +128,12 @@ function body6(t: TileModel): ReactNode {
  * PRD v6 (`v6`, flag v6_shell): cards are Card6 (four rows, the value links with "Buka …", ⓘ for source and rule), the
  * headline is the page's visible <h1>, an empty tile is one line at 76 px, a failed tile says which and offers "Muat ulang".
  */
-export function TilePage({ tiles, label, extras, v6 }: { tiles: TileModel[]; label: string; extras?: Record<string, ReactNode>; v6?: boolean }) {
+export function TilePage({ tiles: given, label, extras, v6, plainText }: {
+  tiles: TileModel[]; label: string; extras?: Record<string, ReactNode>; v6?: boolean;
+  /** PRD v6 R154 (flag v6_pages): every text through the glossary, codes only in the drawer. */
+  plainText?: boolean;
+}) {
+  const tiles = plainText ? plainTiles(given) : given;
   const ordered = [...tiles].sort((a, b) => a.pos.y - b.pos.y || a.pos.x - b.pos.x);
   if (v6) {
     // K86 / K88 / R138: the week chips and the release line + PDF live in the shell (WeekPicker, context row, phone menu), not

@@ -21,4 +21,7 @@ expect k42 good 0 0
 # R64: 11 numbered lines (a marker without a reason or without the colon counts as a hit; two zeros on one line count once)
 expect missing bad 1 11
 expect missing good 0 0
+# PRD v6 R156: codes in text, window.confirm, placeholder without a label, a role name outside the glossary
+expect v6 bad 1 5
+expect v6 good 0 0
 exit "$fail"

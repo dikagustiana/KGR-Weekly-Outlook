@@ -217,8 +217,10 @@ export function outlookBulanV5(tiles: TileModel[], x: { first: string; cutOff: s
   for (const t of tiles) {
     const moved = t.pos.y >= 4 ? { ...t, pos: { ...t.pos, y: t.pos.y + 4 } } : t;
     if (t.id === "headline" && t.content.type === "headline") {
+      // PRD v6 R149 / K97: one number per claim — the NIBT after fixed costs only when it differs from the journal NIBT as
+      // shown (0,1 jt); the code of the rule (C55) stays in the "cara hitung" drawer
       const gpPct = outlook.revenue.isZero() ? null : outlook.gp.div(outlook.revenue);
-      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal${missing ? "; beban tetap bulan ini belum ada (C55)" : ` atau Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}`}.` } });
+      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal${missing ? "; beban tetap bulan ini belum ada" : jtV4(outlook.nibtAfter) === jtV4(outlook.nibt) ? "" : `, Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}`}.` } });
     } else if (t.content.type === "card" && (t.id === "c-actual" || t.id === "c-forecast" || t.id === "c-outlook") && t.content.value !== null) {
       const tot = t.id === "c-actual" ? actual : t.id === "c-forecast" ? forecast : outlook;
       const keep = t.content.compare.filter((c) => c.label !== "NIBT" && c.label !== "GP P&L");
