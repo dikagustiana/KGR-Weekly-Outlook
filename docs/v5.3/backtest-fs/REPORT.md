@@ -148,7 +148,9 @@ Kelas BUG/PARSER pada angka: 0. Parser GL, bangun ulang, mart, C59, dan FINAL me
 - **F-2.** Selisih Valuation detail lawan persediaan GL (§4 L5).
 - **F-3.** Agustus beban pajak Rp 513.119 (PPh 22): FS lebih kecil dari TB, tanpa nota DI. Jurnal apa?
 - **F-4.** 1102008 Temporary Account (Sep −158,0 jt): masuk kas (seperti FS) atau tidak (seperti coa_map app)? Bila masuk kas, coa_map
-  diubah (persetujuan Dika).
+  diubah (persetujuan Dika). **Jawaban Dika 19 Okt:** isinya dana pinjaman ke pihak berelasi. Pemetaan (kas, piutang/pinjaman ke pihak
+  berelasi, atau tetap uang muka) belum diputuskan, jadi `coa_map` tidak diubah. Selisih kas Rp 158,0 jt tetap menjadi alasan
+  override C59 September.
 - **F-5.** Persediaan trading MR September Rp 4.876.178 di bawah sheet BS/TB tanpa jurnal: konfirmasi bahwa ini penyeimbang DI Agustus.
 - DI-01…06 akan dijurnal di Accurate kapan? Setelah itu GL diunggah ulang dan override C59 tidak perlu lagi.
 
@@ -160,3 +162,29 @@ Kelas BUG/PARSER pada angka: 0. Parser GL, bangun ulang, mart, C59, dan FINAL me
 - `fs_line_map` 15 `draft`.
 - `coa_map` 213.
 - `closing_adjustment` 6 baris September belum diposting (BT-FS-1).
+
+## 9. Keadaan KGR-OS sesudah pemuatan (19 Okt, atas permintaan Dika)
+
+Data dimuat lewat SQL dengan logika yang sama dengan `commitUpload` (`apps/web/lib/upload.ts`): rentang tanggal berkas diganti,
+baris dicocokkan per `line_key`, dan baris yang tidak ada di berkas dihapus secara soft. Hasilnya diuji dulu di salinan lokal
+KGR-OS dan identik dengan unggahan lewat app, termasuk `seq`. Staging dikirim per potongan dan tiap potongan dicek md5-nya.
+Backup diambil sebelum perubahan, di skema `backup_20261018`.
+
+| Objek | Sesudah | Cek |
+| --- | --- | --- |
+| Jurnal Agustus | upload `committed`: 2.429 baris baru, 2 diubah, 1.838 lama dihapus (soft) | 2.431 baris aktif; Σ debit/kredit = berkas (Rp 83.091,3 jt) |
+| Jurnal September | upload `committed`: 1.942 baris baru | 1.942 baris aktif; Σ debit/kredit = berkas (Rp 81.056,6 jt) |
+| Tanggal update minggu 24 Agu | 27 Agu menjadi 31 Agu (`advance_update_date`) | sama dengan app |
+| FS acuan versi 2 | 12 baris September, terkunci | 13/13 cek `kgr-os-data-fs-v2.sql` benar |
+| `fs_line_map` | 15 baris `agreed` (atas nama Dika) | menjawab BT-FS-2 untuk data ini |
+| DI Agustus | 5 penyesuaian diposting, `gl_voucher` "DI (belum dijurnal)" | Σ Rp −4,9 jt (−4.876.183,18) |
+| DI September | DI-01 migrasi diposting; DI-03 Expedition, DI-02 Maintenance, DI-02 Other Expense ditambah dan diposting | Σ diposting Rp 104,4 jt; 5 DI migrasi lain tetap tidak diposting (BT-FS-1) |
+| `rebuild_queue` | 59 tanggal 1 Agu–30 Sep `queued` (dari pemicu) | menunggu "Bangun ulang" |
+
+Belum dikerjakan, karena butuh orang atau keputusan:
+
+- **Bangun ulang**: Admin → Modul → "Bangun ulang" sampai antrean habis. Sebelum itu, mart dan C59 belum memakai jurnal baru.
+- **Override C59 dan Kunci FINAL** Agustus dan September: hanya peran Finance yang bisa, dan KGR-OS baru punya 1 akun (Admin).
+  Alasan override: sisi neraca DI belum dijurnal (BT-FS-3), 1102008 (F-4), dan D9.
+- **F-1, F-2, F-3, F-5** tetap pertanyaan Finance.
+- **COGS LB** (Pot_*) belum dimuat: menunggu keputusan di `docs/v5.3/backtest-cogs`.

@@ -4,6 +4,8 @@
 Deployments 7156264852, 14.57 UTC) · Database: KGR-OS `pczjhmzpkknzkziipvit`, `schema_version()` 5.2.6 (dibaca lewat connector,
 hanya SELECT, 18 Okt ±15.10 UTC).
 
+§1–§6 adalah keadaan 18 Okt malam. Keadaan sesudah merge, backtest Agustus–September, dan pemuatan data ke KGR-OS ada di §7.
+
 Kolom *Deployed* menilai `main` `9d10f83` yang aktif di production saat laporan ditulis; PR #66–#69 **belum di-merge dan belum di-deploy** sampai Dika melakukannya (§6 langkah 3).
 
 Semua klaim "lulus" menyebut lingkungannya: **vitest** (klien memori, tanpa RLS), **PG16 lokal + shim** (`test-rls.sh`), **PG16
@@ -145,3 +147,50 @@ Yang sudah terlihat dari tangkapan layar:
 9. **Upload jurnal Agustus dan September** (SIAP-PAKAI §4b) sebagai Admin/Inventory Accounting, lalu DI, bank, stok, FINAL per
    bulan (B-R90). Sampai ini selesai, dashboard bukan angka resmi.
 10. **Beri tahu agen cabang `v5.2/a8-fixes`** bahwa A8 tidak di-merge untuk 19 Okt; lanjutkan mencari sebab #418.
+
+## 7. Pembaruan 19 Okt: merge, backtest Agustus–September, data KGR-OS
+
+Basis kode: `main` `56ae225`. PR #66–#72 sudah di-merge atas izin Dika di percakapan. Database: KGR-OS, dibaca dan ditulis lewat
+connector 19 Okt. Backup sebelum menulis ada di skema `backup_20261018`.
+
+### 7.1 Yang berubah sejak §1–§6
+
+| Area | 18 Okt | 19 Okt | Bukti |
+|---|---|---|---|
+| PR #66–#69 (V7, V8, V10, UI 390 px) | belum di-merge | di-merge dan di-deploy | `main` `87c8c61`; GitHub status Vercel success |
+| D2 (kunci servis, cron) | belum | jalan: `data_status` 148 baris dari bangun ulang | KGR-OS SELECT 19 Okt |
+| Backtest COGS LB (#71) | — | parser dan mesin = sheet Pot_*; BT-COGS-1 (sheet tersembunyi dibaca sebagai batch) diperbaiki | `docs/v5.3/backtest-cogs/REPORT.md` |
+| Backtest FS (#72) | — | GL = TB untuk 189/189 akun; laba rugi C59 = FS sesudah DI; gladi sampai Kunci FINAL lulus (PG16 lokal + PostgREST + mock auth) | `docs/v5.3/backtest-fs/REPORT.md` |
+| Jurnal Agustus–September di KGR-OS | 1.840 baris, 1–26 Agu | 2.431 baris Agustus dan 1.942 baris September, Σ = berkas | `backtest-fs/REPORT.md` §9 |
+| FS acuan | versi 1 | versi 2 untuk 12 baris September (13/13 cek benar) | `docs/v5.3/kgr-os-data-fs-v2.sql` |
+| `fs_line_map` (V3, BT-FS-2) | 15 draft | 15 `agreed` atas nama Dika | KGR-OS SELECT |
+| DI tutup buku | 6 DI September dari migrasi, belum diposting | DI FS diposting: Agustus 5 (Σ Rp −4,9 jt), September 4 (Σ Rp 104,4 jt) | `backtest-fs/REPORT.md` §9 |
+
+### 7.2 GO / NO-GO 19 Okt (menggantikan §3)
+
+| Pemakaian 19 Okt | Vonis | Syarat yang tersisa |
+|---|---|---|
+| Admin dan uji pengguna | **GO terbatas** | Tidak ada syarat tambahan |
+| Pelatihan Finance, Sales, PPIC dengan skenario terkontrol | **GO sesudah akun dan minggu 19 Okt** | Akun per peran (KGR-OS baru punya 1 Admin); minggu 19 Okt dibuat; penugasan Sales; keputusan V6 bila harga beli LB rahasia bagi Sales |
+| Tutup buku Agustus–September (C59, FINAL) | **GO sesudah Bangun ulang dan akun Finance** | Bangun ulang 59 tanggal; Finance melakukan override C59 dengan alasan (DI sisi neraca, 1102008, D9), lalu Kunci FINAL |
+| Dashboard sebagai angka resmi operasional | **NO-GO** | V4/V5 (angka contoh), V9 (status mart), COGS LB belum dimuat |
+| Output sebagai laporan manajemen final | **NO-GO** | FINAL Agustus–September terkunci; F-1…F-5 dijawab Finance; DI dijurnal di Accurate |
+
+### 7.3 Daftar untuk Dika, berurutan (menggantikan §6)
+
+1. **Admin → Modul → "Bangun ulang"**, ulangi sampai antrean kosong. Saat ini ada 59 tanggal `queued` (1 Agu–30 Sep).
+2. **Admin → Pengguna**: buat akun Finance (dan peran pilot lain). Override C59 dan Kunci FINAL hanya bisa oleh Finance.
+3. **Finance → `/m/2026-08/tutup-buku`, lalu `/m/2026-09/tutup-buku`**: override C59 dengan alasan "DI belum dijurnal di Accurate
+   (sisi neraca); 1102008 dana pinjaman ke pihak berelasi; pembulatan FS D9", lalu Kunci FINAL. Kunci FINAL tidak bisa dibatalkan.
+4. **Admin → Minggu → "Buat minggu kosong"**: minggu 19 Okt 2026.
+5. **Komersial → Penugasan Sales**, lalu langkah data simulator K25 (§6 langkah 8).
+6. **Putuskan**: V6, V11 (§6 langkah 1); pemetaan 1102008 di `coa_map` (F-4); COGS LB (`backtest-cogs/REPORT.md` §8: Pot_ISA01,
+   Pot_ISA20 atau REV, Pot_ISA10 atau +Blasting, tanggal Pot_ISA11, konvensi `batch_ref`).
+7. **Finance**: jawab F-1, F-2, F-3, F-5, dan jurnal DI di Accurate. Sesudah itu GL diunggah ulang dan override C59 tidak perlu lagi.
+
+### 7.4 Belum selesai
+
+- **Performa pindah tab**: pengukuran dan perubahan kandidat ada di worktree reviewer. Pekerjaan itu dihentikan sebelum
+  diverifikasi, tidak di-commit, dan tidak masuk PR. Belum ada perubahan performa di `main`.
+- **Staging di KGR-OS**: tabel `backup_20261018.stage_*` memuat baris jurnal mentah. Hapus sesudah FINAL terkunci; backup tabel
+  lain tetap disimpan sampai pilot selesai.
