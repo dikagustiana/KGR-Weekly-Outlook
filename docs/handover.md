@@ -121,6 +121,16 @@ pnpm build
 - Migrasi baru: file baru di `supabase/migrations/` (jangan ubah yang sudah diterapkan), terapkan dengan `supabase db push` atau SQL Editor.
 - Snapshot deterministik: `/api/w/<minggu>/snapshot.json` — input sama memberi JSON identik; dipakai untuk membandingkan rilis.
 
+## 6a. PRD v6 (performa, UI/UX, aksesibilitas)
+
+- Flag baru (Admin → Modul, default mati, dibuka Admin dulu): `v6_snapshot_read` (halaman membaca `week_snapshot`),
+  `v6_shell` (kepala halaman dan komponen v6), `v6_pages` (isi layar v6; butuh `v6_shell`).
+- Urutan ke production: backup KGR-OS → terapkan `supabase/migrations/20261026000100_v6_snapshot.sql` → (opsional) Max rows
+  5000 → merge → Admin → Modul → "Hitung semua minggu" → buka `v6_snapshot_read` untuk Admin, 2 hari tanpa `tile-err`, lalu
+  semua role → `v6_shell` / `v6_pages` per role sesudah T37–T40. Rincian: `docs/v6/irisan-1.md` … `irisan-5.md`.
+- Region fungsi `icn1` (Seoul) sejak v6; cookie `kgr_home` mengingat beranda per minggu (dihapus saat keluar).
+- Glosarium layar: `docs/v6/glosarium.md` (ditinjau Finance dan Kepala Sales sebelum `v6_pages` dibuka).
+
 ## 7. Masalah umum
 
 | Gejala | Penyebab / tindakan |

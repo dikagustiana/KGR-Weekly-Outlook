@@ -2,6 +2,26 @@
 
 All notable changes to KGR Weekly Outlook. Format: Keep a Changelog; milestones from PRD §11.
 
+## [v6] Performa, UI/UX, aksesibilitas (docs/PRD-v6.md; docs/v6/irisan-1.md … irisan-5.md; docs/v6/inventaris.md)
+
+### Added
+- Irisan 1 (B-R119–B-R121, R119, R122–R124): table `week_snapshot` (migration `20261026000100_v6_snapshot.sql`, schema 6.0.0, rollback beside it), `release.snapshot_id`, three flags `v6_snapshot_read` / `v6_shell` / `v6_pages` (off, Admin first). Lossless `WeekResult` codec (`packages/engine/src/result-codec.ts`, T29 byte-identical). The rebuild worker writes the week's snapshot on every queued date (builder `week_snapshot`, always on; released/closed weeks never recomputed); same `inputs_hash` = nothing written. Worker pagination: pages of 5000, four in parallel, server cap detected. Release links its snapshot; the cron re-hashes open weeks; Admin → Modul "Hitung semua minggu" (B-R120 backfill).
+- Irisan 2 (R120, R121): with `v6_snapshot_read` a page reads one `week_snapshot` row instead of 15 tables + `gl_line` and computing; without a current snapshot it computes once and writes it (K80, said in the source line). `computed.loaded` is gone from the request path (`docs/v6/loaded-map.md`). Timing line `[timing] … ctx;dur=…,data;dur=…`.
+- Irisan 3 (R125–R129): `getClaims()` in the middleware (local JWT check), one `RequestContext` per request (app_user, all app_setting, week, schema_version() in one parallel round), `/` remembered in cookie `kgr_home`, Vercel region `icn1`.
+- Irisan 4 (R130–R148, R164–R172, flag `v6_shell`): v6 shell (context row + tabs, phone menu, skip link, WeekPicker, navigation progress), Card6, Status, Table6, TileState, loading skeletons, DecisionDialog, NumberInput, Drawer with focus trap, Stepper6, Headline; `app/v6.css`.
+- Irisan 5 (R149–R163, flag `v6_pages`): decided metric on the cards (GP, equity ratio, cash without affiliates), "Keputusan menunggu", Input with one readiness source and the v6 task list, Upload history with Status, Harga with NumberInput per cell, Kas / Komersial / Rencana / Outlook bulan content rules, glossary (`lib/v6/glossary.ts`, `docs/v6/glosarium.md`), lint `scripts/lint.py v6` (ratchet).
+
+### Changed (for every role, no flag)
+- `loadMingguIni` reads its tile groups in one parallel round; `app_setting` and the week list are read once per request.
+- `ActionForm` announces results (`role=status` / `alert`) and asks a `confirm` in the form (no `window.confirm`); the LB price decision on Minggu ini is a DecisionDialog whose summary is kept with the decision (audit).
+- `parseNumber` refuses "0.725" / "1.500" (dot + three digits, decimal reading below 10) as ambiguous (K92).
+- R149: the Outlook bulan headline prints the NIBT after fixed costs only when it differs (0,1 jt) and names no rule code.
+- `CaraHitung` traps focus and names its button per tile; linked charts are `role="group"`; `error.tsx` / `not-found.tsx` in the v6 frame; loading skeletons on navigation.
+
+### Not done (by the PRD's own gates)
+- Migration not applied to KGR-OS (backup + db-ops first); PostgREST max-rows (B-R121) not changed; flags not opened.
+- Irisan 6 deletions (v1/v3/v4, `globals.css`, permanent flags, B-R122) wait for one week of `v6_pages` for every role.
+
 ## [v5.3-review] Kesiapan pilot 19 Okt: review V1–V13 (docs/PRD-v5.3.md bab "Kesiapan pilot"; docs/v5.3/KESIAPAN-PILOT.md; Q-v5.3-1 … 6)
 
 ### Fixed
