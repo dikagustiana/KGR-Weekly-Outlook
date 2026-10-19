@@ -35,6 +35,10 @@ function scale(values: number[], top: number, bottom: number) {
   return (v: number) => top + ((max - v) / (max - min)) * (bottom - top);
 }
 
+/**
+ * A bar with a link. PRD v6 (axe nested-interactive): a chart whose bars link is role="group" (its links stay reachable),
+ * a chart without links role="img".
+ */
 function Wrap({ href, title, children }: { href?: string; title?: string; children: ReactNode }) {
   const t = title ? <title>{title}</title> : null;
   return href ? <a href={href}>{t}{children}</a> : <g>{t}{children}</g>;
@@ -53,7 +57,7 @@ export function ComboChart({ width, height, points, label, empty = "tidak ada da
   const showLabels = points.length <= labelMax;
   const line = points.map((p, i) => (p.line === null || p.line === undefined ? null : [cx(i), y(p.line)] as const)).filter((p): p is readonly [number, number] => p !== null);
   return (
-    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role={points.some((x) => x.href) ? "group" : "img"} aria-label={label} preserveAspectRatio="xMidYMid meet">
       {points.map((p, i) => p.selected ? <rect key={`sel${p.key}`} className="sel" x={PAD.l + slot * i + 2} y={top - 14} width={slot - 4} height={bottom - top + 14} rx={6} /> : null)}
       <line className="axis" x1={PAD.l} x2={width - PAD.r} y1={y(0)} y2={y(0)} />
       {points.map((p, i) => p.marker ? (
@@ -146,7 +150,7 @@ export function PairedBars({ width, height, groups, label }: { width: number; he
     </>
   );
   return (
-    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role={groups.some((x) => x.href) ? "group" : "img"} aria-label={label} preserveAspectRatio="xMidYMid meet">
       <line className="axis" x1={PAD.l} x2={width - PAD.r} y1={y(0)} y2={y(0)} />
       {groups.map((g, i) => (
         <Wrap key={g.key} href={g.href} title={g.title}>
@@ -170,7 +174,7 @@ export function StackedBars({ width, height, rows, label, tones = ["s1", "s2", "
   const rh = rowHeight ?? Math.min(26, (height - 8) / rows.length);
   const x = (v: number) => (v / max) * (width - lw - rw - 8);
   return (
-    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="xMidYMid meet">
+    <svg className="chart" viewBox={`0 0 ${width} ${height}`} role={rows.some((x) => x.href) ? "group" : "img"} aria-label={label} preserveAspectRatio="xMidYMid meet">
       {rows.map((r, i) => {
         let acc = 0;
         const yy = 4 + i * rh;

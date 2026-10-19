@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { weekContext, type PageProps } from "@/lib/page";
 import { Shell } from "@/components/Shell";
-import { ActionForm } from "@/components/ActionForm";
-import { TilePage } from "@/components/v4/TilePage";
+import { DecisionDialog } from "@/components/v6/DecisionDialog";
+import { NumberInput } from "@/components/v6/NumberInput";
+import { v6ShellOn } from "@/lib/v6/flags";
+import { wallNow } from "@/lib/clock";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
 import { moduleSettings } from "@/lib/modules";
 import { requireViewer } from "@/lib/session";
 import { mingguIniAllowed, v4On } from "@/lib/v4/nav";
@@ -28,20 +31,32 @@ export default async function MingguIniPage({ params, searchParams }: PageProps)
   const extras: Record<string, ReactNode> = {};
   const m = input.v5Mgmt;
   if (m && ["admin", "operations_director"].includes(ctx.viewer.role)) {
+    // PRD v6 K93 / R143: the decision is taken in a dialog that shows what is decided and its effect (T40)
+    const cut = `${Number(m.sim.cutDate.slice(8, 10))}/${m.sim.cutDate.slice(5, 7)}`;
+    const row = m.sim.result?.rows.find((x) => x.price.eq(m.sim.price)) ?? null;
+    const base = m.sim.todayPrice ? m.sim.result?.rows.find((x) => x.price.eq(m.sim.todayPrice!)) ?? null : null;
+    const jt = (v: { div: (n: number) => { toFixed: (d: number) => string } }) => num(v.div(1e6).toFixed(1), 1);
+    const now = wallNow();
     extras["sim-lb"] = (
-      <ActionForm v4="primary" action={decideLbPriceV5Action} submit={`Putuskan Rp ${num(m.sim.price, 0)} untuk potong ${Number(m.sim.cutDate.slice(8, 10))}/${m.sim.cutDate.slice(5, 7)}`} className="tile-form"
-        confirm="Simpan keputusan harga LB? Keputusan tidak diubah; keputusan baru menggantikannya.">
-        <input type="hidden" name="date" value={m.sim.cutDate} />
-        <input type="hidden" name="price" value={m.sim.price.toFixed(0)} />
-        <label>Volume kg LB <input name="volume" size={8} /></label>
-        <input name="note" size={18} placeholder="catatan" aria-label="Catatan keputusan" />
-      </ActionForm>
+      <DecisionDialog action={decideLbPriceV5Action} opener={`Putuskan harga LB potong ${cut}`} title={`Keputusan harga live bird · potong ${cut}`} submit={`Putuskan Rp ${num(m.sim.price, 0)}`}
+        hidden={{ date: m.sim.cutDate, price: m.sim.price.toFixed(0) }}
+        rows={[
+          { label: "Harga", value: `Rp ${num(m.sim.price, 0)}/kg LB` },
+          { label: "Volume rencana", value: m.sim.result ? `${num(m.sim.result.kgLb, 0)} kg LB` : "belum ada basis" },
+          { label: "GP rencana minggu", value: row ? `Rp ${jt(row.gp)} jt` : "tidak tersedia" },
+          ...(row && base && !base.price.eq(row.price) ? [{ label: `Selisih vs harga hari ini (Rp ${num(base.price, 0)})`, value: `Rp ${jt(row.gp.minus(base.gp))} jt` }] : []),
+          { label: "Pemutus", value: ctx.viewer.fullName ?? ctx.viewer.email },
+          { label: "Waktu", value: `${now.date.slice(8, 10)}/${now.date.slice(5, 7)} ${now.time} WIB` },
+        ]}>
+        <label>Volume kg LB (opsional)<NumberInput name="volume" label="Volume kg LB" /></label>
+      </DecisionDialog>
     );
   }
+  const v6 = await v6ShellOn();
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="minggu-ini">
-      <h1 className="sr-only">Minggu ini</h1>
-      <TilePage tiles={model.tiles} label="Minggu ini" extras={extras} />
+      {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">Minggu ini</h1>}
+      <TilePage tiles={model.tiles} label="Minggu ini" extras={extras} v6={v6} />
     </Shell>
   );
 }

@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
-import { TilePage } from "@/components/v4/TilePage";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
+import { v6ShellOn } from "@/lib/v6/flags";
 import { UploadPanel } from "@/components/v5/UploadPanel";
 import { plainContext } from "@/lib/page";
 import { requireModulePage } from "@/lib/modules";
@@ -81,10 +82,11 @@ export default async function InputPage({ searchParams }: { searchParams: Promis
       <ActionForm v4 action={refreshTasksAction} submit="Perbarui status tugas" className="actionbar" />
     );
   }
+  const v6 = await v6ShellOn();
   return (
     <Shell viewer={viewer} weeks={weeks} week={week ?? weeks.find((w) => w.week_start === mondayOf(input.today)) ?? null} active="/input">
-      <h1 className="sr-only">{model.title}</h1>
-      <TilePage tiles={model.tiles} label={model.title} extras={extras} />
+      {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
+      <TilePage tiles={model.tiles} label={model.title} extras={extras} v6={v6} />
     </Shell>
   );
 }

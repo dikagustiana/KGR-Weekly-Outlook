@@ -2,7 +2,8 @@ import { monthEnd } from "@kgr/engine";
 import { clock } from "@/lib/clock";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
-import { TilePage } from "@/components/v4/TilePage";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
+import { v6ShellOn } from "@/lib/v6/flags";
 import { plainContext } from "@/lib/page";
 import { moduleSettings } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
@@ -26,10 +27,11 @@ export async function OutlookBulanV4({ first, viewer, versi, pl = null, cm = nul
   const model = outlookBulanModel(input);
   const canAct = (viewer.role === "admin" || viewer.role === "finance") && view !== "management";
   const rc = canAct ? await releaseContext(sb, "month", `${first}:V1`, first, monthEnd(first)) : null;
+  const v6 = await v6ShellOn();
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/m">
-      <h1 className="sr-only">{model.title}</h1>
-      <TilePage tiles={model.tiles} label={model.title} />
+      {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
+      <TilePage tiles={model.tiles} label={model.title} v6={v6} />
       {canAct && rc ? <FinancePanel first={first} extra={extra} cutOff={input.cutOff} hasRows={!!input.rows} rc={rc} role={viewer.role} /> : null}
     </Shell>
   );

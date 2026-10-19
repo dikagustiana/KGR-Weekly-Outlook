@@ -1,5 +1,6 @@
 "use client";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useRef, useState } from "react";
+import { useModalFocus } from "../v6/focus-trap";
 
 export interface CaraHitungContent {
   title: string;
@@ -16,23 +17,19 @@ export interface CaraHitungContent {
 
 /**
  * CaraHitungDrawer (PRD v4 §5.3): rule, source rows and a link to the source page. Opened from the button in the tile
- * (Enter / Space), Esc closes it, focus goes back to the button.
+ * (Enter / Space), Esc closes it, focus goes back to the button. PRD v6 R145: focus stays inside while it is open.
  */
 export function CaraHitung({ content, label = "cara hitung" }: { content: CaraHitungContent; label?: string }) {
   const [open, setOpen] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); btn.current?.focus(); } };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-  const close = () => { setOpen(false); btn.current?.focus(); };
+  const close = useCallback(() => setOpen(false), []);
+  // PRD v6 R145 / R169: focus trap, inert page behind, scroll lock, Esc; focus back on the button
+  useModalFocus(open, panel, close, btn);
   return (
     <>
-      <button ref={btn} type="button" className="v4b link" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>{label}</button>
+      {/* R170: the button's accessible name is unique per tile ("Cara hitung Outlook minggu"); the visible text stays */}
+      <button ref={btn} type="button" className="v4b link" aria-haspopup="dialog" aria-expanded={open} aria-label={`Cara hitung ${content.title}`} onClick={() => setOpen(true)}>{label}</button>
       {open ? (
         <>
           <div className="drawer-bg" onClick={close} />

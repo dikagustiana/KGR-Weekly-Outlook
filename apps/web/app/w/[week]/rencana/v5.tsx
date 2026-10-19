@@ -4,7 +4,8 @@ import { withSources } from "@/lib/v5/management";
 import { periodOf, sourcesOf } from "@/lib/v5/management-data";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
-import { TilePage } from "@/components/v4/TilePage";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
+import { v6ShellOn } from "@/lib/v6/flags";
 import type { WeekCtx } from "@/lib/page";
 import { supabaseServer } from "@/lib/supabase";
 import { stockMartControl } from "@/lib/v3/stale";
@@ -34,10 +35,11 @@ export async function RencanaV5({ ctx, versi }: { ctx: WeekCtx; versi: "need" | 
   const latest = src.plans[0] ?? null;
   const extras = rencanaV5Extras({ role, week, latest, input });
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+  const v6 = await v6ShellOn();
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="rencana">
-      <h1 className="sr-only">{model.title}</h1>
-      <TilePage tiles={model.tiles} label={model.title} extras={extras} />
+      {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
+      <TilePage tiles={model.tiles} label={model.title} extras={extras} v6={v6} />
       {canPlan ? (
         <section className="fin" aria-label="Kapasitas">
           <h2>Kapasitas potong minggu ini (ekor per hari)</h2>

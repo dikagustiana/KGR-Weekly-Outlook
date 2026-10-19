@@ -1,0 +1,188 @@
+/*
+ * PRD v6 bagian D, E, H: shell, component grammar and accessibility. Scoped to .v6 while it lives beside v4.css (irisan 4,
+ * flag v6_shell); the v6 shell wraps its page in `.v4.v6`, so the v4 rules still style the tiles and v6 overrides them.
+ * Tokens = v4 (reference/design/tokens.css) plus three (E, "Token tambahan"): --line-input, --warn, --focus. No restyle:
+ * same palette, type and spacing; what changes is anatomy and states.
+ */
+.v6 {
+  /* 1.4.11: 3,34:1 on white, 3,06:1 on --bg. PRD v6 named #9aa3b2, which measures 2,54:1 (lib/v6/contrast.test.ts) */
+  --line-input: #858d9c; /* --line stays for separators */
+  --warn: #8a5a00;
+  --focus: var(--accent);
+  --warn-soft: #fbf3e2;
+  --bad-soft: #fbe9ec;
+  --good-soft: #e5f3eb;
+}
+.v6 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* R164: nothing smaller than 11,5 px */
+.v6 .note, .v6 .chip, .v6 .q { font-size: max(11.5px, var(--fs-xs)); }
+
+/* R134 skip link: the first element of the page, visible on focus */
+.skip { position: absolute; left: var(--space-2); top: -40px; z-index: 60; padding: var(--space-2) var(--space-3); background: var(--surface); color: var(--accent); border: 2px solid var(--focus); border-radius: var(--radius); }
+.skip:focus { top: var(--space-2); }
+
+/* R133 navigation progress: 2 px above the shell */
+.navp { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 70; pointer-events: none; }
+.navp > i { display: block; height: 100%; width: 35%; background: var(--accent); transform-origin: left; }
+.navp[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- Shell (R134–R136): context row + tab row */
+.v6-top { background: var(--surface); border-bottom: 1px solid var(--line); }
+.v6-ctx { display: flex; align-items: center; gap: var(--space-4); min-height: 40px; padding: 0 var(--space-6); }
+.v6-brand { font-weight: 600; color: var(--text); white-space: nowrap; }
+.v6-rel { flex: 1; min-width: 0; text-align: center; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v6-rel a { color: var(--accent); text-decoration: underline; } /* 1.4.1: a link inside text is underlined, not colour only */
+.v6-acct { display: flex; align-items: center; gap: var(--space-3); font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+.v6-tabs { display: flex; align-items: stretch; gap: var(--space-1); min-height: 40px; padding: 0 var(--space-6); }
+.v6-tabs > a, .v6-more > summary { display: inline-flex; align-items: center; padding: 0 var(--space-3); color: var(--text); font-size: var(--fs-sm); white-space: nowrap; border-bottom: 2px solid transparent; }
+.v6-tabs > a[aria-current="page"] { color: var(--accent); font-weight: 600; border-bottom-color: var(--accent); }
+.v6-tabs > a:hover { text-decoration: none; background: var(--surface-2); }
+/* R135: tab 6 and beyond go into "Lainnya", never a horizontal scroll */
+.v6-more { position: relative; display: flex; }
+.v6-more > summary { cursor: pointer; list-style: none; }
+.v6-more > summary::-webkit-details-marker { display: none; }
+.v6-more[open] > summary, .v6-more.on > summary { color: var(--accent); }
+.v6-pop { position: absolute; top: 100%; left: 0; z-index: 30; min-width: 200px; display: flex; flex-direction: column; padding: var(--space-1); background: var(--surface); border: 1px solid var(--line-input); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(29, 35, 48, .14); }
+.v6-pop a { padding: var(--space-2) var(--space-3); color: var(--text); border-radius: 6px; }
+.v6-pop a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.v6-pop.right { left: auto; right: 0; }
+.v6-pop .lbl { padding: var(--space-2) var(--space-3) 0; font-size: var(--fs-xs); color: var(--muted); }
+.v6-pop form { display: flex; }
+.v6-pop button { flex: 1; text-align: left; }
+.v6-mobile { display: none; }
+.v6-main { padding: var(--space-4) var(--space-6) var(--space-8); }
+.v6-main:focus { outline: none; }
+
+/* WeekPicker (R137) */
+.wp { position: relative; }
+.wp-btn { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 32px; padding: 0 var(--space-3); border: 1px solid var(--line-input); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; }
+.wp-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 35; margin: 0; padding: var(--space-1); list-style: none; min-width: 260px; max-height: 60vh; overflow: auto; background: var(--surface); border: 1px solid var(--line-input); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(29, 35, 48, .14); }
+.wp-list li { display: flex; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: 6px; cursor: pointer; font-size: var(--fs-sm); }
+.wp-list li[aria-selected="true"] { font-weight: 600; color: var(--accent); }
+.wp-list li.act, .wp-list li:hover { background: var(--accent-soft); }
+.wp-list li .st { color: var(--muted); font-weight: 400; }
+
+/* Mobile menu (R136): native <dialog> */
+.mm { margin: 0 0 0 auto; height: 100%; max-height: 100%; width: min(340px, 100vw); padding: var(--space-4); border: 0; background: var(--surface); color: var(--text); }
+.mm::backdrop { background: rgba(29, 35, 48, .35); }
+.mm nav { display: flex; flex-direction: column; }
+.mm nav a { display: flex; align-items: center; min-height: 44px; padding: 0 var(--space-2); color: var(--text); border-radius: 6px; }
+.mm nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.mm h2 { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); margin: var(--space-4) 0 var(--space-1); text-transform: none; }
+.mm .mm-h { display: flex; justify-content: space-between; align-items: center; }
+
+@media (max-width: 899px) {
+  .v6-ctx, .v6-tabs { display: none; }
+  .v6-mobile { display: flex; align-items: center; gap: var(--space-2); min-height: 55px; /* + 1 px border = 56 (R136) */ padding: 0 var(--space-4); padding-top: env(safe-area-inset-top); }
+  .v6-mobile .v6-brand { margin-right: auto; }
+  .v6-main { padding: var(--space-3) var(--space-4) var(--space-6); }
+  .v6 .v4b, .v6 .wp-btn, .v6 .seg a { min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------- Headline (R148) */
+/* 2 lines on desktop, 3 on a phone is a rule for the text (F), never a clamp: a cut headline would hide a number */
+.v6 h1.hl { font-size: var(--fs-lg); font-weight: 600; line-height: 1.3; margin: 0; }
+.v6 .hl-note { margin: var(--space-1) 0 var(--space-3); font-size: var(--fs-sm); color: var(--muted); }
+
+/* ---------------------------------------------------------------- Card (R139): four fixed rows */
+.c6 { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.c6-t { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); margin: 0; }
+.c6-v { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-1); }
+.c6-v .v { font-size: var(--fs-value); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--text); white-space: nowrap; }
+.c6-v .v.missing { font-size: var(--fs-md); font-weight: 400; color: var(--muted); }
+.c6-v .u { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+/* the unit wraps under the value inside the link too, never clipped (R139, 2-column card at 390 px) */
+.c6-v a.open { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-1); max-width: 100%; color: inherit; }
+.c6-v a.open:hover { text-decoration: none; }
+.c6-v a.open .chev { color: var(--accent); font-size: var(--fs-md); }
+.c6-c { display: grid; grid-template-columns: 1fr auto; column-gap: var(--space-2); row-gap: 2px; margin: 0; font-size: var(--fs-xs); }
+.c6-c dt { color: var(--muted); }
+.c6-c dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+/* a 2-column card at 390 px: each comparison row is label over value, so the label is not squeezed into one word per line */
+@media (max-width: 520px) { .c6-c { grid-template-columns: 1fr; } .c6-c dd { text-align: left; margin-bottom: 2px; } }
+.c6-f { margin: 0; font-size: var(--fs-sm); }
+.c6-f.good { color: var(--good); } .c6-f.warn { color: var(--warn); } .c6-f.bad { color: var(--bad); }
+.c6-s { display: flex; justify-content: flex-end; }
+.info { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--muted); font: inherit; cursor: pointer; }
+.info:hover { color: var(--accent); }
+
+/* ---------------------------------------------------------------- Status (R140): icon + word + colour, never one alone */
+.st6 { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; white-space: nowrap; }
+.st6.sm { font-size: 11.5px; } .st6.md { font-size: var(--fs-sm); }
+.st6 > [role="img"] { font-size: 1em; line-height: 1; }
+.st6.lolos { color: var(--good); } .st6.catatan { color: var(--warn); } .st6.terlambat { color: var(--bad); } .st6.belum { color: var(--muted); }
+
+/* ---------------------------------------------------------------- Table (R141) */
+.t6 { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.t6 caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.t6 th, .t6 td { padding: 4px var(--space-2); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: normal; }
+.t6 thead th { position: sticky; top: 0; background: var(--surface); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+.t6 .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t6 tr.total > * { font-weight: 600; border-top: 1px solid var(--text); }
+.t6 .neg { color: var(--bad); }
+.t6 .fc { font-style: italic; }
+.t6-wrap { overflow-x: auto; max-width: 100%; }
+@media (max-width: 899px) {
+  .t6 tbody th:first-child, .t6 tbody td:first-child, .t6 thead th:first-child { position: sticky; left: 0; background: var(--surface); }
+  /* R141: a table of at most 4 columns becomes a list of cards */
+  .t6[data-mobile="cards"] thead { display: none; }
+  .t6[data-mobile="cards"], .t6[data-mobile="cards"] tbody, .t6[data-mobile="cards"] tr { display: block; }
+  .t6[data-mobile="cards"] tr { padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
+  .t6[data-mobile="cards"] td, .t6[data-mobile="cards"] th { display: flex; justify-content: space-between; gap: var(--space-3); border: 0; padding: 2px 0; position: static; }
+  .t6[data-mobile="cards"] td::before { content: attr(data-label); color: var(--muted); font-weight: 400; }
+}
+
+/* ---------------------------------------------------------------- TileState (R132, R142), TileSkeleton (R130) */
+.v6 .tile.empty6 { min-height: 76px; }
+.ts-empty { margin: 0; font-size: var(--fs-sm); color: var(--muted); }
+.ts-err { margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; color: var(--bad); font-size: var(--fs-sm); }
+.sk { background: var(--surface-2); border-radius: 6px; }
+.sk-t { height: 13px; width: 40%; margin-bottom: var(--space-2); }
+.sk-v { height: 30px; width: 60%; margin-bottom: var(--space-2); }
+.sk-l { height: 12px; width: 85%; margin-bottom: var(--space-1); }
+.sk-h { height: 22px; width: 70%; margin-bottom: var(--space-4); }
+
+/* ---------------------------------------------------------------- Dialog (R143), Drawer (R145) */
+.dd { width: min(520px, calc(100vw - 32px)); padding: var(--space-6); border: 1px solid var(--line-input); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.dd::backdrop { background: rgba(29, 35, 48, .35); }
+.dd h2 { font-size: var(--fs-lg); margin: 0 0 var(--space-3); }
+.dd dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); margin: 0 0 var(--space-4); font-size: var(--fs-sm); }
+.dd dt { color: var(--muted); }
+.dd dd { margin: 0; font-variant-numeric: tabular-nums; }
+.dd .row { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end; margin-top: var(--space-4); }
+.dd label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--fs-sm); color: var(--muted); }
+.dd textarea, .dd input { font: inherit; font-size: var(--fs-sm); border: 1px solid var(--line-input); border-radius: var(--radius); padding: var(--space-2); color: var(--text); }
+
+/* ---------------------------------------------------------------- forms (R144, R146, R165) */
+.v6 input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), .v6 select, .v6 textarea { border-color: var(--line-input); }
+.v6 input[type="checkbox"], .v6 input[type="radio"] { accent-color: var(--accent); }
+.v6 .v4b { border-color: var(--line-input); }
+.v6 .v4b.primary { border-color: var(--accent); }
+.ni { display: inline-flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ni input { min-height: 32px; width: 100%; padding: 0 var(--space-2); border: 1px solid var(--line-input); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; text-align: right; }
+.ni input[aria-invalid="true"] { border-color: var(--bad); border-width: 2px; }
+.ni output { font-size: 11.5px; color: var(--muted); text-align: right; }
+.ni output.bad { color: var(--bad); }
+.af-msg { flex-basis: 100%; margin: var(--space-1) 0 0; font-size: var(--fs-sm); }
+.af-msg.ok { color: var(--good); } .af-msg.err { color: var(--bad); }
+.af-confirm { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; font-size: var(--fs-sm); }
+
+/* ---------------------------------------------------------------- Stepper (R147) */
+.v6 ol.stepper { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.v6 .stepper .step { min-width: 160px; }
+@media (max-width: 899px) { .v6 ol.stepper { flex-direction: column; } .v6 .stepper .step { min-width: 0; } }
+
+/* ---------------------------------------------------------------- task list (R152) */
+.tl6 { list-style: none; margin: 0; padding: 0; }
+.tl6 > li { border-bottom: 1px solid var(--line); }
+.tl6 details > summary { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; cursor: pointer; list-style: none; font-size: var(--fs-sm); }
+.tl6 details > summary::-webkit-details-marker { display: none; }
+.tl6 .due { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tl6 details > div { padding: 0 0 var(--space-2); font-size: var(--fs-sm); color: var(--muted); }
+
+/* R172: no page-level horizontal scroll at 390 px or 200 % zoom */
+.v6 .v4-main, .v6-main { max-width: 100%; overflow-x: clip; }
+
+@media print {
+  .v6-top, .navp, .skip { display: none !important; }
+}

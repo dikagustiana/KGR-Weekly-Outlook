@@ -40,6 +40,13 @@ export interface WeekCtx {
 /** The weeks of the request, listed once per request (PRD v6 R126: the RequestContext's read). */
 export const weeksCached = cache(async (sb: Supa) => listWeeks(sb));
 
+/** The latest release of a week, once per request (the week context and the v6 release line share it). */
+export const latestRelease = cache(async (weekId: string): Promise<LastRelease | null> => {
+  const sb = await supabaseServer();
+  return must(await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
+    .eq("week_id", weekId).order("released_at", { ascending: false }).limit(1).maybeSingle(), "page.release") as LastRelease | null;
+});
+
 export const weekContext = cache(async (weekStart: string): Promise<WeekCtx> => {
   if (!isISODate(weekStart)) notFound();
   const viewer = await requireViewer();
@@ -48,15 +55,10 @@ export const weekContext = cache(async (weekStart: string): Promise<WeekCtx> => 
   if (!week) notFound();
   const sb = await supabaseServer();
   const t0 = performance.now();
-  const [computed, rel] = await Promise.all([
-    weekResultFor(sb, week, rc.settings, viewer.role),
-    sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
-      .eq("week_id", week.id).order("released_at", { ascending: false }).limit(1).maybeSingle(),
-  ]);
+  const [computed, lastRelease] = await Promise.all([weekResultFor(sb, week, rc.settings, viewer.role), latestRelease(week.id)]);
   if (!computed) notFound();
   const timing = { ctx: rc.ms, data: Math.round(performance.now() - t0) };
   logTiming(`/w/${weekStart}`, timing, computed.source);
-  const lastRelease = must(rel, "page.release") as LastRelease | null;
   return { viewer, weeks: rc.weeks, week, computed, lastRelease, view: rc.view, timing };
 });
 

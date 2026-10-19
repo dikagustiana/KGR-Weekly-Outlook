@@ -29,7 +29,8 @@ export function numberToString(n: number): string {
 
 /**
  * Parse a number written as 1234.5, 1.234,5 (id-ID), 1,234.5 (en-US), "Rp 24.600", "(1.234)" or "-1.234".
- * Returns a decimal string (never a float) or null when blank. Throws on text that is not a number.
+ * Returns a decimal string (never a float) or null when blank. Throws on text that is not a number, and (PRD v6 K92) on a
+ * dot followed by exactly three digits whose decimal reading is below 10 ("0.725", "1.500"): ambiguous.
  */
 export function parseNumber(v: Cell | undefined): string | null {
   if (isBlank(v)) return null;
@@ -51,7 +52,12 @@ export function parseNumber(v: Cell | undefined): string | null {
   } else if (lastDot >= 0) {
     const parts = s.split(".");
     if (parts.length > 2) s = s.replace(/\./g, ""); // 1.234.567 (id thousands)
-    else if (parts[1].length === 3 && /^\d{1,3}$/.test(parts[0])) s = s.replace(".", ""); // 24.600 → id thousands
+    else if (parts[1].length === 3 && /^\d{1,3}$/.test(parts[0])) {
+      // PRD v6 K92: "0.725" or "1.500" is ambiguous (decimal point, or thousands?) when the decimal reading is below 10:
+      // refused with a sentence that says how to write it; 24.600 (≥ 10 either way) stays id-ID thousands
+      if (Number(parts[0]) < 10) throw new Error(`Angka "${v}" ambigu: pakai koma untuk desimal (${parts[0]},${parts[1]}) atau tulis ribuan tanpa titik (${parts[0]}${parts[1]})`);
+      s = s.replace(".", ""); // 24.600 → id thousands
+    }
   }
   if (!/^\d+(\.\d+)?$/.test(s)) throw new Error(`Bukan angka: "${v}"`);
   s = s.replace(/^0+(?=\d)/, "");

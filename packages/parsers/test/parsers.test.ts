@@ -24,7 +24,12 @@ describe("values", () => {
     expect(parseNumber("1,234,567.89")).toBe("1234567.89");
     expect(parseNumber("Rp 24.600")).toBe("24600");
     expect(parseNumber("2704,1")).toBe("2704.1");
-    expect(parseNumber("(1.500)")).toBe("-1500");
+    expect(parseNumber("(12.500)")).toBe("-12500");
+    // PRD v6 K92: a dot with exactly three digits whose decimal reading is below 10 is ambiguous, never silently thousands
+    expect(() => parseNumber("0.725")).toThrow(/ambigu: pakai koma untuk desimal \(0,725\)/);
+    expect(() => parseNumber("(1.500)")).toThrow(/ambigu/);
+    expect(parseNumber("0,725")).toBe("0.725");
+    expect(parseNumber("1500")).toBe("1500");
     expect(parseNumber(-3874.34)).toBe("-3874.34");
     expect(parseNumber("")).toBeNull();
     expect(() => parseNumber("abc")).toThrow();
