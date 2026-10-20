@@ -14,6 +14,7 @@ import { fetchAll, type WeekRow } from "../data";
 import { inChunks, must, mustRows } from "../loader";
 import type { Row } from "../v3/uploads";
 import { parseSetting, type ModuleSetting } from "../modules-core";
+import { settingValue } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 /** WIB date of a timestamp. */
@@ -32,7 +33,7 @@ export async function v5CostingOn(sb: Supa): Promise<boolean> {
 
 /** The v5_costing flag with its role list (K53: screens read the v5 columns only for the roles it lists). */
 export async function v5CostingSetting(sb: Supa): Promise<ModuleSetting> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(), "app_setting v5_costing");
+  const data = ({ value: await settingValue(sb, "v5_costing") });
   return parseSetting((data as Row | null)?.value);
 }
 
@@ -277,7 +278,7 @@ export async function v5LedgerCosts(sb: Supa, from: string, today: string, lates
   const [batches, par, flag] = await Promise.all([
     loadV5BatchCosts(sb, from, today),
     sb.from("parameter").select("revaluation_sold_mode").eq("week_id", latestWeekId).maybeSingle(),
-    sb.from("app_setting").select("value").eq("key", "v5_costing").maybeSingle(),
+    settingValue(sb, "v5_costing").then((value) => ({ data: { value }, error: null })),
   ]);
   const mode = s((must(par, "v5LedgerCosts.parameter") as Row | null)?.revaluation_sold_mode) === "restate_sale_date" ? "restate_sale_date" : "cogs_line";
   const f = (must(flag, "app_setting v5_costing") ?? {}) as Row;

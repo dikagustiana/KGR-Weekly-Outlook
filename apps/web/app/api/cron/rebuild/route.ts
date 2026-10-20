@@ -4,6 +4,8 @@ import { processRebuildQueue } from "@/lib/rebuild";
 import { supabaseService } from "@/lib/supabase-service";
 import { wallNow } from "@/lib/clock";
 import { buildInputDay } from "@/lib/v5/input-data";
+import { buildSnapshot } from "@/lib/snapshot";
+import { mustRows } from "@/lib/loader";
 
 export const maxDuration = 60;
 
@@ -23,7 +25,19 @@ export async function GET(req: Request) {
     const settings = await moduleSettingsOf(svc);
     const drained = await processRebuildQueue(settings, { limit: 30, budgetMs: 50_000, client: svc });
     const tasks = settings.v5_input?.enabled ? await buildInputDay(svc, wallNow().date) : null;
-    return NextResponse.json({ drained, tasks, at: wallNow().now });
+    // PRD v6 (risiko "snapshot basi"): a write that forgot to queue its dates still reaches the snapshot here — every open
+    // week is hashed again and rewritten only when its inputs changed
+    const open = mustRows<{ id: string; week_start: string }>(await svc.from("week").select("id, week_start").eq("status", "open").order("week_start"), "cron.week");
+    const snapshots: string[] = [];
+    for (const w of open) {
+      try {
+        const o = await buildSnapshot(svc, w, "cron");
+        snapshots.push(`${w.week_start}: ${o ? o.status : "tidak ada"}`);
+      } catch (e) {
+        snapshots.push(`${w.week_start}: GAGAL ${(e as Error).message}`);
+      }
+    }
+    return NextResponse.json({ drained, tasks, snapshots, at: wallNow().now });
   } catch (e) {
     console.error(`[cron] ${(e as Error).message}`);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

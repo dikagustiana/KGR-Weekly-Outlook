@@ -16,7 +16,9 @@ vi.mock("@/lib/v4/minggu-ini-data", () => ({ loadMingguIni: async () => { loaded
 vi.mock("@/lib/v4/minggu-ini", () => ({ mingguIniModel: () => ({ tiles: [] }) }));
 vi.mock("@/components/Shell", () => ({ Shell: () => null }));
 vi.mock("@/components/ActionForm", () => ({ ActionForm: () => null }));
-vi.mock("@/components/v4/TilePage", () => ({ TilePage: () => null }));
+vi.mock("@/components/v4/TilePage", () => ({ TilePage: () => null, hasHeadline: () => false }));
+vi.mock("@/lib/v6/flags", () => ({ v6ShellOn: async () => false, v6PagesOn: async () => false }));
+vi.mock("@/components/v6/DecisionDialog", () => ({ DecisionDialog: () => null }));
 vi.mock("@/app/minggu-ini/actions-v5", () => ({ decideLbPriceV5Action: async () => undefined }));
 const { default: MingguIniPage } = await import("@/app/minggu-ini/[week]/page");
 

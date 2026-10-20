@@ -11,7 +11,8 @@ import {
 } from "@kgr/engine";
 import { parseV3Table } from "@kgr/parsers";
 import type { Supa } from "../supabase";
-import { computeForWeek, fetchAll, listWeeks, type WeekRow } from "../data";
+import { fetchAll, listWeeks, type WeekRow } from "../data";
+import { weekResultOf } from "../week-source";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
 import { plan0, registerV3Kind, type Row } from "./uploads";
@@ -19,10 +20,11 @@ import { plDaily, isWorkingDay } from "./monthly";
 import { kasHorizon, type CashRecon } from "../v4/kas";
 import { must } from "../loader";
 import type { FixedSource } from "../v5/pl-tiles";
+import { settingValue } from "../request-memo";
 
 /** v5_pl on (global flag): the solvency takes NIBT after fixed costs (K52). */
 async function v5PlOn(sb: Supa): Promise<boolean> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  const data = ({ value: await settingValue(sb, "v5_pl") }) as Row | null;
   return (data?.value as { enabled?: boolean } | undefined)?.enabled === true;
 }
 
@@ -73,8 +75,7 @@ export async function loadCash(sb: Supa, date: string, opts: { m4: boolean }): P
   const cashDay = Object.fromEntries(sched.map((r) => [String(r.id), r.cash_day_of_month === null ? null : Number(r.cash_day_of_month)]));
   const scheduled = scheduledPayments(schedule, planRows, cashDay, addDays(date, 1), horizon);
   const projection = cashProjection({ start: date, balances, plans: [...planRows, ...scheduled] });
-  const c = week ? await computeForWeek(sb, week.week_start) : null;
-  const r = c?.result ?? null;
+  const r = week ? await weekResultOf(sb, week.week_start) : null;
   const affLine = r?.statements.cf.lines.find((l) => l.category === "Pinjaman afiliasi (net)");
   const affiliateReceived = affLine ? affLine.values.actual : D(0);
   const split = cashProjectionSplit({ start: date, balances, plans: [...planRows, ...scheduled], affiliateReceived });
@@ -211,7 +212,7 @@ registerBuilder({
   // K60 (R45, F19): the solvency basis reads pl_daily_v4 and the month lock note written by these two
   after: ["monthly v4", "accuracy v4"],
   begin: async (sb) => {
-    const data = must(await sb.from("app_setting").select("value").eq("key", "m4_monthly").maybeSingle(), "cash.m4_monthly");
+    const data = ({ value: await settingValue(sb, "m4_monthly") });
     m4On = ((data as Row | null)?.value as { enabled?: boolean } | undefined)?.enabled === true;
   },
   build: (sb, date) => buildCashDay(sb, date, m4On),

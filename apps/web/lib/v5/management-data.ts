@@ -24,6 +24,7 @@ import { loadPpicV5 } from "./ppic-data";
 import { loadCommitmentCover } from "./free-stock-data";
 import { netFreeKg, reserveForCommitments } from "./free-stock";
 import { LOOP_MODULE, decisionLines, loopLines, simPrices, sourceLabel, type LoopRow, type ManagementV5Input, type SimBasis, type SourceLabel } from "./management";
+import { appSettingsOf } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const DAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -120,7 +121,7 @@ export async function loadManagementV5(sb: Supa, w: WeekRow, r: WeekResult, sp: 
   });
   // R28: a row whose module is not enabled says so instead of "late" (the flags, not the viewer's role: the process runs or not)
   const flagsT = await tileData("manajemen: flag modul", async () =>
-    mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", Object.values(LOOP_MODULE)), "app_setting"));
+    Object.entries(await appSettingsOf(sb)).filter(([k]) => (Object.values(LOOP_MODULE) as string[]).includes(k)).map(([key, value]) => ({ key, value }) as Row));
   const flags = fail(failed, ["keputusan"], flagsT, [] as Row[]);
   const enabled = (k: string) => parseSetting(flags.find((f) => String(f.key) === k)?.value).enabled;
   const off = "error" in flagsT ? {} : Object.fromEntries((Object.keys(LOOP_MODULE) as LoopRow[]).map((r) => [r, !enabled(LOOP_MODULE[r])]));

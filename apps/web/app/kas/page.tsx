@@ -12,7 +12,8 @@ import { loadCash } from "@/lib/v3/cash";
 import { jtV4, tgl } from "@/lib/fmt";
 import { moduleSettings } from "@/lib/modules";
 import { v4On } from "@/lib/v4/nav";
-import { TilePage } from "@/components/v4/TilePage";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
+import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
 import { loadKas } from "@/lib/v4/kas-data";
 import { kasModel } from "@/lib/v4/kas";
 
@@ -26,11 +27,12 @@ export default async function KasPage({ searchParams }: { searchParams: Promise<
   // PRD v4 §6.3 (flag v4_design): tiles read from the cash marts; the v3 page below stays for everyone else
   if (v4On(await moduleSettings(), v.role)) {
     const kb = await supabaseServer();
-    const model = kasModel(await loadKas(kb, { today: (await clock(kb)).data, sp }));
+    const model = kasModel({ ...(await loadKas(kb, { today: (await clock(kb)).data, sp })), v6: await v6PagesOn() });
+    const v6 = await v6ShellOn();
     return (
       <Shell viewer={viewer} weeks={weeks} week={week} active="/kas">
-        <h1 className="sr-only">{model.title}</h1>
-        <TilePage tiles={model.tiles} label={model.title} />
+        {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
+        <TilePage tiles={model.tiles} label={model.title} v6={v6} plainText={v6 && (await v6PagesOn())} />
       </Shell>
     );
   }

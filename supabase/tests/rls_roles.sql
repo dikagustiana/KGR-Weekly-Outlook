@@ -1834,10 +1834,11 @@ begin
       || case when has_table_privilege('service_role', 'public.schema_registry', 'insert') then '' else '(!)' end || '; ';
   exception when others then out := out || 'privileges: ERROR(!) ' || sqlerrm || '; '; end;
 
-  -- highest version numerically (5.10.0 > 5.9.3), a text row last; SECURITY DEFINER with a fixed search_path
+  -- highest version numerically (99.10.0 > 99.9.3), a text row last; SECURITY DEFINER with a fixed search_path. The probe
+  -- versions sit above every registered one (v6 registers 6.0.0), so the test does not depend on the latest bundle.
   begin
-    insert into public.schema_registry (version, applied_at) values ('5.9.3', now() + interval '1 day'), ('5.10.0', now()), ('beta', now() + interval '2 days');
-    v := public.schema_version(); out := out || 'highest=' || coalesce(v, 'null') || case when v = '5.10.0' then '' else '(!)' end || '; ';
+    insert into public.schema_registry (version, applied_at) values ('99.9.3', now() + interval '1 day'), ('99.10.0', now()), ('beta', now() + interval '2 days');
+    v := public.schema_version(); out := out || 'highest=' || coalesce(v, 'null') || case when v = '99.10.0' then '' else '(!)' end || '; ';
     select p.prosecdef and exists (select 1 from unnest(p.proconfig) x where x = 'search_path=""') into c from pg_proc p where p.oid = 'public.schema_version()'::regprocedure;
     out := out || 'definer with search_path=""=' || coalesce(c::text, 'null') || case when c then '' else '(!)' end || '; ';
     select count(*) into n from public.schema_registry where version = '5.1.0';
@@ -4070,4 +4071,38 @@ begin
       || ' schema_version()=' || coalesce(public.schema_version(), 'null') || case when string_to_array(public.schema_version(), '.')::int[] >= array[5,2,6] then '' else '(!)' end || '; ';
   exception when others then out := out || 'catalog: ERROR(!) ' || sqlerrm || '; '; end;
   raise exception 'RLS-RESULTS v5.2 B7 Q-v5.2-72 (rolled back): %', out;
+end $$;
+
+-- PRD v6 B-R119 / B-R120: week_snapshot is read by every app user and written only by the service role; release.snapshot_id exists
+do $$
+declare out text := ''; n int; w uuid;
+begin
+  select id into w from public.week order by week_start limit 1;
+  begin
+    out := out || 'rls on=' || (select relrowsecurity::text from pg_class where oid = 'public.week_snapshot'::regclass) || '; ';
+    select count(*) into n from pg_policies where schemaname = 'public' and tablename = 'week_snapshot' and cmd <> 'SELECT';
+    out := out || 'write policies=' || n || case when n = 0 then '' else '(!)' end || '; ';
+    out := out || 'anon select=' || has_table_privilege('anon', 'public.week_snapshot', 'select')::text
+      || case when has_table_privilege('anon', 'public.week_snapshot', 'select') then '(!)' else '' end || '; ';
+    select count(*) into n from information_schema.columns where table_schema = 'public' and table_name = 'release' and column_name = 'snapshot_id';
+    out := out || 'release.snapshot_id=' || n || case when n = 1 then '' else '(!)' end || '; ';
+  exception when others then out := out || 'catalog: ERROR(!) ' || sqlerrm || '; '; end;
+  if w is not null then
+    insert into public.app_user(email, role) values ('t6-fin@x.test', 'finance') on conflict (email) do nothing;
+    insert into public.week_snapshot (week_id, version, engine_version, inputs_hash, result, built_by) values (w, 1, 't', 'h', '{}'::jsonb, 'test');
+    -- a finance user reads it, cannot write it
+    perform set_config('request.jwt.claims', '{"email":"t6-fin@x.test","role":"authenticated"}', true);
+    execute 'set local role authenticated';
+    begin
+      select count(*) into n from public.week_snapshot where week_id = w;
+      out := out || 'finance reads=' || n || case when n >= 1 then '' else '(!)' end || '; ';
+    exception when others then out := out || 'finance read: ERROR(!) ' || sqlerrm || '; '; end;
+    begin
+      insert into public.week_snapshot (week_id, version, engine_version, inputs_hash, result, built_by) values (w, 2, 't', 'h', '{}'::jsonb, 'x');
+      out := out || 'finance insert: allowed(!); ';
+    exception when others then out := out || 'finance insert: denied; '; end;
+    execute 'reset role';
+    perform set_config('request.jwt.claims', '', true);
+  end if;
+  raise exception 'RLS-RESULTS v6 B-R119 week_snapshot (rolled back): %', out;
 end $$;

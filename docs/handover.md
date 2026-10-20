@@ -22,7 +22,7 @@ Repo: `dikagustiana/KGR-Weekly-Outlook`. Spesifikasi: `docs/PRD.md`; Excel acuan
 | Project | `kgr-weekly-outlook` (`prj_ecSeflSq6gbm3fHMsQleU1MocXyc`) di tim `dikagirawan-4804s-projects` |
 | Repo | `dikagustiana/KGR-Weekly-Outlook`, production branch `main`, **Root Directory `apps/web`** |
 | Build | Next.js, pnpm (dari `pnpm-lock.yaml` + `packageManager`), Node 22.x |
-| Fungsi | region `hnd1` (Tokyo, dekat Supabase `ap-northeast-1`), diatur di `apps/web/vercel.json` |
+| Fungsi | region `icn1` (Seoul, satu lokasi dengan KGR-OS `ap-northeast-2`; PRD v6 K84 / R129, sebelumnya `hnd1`), diatur di `apps/web/vercel.json`. Migrasi keduanya ke Singapura = Q-v6-3, keputusan terpisah |
 | Env vars | tidak wajib — default di `apps/web/lib/env.ts` menunjuk ke project Supabase pilot. Isi `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` hanya bila pindah project; `NEXT_PUBLIC_AUTH_GOOGLE=1` menampilkan tombol Google |
 | Proteksi | domain production publik (aplikasi punya login sendiri); deployment preview memakai Vercel Authentication |
 
@@ -120,6 +120,16 @@ pnpm build
 - Mengubah aturan hitung: ubah di `packages/engine`, tambah/ubah uji di `packages/engine/test`, jalankan `pnpm parity`, catat di `docs/open-questions.md` dan `CHANGELOG.md`. CI menolak perubahan yang menggeser sel golden atau membuat `docs/parity.md` usang.
 - Migrasi baru: file baru di `supabase/migrations/` (jangan ubah yang sudah diterapkan), terapkan dengan `supabase db push` atau SQL Editor.
 - Snapshot deterministik: `/api/w/<minggu>/snapshot.json` — input sama memberi JSON identik; dipakai untuk membandingkan rilis.
+
+## 6a. PRD v6 (performa, UI/UX, aksesibilitas)
+
+- Flag baru (Admin → Modul, default mati, dibuka Admin dulu): `v6_snapshot_read` (halaman membaca `week_snapshot`),
+  `v6_shell` (kepala halaman dan komponen v6), `v6_pages` (isi layar v6; butuh `v6_shell`).
+- Urutan ke production: backup KGR-OS → terapkan `supabase/migrations/20261026000100_v6_snapshot.sql` → (opsional) Max rows
+  5000 → merge → Admin → Modul → "Hitung semua minggu" → buka `v6_snapshot_read` untuk Admin, 2 hari tanpa `tile-err`, lalu
+  semua role → `v6_shell` / `v6_pages` per role sesudah T37–T40. Rincian: `docs/v6/irisan-1.md` … `irisan-5.md`.
+- Region fungsi `icn1` (Seoul) sejak v6; cookie `kgr_home` mengingat beranda per minggu (dihapus saat keluar).
+- Glosarium layar: `docs/v6/glosarium.md` (ditinjau Finance dan Kepala Sales sebelum `v6_pages` dibuka).
 
 ## 7. Masalah umum
 

@@ -4,6 +4,7 @@ import type { Supa } from "./supabase";
 import { fetchAll, loadWeek, type WeekRow } from "./data";
 import { applyChanges, WriteError } from "./write";
 import { must } from "./loader";
+import { forget } from "./request-memo";
 
 type Row = Record<string, unknown>;
 
@@ -91,6 +92,7 @@ export async function rolloverWeek(sb: Supa, prev: WeekRow): Promise<{ weekStart
     if (xs.length) moved += (await applyChanges(sb, table, xs)).inserted;
   }
   const closed = await sb.from("week").update({ status: "closed" }).eq("id", prev.id);
+  forget(sb, "weeks");
   if (closed.error) throw new WriteError(`minggu ${prev.week_start} tidak bisa ditutup: ${closed.error.message}`);
   return { weekStart: nextStart, carried: carried.length, moved };
 }

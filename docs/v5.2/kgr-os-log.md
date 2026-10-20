@@ -79,3 +79,33 @@ view, indeks, constraint, ACL tabel tanpa hak MAINTAIN PG17, ACL fungsi). Lewat 
 
 Catatan untuk bundel berikutnya lewat connector: hindari `\uXXXX` di teks yang dikirim (pakai `chr()`); bundel B5 tidak
 memuat escape itu (dicek). Lewat `db-ops` (psql) masalah ini tidak ada.
+
+## 19 Okt 2026
+
+Permintaan Dika (chat): "masukin sekalian semua informasi keuangan untuk september", dengan berkas GL_KGR_Rev_1.xls,
+Valuation detail.xls, FS per Sep 2026 v2 dan 202609_Data_COGS_LB_1.xlsx. Penulisan ke KGR-OS disetujui Dika (pilihan
+"Lanjutkan") sesudah penolakan otomatis di tengah jalan. Lewat connector Supabase `execute_sql`. Berkas sumber tidak
+di-commit (repo publik). Rincian isi dan batasnya: `docs/v6/data-sep.md`.
+
+Cara: berkas dimuat lewat kode app (upload → stage → commit, rollover, `allocateWeek`) ke salinan lokal KGR-OS
+(stack e2e, data = KGR-OS per 15.57 UTC, dicek md5 per tabel), dengan `tests/backtest/sep-2026/load-sep.ts`. Selisihnya
+diekspor oleh `tests/backtest/sep-2026/export-delta.py` menjadi 44 berkas SQL (332 kB). Tiap berkas atomik, dan tiap
+tabel ditutup dengan tabel cek (jumlah baris + md5 isi = salinan lokal). Sebelumnya semua berkas dijalankan sekali pada
+klon salinan lokal yang dikembalikan ke keadaan awal.
+
+| Waktu (UTC) | Langkah | Perintah | Hasil |
+|---|---|---|---|
+| 16.05 | ✎ backup | blok `do` seperti `docs/v5.2/kgr-os-backup.sql` | skema **`bak_20261019t1605`**: 96 tabel |
+| 16.05 | ✎ migrasi v6 | `supabase/migrations/20261026000100_v6_snapshot.sql` (sha256 `96825978…3f87`), tanpa baris komentar, + tabel cek | `schema_version()` **6.0.0**; `week_snapshot` ada, RLS aktif, anon tidak bisa `select`; `release.snapshot_id` ada; 3 flag `v6_*` **mati, Admin saja**. Production (`EXPECTED_SCHEMA` 5.2.6) menerima versi ≥ |
+| 16.11 | ✎ data Sep: 00-guard + `week` | guard: minggu 24 Agu = keadaan awal, belum ada minggu September | 5 minggu baru (31 Agu–28 Sep), cek **true/true** |
+| 16.14–16.35 | ✎ `upload`, `batch`, `allocation_run`, `cost_pool`, `batch_output_sku`, `allocation_line`, `cost_pool_line` | berkas 02–26 | 8 / 23 / 20 / 1 / 566 / 566 / 73 baris; semua cek **true** |
+| 16.35–16.43 | ✎ `opening_stock` (7 potongan) | berkas 27–34 | 598 baris, cek **true/true** |
+| 16.43 | ✎ `parameter` | berkas 35–36 | 5 baris, cek **true/true** |
+| 16.45 | ✎ `stock_card_snapshot` | berkas 37–39 | 185 baris (31 Agu 89 barang Rp 4.339.201.189,20; 30 Sep 96 barang Rp 6.427.173.783,46), cek **true/true** |
+| 16.45 | ✎ salinan rollover `runrate`, `sku_price`, `tb_opening` | berkas 40–42; sebelumnya dicek 0 baris di minggu September | 18 / 41 / 208 baris per minggu × 5, cek **15/15 true** |
+| 16.46 | ✎ status minggu | berkas 43 (`update week`) | md5 6 minggu = lokal (**true**): 24 Agu–21 Sep `closed`, 28 Sep `open` dengan update 1 Okt |
+| 16.46 | baca | ringkasan | alokasi 20 `draft`; `rebuild_queue` 59 `queued`, 30 di antaranya tanggal 31 Agu–4 Okt (antre sejak sebelum pemuatan; dibangun cron atau Admin) |
+
+Kembali ke keadaan sebelum 16.05: lihat "Cara memulihkan" di atas dengan `bak_20261019t1605`. Hanya data September yang
+dibuang: hapus baris di 14 tabel di atas untuk 5 `week_id` September (urutan terbalik dari daftar di atas), lalu
+kembalikan baris `week` 24 Agu dari backup.

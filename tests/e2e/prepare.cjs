@@ -10,10 +10,10 @@ const { Journey, cfg, short } = require("./lib/e2e.cjs");
   const J = new Journey("prepare", "SETUP: flag modul dan bangun ulang awal (satu-satunya langkah Admin)");
   J.clock(process.env.E2E_CLOCK_START || "2026-08-24T08:00:00+07:00");
   await J.step("S1", null, "flag modul (SETUP, SQL langsung)", async () => {
-    J.setup("semua flag m*, v4_*, v5_* hidup, v4_release hidup (ketat); v5_costing mulai 2026-08-01", `
-      update public.app_setting set value = '{"enabled": true}'::jsonb;
+    J.setup("semua flag m*, v4_*, v5_* hidup, v4_release hidup (ketat); v5_costing mulai 2026-08-01; v6_* tetap bawaan migrasi (mati, Admin saja)", `
+      update public.app_setting set value = '{"enabled": true}'::jsonb where key not like 'v6\\_%';
       update public.app_setting set value = '{"enabled": true, "since": "2026-08-01"}'::jsonb where key = 'v5_costing';`);
-    const rows = J.db("select key || '=' || (value ->> 'enabled') from public.app_setting order by key").map((r) => r[0]);
+    const rows = J.db("select key || '=' || (value ->> 'enabled') from public.app_setting where key not like 'v6\\_%' order by key").map((r) => r[0]);
     J.log(`    DB flag: ${rows.join(" ")}`);
     J.check("semua flag hidup", rows.every((r) => r.endsWith("=true")), `${rows.length} flag`);
   });

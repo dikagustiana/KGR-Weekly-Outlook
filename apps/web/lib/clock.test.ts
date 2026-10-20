@@ -4,19 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const { clock, dataToday, taskWindow, wallNow } = await import("./clock");
 
-/** The one query of dataToday: week.update_date ≤ today, latest first, one row; `fail` = a PostgREST error. */
+/** The one query of dataToday (PRD v6 R128: the week list read once per client); `fail` = a PostgREST error. */
 function fakeSb(updates: string[], fail?: string) {
-  let max: string | null = null;
   const q = {
     select: () => q,
-    lte: (_c: string, v: string) => { max = v; return q; },
     order: () => q,
-    limit: () => q,
-    maybeSingle: async () => {
-      if (fail) return { data: null, error: { message: fail } };
-      const ok = updates.filter((u) => max === null || u <= max).sort().reverse();
-      return { data: ok.length ? { update_date: ok[0] } : null, error: null };
-    },
+    then: (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) =>
+      Promise.resolve(fail ? { data: null, error: { message: fail } } : { data: updates.map((u) => ({ update_date: u })), error: null }).then(ok, ko),
   };
   return { from: () => q } as never;
 }

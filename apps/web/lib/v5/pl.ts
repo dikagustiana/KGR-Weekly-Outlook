@@ -14,12 +14,13 @@ import { fetchAll } from "../data";
 import { must } from "../loader";
 import { costingModeOf, type CostingRowsMode, type ModuleSettings } from "../modules-core";
 import type { Row } from "../v3/uploads";
+import { settingValue } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
 /** R66 (K63): the costing-rows mode stored in app_setting v5_pl ('cogs' without a value). A failed read throws (K41). */
 export async function v5CostingMode(sb: Supa): Promise<CostingRowsMode> {
-  const data = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "app_setting v5_pl") as Row | null;
+  const data = ({ value: await settingValue(sb, "v5_pl") }) as Row | null;
   return costingModeOf(data?.value);
 }
 

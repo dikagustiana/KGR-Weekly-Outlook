@@ -52,26 +52,29 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
 
   // PRD v5.1 K41: each read feeds named tiles; a failure shows on those tiles (state error), the page stays
   const failed: Failed = {};
-  const plMart = v4On(settings, role) ? fail(failed, ["headline", "c-outlook", "ch-harian", "ch-bridge", "t-segmen"], await tileData("minggu ini: laba rugi minggu (pl_daily_v4)", () => weekPlRows(sb, w.week_start)), []) : [];
-  const plRows = plMart.length ? plRowsFromMart(plMart as never) : null;
+  // PRD v6 R131: the reads below are independent (one tile group each) and run in one parallel round; only the v5 block
+  // waits for the cash block (it needs the balances without funding)
+  const plMartP = v4On(settings, role) ? tileData("minggu ini: laba rugi minggu (pl_daily_v4)", () => weekPlRows(sb, w.week_start)).then((t) => fail(failed, ["headline", "c-outlook", "ch-harian", "ch-bridge", "t-segmen"], t, [])) : Promise.resolve([]);
   // R66 (K63): one mode for the weekly P&L, its bridge and the month card (the same as the page Outlook bulan)
-  const costingMode = await weekPlMode(sb, settings, role);
+  const costingModeP = weekPlMode(sb, settings, role);
 
   // Δ vs last week: last week's released projection when there is a release, else its journal (weekly P&L)
-  let lastWeek: MingguIniInput["lastWeek"] = null;
   const prev = ctx.weeks.find((x) => x.week_start === addDays(w.week_start, -7));
-  if (prev) {
-    const data = fail(failed, ["c-outlook"], await tileData("minggu ini: rilis minggu lalu", async () =>
-      must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
-    lastWeek = releaseLastWeek(data?.snapshot);
-  }
-  if (!lastWeek) {
-    const p = r.statements.pnl;
-    lastWeek = { revenue: p.get("TOTAL REVENUE").values.lastWeek, gp: p.get("GROSS PROFIT").values.lastWeek, nibt: p.get("NET INCOME").values.lastWeek, basis: "jurnal" };
-  }
+  const lastWeekP = (async (): Promise<MingguIniInput["lastWeek"]> => {
+    let lastWeek: MingguIniInput["lastWeek"] = null;
+    if (prev) {
+      const data = fail(failed, ["c-outlook"], await tileData("minggu ini: rilis minggu lalu", async () =>
+        must(await sb.from("release").select("snapshot").eq("week_id", prev.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "release") as Row | null), null);
+      lastWeek = releaseLastWeek(data?.snapshot);
+    }
+    if (!lastWeek) {
+      const p = r.statements.pnl;
+      lastWeek = { revenue: p.get("TOTAL REVENUE").values.lastWeek, gp: p.get("GROSS PROFIT").values.lastWeek, nibt: p.get("NET INCOME").values.lastWeek, basis: "jurnal" };
+    }
+    return lastWeek;
+  })();
 
-  let stock: StockMart | null = null;
-  if (on.m2) stock = fail(failed, ["c-stok", "ch-stok-umur"], await tileData("minggu ini: stok (sku_balance_daily, lot_balance_daily)", async (): Promise<StockMart | null> => {
+  const stockP: Promise<StockMart | null> = !on.m2 ? Promise.resolve(null) : tileData("minggu ini: stok (sku_balance_daily, lot_balance_daily)", async (): Promise<StockMart | null> => {
     const last = must(await sb.from("sku_balance_daily").select("date").lte("date", yesterday).order("date", { ascending: false }).limit(1).maybeSingle(), "sku_balance_daily") as Row | null;
     const date = s(last?.date);
     if (!date) return null;
@@ -89,14 +92,19 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       lots: lots.map((l) => ({ key: String(l.key), kg: String(l.kg), age_days: l.age_days === null ? null : Number(l.age_days), cost_per_kg_ma: s(l.cost_per_kg_ma) })),
       info,
     };
-  }), null);
+  }).then((t) => fail(failed, ["c-stok", "ch-stok-umur"], t, null));
 
   let cashMart: MingguIniInput["cashMart"] = null, solvency: MingguIniInput["solvency"] = null;
   /** Balances without new affiliate funding, for the decision "Pendanaan kas" (PRD v5 §6.1). */
   let noFunding: { date: string; closing: string | null }[] | null = null;
-  if (on.m6) {
-    const rows = fail(failed, ["c-kas", "kas"], await tileData("minggu ini: kas (cash_position_daily)", async () =>
-      mustRows<Row>(await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date"), "cash_position_daily")), []);
+  const cashP = !on.m6 ? Promise.resolve() : (async () => {
+    const [rowsT, vT] = await Promise.all([
+      tileData("minggu ini: kas (cash_position_daily)", async () =>
+        mustRows<Row>(await sb.from("cash_position_daily").select("date, total_closing, projected_closing, closing_without_affiliate, accounts").gte("date", w.week_start).lte("date", w.week_end).order("date"), "cash_position_daily")),
+      tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
+        must(await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle(), "solvency_monthly") as Row | null),
+    ]);
+    const rows = fail(failed, ["c-kas", "kas"], rowsT, []);
     // a mart day without any bank balance (no template kas harian yet) is not a balance of zero: the weekly cash flow stays
     if (rows.some((c) => Number(c.accounts ?? 0) > 0)) { // missing-ok: jumlah rekening (hitungan); 0 rekening = tidak ada posisi kas
       // a day before the first upload stays without a balance (null, never 0) even when later days have one
@@ -104,17 +112,13 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       cashMart = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.total_closing) ?? s(c.projected_closing) : null, planned: String(c.date) >= w.update_date || s(c.total_closing) === null, without: has(c) ? s(c.closing_without_affiliate) : null }));
       noFunding = rows.map((c) => ({ date: String(c.date), closing: has(c) ? s(c.closing_without_affiliate) ?? s(c.total_closing) ?? s(c.projected_closing) : null }));
     }
-    const v = fail(failed, ["c-solvabilitas"], await tileData("minggu ini: solvabilitas (solvency_monthly)", async () =>
-      must(await sb.from("solvency_monthly").select("*").lte("month", w.update_date).order("month", { ascending: false }).limit(1).maybeSingle(), "solvency_monthly") as Row | null), null);
+    const v = fail(failed, ["c-solvabilitas"], vT, null);
     if (v && v.equity !== null && v.paid_in_capital !== null) {
       solvency = { label: String(v.month).slice(0, 7), equity: String(v.equity), paidIn: String(v.paid_in_capital), affiliate: s(v.affiliate_payable), months: s(v.months_to_negative_equity), basis: s(v.basis_nibt), interest: null };
     }
-  }
+  })();
 
-  let month: MingguIniInput["month"] = null;
-  let v5Pl: MingguIniInput["v5Pl"] = null;
-  if (on.m4) {
-    const mo = fail(failed, ["c-bulan", "t-laba-rugi"], await tileData("minggu ini: outlook bulan (pl_daily_v4, budget)", async () => {
+  const monthP = !on.m4 ? Promise.resolve({ monthOut: null, plOut: null } as { monthOut: MingguIniInput["month"]; plOut: MingguIniInput["v5Pl"] }) : costingModeP.then((costingMode) => tileData("minggu ini: outlook bulan (pl_daily_v4, budget)", async () => {
       const first = firstOfMonth(w.update_date);
       const MONTH = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
       let monthOut: MingguIniInput["month"] = null, plOut: MingguIniInput["v5Pl"] = null;
@@ -161,13 +165,9 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
         }
       }
       return { monthOut, plOut };
-    }), { monthOut: null, plOut: null });
-    month = mo.monthOut;
-    v5Pl = mo.plOut;
-  }
+    })).then((t) => fail(failed, ["c-bulan", "t-laba-rugi"], t, { monthOut: null, plOut: null }));
 
-  let demand: MingguIniInput["demand"] = null;
-  if (on.m3) demand = fail(failed, ["demand"], await tileData("minggu ini: demand dan rencana potong", async (): Promise<MingguIniInput["demand"]> => {
+  const demandP: Promise<MingguIniInput["demand"]> = !on.m3 ? Promise.resolve(null) : tileData("minggu ini: demand dan rencana potong", async (): Promise<MingguIniInput["demand"]> => {
     const [rowsR, planR, varR] = await Promise.all([
       sb.from("demand_weekly").select("*").eq("week_start", w.week_start),
       sb.from("plan_week").select("version, head_count").eq("week_start", w.week_start).is("deleted_at", null).order("version", { ascending: false }).limit(1).maybeSingle(),
@@ -184,24 +184,27 @@ export async function loadMingguIni(ctx: WeekCtx, sp: Record<string, string | un
       // one day without variance makes the week unknown, never a smaller number
       variance: vr.length && vr.every((x) => s(x.variance_kg) !== null) ? vr.reduce((a, x) => a.plus(D(String(x.variance_kg))), D(0)).toFixed(2) : null,
     };
-  }), null);
+  }).then((t) => fail(failed, ["demand"], t, null));
+
+  // PRD v5 §6.1 (flag v5_management) waits for the cash block only
+  const v5P = cashP.then(async (): Promise<MingguIniInput["v5Mgmt"]> => {
+    if (!noFunding) {
+      // the weekly cash flow: the lowest day of the week, less the affiliate funding the week counts on (weekCash)
+      const wc = weekCash(r);
+      noFunding = [{ date: wc.lowest.date, closing: wc.lowestWithoutAffiliate.toFixed(2) }];
+    }
+    if (!isModuleOn(settings.v5_management, role)) return null;
+    const m = await tileData("minggu ini: manajemen v5", () => loadManagementV5(sb, w, r, sp, noFunding, role));
+    return "ok" in m ? m.ok : managementFailed(m.error);
+  });
+  const [plMart, costingMode, lastWeek, stock, mo, demand, v5Mgmt] = await Promise.all([plMartP, costingModeP, lastWeekP, stockP, monthP, demandP, v5P]);
+  const plRows = plMart.length ? plRowsFromMart(plMart as never) : null;
+  const month = mo.monthOut, v5Pl = mo.plOut;
 
   // controls not filled in (v1 list), named without technical sheet names
   const controlsV3: ControlV3[] = r.controls.controls.filter((k) => k.status === "BELUM DIISI").map((k) => ({
     code: `Kontrol ${k.no}`, module: "M1", name: plainName(k.name), value: k.value, comparator: k.comparator, difference: k.difference, status: k.status, action: k.action, detail: [],
   }));
-
-  // PRD v5 §6.1 (flag v5_management): LB simulation, decisions waiting, loop status, source labels (K36)
-  if (!noFunding) {
-    // the weekly cash flow: the lowest day of the week, less the affiliate funding the week counts on (weekCash)
-    const wc = weekCash(r);
-    noFunding = [{ date: wc.lowest.date, closing: wc.lowestWithoutAffiliate.toFixed(2) }];
-  }
-  let v5Mgmt: MingguIniInput["v5Mgmt"] = null;
-  if (isModuleOn(settings.v5_management, role)) {
-    const m = await tileData("minggu ini: manajemen v5", () => loadManagementV5(sb, w, r, sp, noFunding, role));
-    v5Mgmt = "ok" in m ? m.ok : managementFailed(m.error);
-  }
 
   const mode = sp.mode === "aktual" ? "aktual" : "proyeksi";
   const iso = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);

@@ -8,6 +8,7 @@ import { PARAM_AREA } from "@/lib/params";
 import { supabaseServer } from "@/lib/supabase";
 import { weekIdOf } from "@/lib/rollover";
 import { must } from "@/lib/loader";
+import { forget } from "@/lib/request-memo";
 
 const PERCENT = new Set(["target_shrink", "yield_karkas", "yield_kepala", "yield_ceker", "yield_usus", "yield_hja", "yield_lemak"]);
 const NULLABLE = new Set(["accurate_sales_kg", "accurate_opening_stock_value"]);
@@ -63,6 +64,7 @@ export async function saveParameters(form: FormData) {
   }
   if (Object.keys(weekPatch).length) {
     const { error } = await sb.from("week").update(weekPatch).eq("id", weekId);
+    forget(sb, "weeks");
     if (error) go("err", error.message);
   }
   revalidatePath(`/w/${week}`, "layout");

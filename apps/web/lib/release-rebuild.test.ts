@@ -21,7 +21,7 @@ vi.mock("@kgr/engine", async (orig) => ({
   computeWeek: () => ({ controls: { controls: [], overall: "LULUS" } }),
   snapshotJsonV3: () => "{}",
 }));
-vi.mock("./data", () => ({ loadWeek: async () => ({ week: { id: "w1", update_date: "2026-08-27" }, inputs: { sales_lines: [], sales_line: [], receipt_lines: [], batches: [], opening_stock: [] } }) }));
+vi.mock("./data", () => ({ WORKER_PAGES: {}, loadWeek: async () => ({ week: { id: "w1", update_date: "2026-08-27" }, inputs: { sales_lines: [], sales_line: [], receipt_lines: [], batches: [], opening_stock: [] } }) }));
 vi.mock("./pdf", () => ({ outlookPdf: async () => new Uint8Array() }));
 vi.mock("./modules", () => ({ moduleSettings: async () => ({}) }));
 vi.mock("./rebuild", () => ({ moduleSettingsGlobal: () => ({}) }));

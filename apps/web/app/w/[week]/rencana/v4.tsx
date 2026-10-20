@@ -1,7 +1,8 @@
 import { addDays, stepGates } from "@kgr/engine";
 import { Shell } from "@/components/Shell";
 import { ActionForm } from "@/components/ActionForm";
-import { TilePage } from "@/components/v4/TilePage";
+import { TilePage, hasHeadline } from "@/components/v4/TilePage";
+import { v6PagesOn, v6ShellOn } from "@/lib/v6/flags";
 import type { WeekCtx } from "@/lib/page";
 import { supabaseServer } from "@/lib/supabase";
 import { fetchAll } from "@/lib/data";
@@ -10,7 +11,7 @@ import { loadPlanning, ppicBlockers, ppicWeekControls, proposePlan, unitBuyPrice
 import { rencanaModel } from "@/lib/v4/rencana";
 import { copyGate } from "@/lib/v5/copy-plan";
 import { k25Enabled } from "@/lib/modules";
-import { num, tglShort } from "@/lib/fmt";
+import { numInput, tglShort } from "@/lib/fmt";
 import { approvePlanAction, copyPlanAction, reasonAction, savePlanAction, setCapacityAction } from "./actions";
 import type { ReactNode } from "react";
 
@@ -70,16 +71,17 @@ export async function RencanaV4({ ctx, kelas }: { ctx: WeekCtx; kelas: string | 
     extras["t-harian"] = bar(<ActionForm v4 action={copyPlanAction} submit="Salin ke batch rencana" disabled={reasonOf("t-harian", "copy") !== null} confirm="Batch rencana minggu ini (salinan sebelumnya) diganti. Lanjut?"><input type="hidden" name="week" value={week} /><input type="hidden" name="plan_id" value={latest ? String(latest.id) : ""} /></ActionForm>, reasonOf("t-harian", "copy"));
   }
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
+  const v6 = await v6ShellOn();
   return (
     <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active="rencana">
-      <h1 className="sr-only">{model.title}</h1>
-      <TilePage tiles={model.tiles} label={model.title} extras={extras} />
+      {v6 && hasHeadline(model.tiles) ? null : <h1 className="sr-only">{model.title}</h1>}
+      <TilePage tiles={model.tiles} label={model.title} extras={extras} v6={v6} plainText={v6 && (await v6PagesOn())} />
       {canPlan ? (
         <section className="fin" aria-label="Kapasitas">
           <h2>Kapasitas potong minggu ini (ekor per hari)</h2>
           <ActionForm v4 action={setCapacityAction} submit="Simpan kapasitas">
             <input type="hidden" name="week" value={week} />
-            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : num(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
+            {days.map((d) => <label key={d}>{tglShort(d)} <input name={`head_${d}`} size={6} defaultValue={src.capacity.get(d)?.cut_capacity_head === null || src.capacity.get(d)?.cut_capacity_head === undefined ? "" : numInput(src.capacity.get(d)!.cut_capacity_head!, 0)} placeholder="belum diisi" /></label>)}
           </ActionForm>
         </section>
       ) : null}

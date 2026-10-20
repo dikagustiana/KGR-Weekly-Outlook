@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { weekContext, type PageProps } from "@/lib/page";
+import { weekInputRows } from "@/lib/week-rows";
+import { supabaseServer } from "@/lib/supabase";
 import { WeekShell } from "@/components/WeekShell";
 import { InputTable, markDelivered } from "@/components/InputTable";
 import { N } from "@/components/ui";
@@ -19,7 +21,8 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
   const r = ctx.computed.result;
   const byId = new Map(r.sales.map((s) => [s.src.id, s]));
   const st = sp.status ?? "";
-  const rows = ctx.computed.loaded.db.sales.filter((x) => !st || x.status === st);
+  const all = await weekInputRows(await supabaseServer(), "sales_line", ctx.week.id);
+  const rows = all.filter((x) => !st || x.status === st);
   const today = r.week.today;
   // M3 (PRD v3 §4.1): PO columns shown when the module is on; they are written by the "PO lines" upload
   const m3 = await moduleEnabled("m3_planning", ctx.viewer);
@@ -30,7 +33,7 @@ export default async function PenjualanPage({ params, searchParams }: PageProps)
       <h1>Penjualan — aktual (Accurate) dan order (sales)</h1>
       <p className="muted">Aktual = sudah dikirim/diinvoice. Order = order pelanggan yang belum dikirim (tanggal kirim rencana). Order yang lewat tanggal dan belum dikirim tidak dihitung (kontrol 7). Penjualan aktual masuk lewat Upload (Accurate / surat jalan).</p>
       <div className="row noprint">
-        <Link href="?" className={`b small ${st ? "sec" : ""}`}>Semua ({ctx.computed.loaded.db.sales.length})</Link>
+        <Link href="?" className={`b small ${st ? "sec" : ""}`}>Semua ({all.length})</Link>
         <Link href="?status=Order" className={`b small ${st === "Order" ? "" : "sec"}`}>Order</Link>
         <Link href="?status=Aktual" className={`b small ${st === "Aktual" ? "" : "sec"}`}>Aktual</Link>
         <Link href={`/w/${week}/upload`}>Upload Sales by Item Detail / surat jalan →</Link>

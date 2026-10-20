@@ -176,10 +176,10 @@ describe("run-rate (write.ts line 117, month.ts line 143, run-rate form)", () =>
   it("form: the blank line is reported, not stored as 0; an explicit 0 is kept", () => {
     const f = new FormData();
     for (const l of ["Salaries", "Rent", "Fuel"]) f.append("pl_line", l);
-    f.set("m:Salaries", "1.000"); f.set("m:Rent", ""); f.set("m:Fuel", "0");
+    f.set("m:Salaries", "1.000.000"); f.set("m:Rent", ""); f.set("m:Fuel", "0");
     const { rows, empty } = runrateRowsFromForm(f, "w1");
     expect(empty).toEqual(["Rent"]);
-    expect(rows.map((r) => [r.pl_line, r.monthly_amount])).toEqual([["Salaries", "1000"], ["Fuel", "0"]]);
+    expect(rows.map((r) => [r.pl_line, r.monthly_amount])).toEqual([["Salaries", "1000000"], ["Fuel", "0"]]);
   });
 });
 

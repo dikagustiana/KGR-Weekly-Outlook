@@ -205,3 +205,8 @@ a.b:hover { text-decoration: none; }
   .tip { border-bottom: 0; }
   .tip:hover::after { display: none; }
 }
+
+/* PRD v6 R146: the live regions of ActionForm are always in the DOM (so a result is announced); empty, they take no room */
+/* left: 0, or the box sits at its static place (the end of a wide table) outside the card that scrolls it: page scrolls sideways */
+.af-live:empty { position: absolute; left: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.af-confirm { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }

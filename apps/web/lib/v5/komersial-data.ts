@@ -10,7 +10,8 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, fetchAll, listWeeks } from "../data";
+import { fetchAll, listWeeks } from "../data";
+import { weekResultOf } from "../week-source";
 import { clock } from "../clock";
 import { LoaderError, must, mustRows, tileData } from "../loader";
 import { fail, type Failed } from "../v4/tile-errors";
@@ -121,10 +122,10 @@ export async function loadKomersialV5(sb: Supa, viewer: Viewer, filter: StockFil
 
   // PPIC: surplus and by-product shortfall of the week (not for Sales: planning detail)
   const ppic: KomersialV5Input["ppic"] = sales || !week ? null : fail(failed, ["t-ppic"], await tileData("commercial: dari PPIC", async () => {
-    const cw = await computeForWeek(sb, week.week_start);
-    if (!cw) return null;
+    const result = await weekResultOf(sb, week.week_start);
+    if (!result) return null;
     const src = await loadPlanning(sb, week);
-    const x = await loadPpicV5(sb, { src, result: cw.result, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(week.week_start, -1)) });
+    const x = await loadPpicV5(sb, { src, result, base: "", versi: "batch", canPlan: false, c45: await stockMartControl(sb, addDays(week.week_start, -1)) });
     const latest = src.plans[0];
     const a = latest ? must(await sb.from("surplus_response").select("response, absorb_kg").eq("plan_week_id", String(latest.id)).is("deleted_at", null).order("responded_at", { ascending: false }).limit(1).maybeSingle(), "surplus_response") as Row | null : null;
     return {

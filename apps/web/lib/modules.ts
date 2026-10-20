@@ -12,7 +12,7 @@ import { isModuleOn, k25On, type ModuleKey, type ModuleSettings } from "./module
 export * from "./modules-core";
 export { moduleSettingsOf } from "./modules-read";
 
-/** All module flags, once per request. Missing table / row = off. */
+/** All module flags, once per request (PRD v6 R126: the RequestContext's read). Missing table / row = off. */
 export const moduleSettings = cache(async (): Promise<ModuleSettings> => moduleSettingsOf(await supabaseServer()));
 
 /** PRD v3 rule 5: is the module on for this viewer (or the signed-in user)? */

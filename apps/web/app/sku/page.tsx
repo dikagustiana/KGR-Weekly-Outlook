@@ -8,7 +8,7 @@ import { Card, N, Td } from "@/components/ui";
 import { SKU_READERS, requireModulePage } from "@/lib/modules";
 import { supabaseServer } from "@/lib/supabase";
 import { rekonSplitForWeek, skuBalances } from "@/lib/v3/ledger";
-import { computeForWeek } from "@/lib/data";
+import { weekResultOf } from "@/lib/week-source";
 import { bsInventoryYesterday } from "@/lib/v3/week";
 import { tgl } from "@/lib/fmt";
 import { currentView } from "@/lib/view-server";
@@ -33,7 +33,7 @@ export default async function SkuPage({ searchParams }: { searchParams: Promise<
   const totText = (k: string, unit = "") => { const t = tot(k); return t === null ? "belum diisi" : <><N v={t} />{unit}</>; };
   // PRD v4 §3.6: the five reconciliations, kg and Rp apart (computed on request: it runs the whole ledger)
   const canRekon = !mgmt && ["admin", "finance", "inventory_accounting"].includes(viewer.role) && !!week;
-  const rekon = canRekon && sp.rekon === "1" && week ? await rekonSplitForWeek(sb, week, bsInventoryYesterday((await computeForWeek(sb, week.week_start))?.result)) : null;
+  const rekon = canRekon && sp.rekon === "1" && week ? await rekonSplitForWeek(sb, week, bsInventoryYesterday((await weekResultOf(sb, week.week_start)) ?? undefined)) : null;
   return (
     <Shell viewer={viewer} weeks={weeks} week={week} active="/sku">
       <h1>Stok per SKU {date ? `— ${tgl(date)}` : ""}</h1>

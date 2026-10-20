@@ -45,7 +45,7 @@ const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))
     const st = await A.commercial_lead.goto("/komersial");
     J.check("Komersial terbuka untuk Kepala Sales", st === 200, `HTTP ${st}`);
     const fresh = A.commercial_lead.page.locator('input[name="fresh_0"]');
-    J.check("form komitmen: baris Karkas terkunci v1 15.000 / 2.000, bisa diubah oleh Kepala Sales", (await fresh.inputValue()) === "15.000" && !(await fresh.isDisabled()), await fresh.inputValue());
+    J.check("form komitmen: baris Karkas terkunci v1 15.000 / 2.000, bisa diubah oleh Kepala Sales", (await fresh.inputValue()) === "15000" && !(await fresh.isDisabled()), await fresh.inputValue());
     // (a) no reason: the database refuses a new version of a locked commitment (tg_commitment_guard); nothing is written
     await fresh.fill("16000");
     const bad = await A.commercial_lead.act("Simpan draft");
@@ -80,7 +80,7 @@ const idNum = (n) => String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))
     J.check("Komersial terbuka untuk Sales", st === 200, `HTTP ${st}`);
     const inputs = await A.sales.page.evaluate(() => ["fresh_0", "frozen_0", "price_0", "price_frozen|RPA|Karkas"].map((n) => { const e = document.querySelector(`input[name="${n}"]`); return e ? [n, e.value, e.disabled] : [n, null, null]; }));
     J.log(`    sales  input baris Karkas: ${inputs.map((i) => `${i[0]}=${i[1]}${i[2] ? " (nonaktif)" : ""}`).join(", ")}`);
-    J.check("keempat input baris Karkas nonaktif dan berisi v2 (16.000 / 2.000 / 36.705 / 28.000)", inputs.every((i) => i[2] === true) && inputs[0][1] === "16.000" && inputs[1][1] === "2.000" && inputs[2][1] === "36.705" && inputs[3][1] === "28.000", JSON.stringify(inputs));
+    J.check("keempat input baris Karkas nonaktif dan berisi v2 (16.000 / 2.000 / 36.705 / 28.000)", inputs.every((i) => i[2] === true) && inputs[0][1] === "16000" && inputs[1][1] === "2000" && inputs[2][1] === "36705" && inputs[3][1] === "28000", JSON.stringify(inputs));
     const t = await A.sales.text("main");
     J.check("Sales: 'terkunci v2' dan 'Dikunci Kepala Sales.', tanpa tombol kunci", /terkunci v2/.test(t) && /Dikunci Kepala Sales\./.test(t) && (await A.sales.page.getByRole("button", { name: "Kunci komitmen dan price list" }).count()) === 0);
     // v5.2 (A1c, B6/B7, Q-v5.2-15): the tile from PPIC is the view of the Sales' own SKUs, not "Tidak ditampilkan untuk Sales (data perencanaan)" (v5.1)

@@ -8,6 +8,7 @@ export * from "./outlook";
 export * from "./statements";
 export * from "./controls";
 export * from "./week";
+export * from "./result-codec";
 export * from "./snapshot";
 export * from "./render";
 export * from "./costing";

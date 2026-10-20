@@ -35,3 +35,13 @@ describe("R57 — the decision is saved; the queue is a note", () => {
     await expect(insertLbDecision(sb as never, form({ date: "2026-08-28", price: "24500" }))).rejects.toThrow("permission denied");
   });
 });
+
+import { decisionNote } from "./lb-decision";
+describe("PRD v6 T40: the dialog summary is kept with the decision", () => {
+  it("note + summary", () => {
+    expect(decisionNote(" cek supplier ", JSON.stringify({ Harga: "Rp 25.000/kg LB", Pemutus: "Pak Budi" }))).toBe("cek supplier\n[Dialog keputusan] Harga: Rp 25.000/kg LB; Pemutus: Pak Budi");
+    expect(decisionNote("", null)).toBeNull();
+    expect(decisionNote("x", "not json")).toBe("x");
+    expect(decisionNote("", JSON.stringify({ a: { b: 1 } }))).toBeNull();
+  });
+});

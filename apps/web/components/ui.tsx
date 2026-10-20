@@ -50,7 +50,8 @@ export function Card({ title, children, id, extra }: { title?: ReactNode; childr
 }
 
 export function Msg({ kind = "info", children }: { kind?: "ok" | "err" | "info"; children: ReactNode }) {
-  return <div className={`msg ${kind}`}>{children}</div>;
+  // PRD v6 R146 / R167: a saved result is announced without moving focus, an error as an alert
+  return <div className={`msg ${kind}`} role={kind === "err" ? "alert" : "status"}>{children}</div>;
 }
 
 export function statusClass(text: string): string {

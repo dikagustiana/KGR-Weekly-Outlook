@@ -4,11 +4,16 @@ import { Shell } from "./Shell";
 import { Badge } from "./ui";
 import type { WeekCtx } from "@/lib/page";
 import { tgl } from "@/lib/fmt";
+import { v6PagesOn } from "@/lib/v6/flags";
 
-export function WeekShell({ ctx, active, children }: { ctx: WeekCtx; active: string; children: ReactNode }) {
+export async function WeekShell({ ctx, active, children }: { ctx: WeekCtx; active: string; children: ReactNode }) {
+  // PRD v6 K88 (flag v6_pages): the release line and the control count live in the shell's context row; nothing above the
+  // headline but the shell
+  if (await v6PagesOn()) return <Shell viewer={ctx.viewer} weeks={ctx.weeks} week={ctx.week} active={active}>{children}</Shell>;
   const c = ctx.computed.result.controls;
-  const i = ctx.computed.loaded.inputs;
-  const ops = [...i.sales_lines, ...i.receipt_lines, ...i.batches, ...i.opening_stock].filter((r) => r.source === "Ops").length;
+  // PRD v6 R120: the input rows the result was computed from (prepared rows keep their source row in `src`)
+  const p = ctx.computed.result.prepared;
+  const ops = [...p.sales, ...p.receipts, ...p.batches, ...p.opening].filter((r) => r.src.source === "Ops").length;
   const cls = c.overall === "ADA GAGAL" ? "GAGAL" : c.overall;
   const w = ctx.week;
   if (ctx.view === "management") {

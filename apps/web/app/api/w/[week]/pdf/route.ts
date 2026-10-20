@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/session";
-import { computeForWeek } from "@/lib/data";
-import { supabaseServer } from "@/lib/supabase";
+import { requestWeekResult } from "@/lib/week-result";
 import { outlookPdf } from "@/lib/pdf";
 import { k25Enabled } from "@/lib/modules";
 
@@ -12,8 +11,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ week: stri
   const { week } = await params;
   const { viewer } = await getViewer();
   if (!viewer) return new NextResponse("Tidak berwenang", { status: 401 });
-  const c = await computeForWeek(await supabaseServer(), week);
-  if (!c) return new NextResponse("Minggu tidak ada", { status: 404 });
+  const w = await requestWeekResult(week);
+  if (!w) return new NextResponse("Minggu tidak ada", { status: 404 });
+  const c = w.computed;
   const pdf = await outlookPdf(c.result, { generatedAt: new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) + " (belum dirilis)", k25: await k25Enabled(viewer) });
   return new NextResponse(new Uint8Array(pdf), {
     headers: {

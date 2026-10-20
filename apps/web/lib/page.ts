@@ -3,10 +3,12 @@ import { cache } from "react";
 import { notFound } from "next/navigation";
 import { isISODate } from "@kgr/engine";
 import { requireViewer, type Viewer } from "./session";
-import { computeForWeek, listWeeks, type Computed, type WeekRow } from "./data";
+import { listWeeks, type WeekRow } from "./data";
 import { supabaseServer, type Supa } from "./supabase";
 import { must } from "./loader";
-import { currentView } from "./view-server";
+import { getRequestContext } from "./request-context";
+import { weekResultFor, type PageComputed } from "./week-result";
+import { logTiming, type Timing } from "./timing";
 import type { ViewMode } from "./view";
 
 export interface LastRelease {
@@ -23,32 +25,49 @@ export interface WeekCtx {
   viewer: Viewer;
   weeks: WeekRow[];
   week: WeekRow;
-  computed: Computed;
+  /**
+   * PRD v6 R120: the result only — `loaded` (the raw input rows) is not on the request path any more; a page that needs
+   * input rows reads its own table, narrowly (docs/v6/loaded-map.md).
+   */
+  computed: PageComputed;
   lastRelease: LastRelease | null;
   /** Management View v2 R1 */
   view: ViewMode;
+  /** R121 */
+  timing: Timing;
 }
 
-/** The weeks of the request, listed once per request (the page's own session client, shared by `supabaseServer`). */
+/** The weeks of the request, listed once per request (PRD v6 R126: the RequestContext's read). */
 export const weeksCached = cache(async (sb: Supa) => listWeeks(sb));
 
-export async function weekContext(weekStart: string): Promise<WeekCtx> {
+/** The latest release of a week, once per request (the week context and the v6 release line share it). */
+export const latestRelease = cache(async (weekId: string): Promise<LastRelease | null> => {
+  const sb = await supabaseServer();
+  return must(await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
+    .eq("week_id", weekId).order("released_at", { ascending: false }).limit(1).maybeSingle(), "page.release") as LastRelease | null;
+});
+
+export const weekContext = cache(async (weekStart: string): Promise<WeekCtx> => {
   if (!isISODate(weekStart)) notFound();
   const viewer = await requireViewer();
+  const rc = await getRequestContext();
+  const week = rc.weeks.find((w) => w.week_start === weekStart);
+  if (!week) notFound();
   const sb = await supabaseServer();
-  const [weeks, computed] = await Promise.all([weeksCached(sb), computeForWeek(sb, weekStart)]);
+  const t0 = performance.now();
+  const [computed, lastRelease] = await Promise.all([weekResultFor(sb, week, rc.settings, viewer.role), latestRelease(week.id)]);
   if (!computed) notFound();
-  const data = must(await sb.from("release").select("id, released_by, released_at, update_date, control_status, controls")
-    .eq("week_id", computed.loaded.week.id).order("released_at", { ascending: false }).limit(1).maybeSingle(), "page.release") as LastRelease | null;
-  return { viewer, weeks, week: computed.loaded.week, computed, lastRelease: data, view: await currentView(viewer) };
-}
+  const timing = { ctx: rc.ms, data: Math.round(performance.now() - t0) };
+  logTiming(`/w/${weekStart}`, timing, computed.source);
+  return { viewer, weeks: rc.weeks, week, computed, lastRelease, view: rc.view, timing };
+});
 
 export type PageProps = { params: Promise<{ week: string }>; searchParams: Promise<Record<string, string | undefined>> };
 
 /** Context for pages outside a week path (admin, master, account): the week from ?week= or the latest. */
 export async function plainContext(weekParam?: string) {
   const viewer = await requireViewer();
-  const weeks = await weeksCached(await supabaseServer());
+  const weeks = (await getRequestContext()).weeks;
   const week = weeks.find((w) => w.week_start === weekParam) ?? weeks.find((w) => w.status !== "closed") ?? weeks[0] ?? null;
   return { viewer, weeks, week };
 }

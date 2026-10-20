@@ -16,7 +16,8 @@ import {
 } from "@kgr/engine";
 import type { Supa } from "../supabase";
 import type { Viewer } from "../session";
-import { computeForWeek, dataToday, fetchAll, listWeeks } from "../data";
+import { dataToday, fetchAll, listWeeks } from "../data";
+import { salesDemandStatus, weekResultOf } from "../week-source";
 import { must, mustRows } from "../loader";
 import { WriteError } from "../write";
 import { martReplace, registerBuilder } from "../rebuild-registry";
@@ -28,6 +29,7 @@ import { v5CostingPlRows } from "../v5/costing-pl";
 import { applyForecastCosts, forecastCostsOf, type ForecastCostLabel } from "../v5/forecast-cost";
 import { costingModeFor, fixedSourcesOf, v5FixedForMonth, type V5Fixed } from "../v5/pl";
 import { resetLedgerRun } from "../v3/ledger";
+import { appSettingsOf } from "../request-memo";
 
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 const f2 = (x: { toFixed(n: number): string } | null) => (x === null ? null : x.toFixed(2));
@@ -123,9 +125,10 @@ export async function computeMonthV4(sb: Supa, monthFirst: string, today: string
   let forecastCost: ForecastCostLabel | null = forecastCosts ? { plan: 0, ma: 0, maKeys: [], noPlan: [], notes: [] } : null;
   const costingMode = await costingModeFor(sb, settings);
   for (const w of weeks) {
-    const c = await computeForWeek(sb, w.week_start);
-    if (!c) continue;
-    const status = new Map((c.loaded.db.sales as Row[]).map((r) => [String(r.id), s(r.demand_status)]));
+    const result = await weekResultOf(sb, w.week_start);
+    if (!result) continue;
+    const c = { result };
+    const status = await salesDemandStatus(sb, w.week_start);
     const p = must(await sb.from("parameter").select("*").eq("week_id", w.id).maybeSingle(), "month.parameter") as Row | null;
     const pr = (p ?? {}) as Row;
     tolerance = s(pr.forecast_tolerance_pct) ?? tolerance; lockWeek = Number(pr.v1_lock_week ?? lockWeek); windowDays = Number(pr.runrate_window_days ?? windowDays);
@@ -247,7 +250,8 @@ registerBuilder({
     builtMonths = new Set();
     builderToday = await dataToday(sb);
     // R67: v5_costing too — the forecast cost of the rebuilt month needs both flags
-    const flags = mustRows<Row>(await sb.from("app_setting").select("key, value").in("key", ["m5_drivers", "v5_pl", "v5_costing"]), "app_setting");
+    const all = await appSettingsOf(sb);
+    const flags = (["m5_drivers", "v5_pl", "v5_costing"] as const).filter((k) => k in all).map((key) => ({ key, value: all[key] }) as Row);
     builderSettings = {};
     for (const r of flags) builderSettings[r.key as "m5_drivers" | "v5_pl" | "v5_costing"] = { enabled: (r.value as { enabled?: boolean } | undefined)?.enabled === true };
   },

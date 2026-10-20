@@ -2,7 +2,8 @@ import { plainContext } from "@/lib/page";
 import { Shell } from "@/components/Shell";
 import { Card, Msg } from "@/components/ui";
 import { supabaseServer } from "@/lib/supabase";
-import { computeForWeek, fetchAll } from "@/lib/data";
+import { fetchAll } from "@/lib/data";
+import { weekResultOf } from "@/lib/week-source";
 import { suggestKey } from "@/lib/upload";
 import { MasterTabs } from "../MasterTabs";
 import { deleteItem, saveItem } from "../actions";
@@ -20,11 +21,13 @@ export default async function ItemMaster({ searchParams }: { searchParams: Promi
   const q = (sp.q ?? "").toLowerCase();
   const shown = items.filter((i) => !q || `${i.item_code} ${i.item_name} ${i.key}`.toLowerCase().includes(q));
   // new codes seen in the selected week
-  const c = week ? await computeForWeek(sb, week.week_start) : null;
+  const r = week ? await weekResultOf(sb, week.week_start) : null;
   const known = new Set(items.map((i) => String(i.item_code).toUpperCase()));
   const fresh = new Map<string, string | null>();
-  if (c) {
-    for (const r of [...c.loaded.inputs.sales_lines, ...c.loaded.inputs.receipt_lines, ...c.loaded.inputs.opening_stock]) {
+  if (r) {
+    // PRD v6 R120: the input rows of the result (prepared rows keep their source row)
+    for (const r0 of [...r.prepared.sales, ...r.prepared.receipts, ...r.prepared.opening]) {
+      const r = r0.src;
       const code = r.item_code;
       if (code && !known.has(code.toUpperCase()) && !("key_manual" in r && r.key_manual)) fresh.set(code, ("item_name" in r ? (r.item_name as string | null) : null) ?? null);
     }

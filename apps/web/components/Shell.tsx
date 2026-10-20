@@ -14,6 +14,10 @@ import { V4Frame } from "./v4/Frame";
 import { v4Nav, v4On } from "@/lib/v4/nav";
 import { viewAsActive, viewAsItems } from "@/lib/v5/view-as";
 import { schemaStatus } from "@/lib/schema-session";
+import { isModuleOn } from "@/lib/modules-core";
+import { Shell6 } from "./v6/Shell";
+import { latestRelease } from "@/lib/page";
+import { tgl as tglLong } from "@/lib/fmt";
 
 const REPORTS: [string, string][] = [
   ["outlook", "Outlook"], ["stok", "Stok"], ["batch", "Batch RPA"], ["laba-rugi", "Laba Rugi"], ["neraca", "Neraca"],
@@ -56,6 +60,25 @@ export async function Shell({
   // K57 (R44): one banner in the header when the database schema is behind the code.
   const schema = await schemaStatus();
   const schemaBanner = schema ? <div className="banner ADA-GAGAL" role="alert">{schema}</div> : null;
+  // PRD v6 irisan 4 (flag v6_shell): context row + tab row, skip link, WeekPicker, phone menu; admin first
+  if (isModuleOn(settings.v6_shell, viewer.role)) {
+    const today = jakartaToday();
+    const nav = v4Nav(viewer.role, settings, { week: w ?? null, month: week ? week.update_date.slice(0, 7) : today.slice(0, 7), today });
+    const rel = week ? await latestRelease(week.id) : null;
+    const counts = rel?.controls?.counts;
+    const total = counts ? Object.values(counts).reduce((a, x) => a + (x ?? 0), 0) : null; // missing-ok: jumlah kontrol (hitungan), bukan uang
+    return (
+      <Shell6
+        viewer={viewer} weeks={weeks} week={week} tabs={nav} active={v4Active(active)} view={view}
+        viewAs={viewAsItems(viewer.role, settings, { week: w ?? null })} viewAsActive={viewAsActive(active)}
+        release={week ? { date: rel ? tglLong(rel.update_date) : null, passed: counts?.LULUS ?? null, total, pdfHref: `/api/w/${week.week_start}/pdf` } : null}
+        canToggle={canToggleView(viewer.role)} longDates={mgmt}
+        banner={<>{banner}{schemaBanner}</>}
+      >
+        {children}
+      </Shell6>
+    );
+  }
   // PRD v4 irisan 1 (flag v4_design): one navigation row per role, the v4 visual grammar around every page
   if (v4On(settings, viewer.role)) {
     const nav = v4Nav(viewer.role, settings, { week: w ?? null, month: week ? week.update_date.slice(0, 7) : jakartaToday().slice(0, 7), today: jakartaToday() });

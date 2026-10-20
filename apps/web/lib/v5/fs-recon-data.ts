@@ -15,13 +15,14 @@ import type { Supa } from "../supabase";
 import { fetchAll } from "../data";
 import { LoaderError, must } from "../loader";
 import { buildFsRecon, inFsReconScope, plLinesFromSnapshot, type BsSide, type FsMeta, type FsReconModel, type FsReconTile } from "./fs-recon";
+import { settingValue } from "../request-memo";
 
 type Row = Record<string, unknown>;
 const s = (v: unknown): string | null => (v === null || v === undefined || v === "" ? null : String(v));
 
 /** `app_setting` v5_pl.costing_rows_mode (R66): 'cogs' (no value = the default) or 'memo'; any other value is refused. */
 export async function loadCostingRowsMode(sb: Supa): Promise<CostingRowsMode> {
-  const r = must(await sb.from("app_setting").select("value").eq("key", "v5_pl").maybeSingle(), "fs-recon.app_setting") as { value?: { costing_rows_mode?: unknown } | null } | null;
+  const r = ({ value: await settingValue(sb, "v5_pl") }) as { value?: { costing_rows_mode?: unknown } | null } | null;
   const v = r?.value?.costing_rows_mode;
   if (v === undefined || v === null || v === "") return "cogs";
   if (!isCostingRowsMode(v)) throw new LoaderError("fs-recon.costing_rows_mode", `nilai tidak dikenal: ${String(v)} (cogs atau memo)`);

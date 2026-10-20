@@ -29,6 +29,8 @@ export interface CommitmentRow {
 }
 
 export interface KomersialV5Input {
+  /** PRD v6 R160 (flag v6_pages): context as the headline's note, explanations in the drawer, one-line empty states. */
+  v6?: boolean;
   /** The data date the stock is read on (K38). */
   today: string;
   /** "Spot hari ini": the data is today's on the wall clock (K38); spot is recorded on the wall date only. */
@@ -81,33 +83,39 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   const s = x.summary;
   const href = (f: StockFilter) => (f === "all" ? x.base : `${x.base}?filter=${f}`);
   tiles.push({ id: "filter", pos: P(0, 0, 7, 1), kind: "bare", content: { type: "slicer", label: "Tampilkan", current: x.filter, options: FILTERS.map(([v, label]) => ({ value: v, label, href: href(v) })) } });
-  tiles.push({
-    id: "konteks", pos: P(7, 0, 5, 1), kind: "bare",
-    content: { type: "headline", text: `${tglShort(x.today)} · ${x.roleLabel}. Cut-off fresh ${x.cutOffTime}. Komitmen minggu depan dikunci ${x.commitment.deadline}. ${x.sales ? "Anda melihat SKU dan pelanggan yang ditugaskan." : "Kepala Sales melihat semua SKU dan pelanggan."}` },
-  });
+  const context = `${tglShort(x.today)} · ${x.roleLabel}. Cut-off fresh ${x.cutOffTime}. Komitmen minggu depan dikunci ${x.commitment.deadline}. ${x.sales ? "Anda melihat SKU dan pelanggan yang ditugaskan." : "Kepala Sales melihat semua SKU dan pelanggan."}`;
+  // K87 (v6): one headline; the context is its note, not a second headline
+  if (!x.v6) tiles.push({ id: "konteks", pos: P(7, 0, 5, 1), kind: "bare", content: { type: "headline", text: context } });
   tiles.push({
     id: "headline", pos: P(0, 1, 12, 1), kind: "bare",
-    content: { type: "headline", text: s.skus ? `Stok Rp ${jtV4(s.value)} jt belum punya PO; ${kg(s.fresh.kg)} kg fresh harus laku hari ini${s.below.skus ? `, dan ${s.below.skus} SKU di bawah biaya pada harga acuan` : ""}.` : "Tidak ada stok bebas pada data mart terakhir." },
+    content: { type: "headline", text: s.skus ? `Stok Rp ${jtV4(s.value)} jt belum punya PO; ${kg(s.fresh.kg)} kg fresh harus laku hari ini${s.below.skus ? `, dan ${s.below.skus} SKU di bawah biaya pada harga acuan` : ""}.` : x.v6 ? "Tidak ada stok bebas pada data harian terakhir." : "Tidak ada stok bebas pada data mart terakhir.", ...(x.v6 ? { note: context } : {}) },
   });
 
   // ---------------------------------------------------------------- rows 2–3: cards
-  tiles.push({ id: "c-stok", pos: P(0, 2, 3, 2), kind: "card", title: "Stok bebas belum ke PO", ...(x.freeStock === undefined ? {} : { note: freeStockNote(x.freeStock) }), content: { type: "card", value: jtV4(s.value), unit: "Rp jt", compare: [{ label: "kg", value: kg(s.kg) }, { label: "SKU", value: String(s.skus) }, ...(s.missingCost ? [{ label: "tanpa biaya", value: `${s.missingCost} SKU` }] : [])] } });
+  tiles.push({ id: "c-stok", pos: P(0, 2, 3, 2), kind: "card", title: "Stok bebas belum ke PO",
+    // R160: the reservation paragraph goes to the drawer; the card says one sentence
+    ...(x.freeStock === undefined ? {} : x.v6 ? {
+      note: x.freeStock && x.freeStock.deductedKg.gt(0) ? `sudah dikurangi komitmen terkunci ${kg(x.freeStock.deductedKg)} kg` : "belum dikurangi komitmen",
+      cara: { title: "Stok bebas belum ke PO", fn: "freeStock (commercial_daily, sales_commitment, po_line)", rule: freeStockNote(x.freeStock), sources: [{ label: "Tabel", value: "commercial_daily, sales_commitment, po_line" }] },
+    } : { note: freeStockNote(x.freeStock) }), content: { type: "card", value: jtV4(s.value), unit: "Rp jt", compare: [{ label: "kg", value: kg(s.kg) }, { label: "SKU", value: String(s.skus) }, ...(s.missingCost ? [{ label: "tanpa biaya", value: `${s.missingCost} SKU` }] : [])] } });
   tiles.push({ id: "c-hari", pos: P(3, 2, 2, 2), kind: "card", title: "Jual hari ini (fresh)", content: { type: "card", value: kg(s.fresh.kg), unit: "kg", compare: [{ label: "Rp jt", value: jtV4(s.fresh.value) }, { label: "SKU", value: String(s.fresh.skus) }] } });
   tiles.push({ id: "c-bawah", pos: P(5, 2, 3, 2), kind: "card", title: "Di bawah biaya pada harga acuan", content: { type: "card", value: String(s.below.skus), unit: "SKU", compare: [{ label: "bila dijual di acuan", value: `${jtV4(s.below.loss.neg())} jt`, tone: s.below.loss.gt(0) ? "neg" : undefined }] } });
-  tiles.push({ id: "c-simpan", pos: P(8, 2, 2, 2), kind: "card", title: "Rugi simpan per hari", content: s.holdingPerDay ? { type: "card", value: jtV4(s.holdingPerDay), unit: "Rp jt", compare: [{ label: "tarif", value: x.holdingRate ? `${pctV4(x.holdingRate, 3)} per hari` : "" }] } : { type: "card", value: null, missing: "tarif simpan belum ada", compare: [] } });
-  tiles.push({ id: "c-approval", pos: P(10, 2, 2, 2), kind: "card", title: "Approval diskon menunggu", content: { type: "card", value: String(x.approvalsWaiting), unit: "permintaan", compare: [], href: "/komersial/approval" } });
+  tiles.push({ id: "c-simpan", pos: P(8, 2, 2, 2), kind: "card", title: "Rugi simpan per hari", content: s.holdingPerDay ? { type: "card", value: jtV4(s.holdingPerDay), unit: "Rp jt", compare: [{ label: "tarif", value: x.holdingRate ? `${pctV4(x.holdingRate, 3)} per hari` : "" }] } : { type: "card", value: null, missing: "tarif simpan belum ada", compare: [] },
+    ...(x.v6 && !s.holdingPerDay ? { note: "isi tarif di Parameter" } : {}) });
+  tiles.push({ id: "c-approval", pos: P(10, 2, 2, 2), kind: "card", title: "Approval diskon menunggu", content: { type: "card", value: String(x.approvalsWaiting), unit: "permintaan", compare: [], href: "/komersial/approval" },
+    ...(x.v6 && !x.approvalsWaiting ? { note: "tidak ada yang menunggu" } : {}) });
 
   // ---------------------------------------------------------------- rows 4–9: ranking
   const cols: Col[] = [
-    { key: "i", label: "#", num: true }, { key: "k", label: "SKU", kind: "key" }, { key: "u", label: "Urgensi" }, { key: "kg", label: "Bebas kg", num: true }, { key: "a", label: "Umur", num: true },
-    { key: "o", label: "> batas", num: true }, { key: "cs", label: "Status biaya" }, { key: "fl", label: "Lantai/kg", num: true, kind: "key" }, { key: "ref", label: "Acuan/kg", num: true },
+    { key: "i", label: "#", num: true }, { key: "k", label: "SKU", kind: "key", wrap: x.v6 }, { key: "u", label: "Urgensi", wrap: x.v6 }, { key: "kg", label: "Bebas kg", num: true }, { key: "a", label: "Umur", num: true },
+    { key: "o", label: "> batas", num: true }, { key: "cs", label: "Status biaya", wrap: x.v6 }, { key: "fl", label: "Lantai/kg", num: true, kind: "key" }, { key: "ref", label: "Acuan/kg", num: true },
     { key: "m", label: "Margin/kg", num: true }, { key: "h", label: "Rugi simpan/hari", num: true, kind: "sup" }, { key: "l", label: "Rugi di acuan", num: true },
   ];
   const tRows: TRow[] = x.rows.map((r, i) => ({
     id: r.key, href: `/komersial/${encodeURIComponent(r.key)}`, redNeg: true,
     cells: {
       i: String(i + 1), k: skuLabel(r.key), u: URG[r.urgency ?? "aman"] ?? r.urgency ?? "", kg: kg(r.free_kg), a: r.oldest_age_days === null ? "" : `${num(r.oldest_age_days, 1)} hr`,
-      o: r.over_age_kg === null ? "tidak ditampilkan" : r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
+      o: r.over_age_kg === null ? (x.v6 ? "—" : "tidak ditampilkan") : r.over_age_kg.isZero() ? "" : kg(r.over_age_kg), cs: r.cost_status ? (STATUS[r.cost_status] ?? r.cost_status) : r.key.startsWith("Trading|") ? "final (faktur beli)" : "MA penerimaan",
       fl: rp(r.cost_per_kg), ref: rp(r.price_ref), m: r.margin_per_kg === null ? "—" : `${r.margin_per_kg.gt(0) ? "+" : ""}${minus(num(r.margin_per_kg, 0))}`,
       h: r.holding_per_day === null ? "" : `${num(r.holding_per_day.div(1000), 1)} rb`, l: r.loss_at_ref.isZero() ? "" : `${jtV4(r.loss_at_ref.neg())} jt`,
     },
@@ -117,7 +125,7 @@ export function komersialV5Model(x: KomersialV5Input): { title: string; tiles: T
   tiles.push({
     id: "t-ranking", pos: P(0, 4, 12, 6), title: `Stok yang harus dijual, urut prioritas · ${filterLabel}`,
     note: [x.rows.length > 16 ? `Menampilkan 16 dari ${x.rows.length} SKU.` : null,
-      checked.length ? `${checked.map((r) => skuLabel(r.key)).join(", ")}: biaya per kg di atas batas kali harga acuan (C54, periksa biaya).` : null,
+      checked.length ? `${checked.map((r) => skuLabel(r.key)).join(", ")}: biaya per kg di atas batas kali harga acuan${x.v6 ? "; periksa biaya" : " (C54, periksa biaya)"}.` : null,
       // R64: Sales cannot read the age of the stock; the column says so instead of 0
       x.rows.some((r) => r.over_age_kg === null) ? `Kolom "> batas" (kg di atas batas umur) tidak ditampilkan untuk ${x.sales ? "Sales" : "peran ini"}.` : null,
       x.freeStock && x.freeStock.deductedKg.gt(0) ? `Kolom "Bebas kg" sudah dikurangi komitmen terkunci minggu depan yang belum tertutup PO (${kg(x.freeStock.deductedKg)} kg).` : null,

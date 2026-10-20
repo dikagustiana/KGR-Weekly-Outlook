@@ -12,6 +12,7 @@ import "server-only";
  */
 import { addDays, type ISODate } from "@kgr/engine";
 import type { Supa } from "./supabase";
+import { weeksOf } from "./request-memo";
 
 export interface Clock {
   /** The date the data stands on (marts, cut-off actual / outlook). */
@@ -41,13 +42,17 @@ function testNow(): Date | null {
  * current. A week created ahead (rollover before Monday: update date = week start) says nothing about today's data.
  */
 export async function dataToday(sb: Supa, today: ISODate = wallNow().date): Promise<ISODate> {
-  const { data, error } = await sb.from("week").select("update_date").lte("update_date", today).order("update_date", { ascending: false }).limit(1).maybeSingle();
-  if (error) {
+  // PRD v6 R128: from the week list read once per client (request-memo), not a second query of week.update_date
+  let weeks: { update_date: string }[];
+  try {
+    weeks = await weeksOf(sb);
+  } catch (e) {
     // K41 whitelist (PRD v5.1 Bab 5.3): the pages still open, on the wall date, and the failure is logged
-    console.error(`[clock] dataToday: ${error.message}; tanggal data = jam dinding ${today}`);
+    console.error(`[clock] dataToday: ${(e as Error).message}; tanggal data = jam dinding ${today}`);
     return today;
   }
-  const u = (data as { update_date?: string | null } | null)?.update_date ?? null;
+  let u: string | null = null;
+  for (const w of weeks) if (w.update_date <= today && (u === null || w.update_date > u)) u = w.update_date;
   return u && u < today ? u : today;
 }
 

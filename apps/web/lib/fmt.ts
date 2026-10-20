@@ -29,6 +29,14 @@ export function num(v: DecLike, dp = 0): string {
   return r === "-0" ? "0" : r.replace(/^-0(,0+)?$/, (m) => m.slice(1));
 }
 
+/**
+ * A number as an input's starting value: `num` without the thousands dots, so parseNumber reads it back (K92 refuses
+ * "2.000": decimal point or thousands?). "24600", "1234,5".
+ */
+export function numInput(v: DecLike, dp = 0): string {
+  return num(v, dp).replace(/\./g, "");
+}
+
 export function pct(v: DecLike, dp = 1): string {
   const n = toNum(v, 8);
   return n === null ? "" : `${num(n * 100, dp)}%`;

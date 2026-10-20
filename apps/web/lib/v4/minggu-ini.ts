@@ -25,8 +25,10 @@ export type TileContent =
   | { type: "slicer"; label: string; options: SlicerOption[]; current: string | null; extra?: string }
   | { type: "mode"; label: string; options: [SlicerOption, SlicerOption]; current: string }
   | { type: "release"; text: string; pdfHref: string | null }
-  | { type: "headline"; text: string }
-  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string; maxCompare?: number }
+  | { type: "headline"; text: string; /** PRD v6 K87: the context line under the headline (cut-off, time). */ note?: string }
+  | { type: "card"; value: string | null; unit?: string; negative?: boolean; missing?: string; compare: CardCompare[]; href?: string; maxCompare?: number;
+      /** PRD v6 R153: a state is shown as Status (icon + word), not as a word in the value's place. */
+      status?: { kind: "lolos" | "catatan" | "terlambat" | "belum"; text?: string } }
   | { type: "combo"; points: ChartPoint[]; labelMax?: number; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "line"; plot: LinePlot; legend: { tone: "s1" | "s2" | "s3" | "ln"; label: string }[] }
   | { type: "waterfall"; steps: WaterfallStep[] }
@@ -116,6 +118,8 @@ export interface MingguIniInput {
   v5Mgmt?: ManagementV5Input | null;
   /** PRD v5.1 K41: tile id → message of the read that failed. */
   failed?: Failed;
+  /** PRD v6 irisan 5 (flag v6_pages): the cards carry the decided metric (K89, R150, R157). */
+  v6?: boolean;
 }
 
 const P = (x: number, y: number, w: number, h: number): TilePos => ({ x, y, w, h });
@@ -129,6 +133,9 @@ const deltaTone = (v: Decimal | null | undefined): "better" | "worse" | undefine
 const cell = (v: Decimal | string | null | undefined, missing = "belum diisi") => (v === null || v === undefined ? missing : jtV4(v));
 const rpkg = (v: Decimal | string | null | undefined) => (v === null || v === undefined ? "belum diisi" : num(v, 0));
 const ddmm = (d: string) => `${dayName(d).slice(0, 3)} ${Number(d.slice(8, 10))}`;
+/** PRD v6 K97: a delta is the difference of the numbers shown (rounded to 0,1 jt first), never of the full decimals. */
+const shownJt = (v: Decimal | string) => D(v).div(1e6).toDecimalPlaces(1, Decimal.ROUND_HALF_UP);
+export const shownDelta = (a: Decimal | string, b: Decimal | string): Decimal => shownJt(a).minus(shownJt(b)).times(1e6);
 
 /**
  * A tile whose module is on but whose data mart is not built yet keeps its place on the grid and says what to do
@@ -157,7 +164,8 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     content: { type: "slicer", label: "Minggu", current: x.week.start, options: x.weeks.slice(0, 6).map((w) => ({ value: w.start, label: weekLabel(w.start, w.end), href: x.base.replace(x.week.start, w.start) })) },
   });
   tiles.push({
-    id: "mode", pos: P(6, 0, 3, 1), kind: "bare",
+    // R138 (v6): the Aktual / Proyeksi chip sits under the headline (the week chips and the release line are in the shell)
+    id: "mode", pos: x.v6 ? P(0, 1, 6, 1) : P(6, 0, 3, 1), kind: "bare",
     content: { type: "mode", label: "Tampilan", current: x.mode, options: [{ value: "aktual", label: "Aktual s.d. kemarin", href: q({ mode: "aktual" }) }, { value: "proyeksi", label: "Proyeksi minggu", href: q({ mode: null }) }] },
   });
   const c = r.controls;
@@ -184,10 +192,10 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     outlook: wo, segments: r.block1.map((s) => ({ segment: s.segment, gpProjection: s.gpProjection })),
     stockOverAge: stockValue, cash: cashLowest ? { lowest: cashLowest.balance, lowestDate: cashLowest.date, average: cashLowest.average } : null,
   });
-  if (headline) tiles.push({ id: "headline", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: headline } });
+  if (headline) tiles.push({ id: "headline", pos: x.v6 ? P(0, 0, 12, 1) : P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: headline } });
   else {
     hidden.push("headline");
-    tiles.push({ id: "headline-pending", pos: P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: "Angka minggu ini menunggu data mart. Admin membangun ulang di halaman Modul (Bangun ulang data mart)." } });
+    tiles.push({ id: "headline-pending", pos: x.v6 ? P(0, 0, 12, 1) : P(0, 1, 12, 1), kind: "bare", content: { type: "headline", text: "Angka minggu ini menunggu data mart. Admin membangun ulang di halaman Modul (Bangun ulang data mart)." } });
   }
 
   // ---------------------------------------------------------------- row 2–3: five cards
@@ -201,7 +209,15 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         status: x.release?.releasedAt ? "released" : "draft",
         sources: [{ label: "Tabel", value: "pl_daily_v4 (7 hari)" }, { label: "Minggu lalu", value: x.lastWeek ? (x.lastWeek.basis === "rilis" ? "snapshot rilis minggu lalu" : "jurnal minggu lalu") : "belum ada" }],
       },
-      content: {
+      content: x.v6 ? {
+        // K89 / R150 / R157: the card is "GP minggu" — GP is the decided number, revenue is a comparison
+        type: "card", value: jtV4(wo.projection.gp), unit: "Rp jt",
+        compare: [
+          { label: "GP %", value: pctV4(wo.gpPct), tone: tone(wo.projection.gp) },
+          { label: "Revenue", value: `${jtV4(wo.projection.revenue)} jt` },
+          { label: "Δ GP vs minggu lalu", value: x.lastWeek ? `${jtV4(shownDelta(wo.projection.gp, x.lastWeek.gp))} jt` : "minggu lalu belum ada", tone: x.lastWeek ? deltaTone(shownDelta(wo.projection.gp, x.lastWeek.gp)) : undefined },
+        ],
+      } : {
         type: "card", value: jtV4(wo.projection.revenue), unit: "Rp jt",
         compare: [
           { label: "GP P&L", value: `${jtV4(wo.projection.gp)} jt (${pctV4(wo.gpPct)})`, tone: tone(wo.projection.gp) },
@@ -209,6 +225,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
           { label: "Δ GP vs minggu lalu", value: wo.deltaGp === null ? "minggu lalu belum ada" : `${jtV4(wo.deltaGp)} jt`, tone: deltaTone(wo.deltaGp) },
         ],
       },
+      ...(x.v6 ? { title: "GP minggu", pos: P(2, 2, 2, 2), note: x.lastWeek ? (shownDelta(wo.projection.gp, x.lastWeek.gp).gte(0) ? "di atas minggu lalu" : "di bawah minggu lalu") : undefined } : {}),
     });
   } else { hidden.push("c-outlook"); tiles.push(pendingCard("c-outlook-pending", P(0, 2, 3, 2), "Outlook minggu")); }
 
@@ -223,6 +240,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         period: tgl(over ? x.stock!.date : addDays(today, -1)), basis: "stok", sources: [{ label: "Tabel", value: over ? "sku_balance_daily" : "engine mingguan (stok per key)" }],
       },
       content: { type: "card", value: jtV4(stockValue), unit: "Rp jt", compare: [{ label: "kg", value: num(kg, 1) }, { label: "SKU", value: String(skus) }], href: x.on.m2 ? "/sku" : `/w/${x.week.start}/stok` },
+      ...(x.v6 ? { pos: P(6, 2, 2, 2) } : {}),
     });
   } else {
     hidden.push("c-stok");
@@ -237,7 +255,15 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       period: `${tgl(r.week.weekStart)} s.d. ${tgl(r.week.weekEnd)}`, basis: "aktual s.d. kemarin, rencana sesudahnya",
       sources: [{ label: "Tabel", value: x.on.m6 && x.cashMart ? "cash_position_daily" : "arus kas mingguan (rencana kas, jurnal kas)" }],
     },
-    content: {
+    content: x.v6 ? {
+      // R150: the shortfall without affiliate loans is the number; the balance with them is a comparison
+      type: "card", value: withoutLowest !== null ? jtV4(withoutLowest) : cashLowest ? jtV4(cashLowest.balance) : null, unit: "Rp jt",
+      compare: cashLowest ? [
+        { label: "hari", value: `${dayName(cashLowest.date)} ${tglShort(cashLowest.date)}` },
+        { label: "saldo dengan afiliasi", value: `${jtV4(cashLowest.balance)} jt`, tone: tone(cashLowest.balance) },
+      ] : [],
+      href: x.on.m6 ? "/kas" : `/w/${x.week.start}/arus-kas`,
+    } : {
       type: "card", value: cashLowest ? jtV4(cashLowest.balance) : null, unit: "Rp jt", negative: cashLowest ? cashLowest.balance.lt(0) : false,
       compare: cashLowest ? [
         { label: "hari", value: `${dayName(cashLowest.date)} ${tglShort(cashLowest.date)}` },
@@ -246,12 +272,25 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
       ] : [],
       href: x.on.m6 ? "/kas" : `/w/${x.week.start}/arus-kas`,
     },
+    ...(x.v6 ? {
+      title: withoutLowest !== null ? "Kas terendah tanpa afiliasi" : "Kas terendah", pos: P(4, 2, 2, 2),
+      note: withoutLowest !== null && withoutLowest.lt(0) && cashLowest ? `butuh afiliasi Rp ${jtV4(withoutLowest.neg())} jt sebelum ${dayName(cashLowest.date)}` : undefined,
+    } : {}),
   });
 
   if (x.on.m4 && x.month) {
     tiles.push({
-      id: "c-bulan", pos: P(7, 2, 2, 2), kind: "card", title: `Outlook ${x.month.label}`,
-      content: {
+      id: "c-bulan", pos: x.v6 ? P(8, 2, 2, 2) : P(7, 2, 2, 2), kind: "card", title: `Outlook ${x.month.label}`,
+      content: x.v6 ? {
+        // R157: GP of the month is the number; "vs budget" only when a budget exists
+        type: "card", value: jtV4(x.month.gp), unit: "Rp jt",
+        compare: [
+          { label: "GP %", value: x.month.gpPct ? pctV4(x.month.gpPct) : "tidak tersedia", tone: tone(x.month.gp) },
+          { label: "Revenue", value: `${jtV4(x.month.revenue)} jt` },
+          ...(x.month.budgetGp !== null ? [{ label: "vs budget GP", value: `${jtV4(shownDelta(x.month.gp, x.month.budgetGp))} jt`, tone: deltaTone(shownDelta(x.month.gp, x.month.budgetGp)) } as CardCompare] : []),
+        ],
+        href: `/m/${x.week.update.slice(0, 7)}`,
+      } : {
         type: "card", value: jtV4(x.month.revenue), unit: "Rp jt",
         compare: [
           { label: "GP P&L", value: `${jtV4(x.month.gp)} jt${x.month.gpPct ? ` (${pctV4(x.month.gpPct)})` : ""}`, tone: tone(x.month.gp) },
@@ -268,8 +307,21 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
   if (x.on.m6 && x.solvency) {
     const s = x.solvency;
     tiles.push({
-      id: "c-solvabilitas", pos: P(9, 2, 3, 2), kind: "card", title: "Solvabilitas",
-      content: {
+      id: "c-solvabilitas", pos: x.v6 ? P(10, 2, 2, 2) : P(9, 2, 3, 2), kind: "card", title: "Solvabilitas",
+      content: x.v6 ? (() => {
+        // R150 / R157: equity ÷ paid-in capital is the number; related-party debt as a multiple of equity
+        const ratio = D(s.equity).div(D(s.paidIn));
+        const times = s.affiliate !== null && !D(s.equity).isZero() ? D(s.affiliate).div(D(s.equity)) : null;
+        return {
+          type: "card" as const, value: pctV4(ratio, 0).replace(/%$/, ""), unit: "% modal disetor",
+          compare: [
+            { label: "ekuitas", value: `${jtV4(s.equity)} jt`, tone: tone(s.equity) },
+            { label: "utang berelasi ÷ ekuitas", value: times === null ? "belum ada" : `${num(times, 1)}×` },
+            ...(s.months !== null ? [{ label: "bulan sampai ekuitas negatif", value: num(s.months, 1) } as CardCompare] : []),
+          ],
+          href: "/kas",
+        };
+      })() : {
         type: "card", value: jtV4(s.equity), unit: "Rp jt", negative: D(s.equity).lt(0),
         compare: [
           { label: "ekuitas / modal disetor", value: pctV4(D(s.equity).div(D(s.paidIn)), 0) },
@@ -278,6 +330,7 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
         ],
         href: "/kas",
       },
+      ...(x.v6 && s.affiliate !== null && !D(s.equity).isZero() && D(s.affiliate).div(D(s.equity)).gt(1) ? { note: `utang afiliasi ${num(D(s.affiliate).div(D(s.equity)), 1)}× ekuitas` } : {}),
     });
   } else {
     hidden.push("c-solvabilitas");
@@ -492,6 +545,21 @@ export function mingguIniModel(x: MingguIniInput): MingguIniModel {
     },
   });
 
+  // PRD v6 R157: "Keputusan menunggu" opens the row of cards (count, today's LB price, the first decision)
+  if (x.v6 && x.v5Mgmt && !x.v5Mgmt.failed?.keputusan) {
+    const m = x.v5Mgmt;
+    const n = m.decisions.length;
+    const cut = m.sim.cutDate ? `${Number(m.sim.cutDate.slice(8, 10))}/${m.sim.cutDate.slice(5, 7)}` : "";
+    tiles.push({
+      id: "c-keputusan", pos: P(0, 2, 2, 2), kind: "card", title: "Keputusan menunggu",
+      note: n ? m.decisions[0].title : "tidak ada keputusan yang menunggu",
+      content: {
+        type: "card", value: String(n), unit: n === 1 ? "keputusan" : "keputusan",
+        compare: [{ label: `harga LB potong ${cut}`, value: m.sim.decided ? `Rp ${num(m.sim.decided.price, 0)}` : "belum diputuskan" }],
+        href: "#tile-sim-lb",
+      },
+    });
+  }
   const withPl = x.v5Pl ? mingguIniV5(tiles, { v5: x.v5Pl, weekStart: x.week.start, split: x.mode === "aktual" }) : tiles;
   // v5/6: the simulation and the decisions take the three rows after the P&L tile (rows 9–11 of the mockup)
   const all = x.v5Mgmt ? managementV5(withPl, x.v5Mgmt, { at: x.v5Pl ? 8 : 4 }) : withPl;

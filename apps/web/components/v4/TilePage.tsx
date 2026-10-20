@@ -6,6 +6,13 @@ import { V4Table } from "./Table";
 import { CaraHitung } from "./CaraHitung";
 import type { TileModel } from "@/lib/v4/minggu-ini";
 import type { ReactNode } from "react";
+import { Card6 } from "../v6/Card";
+import { Headline } from "../v6/Headline";
+import { TileEmpty, TileError } from "../v6/TileState";
+import { Stepper6 } from "../v6/Stepper";
+import type { StatusKind } from "@/lib/v6/status-map";
+import { plainTiles } from "@/lib/v6/plain-model";
+import { NumberInput } from "../v6/NumberInput";
 
 /**
  * Inner size of a tile at 1366 px (12 columns, gap 12, rows of 76): the SVG viewBox of a chart. `chrome` is what the
@@ -92,9 +99,87 @@ function body(t: TileModel): ReactNode {
   }
 }
 
-/** A page of tiles (PRD v4 §6): one grid, every tile placed at its x, y, w, h. R75: ordered (y, x) before render. */
-export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: string; extras?: Record<string, ReactNode> }) {
+/** PRD v6 R132: a tile whose content is empty (no rows, no items, no points); it shrinks to one 76 px row. */
+function emptyText(t: TileModel): string | null {
+  const c = t.content;
+  if (c.type === "table" && !c.rows.length && !(c.sections ?? []).some((x) => x.rows.length)) return `${t.title ?? "Tabel"}: belum ada data minggu ini`;
+  if (c.type === "list" && !c.items.length) return c.empty ?? `${t.title ?? "Daftar"}: tidak ada`;
+  if ((c.type === "combo" || c.type === "chart+table") && !c.points.length) return `${t.title ?? "Grafik"}: belum ada titik data`;
+  return null;
+}
+
+/** v6 body of a tile (flag v6_shell): Card6 for cards, the visible <h1> for the headline, one line for an empty tile. */
+function body6(t: TileModel): ReactNode {
+  const c = t.content;
+  if (c.type === "headline") return <Headline note={c.note}>{c.text}</Headline>;
+  if (c.type === "card") return null; // rendered by Card6 in place of the tile header and body
+  if (c.type === "stepper") {
+    // R147: the step's status as Status (icon + word); the step's own text stays visible as its label
+    const kind = (st: { status: string; locked?: string | null }): StatusKind =>
+      st.locked ? "belum" : /^(lulus|versi \d+|selesai|disetujui)/i.test(st.status) && !/sementara/i.test(st.status) ? "lolos" : /^buka /i.test(st.status) ? "belum" : "catatan";
+    return <Stepper6 current={String(c.current)} steps={c.steps.map((st) => ({ id: String(st.n), name: st.label, status: kind(st), statusText: st.locked ?? st.status, href: st.locked ? undefined : st.href }))} />;
+  }
+  const empty = emptyText(t);
+  if (empty) return <TileEmpty what={empty} />;
+  if (c.type === "table" && c.form) {
+    // R159 / R144: a what-if form of numbers uses NumberInput with a visible label
+    const f = c.form;
+    return (
+      <>
+        <form className="tile-form" method={f.method} action={f.action}>
+          {f.fields.map((x) => <label key={x.name}>{x.label} <NumberInput name={x.name} label={`${x.label} (${t.title ?? ""})`} defaultValue={x.value} size={x.size ?? 4} /></label>)}
+          <button className="v4b">{f.submit}</button>
+        </form>
+        <V4Table cols={c.cols} rows={c.rows} label={t.title} limit={c.limit} />
+      </>
+    );
+  }
+  return body(t);
+}
+
+/**
+ * A page of tiles (PRD v4 §6): one grid, every tile placed at its x, y, w, h. R75: ordered (y, x) before render.
+ * PRD v6 (`v6`, flag v6_shell): cards are Card6 (four rows, the value links with "Buka …", ⓘ for source and rule), the
+ * headline is the page's visible <h1>, an empty tile is one line at 76 px, a failed tile says which and offers "Muat ulang".
+ */
+export function TilePage({ tiles: given, label, extras, v6, plainText }: {
+  tiles: TileModel[]; label: string; extras?: Record<string, ReactNode>; v6?: boolean;
+  /** PRD v6 R154 (flag v6_pages): every text through the glossary, codes only in the drawer. */
+  plainText?: boolean;
+}) {
+  const tiles = plainText ? plainTiles(given) : given;
   const ordered = [...tiles].sort((a, b) => a.pos.y - b.pos.y || a.pos.x - b.pos.x);
+  if (v6) {
+    // K86 / K88 / R138: the week chips and the release line + PDF live in the shell (WeekPicker, context row, phone menu), not
+    // above the headline; the headline comes first in the DOM (a phone shows the tiles in DOM order; the desktop grid keeps
+    // every tile at its x, y)
+    const shown = ordered.filter((t) => t.content.type !== "release" && !(t.content.type === "slicer" && t.content.label === "Minggu"));
+    const v6order = [...shown.filter((t) => t.content.type === "headline"), ...shown.filter((t) => t.content.type !== "headline")];
+    return (
+      <TileGrid label={label}>
+        {v6order.map((t) => {
+          const c = t.content;
+          const empty = !t.error && emptyText(t) !== null;
+          const pos = empty ? { ...t.pos, h: 1 } : t.pos;
+          if (c.type === "card" && !t.error) {
+            return (
+              <Tile key={t.id} id={t.id} pos={pos} kind="card" source={t.source}>
+                <Card6 id={t.id} title={t.title ?? t.id} value={c.value} unit={c.unit} missing={c.missing} compare={c.compare.slice(0, c.maxCompare ?? 3)} href={c.href}
+                  finding={t.note ? { text: t.note } : null} cara={t.cara} status={c.status} />
+                {extras?.[t.id] ?? null}
+              </Tile>
+            );
+          }
+          return (
+            <Tile key={t.id} id={t.id} pos={pos} title={c.type === "headline" ? undefined : t.title} kind={t.kind} note={t.error || empty ? undefined : t.note} source={t.error ? undefined : t.source} collapse={t.error || empty ? undefined : t.collapse?.label}
+              extra={!empty && (legendOf(t) || t.cara || t.views) ? <span className="tile-x">{(t.views ?? []).map((v) => <Slicer key={v.label} label={v.label} options={v.options} current={v.current} hideLabel />)}{legendOf(t)}{t.cara ? <CaraHitung content={t.cara} /> : null}</span> : undefined}>
+              {t.error ? <TileError tile={t.title ?? t.id} message={t.error} /> : <>{body6(t)}{extras?.[t.id] ?? null}</>}
+            </Tile>
+          );
+        })}
+      </TileGrid>
+    );
+  }
   return (
     <TileGrid label={label}>
       {ordered.map((t) => (
@@ -106,3 +191,6 @@ export function TilePage({ tiles, label, extras }: { tiles: TileModel[]; label: 
     </TileGrid>
   );
 }
+
+/** PRD v6 R148: with v6 the headline tile is the page's <h1>; a page without one keeps its own (screen-reader) <h1>. */
+export const hasHeadline = (tiles: TileModel[]) => tiles.some((t) => t.content.type === "headline" && !t.error);

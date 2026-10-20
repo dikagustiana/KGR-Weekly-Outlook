@@ -217,8 +217,10 @@ export function outlookBulanV5(tiles: TileModel[], x: { first: string; cutOff: s
   for (const t of tiles) {
     const moved = t.pos.y >= 4 ? { ...t, pos: { ...t.pos, y: t.pos.y + 4 } } : t;
     if (t.id === "headline" && t.content.type === "headline") {
+      // PRD v6 R149 / K97: one number per claim — the NIBT after fixed costs only when it differs from the journal NIBT as
+      // shown (0,1 jt); the code of the rule (C55) stays in the "cara hitung" drawer
       const gpPct = outlook.revenue.isZero() ? null : outlook.gp.div(outlook.revenue);
-      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal${missing ? "; beban tetap bulan ini belum ada (C55)" : ` atau Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}`}.` } });
+      out.push({ ...t, content: { type: "headline", text: `Outlook ${m}: revenue Rp ${jtV4(outlook.revenue)} jt, GP Rp ${jtV4(outlook.gp)} jt${gpPct ? ` (${pctV4(gpPct)})` : ""}, NIBT Rp ${jtV4(outlook.nibt)} jt menurut jurnal${missing ? "; beban tetap bulan ini belum ada" : jtV4(outlook.nibtAfter) === jtV4(outlook.nibt) ? "" : `, Rp ${jtV4(outlook.nibtAfter)} jt setelah ${fw || "beban tetap"}`}.` } });
     } else if (t.content.type === "card" && (t.id === "c-actual" || t.id === "c-forecast" || t.id === "c-outlook") && t.content.value !== null) {
       const tot = t.id === "c-actual" ? actual : t.id === "c-forecast" ? forecast : outlook;
       const keep = t.content.compare.filter((c) => c.label !== "NIBT" && c.label !== "GP P&L");
@@ -250,6 +252,11 @@ export interface MingguIniV5Pl {
   fixed: FixedSource[];
   pl: "rr" | "wk";
   href: (pl: "rr" | "wk") => string;
+  /** PRD v6 R157 (flag v6_pages): the segment shown (null = KGR), and the link of each choice. */
+  segment?: "RPA" | "Trading" | null;
+  segHref?: (s: "RPA" | "Trading" | null) => string;
+  /** PRD v6 K98: in the management view an accrual row that nets to zero over the period is a memo under the table. */
+  memoZeroAccrual?: boolean;
 }
 
 /**
@@ -268,7 +275,38 @@ export function mingguIniV5(tiles: TileModel[], x: { v5: MingguIniV5Pl; weekStar
     }
     return moved;
   });
-  const table = plTable(x.v5.pl, x.v5.first, { rows: x.v5.rows, cutOff: x.v5.cutOff, highlight: x.weekStart, split: x.split && x.v5.pl === "wk", nominals: x.v5.fixed, mode });
-  out.push(plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href("rr"), wk: x.v5.href("wk") }, fixed: x.v5.fixed, status: "draft", mode, collapseMobile: true }));
+  // R157: the segment toggle filters the rows the engine already carries per segment (fixed costs are company-level: KGR only)
+  const seg = x.v5.segHref ? x.v5.segment ?? null : null;
+  const rows = seg ? x.v5.rows.filter((r) => r.segment === seg) : x.v5.rows;
+  const table = plTable(x.v5.pl, x.v5.first, { rows, cutOff: x.v5.cutOff, highlight: x.weekStart, split: x.split && x.v5.pl === "wk", nominals: seg ? [] : x.v5.fixed, mode });
+  let tile = plTableTile(table, { id: "t-laba-rugi", pos: { x: 0, y: 4, w: 12, h: 4 }, hrefs: { rr: x.v5.href("rr"), wk: x.v5.href("wk") }, fixed: seg ? [] : x.v5.fixed, status: "draft", mode, collapseMobile: true });
+  if (x.v5.segHref) {
+    const h = x.v5.segHref;
+    tile = { ...tile, title: seg ? `${tile.title} · ${seg}` : tile.title, views: [...(tile.views ?? []), { label: "Segmen", current: seg ?? "KGR", options: [{ value: "KGR", label: "KGR", href: h(null) }, { value: "RPA", label: "RPA", href: h("RPA") }, { value: "Trading", label: "Trading", href: h("Trading") }] }] };
+  }
+  out.push(x.v5.memoZeroAccrual ? accrualAsMemo(tile) : tile);
   return out;
+}
+
+/** "−8,7" / "+8,7" / "0,0" → a number (id-ID notation, U+2212 minus); null for text. */
+const cellNum = (v: unknown): number | null => {
+  if (typeof v !== "string" || !/^[−+-]?[\d.]+(,\d+)?$/.test(v.trim())) return null;
+  return Number(v.trim().replace(/[−]/g, "-").replace(/\+/g, "").replace(/\./g, "").replace(",", "."));
+};
+
+/**
+ * PRD v6 K98: "Beban tetap belum dijurnal (estimasi)" (row `fixed`) moves out of the management P&L when it nets to zero
+ * over the columns shown (−8,7 / +8,7 / 0,0: an accrual that the journal reversed); it is written as a memo under the
+ * table with its values, so nothing is hidden. The preparer view keeps the row.
+ */
+export function accrualAsMemo(t: TileModel): TileModel {
+  if (t.content.type !== "table") return t;
+  const c = t.content;
+  const row = c.rows.find((r) => r.id === "fixed");
+  if (!row) return t;
+  const keys = c.cols.slice(1).filter((k) => k.kind !== "sup").map((k) => k.key);
+  const vals = keys.map((k) => cellNum(row.cells[k]));
+  if (vals.some((v) => v === null) || Math.abs(vals.reduce<number>((a, v) => a + (v as number), 0)) >= 0.05) return t; // missing-ok: jumlah sel tampilan (pembulatan 0,1), bukan nilai yang hilang
+  const memo = `Memo: ${String(row.cells.l)} ${keys.map((k) => String(row.cells[k])).join(" / ")} (nol untuk periode ini, bukan baris P&L).`;
+  return { ...t, content: { ...c, rows: c.rows.filter((r) => r !== row) }, note: [t.note, memo].filter(Boolean).join(" ") };
 }

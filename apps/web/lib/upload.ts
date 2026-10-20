@@ -14,6 +14,7 @@ import { queueThroughNote } from "./rebuild";
 import { must } from "./loader";
 import { advanceUpdateDate } from "./update-date";
 import "./v3/costing";
+import { forget } from "./request-memo";
 
 type Row = Record<string, unknown>;
 
@@ -476,7 +477,7 @@ export async function commitUpload(sb: Supa, viewer: Viewer, uploadId: string, s
       const r = await applyChanges(sb, t.table, ins, t.updates, t.deletes, t.supersede);
       counts = { inserted: counts.inserted + r.inserted, updated: counts.updated + r.updated, deleted: counts.deleted + r.deleted, superseded: counts.superseded + r.superseded };
     }
-    if (plan.weekFlag !== undefined) must(await sb.from("week").update({ opening_stock_flag: plan.weekFlag }).eq("id", week.id), "week opening_stock_flag");
+    if (plan.weekFlag !== undefined) { must(await sb.from("week").update({ opening_stock_flag: plan.weekFlag }).eq("id", week.id), "week opening_stock_flag"); forget(sb, "weeks"); }
   }
   // K39: a journal of date d moves the update date of its open week to d + 1
   const moved = kind === "accurate_journal" && journalDates.length ? await advanceUpdateDate(sb, await listWeeks(sb), journalDates) : "";

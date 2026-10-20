@@ -52,7 +52,7 @@ export default async function OutlookPage({ params }: PageProps) {
       )}
       {ctx.view === "management" ? <Headline r={r} week={week} k25={k25} extra={m3 ? <HeadlineV3 m={m3} month={ctx.week.update_date.slice(0, 7)} /> : null} /> : null}
       <OutlookBody r={r} week={week} view={ctx.view} v3={m3 ? managementSlots(m3) : null} k25={k25} />
-      {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · dihitung dalam {ctx.computed.computeMs} ms dari data minggu ini.</p> : null}
+      {ctx.view === "preparer" ? <p className="muted" style={{ fontSize: 11 }}>Engine v{r.engineVersion} · {ctx.computed.builtLabel ?? "dihitung"} dari data minggu ini{ctx.computed.note ? ` (${ctx.computed.note})` : ""}.</p> : null}
     </WeekShell>
   );
 }

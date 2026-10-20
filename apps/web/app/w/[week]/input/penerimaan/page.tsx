@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { weekContext, type PageProps } from "@/lib/page";
+import { weekInputRows } from "@/lib/week-rows";
+import { supabaseServer } from "@/lib/supabase";
 import { WeekShell } from "@/components/WeekShell";
 import { InputTable } from "@/components/InputTable";
 import { N } from "@/components/ui";
@@ -14,7 +16,8 @@ export default async function PenerimaanPage({ params, searchParams }: PageProps
   guardInputs(ctx);
   const byId = new Map(ctx.computed.result.prepared.receipts.map((x) => [x.src.id, x]));
   const st = sp.status ?? "";
-  const rows = ctx.computed.loaded.db.receipts.filter((x) => !st || x.status === st);
+  const all = await weekInputRows(await supabaseServer(), "receipt_line", ctx.week.id);
+  const rows = all.filter((x) => !st || x.status === st);
   const defaults = ctx.viewer.role === "ppic" ? { status: "Rencana", receipt_source: "Produksi RPA" } : undefined;
   return (
     <WeekShell ctx={ctx} active="input/penerimaan">
